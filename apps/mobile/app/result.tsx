@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -22,7 +22,7 @@ import { shareResult } from '@/features/share';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
 import { lookupCard, useGameStore } from '@/state/game';
-import { color, font, positionColor, radius, space, tierColor, tracking, useLayout, type PressState } from '@/theme';
+import { color, elevate, font, positionColor, radius, space, tabular, tierColor, tracking, useLayout, type PressState } from '@/theme';
 
 /**
  * The reveal is the payoff, so it is orchestrated rather than scattered: the
@@ -30,7 +30,11 @@ import { color, font, positionColor, radius, space, tierColor, tracking, useLayo
  * Every animation defers to the system Reduce Motion setting (PRFAQ §34).
  */
 const enter = (delay: number, distance = 14) =>
-  FadeInDown.delay(delay).duration(380).easing(Easing.out(Easing.cubic)).reduceMotion(ReduceMotion.System);
+  FadeInDown.delay(delay)
+    .duration(380)
+    .easing(Easing.out(Easing.cubic))
+    .withInitialValues({ transform: [{ translateY: distance }] })
+    .reduceMotion(ReduceMotion.System);
 
 export default function Result() {
   const router = useRouter();
@@ -48,8 +52,15 @@ export default function Result() {
   }, [result]);
 
   useEffect(() => {
+    if (!result) return;
+    const wins = result.record.wins;
+    if (wins >= 12) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    else if (wins >= 9) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    else Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+  }, [result?.finalRating]);
+
+  useEffect(() => {
     if (result?.ending.key !== 'PERFECT') return;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     glow.value = withDelay(
       420,
       withRepeat(
@@ -65,19 +76,17 @@ export default function Result() {
     );
   }, [result?.ending.key]);
 
-  if (!result) return <Screen><View /></Screen>;
-
-  const perfect = result.ending.key === 'PERFECT';
-  const denied = isPerfectionDenied(result);
-  const heartbreak = result.ending.key === 'HEARTBREAK';
-  const accent = perfect ? color.gold : tierColor[result.ending.tier] ?? color.text;
-
   const cardRef = useRef<View>(null);
+  const [shareNote, setShareNote] = useState<string | null>(null);
 
-  const rosterCards = game.selections
-    .map((s) => ({ slot: s.slot, card: lookupCard(s.cardId) }))
-    .filter((x): x is { slot: RosterSlot; card: NonNullable<ReturnType<typeof lookupCard>> } => !!x.card)
-    .sort((a, b) => ROSTER_SLOTS.indexOf(a.slot) - ROSTER_SLOTS.indexOf(b.slot));
+  const rosterCards = useMemo(
+    () =>
+      game.selections
+        .map((s) => ({ slot: s.slot, card: lookupCard(s.cardId) }))
+        .filter((x): x is { slot: RosterSlot; card: NonNullable<ReturnType<typeof lookupCard>> } => !!x.card)
+        .sort((a, b) => ROSTER_SLOTS.indexOf(a.slot) - ROSTER_SLOTS.indexOf(b.slot)),
+    [game.selections],
+  );
 
   const shareRows: ShareRosterRow[] = useMemo(
     () =>
@@ -92,8 +101,25 @@ export default function Result() {
     [rosterCards],
   );
 
+  // Every hook above this line: `abandon()` and `removeSelection()` both null
+  // the result while this screen can be mounted, and a conditional return below
+  // a hook throws "rendered fewer hooks than expected".
+  if (!result) return <Screen><View /></Screen>;
+
+  const perfect = result.ending.key === 'PERFECT';
+  const denied = isPerfectionDenied(result);
+  const heartbreak = result.ending.key === 'HEARTBREAK';
+  const accent = perfect ? color.gold : tierColor[result.ending.tier] ?? color.text;
+
+  // PRFAQ §22.4: "visual state should change based on result tier". The numerals
+  // grow with the achievement, so a 16-2 does not land like a 5-13.
+  const wins = result.record.wins;
+  const recordSize = wins >= 17 ? 108 : wins >= 14 ? 96 : wins >= 9 ? 82 : 66;
+
   const share = () => {
-    void shareResult(cardRef, result, shareRows);
+    void shareResult(cardRef, result, shareRows).then((mode) => {
+      if (mode === 'text') setShareNote('Shared as text — the image could not be generated.');
+    });
   };
 
   const buildAnother = () => {
@@ -111,9 +137,21 @@ export default function Result() {
         >
           <Text style={styles.heroKicker}>Projected Record</Text>
           <Animated.View entering={enter(90, 10)} style={styles.recordRow}>
-            <Text style={[styles.recordNum, perfect && { color: color.goldBright }]}>{result.record.wins}</Text>
+            <Text
+              maxFontSizeMultiplier={1.2}
+              style={[styles.recordNum, { fontSize: recordSize, lineHeight: recordSize * 1.06 },
+                perfect && { color: color.goldBright }]}
+            >
+              {result.record.wins}
+            </Text>
             <View style={[styles.recordDash, { backgroundColor: accent }]} />
-            <Text style={[styles.recordNum, perfect && { color: color.goldBright }]}>{result.record.losses}</Text>
+            <Text
+              maxFontSizeMultiplier={1.2}
+              style={[styles.recordNum, { fontSize: recordSize, lineHeight: recordSize * 1.06 },
+                perfect && { color: color.goldBright }]}
+            >
+              {result.record.losses}
+            </Text>
           </Animated.View>
           <Animated.Text entering={enter(220, 8)} style={[styles.endingName, { color: accent }]}>
             {perfect ? 'PERFECT' : result.ending.label.toUpperCase()}
@@ -199,6 +237,11 @@ export default function Result() {
           <Text style={styles.secondaryLabel}>Share</Text>
         </Pressable>
       </Animated.View>
+      {shareNote ? (
+        <Text style={styles.shareNote} accessibilityLiveRegion="polite">
+          {shareNote}
+        </Text>
+      ) : null}
     </View>
   );
 
@@ -207,7 +250,13 @@ export default function Result() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Roster</Text>
         {rosterCards.map(({ slot, card }, index) => (
-          <Animated.View key={slot} entering={enter(320 + index * 55)} style={styles.rosterRow}>
+          <Animated.View
+            key={slot}
+            entering={enter(320 + index * 55)}
+            style={styles.rosterRow}
+            accessible
+            accessibilityLabel={`${slot}. ${displayName(card)}. ${card.year} ${franchise(card.franchiseId).name}. Rating ${card.rating.toFixed(1)}.`}
+          >
               <Text style={[styles.rosterSlot, { color: positionColor[card.position] }]}>{slot}</Text>
               <View style={styles.rosterMain}>
                 <Text style={styles.rosterName} numberOfLines={1}>
@@ -289,7 +338,13 @@ export default function Result() {
 
       {/* Rendered off-screen at a fixed size so the captured image is
           identical on every device. */}
-      <View style={styles.captureHost} pointerEvents="none" collapsable={false}>
+      <View
+        style={styles.captureHost}
+        pointerEvents="none"
+        collapsable={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+      >
         <ShareCard ref={cardRef} result={result} roster={shareRows} assisted={game.assisted} />
       </View>
     </Screen>
@@ -313,7 +368,15 @@ const styles = StyleSheet.create({
   lift: { transform: [{ translateY: -1 }] },
   captureHost: { position: 'absolute', left: -10000, top: 0, opacity: 0 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: space.sm },
-  close: { fontFamily: font.body, fontSize: 18, color: color.textDim },
+  close: {
+    fontFamily: font.body,
+    fontSize: 18,
+    color: color.textDim,
+    minWidth: 44,
+    minHeight: 44,
+    lineHeight: 44,
+    textAlign: 'center',
+  },
   hero: {
     borderWidth: 1,
     borderRadius: radius.lg,
@@ -325,7 +388,7 @@ const styles = StyleSheet.create({
   heroPerfect: {
     backgroundColor: '#1A140099',
     shadowColor: color.gold,
-    shadowRadius: 34,
+    ...elevate(14),
     shadowOffset: { width: 0, height: 0 },
   },
   heroKicker: {
@@ -338,16 +401,15 @@ const styles = StyleSheet.create({
   recordRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginTop: 2 },
   recordNum: {
     fontFamily: font.displayBlack,
-    fontSize: 86,
-    lineHeight: 92,
     color: color.text,
     letterSpacing: tracking.tight,
     includeFontPadding: false,
+    ...tabular,
   },
   recordDash: { width: 26, height: 7, borderRadius: 4 },
   endingName: {
     fontFamily: font.display,
-    fontSize: 26,
+    fontSize: 30,
     letterSpacing: tracking.wide,
     marginTop: -4,
     includeFontPadding: false,
@@ -355,7 +417,7 @@ const styles = StyleSheet.create({
   heroMeta: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.sm },
   tier: { fontFamily: font.label, fontSize: 11, letterSpacing: tracking.wide, color: color.textFaint },
   dot: { color: color.textFaint },
-  rating: { fontFamily: font.heading, fontSize: 15, color: color.text },
+  rating: { fontFamily: font.heading, fontSize: 15, color: color.text, ...tabular },
   ratingLabel: { fontFamily: font.label, fontSize: 9, letterSpacing: tracking.wide, color: color.textFaint },
   blindBadge: {
     alignSelf: 'flex-start',
@@ -392,8 +454,8 @@ const styles = StyleSheet.create({
   immortal: { alignItems: 'center', gap: 4 },
   immortalWord: {
     fontFamily: font.displayBlack,
-    fontSize: 40,
-    letterSpacing: 6,
+    fontSize: 22,
+    letterSpacing: 8,
     color: color.goldBright,
     includeFontPadding: false,
   },
@@ -496,6 +558,12 @@ const styles = StyleSheet.create({
     letterSpacing: tracking.wide,
     color: color.text,
     textTransform: 'uppercase',
+  },
+  shareNote: {
+    fontFamily: font.bodyRegular,
+    fontSize: 11,
+    color: color.textDim,
+    textAlign: 'center',
   },
   modelNote: {
     fontFamily: font.bodyRegular,

@@ -1,13 +1,41 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { eraLabel, franchise } from '@18-0/data';
+import { useMemo } from 'react';
 import { Screen } from '@/components/Screen';
 import { computeStats, useHistoryStore } from '@/state/history';
-import { color, font, radius, space, tracking, useLayout } from '@/theme';
+import { color, font, radius, space, tabular, tracking, useLayout } from '@/theme';
 
 export default function Stats() {
+  const router = useRouter();
   const layout = useLayout();
   const games = useHistoryStore((s) => s.games);
-  const stats = computeStats(games);
+  const stats = useMemo(() => computeStats(games), [games]);
+
+  if (stats.played === 0) {
+    return (
+      <Screen maxWidth={layout.wide ? 820 : undefined}>
+        <View style={styles.blank}>
+          <Text style={styles.blankTitle}>Your record starts empty</Text>
+          <Text style={styles.blankCopy}>
+            Play a season and this fills with your best rating, your best record, and how close you
+            have come to perfection.
+          </Text>
+          <Pressable
+            onPress={() => router.push('/(tabs)')}
+            accessibilityRole="button"
+            accessibilityLabel="Play a season"
+            style={styles.blankCta}
+          >
+            <Text style={styles.blankCtaLabel}>Play a season</Text>
+          </Pressable>
+          <Text style={styles.blankNote}>
+            18-0 lands about once every 6,000 games. 17-1 about once every 49.
+          </Text>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen maxWidth={layout.wide ? 820 : undefined}>
@@ -24,14 +52,16 @@ export default function Stats() {
           <Tile label="Average Rating" value={stats.averageRating?.toFixed(1) ?? '—'} />
         </View>
 
-        <View style={styles.chase}>
-          <Text style={styles.chaseTitle}>The chase</Text>
+        <View style={[styles.chase, stats.perfectSeasons > 0 && styles.chaseEarned]}>
+          <Text style={[styles.chaseTitle, stats.perfectSeasons > 0 && styles.chaseTitleEarned]}>
+            The chase
+          </Text>
           <View style={styles.chaseRow}>
             <ChaseStat label="18-0 seasons" value={stats.perfectSeasons} gold />
             <ChaseStat label="17-1 seasons" value={stats.heartbreaks} />
           </View>
           <Text style={styles.chaseNote}>
-            18-0 lands about once every 11,000 games. 17-1 about once every 50.
+            18-0 lands about once every 6,000 games. 17-1 about once every 49.
           </Text>
         </View>
 
@@ -111,7 +141,7 @@ const styles = StyleSheet.create({
     padding: space.lg,
     backgroundColor: '#FFFFFF04',
   },
-  tileValue: { fontFamily: font.display, fontSize: 30, color: color.text, includeFontPadding: false },
+  tileValue: { fontFamily: font.display, fontSize: 30, color: color.text, includeFontPadding: false, ...tabular },
   tileLabel: {
     fontFamily: font.label,
     fontSize: 9,
@@ -121,22 +151,31 @@ const styles = StyleSheet.create({
   },
   chase: {
     borderWidth: 1,
-    borderColor: '#F2C43D33',
-    backgroundColor: '#F2C43D0A',
+    borderColor: color.line,
+    backgroundColor: '#FFFFFF04',
     borderRadius: radius.md,
     padding: space.lg,
     gap: space.md,
   },
+  // Gold appears only once an 18-0 has actually been earned.
+  chaseEarned: { borderColor: '#F2C43D40', backgroundColor: '#F2C43D0A' },
   chaseTitle: {
     fontFamily: font.label,
     fontSize: 10,
     letterSpacing: tracking.wider,
-    color: color.gold,
+    color: color.textFaint,
     textTransform: 'uppercase',
   },
+  chaseTitleEarned: { color: color.gold },
+  blank: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.md, paddingHorizontal: space.xl, paddingBottom: 120 },
+  blankTitle: { fontFamily: font.display, fontSize: 26, color: color.text, textAlign: 'center' },
+  blankCopy: { fontFamily: font.bodyRegular, fontSize: 13, color: color.textDim, textAlign: 'center', lineHeight: 19, maxWidth: 340 },
+  blankCta: { backgroundColor: color.red, borderRadius: radius.md, paddingHorizontal: space.xxl, minHeight: 50, justifyContent: 'center' },
+  blankCtaLabel: { fontFamily: font.display, fontSize: 17, letterSpacing: tracking.wide, color: '#fff', textTransform: 'uppercase' },
+  blankNote: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint, textAlign: 'center' },
   chaseRow: { flexDirection: 'row', gap: space.xxl },
   chaseStat: {},
-  chaseValue: { fontFamily: font.displayBlack, fontSize: 38, color: color.text, includeFontPadding: false },
+  chaseValue: { fontFamily: font.displayBlack, fontSize: 38, color: color.text, includeFontPadding: false, ...tabular },
   chaseLabel: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint },
   chaseNote: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint, lineHeight: 16 },
   section: { gap: 2 },

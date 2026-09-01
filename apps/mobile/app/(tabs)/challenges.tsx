@@ -4,18 +4,25 @@ import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
 import { fetchMyChallenges, isBackendConfigured, type ChallengeRow } from '@/services/supabase';
 import { useHistoryStore } from '@/state/history';
-import { color, font, radius, space, tracking, useLayout, type PressState } from '@/theme';
+import { color, font, radius, space, tabular, tracking, useLayout, type PressState } from '@/theme';
 
 export default function Challenges() {
   const layout = useLayout();
   const games = useHistoryStore((s) => s.games);
   const [rows, setRows] = useState<ChallengeRow[]>([]);
   const [loading, setLoading] = useState(isBackendConfigured);
+  const [failed, setFailed] = useState(false);
 
   const load = useCallback(async () => {
     if (!isBackendConfigured) return;
     setLoading(true);
-    setRows(await fetchMyChallenges());
+    setFailed(false);
+    try {
+      setRows(await fetchMyChallenges());
+    } catch {
+      setFailed(true);
+      setRows([]);
+    }
     setLoading(false);
   }, []);
 
@@ -82,11 +89,20 @@ export default function Challenges() {
         {isBackendConfigured ? (
           loading ? (
             <ActivityIndicator color={color.red} style={{ marginTop: space.xl }} />
+          ) : failed ? (
+            <Text style={styles.failed} accessibilityLiveRegion="polite">
+              Couldn't reach your challenges. Your seasons are safe on this device.
+            </Text>
           ) : rows.length > 0 ? (
             <View style={styles.list}>
               <Text style={styles.sectionTitle}>Open challenges</Text>
               {rows.map((row) => (
-                <View key={row.id} style={styles.row}>
+                <View
+                  key={row.id}
+                  style={styles.row}
+                  accessible
+                  accessibilityLabel={`Challenge from ${row.creatorHandle}. ${row.creatorRecord ?? 'no record'}. ${row.status}.`}
+                >
                   <View style={styles.rowMain}>
                     <Text style={styles.rowHandle}>{row.creatorHandle}</Text>
                     <Text style={styles.rowMeta}>
@@ -137,12 +153,19 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   pitchRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  pitchRecord: { fontFamily: font.displayBlack, fontSize: 28, color: color.text, includeFontPadding: false },
+  pitchRecord: { fontFamily: font.displayBlack, fontSize: 28, color: color.text, includeFontPadding: false, ...tabular },
   pitchMain: { flex: 1, minWidth: 0 },
   pitchEnding: { fontFamily: font.heading, fontSize: 15, color: color.text },
   pitchMeta: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint },
   pitchNote: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint, lineHeight: 16 },
-  cta: { backgroundColor: color.red, borderRadius: radius.md, paddingVertical: 13, alignItems: 'center' },
+  cta: {
+    backgroundColor: color.red,
+    borderRadius: radius.md,
+    minHeight: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  failed: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textDim, marginTop: space.lg },
   ctaLabel: {
     fontFamily: font.display,
     fontSize: 16,

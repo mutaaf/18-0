@@ -55,6 +55,9 @@ export interface DatasetComponent {
   readonly z: number | null;
 }
 
+/** A card as it ships in the boot dataset — component scores live separately. */
+export type BootCard = Omit<DatasetCard, 'components' | 'unavailable'>;
+
 export interface DatasetCard {
   readonly id: string;
   /** Stable identity across seasons — blocks the same player twice (PRFAQ §42). */
@@ -88,5 +91,5 @@ export interface Dataset {
   readonly eras: readonly DatasetEra[];
   readonly franchises: readonly DatasetFranchise[];
   readonly combos: readonly DatasetCombo[];
-  readonly cards: readonly DatasetCard[];
+  readonly cards: readonly BootCard[];
 }

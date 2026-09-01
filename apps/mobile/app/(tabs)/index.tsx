@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -7,14 +8,15 @@ import { Brand } from '@/components/Brand';
 import { Screen } from '@/components/Screen';
 import { hasGameInProgress, useGameStore } from '@/state/game';
 import { computeStats, useHistoryStore } from '@/state/history';
-import { color, font, radius, space, tracking, useLayout, type PressState } from '@/theme';
+import { color, elevate, font, radius, space, tabular, tracking, useLayout, type PressState } from '@/theme';
 
 export default function Home() {
   const router = useRouter();
   const layout = useLayout();
   const game = useGameStore();
   const inProgress = hasGameInProgress(game);
-  const stats = computeStats(useHistoryStore((s) => s.games));
+  const games = useHistoryStore((s) => s.games);
+  const stats = useMemo(() => computeStats(games), [games]);
 
   const startFresh = (mode: 'rookie' | 'player_iq') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -205,7 +207,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   ruleRow: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
-  ruleIndex: { fontFamily: font.display, fontSize: 13, color: color.red, marginTop: 1, width: 20 },
+  ruleIndex: { fontFamily: font.display, fontSize: 13, color: color.redBright, marginTop: 1, width: 20, ...tabular },
   ruleMain: { flex: 1, minWidth: 0 },
   ruleStep: { fontFamily: font.heading, fontSize: 15, color: color.text },
   ruleCopy: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textFaint, lineHeight: 17 },
@@ -215,7 +217,7 @@ const styles = StyleSheet.create({
     fontFamily: font.label,
     fontSize: 10,
     letterSpacing: tracking.wider,
-    color: color.red,
+    color: color.redBright,
     textTransform: 'uppercase',
   },
   headline: {
@@ -249,8 +251,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E01A2B12',
     shadowColor: color.red,
     shadowOpacity: 0.28,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 5 },
+    ...elevate(6),
   },
   modeHeroHover: { shadowOpacity: 0.5, shadowRadius: 26, transform: [{ translateY: -1 }] },
   modeHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
@@ -328,7 +329,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF04',
   },
-  statValue: { fontFamily: font.display, fontSize: 22, color: color.text, includeFontPadding: false },
+  statValue: { fontFamily: font.display, fontSize: 22, color: color.text, includeFontPadding: false, ...tabular },
   statLabel: {
     fontFamily: font.label,
     fontSize: 9,

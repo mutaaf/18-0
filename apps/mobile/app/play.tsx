@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { POSITIONS, ROSTER_SLOTS, SLOT_POSITION, type Position, type RosterSlot } from '@18-0/domain';
-import { DATASET, displayName, eligibleCards, era as eraDef, franchise, type DatasetCard } from '@18-0/data';
+import { DATASET, displayName, eligibleCards, era as eraDef, franchise, type BootCard } from '@18-0/data';
 import { Brand } from '@/components/Brand';
 import { Field } from '@/components/Field';
 import { SpinReel } from '@/components/SpinReel';
@@ -20,7 +20,7 @@ import { PlayerRow } from '@/components/PlayerRow';
 import { Screen } from '@/components/Screen';
 import { lookupCard, slotsForCard, useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
-import { color, font, positionColor, radius, space, tracking, useLayout, type PressState } from '@/theme';
+import { color, elevate, font, positionColor, radius, space, tabular, tracking, useLayout, type PressState } from '@/theme';
 
 /** How many names blur past before the reel settles on the result. */
 const REEL_LENGTH = 18;
@@ -37,7 +37,7 @@ export default function Play() {
   const [query, setQuery] = useState('');
   const [positionFilter, setPositionFilter] = useState<Position | 'ALL'>('ALL');
   const [notice, setNotice] = useState<string | null>(null);
-  const [lastPick, setLastPick] = useState<{ card: DatasetCard; slot: RosterSlot } | null>(null);
+  const [lastPick, setLastPick] = useState<{ card: BootCard; slot: RosterSlot } | null>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [assistArmed, setAssistArmed] = useState(false);
   const [targetSlot, setTargetSlot] = useState<RosterSlot | null>(null);
@@ -46,6 +46,10 @@ export default function Play() {
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
+    // Sampling once meant a user who turned Reduce Motion on while the app was
+    // backgrounded still got the reel when they came back.
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => subscription?.remove();
   }, []);
 
   useEffect(() => {
@@ -60,14 +64,17 @@ export default function Play() {
    * closes — the only way to fill another slot is to spin again and live with
    * whatever the wheel gives you. That constraint is the whole game.
    */
-  const canPick = game.status === 'spun' && !complete;
+  // Also gated on `!spinning`: the spin resolves before the reel finishes, and
+  // mounting thirty player rows inside the animation window is exactly the
+  // UI-thread work Reanimated cannot protect the frame rate from.
+  const canPick = game.status === 'spun' && !complete && !spinning;
   /** Player IQ mode: no ratings, no stats, no detail screen to peek at. */
   const blind = game.mode === 'player_iq';
 
   const filled = useMemo(
     () =>
       Object.fromEntries(game.selections.map((s) => [s.slot, lookupCard(s.cardId)])) as Partial<
-        Record<RosterSlot, DatasetCard>
+        Record<RosterSlot, BootCard>
       >,
     [game.selections],
   );
@@ -132,6 +139,9 @@ export default function Play() {
         return null;
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      AccessibilityInfo.announceForAccessibility(
+        `${franchise(result.franchiseId).name}, ${eraDef(result.era).name}. Choose a player.`,
+      );
       return result;
     };
 
@@ -153,11 +163,12 @@ export default function Play() {
   }, [complete, game, reduceMotion, spinning]);
 
   const assign = useCallback(
-    (card: DatasetCard, slot: RosterSlot) => {
+    (card: BootCard, slot: RosterSlot) => {
       const outcome = game.select(card, slot);
       if (!outcome.ok) {
         setNotice(outcome.message);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        AccessibilityInfo.announceForAccessibility(outcome.message);
         return;
       }
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid).catch(() => {});
@@ -324,10 +335,14 @@ export default function Play() {
         </View>
       ) : null}
 
-      {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+      {notice ? (
+        <Text style={styles.notice} accessibilityLiveRegion="polite">
+          {notice}
+        </Text>
+      ) : null}
 
       {lastPick ? (
-        <View style={styles.lastPick}>
+        <View style={styles.lastPick} accessibilityLiveRegion="polite">
           <Text style={[styles.lastPickSlot, { color: positionColor[lastPick.card.position] }]}>
             {lastPick.slot}
           </Text>
@@ -441,7 +456,11 @@ export default function Play() {
           ) : null}
         </View>
         <View style={styles.headerRight}>
-          <View style={styles.progressTrack}>
+          <View
+            style={styles.progressTrack}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
             <View
               style={[
                 styles.progressFill,
@@ -526,7 +545,8 @@ function Chip({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityState={{ selected: active }}
+      accessibilityLabel={`Filter by ${label}${dimmed ? ', no open slot' : ''}`}
+      accessibilityState={{ selected: active, disabled: dimmed === true }}
       style={({ hovered }: PressState) => [
         styles.chip,
         hovered && { borderColor: accent },
@@ -567,9 +587,17 @@ const styles = StyleSheet.create({
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   progressTrack: { width: 96, height: 3, borderRadius: 2, backgroundColor: '#FFFFFF12', overflow: 'hidden' },
   progressFill: { height: 3, borderRadius: 2, backgroundColor: color.red },
-  progress: { fontFamily: font.display, fontSize: 20, color: color.text, includeFontPadding: false },
+  progress: { fontFamily: font.display, fontSize: 20, color: color.text, includeFontPadding: false, ...tabular },
   progressTotal: { color: color.textFaint, fontSize: 14 },
-  close: { fontFamily: font.body, fontSize: 18, color: color.textDim },
+  close: {
+    fontFamily: font.body,
+    fontSize: 18,
+    color: color.textDim,
+    minWidth: 44,
+    minHeight: 44,
+    lineHeight: 44,
+    textAlign: 'center',
+  },
 
   scroll: { paddingHorizontal: space.lg, paddingBottom: 140, gap: space.md },
   columns: { flex: 1, flexDirection: 'row', gap: space.lg, paddingHorizontal: space.lg },
@@ -626,8 +654,7 @@ const styles = StyleSheet.create({
     minHeight: 50,
     shadowColor: color.red,
     shadowOpacity: 0.45,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 5 },
+    ...elevate(6),
   },
   spinButtonMuted: {
     backgroundColor: '#FFFFFF08',
@@ -643,21 +670,24 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     includeFontPadding: false,
   },
+  // Deliberately red, not gold: gold is reserved for an earned 18-0, and this
+  // button fires on every game including the ones that end 2-16.
   revealButton: {
-    backgroundColor: color.gold,
+    backgroundColor: color.red,
     borderRadius: radius.md,
     paddingVertical: 15,
+    minHeight: 50,
+    justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: color.gold,
+    shadowColor: color.red,
     shadowOpacity: 0.5,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 5 },
+    ...elevate(6),
   },
   revealLabel: {
     fontFamily: font.display,
     fontSize: 18,
     letterSpacing: tracking.wide,
-    color: '#1A1200',
+    color: '#FFFFFF',
     textTransform: 'uppercase',
     includeFontPadding: false,
   },
@@ -667,22 +697,22 @@ const styles = StyleSheet.create({
   assistHint: {
     fontFamily: font.body,
     fontSize: 12,
-    color: color.gold,
+    color: color.ice,
     textAlign: 'center',
   },
   assistedFlag: {
     borderWidth: 1,
-    borderColor: '#F2C43D40',
-    backgroundColor: '#F2C43D0D',
+    borderColor: color.line,
+    backgroundColor: '#FFFFFF08',
     borderRadius: radius.sm,
     paddingVertical: 6,
     paddingHorizontal: space.md,
   },
   assistedFlagText: {
     fontFamily: font.label,
-    fontSize: 9,
+    fontSize: 10,
     letterSpacing: tracking.wide,
-    color: color.gold,
+    color: color.textDim,
     textTransform: 'uppercase',
     textAlign: 'center',
   },
@@ -712,7 +742,8 @@ const styles = StyleSheet.create({
   chips: { gap: space.xs, paddingRight: space.lg },
   chip: {
     paddingHorizontal: space.md,
-    paddingVertical: 6,
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: color.line,
@@ -781,11 +812,16 @@ const styles = StyleSheet.create({
     gap: space.md,
     shadowColor: '#000',
     shadowOpacity: 0.6,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
+    ...elevate(10),
   },
   actionName: { flex: 1, fontFamily: font.heading, fontSize: 15, color: color.text },
   actionSlots: { flexDirection: 'row', gap: space.sm },
-  actionSlot: { backgroundColor: color.red, borderRadius: radius.sm, paddingHorizontal: space.lg, paddingVertical: 9 },
+  actionSlot: {
+    backgroundColor: color.red,
+    borderRadius: radius.sm,
+    paddingHorizontal: space.lg,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
   actionSlotLabel: { fontFamily: font.label, fontSize: 13, letterSpacing: tracking.wide, color: '#FFFFFF' },
 });

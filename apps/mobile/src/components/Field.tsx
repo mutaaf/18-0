@@ -1,8 +1,9 @@
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, G, Line, LinearGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { ROSTER_SLOTS, SLOT_POSITION, type RosterSlot } from '@18-0/domain';
-import type { DatasetCard } from '@18-0/data';
-import { color, font, positionColor, radius, space, tracking, useLayout } from '@/theme';
+import type { BootCard } from '@18-0/data';
+import { color, font, positionColor, radius, space, tabular, tracking, useLayout } from '@/theme';
 
 const SLOT_LABEL: Record<RosterSlot, string> = {
   QB: 'Quarterback',
@@ -14,10 +15,38 @@ const SLOT_LABEL: Record<RosterSlot, string> = {
   DEF: 'Defensive Unit',
 };
 
-/** A top-down field: chalk, hashes, and the yard numerals a broadcast graphic uses. */
-function Turf() {
+/**
+ * Screen-reader names. RB1 and RB2 render the same words on screen, which is
+ * fine visually and useless to VoiceOver — two buttons with byte-identical
+ * accessible names.
+ */
+const SLOT_SPOKEN: Record<RosterSlot, string> = {
+  QB: 'Quarterback',
+  RB1: 'Running Back 1',
+  RB2: 'Running Back 2',
+  WR1: 'Wide Receiver 1',
+  WR2: 'Wide Receiver 2',
+  TE1: 'Tight End',
+  DEF: 'Defense',
+};
+
+/** Yard numerals as a broadcast draws them: 10 up to 50 and back down. */
+const YARD_NUMERALS = [10, 20, 30, 40, 50, 40, 30, 20, 10];
+
+/**
+ * A top-down field: chalk, hashes, and the yard numerals a broadcast uses.
+ * Memoized — it takes no props and was being reconciled on every keystroke in
+ * the search box above it.
+ */
+const Turf = memo(function Turf() {
   return (
-    <Svg style={StyleSheet.absoluteFill} viewBox="0 0 300 260" preserveAspectRatio="none">
+    <Svg
+      style={StyleSheet.absoluteFill}
+      viewBox="0 0 300 260"
+      preserveAspectRatio="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
       <Defs>
         <LinearGradient id="turf" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor="#0D2016" />
@@ -30,17 +59,23 @@ function Turf() {
       {[0, 1, 2, 3, 4, 5].map((i) => (
         <Rect key={i} x={i * 50} y="0" width="25" height="260" fill="#FFFFFF" opacity="0.014" />
       ))}
-      {/* Yard lines every 10, hashes every 5 */}
+      {/* Yard lines every 10, hash ticks between them */}
       {Array.from({ length: 11 }, (_, i) => i * 26).map((y, i) => (
         <G key={y}>
           <Line x1="14" y1={y} x2="286" y2={y} stroke="#FFFFFF" strokeWidth="0.7" opacity={i % 2 === 0 ? 0.14 : 0.07} />
-          {i % 2 === 0 && i > 0 && i < 10 ? (
+          {i > 0 && i < 10 ? (
+            <>
+              <Line x1="112" y1={y - 13} x2="118" y2={y - 13} stroke="#FFFFFF" strokeWidth="0.6" opacity="0.09" />
+              <Line x1="182" y1={y - 13} x2="188" y2={y - 13} stroke="#FFFFFF" strokeWidth="0.6" opacity="0.09" />
+            </>
+          ) : null}
+          {i > 0 && i < 10 ? (
             <>
               <SvgText x="26" y={y - 4} fill="#FFFFFF" opacity="0.16" fontSize="11" fontWeight="700">
-                {String(Math.min(i, 10 - i) * 10 + 10)}
+                {String(YARD_NUMERALS[i - 1])}
               </SvgText>
               <SvgText x="262" y={y - 4} fill="#FFFFFF" opacity="0.16" fontSize="11" fontWeight="700">
-                {String(Math.min(i, 10 - i) * 10 + 10)}
+                {String(YARD_NUMERALS[i - 1])}
               </SvgText>
             </>
           ) : null}
@@ -49,11 +84,11 @@ function Turf() {
       <Rect x="1" y="1" width="298" height="258" rx="14" fill="none" stroke="#FFFFFF" strokeWidth="1" opacity="0.10" />
     </Svg>
   );
-}
+});
 
 interface SlotProps {
   slot: RosterSlot;
-  card: DatasetCard | undefined;
+  card: BootCard | undefined;
   franchiseAbbr: string | undefined;
   highlighted: boolean;
   targeted: boolean;
@@ -67,15 +102,16 @@ function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, scale, 
   const filled = card !== undefined;
 
   const label = filled
-    ? `${SLOT_LABEL[slot]} slot. ${card.name || `${card.year} defense`}.${
-        blind ? '' : ` Rating ${card.rating.toFixed(1)}.`
-      } Selected.`
-    : `${SLOT_LABEL[slot]} slot. Empty.${onPress ? ' Tap to fill this position.' : ''}`;
+    ? `${SLOT_SPOKEN[slot]} slot. ${card.name || `${card.year} defense`}. ${card.year} ${
+        franchiseAbbr ?? ''
+      }.${blind ? '' : ` Rating ${card.rating.toFixed(1)}.`} Selected.`
+    : `${SLOT_SPOKEN[slot]} slot. Empty.${onPress ? ' Tap to fill this position.' : ''}`;
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ selected: targeted }}
       onPress={onPress ? () => onPress(slot) : undefined}
       style={({ pressed }) => [
         styles.slot,
@@ -87,7 +123,10 @@ function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, scale, 
         pressed && onPress ? { opacity: 0.75 } : null,
       ]}
     >
-      <Text style={[styles.slotKey, { color: filled ? accent : color.textFaint, fontSize: 9 * scale }]}>
+      <Text
+        maxFontSizeMultiplier={1.3}
+        style={[styles.slotKey, { color: filled ? accent : color.textFaint, fontSize: 9 * scale }]}
+      >
         {slot}
       </Text>
       {filled ? (
@@ -114,7 +153,7 @@ function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, scale, 
   );
 }
 
-function surname(card: DatasetCard): string {
+function surname(card: BootCard): string {
   if (card.position === 'DEF') return `${card.year}`;
   const parts = card.name.trim().split(' ');
   return parts.length > 1 ? parts.slice(1).join(' ') : card.name;
@@ -128,7 +167,7 @@ export function Field({
   blind,
   onSlotPress,
 }: {
-  cards: Partial<Record<RosterSlot, DatasetCard>>;
+  cards: Partial<Record<RosterSlot, BootCard>>;
   franchiseAbbrs: Partial<Record<RosterSlot, string>>;
   highlight?: readonly RosterSlot[];
   /** The slot the player is filling right now. */
@@ -189,6 +228,7 @@ const styles = StyleSheet.create({
   rowWide: { justifyContent: 'space-between', paddingHorizontal: 2 },
   slot: {
     borderRadius: radius.md,
+    flexShrink: 1,
     borderWidth: 1,
     paddingHorizontal: 7,
     paddingTop: 5,

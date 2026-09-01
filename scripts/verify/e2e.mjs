@@ -115,9 +115,10 @@ check('replaying a completion is idempotent', replay.status === 200 && replay.bo
 
 const { data: board } = await alice.sb
   .from('leaderboard_rating')
-  .select('handle, final_rating, record_wins, record_losses');
-check('the completed game appears on the leaderboard', (board ?? []).length === 1,
-  board?.[0] ? `${board[0].handle} ${board[0].record_wins}-${board[0].record_losses} @ ${board[0].final_rating}` : 'empty');
+  .select('game_session_id, handle, final_rating, record_wins, record_losses');
+const mine = (board ?? []).find((r) => r.game_session_id === game.sessionId);
+check('the completed game appears on the leaderboard', Boolean(mine),
+  mine ? `${mine.handle} ${mine.record_wins}-${mine.record_losses} @ ${mine.final_rating}` : 'not listed');
 
 // ---------------------------------------------------------------------------
 console.log('\nFORGERY ATTEMPTS (all must be refused)');
@@ -237,7 +238,7 @@ check('the server marks it assisted regardless of what the client said',
 const { data: boardAfter } = await carol.sb.from('leaderboard_rating').select('user_id');
 check('an assisted run is kept off the leaderboard',
   !(boardAfter ?? []).some((r) => r.user_id === carol.user.id),
-  `${(boardAfter ?? []).length} entries total`);
+  `${(boardAfter ?? []).length} entries on the board, none of them carol's`);
 
 // ---------------------------------------------------------------------------
 console.log('\nCHALLENGES');

@@ -8,7 +8,7 @@ import {
   type LeaderboardPeriod,
   type LeaderboardRow,
 } from '@/services/supabase';
-import { color, font, radius, space, tierColor, tracking, useLayout, type PressState } from '@/theme';
+import { color, font, radius, space, tabular, tierColor, tracking, useLayout, type PressState } from '@/theme';
 
 const PERIODS: { key: LeaderboardPeriod; label: string }[] = [
   { key: 'all_time', label: 'All Time' },
@@ -21,11 +21,20 @@ export default function Leaderboard() {
   const [period, setPeriod] = useState<LeaderboardPeriod>('all_time');
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(isBackendConfigured);
+  const [failed, setFailed] = useState(false);
 
   const load = useCallback(async (p: LeaderboardPeriod) => {
     if (!isBackendConfigured) return;
     setLoading(true);
-    setRows(await fetchLeaderboard(p));
+    setFailed(false);
+    try {
+      setRows(await fetchLeaderboard(p));
+    } catch {
+      // Without this the app tells a user they are first to post a score when
+      // it simply could not reach the server.
+      setFailed(true);
+      setRows([]);
+    }
     setLoading(false);
   }, []);
 
@@ -44,8 +53,7 @@ export default function Leaderboard() {
         <View style={styles.offline}>
           <Text style={styles.offlineTitle}>Leaderboards are offline</Text>
           <Text style={styles.offlineCopy}>
-            The game is fully playable without a server. Set EXPO_PUBLIC_SUPABASE_URL and
-            EXPO_PUBLIC_SUPABASE_ANON_KEY to bring rankings online.
+            Every season you play is still saved on this device. Rankings need a connection.
           </Text>
         </View>
       ) : (
@@ -74,6 +82,19 @@ export default function Leaderboard() {
             <View style={styles.loading}>
               <ActivityIndicator color={color.red} />
             </View>
+          ) : failed ? (
+            <View style={styles.offline}>
+              <Text style={styles.offlineTitle}>Couldn't reach the rankings</Text>
+              <Text style={styles.offlineCopy}>Your seasons are safe on this device.</Text>
+              <Pressable
+                onPress={() => void load(period)}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading the leaderboard"
+                style={styles.retry}
+              >
+                <Text style={styles.retryLabel}>Retry</Text>
+              </Pressable>
+            </View>
           ) : rows.length === 0 ? (
             <View style={styles.offline}>
               <Text style={styles.offlineTitle}>No seasons ranked yet</Text>
@@ -84,8 +105,14 @@ export default function Leaderboard() {
               {rows.map((row, index) => {
                 const accent = row.endingKey === 'PERFECT' ? color.gold : tierColor[row.tier] ?? color.text;
                 return (
-                  <View key={row.gameSessionId} style={styles.row}>
-                    <Text style={[styles.rank, index < 3 && { color: accent }]}>
+                  <View
+                    key={row.gameSessionId}
+                    style={[styles.row, index === 0 && styles.rowLeader]}
+                    accessible
+                    accessibilityLabel={`Rank ${index + 1}. ${row.handle}. ${row.wins} and ${row.losses}. Tier ${row.tier}. Rating ${row.finalRating.toFixed(1)}.`}
+                  >
+                    {index === 0 ? <View style={[styles.stripe, { backgroundColor: accent }]} /> : null}
+                    <Text style={[styles.rank, index < 3 && { color: accent }, index === 0 && styles.rankLeader]}>
                       {String(index + 1).padStart(2, '0')}
                     </Text>
                     <View style={styles.rowMain}>
@@ -95,6 +122,8 @@ export default function Leaderboard() {
                       <Text style={[styles.record, { color: accent }]}>
                         {row.wins}-{row.losses}
                       </Text>
+                      {/* Tier as text, not colour alone (PRFAQ §34). */}
+                      <Text style={styles.tier}>TIER {row.tier}</Text>
                     </View>
                     <RatingBadge rating={row.finalRating} size="sm" />
                   </View>
@@ -127,7 +156,8 @@ const styles = StyleSheet.create({
   tabs: { flexDirection: 'row', gap: space.xs, paddingHorizontal: space.lg, paddingBottom: space.md },
   tab: {
     paddingHorizontal: space.md,
-    paddingVertical: 6,
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: color.line,
@@ -145,10 +175,35 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: '#FFFFFF05',
   },
-  rank: { fontFamily: font.display, fontSize: 16, color: color.textFaint, width: 26 },
+  rank: { fontFamily: font.display, fontSize: 16, color: color.textFaint, width: 26, ...tabular },
+  rankLeader: { fontSize: 24 },
+  rowLeader: { backgroundColor: '#FFFFFF0D' },
+  stripe: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, borderRadius: 2 },
+  tier: {
+    fontFamily: font.label,
+    fontSize: 10,
+    letterSpacing: tracking.wide,
+    color: color.textFaint,
+  },
+  retry: {
+    marginTop: space.md,
+    alignSelf: 'flex-start',
+    backgroundColor: color.red,
+    borderRadius: radius.sm,
+    paddingHorizontal: space.lg,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  retryLabel: {
+    fontFamily: font.label,
+    fontSize: 13,
+    letterSpacing: tracking.wide,
+    color: '#fff',
+    textTransform: 'uppercase',
+  },
   rowMain: { flex: 1, flexDirection: 'row', alignItems: 'baseline', gap: space.sm, minWidth: 0 },
   handle: { fontFamily: font.heading, fontSize: 15, color: color.text, flexShrink: 1 },
-  record: { fontFamily: font.display, fontSize: 15 },
+  record: { fontFamily: font.display, fontSize: 15, ...tabular },
   offline: {
     marginHorizontal: space.lg,
     borderWidth: 1,

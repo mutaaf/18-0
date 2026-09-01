@@ -1,8 +1,15 @@
-import { forwardRef } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { forwardRef, type ComponentProps } from 'react';
+import { StyleSheet, Text as RNText, View } from 'react-native';
 import Svg, { Defs, Line, LinearGradient, Rect, Stop } from 'react-native-svg';
 import type { GameResult, RosterSlot } from '@18-0/domain';
-import { color, font, positionColor, radius, space, tierColor, tracking } from '@/theme';
+import { color, font, positionColor, radius, space, tabular, tierColor, tracking } from '@/theme';
+
+/**
+ * The card is a fixed 540x675 canvas that gets captured to a PNG, so its text
+ * must not follow the system font scale — at 200% the record digits and roster
+ * columns clip straight out of the exported image.
+ */
+const Text = (props: ComponentProps<typeof RNText>) => <RNText allowFontScaling={false} {...props} />;
 
 export interface ShareRosterRow {
   readonly slot: RosterSlot;
@@ -128,6 +135,7 @@ const styles = StyleSheet.create({
     color: color.text,
     letterSpacing: tracking.tight,
     includeFontPadding: false,
+    ...tabular,
   },
   recordDash: { width: 30, height: 8, borderRadius: 4 },
   ending: { fontFamily: font.display, fontSize: 24, letterSpacing: tracking.wide, marginTop: -6 },
@@ -146,13 +154,13 @@ const styles = StyleSheet.create({
   slot: { fontFamily: font.label, fontSize: 11, width: 36, letterSpacing: tracking.wide },
   name: { flex: 1, fontFamily: font.heading, fontSize: 16, color: color.text },
   meta: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint, width: 58, textAlign: 'right' },
-  rowRating: { fontFamily: font.display, fontSize: 16, color: color.text, width: 44, textAlign: 'right' },
+  rowRating: { fontFamily: font.display, fontSize: 16, color: color.text, width: 44, textAlign: 'right', ...tabular },
   foot: { alignItems: 'center', gap: 3 },
   assisted: {
     fontFamily: font.label,
     fontSize: 9,
     letterSpacing: tracking.wider,
-    color: color.gold,
+    color: color.textDim,
   },
   cta: { fontFamily: font.display, fontSize: 19, letterSpacing: tracking.wide, color: color.text },
   footNote: { fontFamily: font.bodyRegular, fontSize: 9, color: color.textFaint },

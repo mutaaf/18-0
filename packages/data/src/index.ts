@@ -1,6 +1,6 @@
 import { POSITION_MODELS, type EraKey, type Position, type RatedSeason } from '@18-0/domain';
 import raw from '../generated/dataset.json' with { type: 'json' };
-import type { Dataset, DatasetCard, DatasetFranchise } from './schema.js';
+import type { BootCard, Dataset, DatasetCard, DatasetComponent, DatasetFranchise } from './schema.js';
 
 export * from './schema.js';
 export * from './eras.js';
@@ -15,10 +15,11 @@ export * from './eras.js';
 export const DATASET = raw as unknown as Dataset;
 
 const FRANCHISE_BY_ID = new Map(DATASET.franchises.map((f) => [f.id, f]));
+const CARD_BY_ID = new Map(DATASET.cards.map((c) => [c.id, c]));
 
 /** Cards indexed by franchise-era, then by position — the spin's eligible list. */
 const BUCKETS = (() => {
-  const map = new Map<string, Map<Position, DatasetCard[]>>();
+  const map = new Map<string, Map<Position, BootCard[]>>();
   for (const card of DATASET.cards) {
     const key = `${card.franchiseId}:${card.era}`;
     let bucket = map.get(key);
@@ -44,19 +45,25 @@ export function franchise(id: string): DatasetFranchise {
   return found;
 }
 
-/** Every eligible card for one spin, best first. */
-export function eligibleCards(franchiseId: string, era: EraKey): DatasetCard[] {
-  const bucket = BUCKETS.get(bucketKey(franchiseId, era));
-  if (!bucket) return [];
-  return [...bucket.values()].flat().sort((a, b) => b.rating - a.rating);
+/** Every eligible card for one spin, best first. Flattened once per bucket. */
+const FLAT_BUCKETS = new Map<string, BootCard[]>();
+
+export function eligibleCards(franchiseId: string, era: EraKey): BootCard[] {
+  const key = bucketKey(franchiseId, era);
+  const cached = FLAT_BUCKETS.get(key);
+  if (cached) return cached;
+  const bucket = BUCKETS.get(key);
+  const flat = bucket ? [...bucket.values()].flat().sort((a, b) => b.rating - a.rating) : [];
+  FLAT_BUCKETS.set(key, flat);
+  return flat;
 }
 
-export function eligibleByPosition(franchiseId: string, era: EraKey, position: Position): DatasetCard[] {
+export function eligibleByPosition(franchiseId: string, era: EraKey, position: Position): BootCard[] {
   return BUCKETS.get(bucketKey(franchiseId, era))?.get(position) ?? [];
 }
 
 /** Adapts a dataset card into the shape the scoring domain expects. */
-export function toRatedSeason(card: DatasetCard): RatedSeason {
+export function toRatedSeason(card: BootCard): RatedSeason {
   return {
     id: card.id,
     entityId: card.entityId,
@@ -73,13 +80,13 @@ export function toRatedSeason(card: DatasetCard): RatedSeason {
 }
 
 /** Team defences have no player name, so they are named for the season. */
-export function displayName(card: DatasetCard): string {
+export function displayName(card: BootCard): string {
   if (card.position !== 'DEF') return card.name;
   return `${card.year} ${franchise(card.franchiseId).nick} Defense`;
 }
 
-export function cardById(id: string): DatasetCard | undefined {
-  return DATASET.cards.find((c) => c.id === id);
+export function cardById(id: string): BootCard | undefined {
+  return CARD_BY_ID.get(id);
 }
 
 export interface ComponentBreakdown {
@@ -91,11 +98,26 @@ export interface ComponentBreakdown {
   readonly z: number | null;
 }
 
+/**
+ * Component scores, loaded on first use.
+ *
+ * They are 60% of the dataset's bytes and only the detail screen reads them, so
+ * they are a separate artifact that never touches the startup path.
+ */
+type ComponentIndex = Record<string, { c: DatasetComponent[]; u: string[] }>;
+let componentIndex: ComponentIndex | null = null;
+
+function components(): ComponentIndex {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  componentIndex ??= require('../generated/card-components.json') as ComponentIndex;
+  return componentIndex;
+}
+
 /** Rehydrates a card's component scores with their human labels. */
-export function componentBreakdown(card: DatasetCard): ComponentBreakdown[] {
+export function componentBreakdown(card: BootCard): ComponentBreakdown[] {
   const model = POSITION_MODELS[card.position];
   const labels = new Map(model.components.map((c) => [c.key, c.label]));
-  return card.components
+  return (components()[card.id]?.c ?? [])
     .map((c) => ({
       key: c.k,
       label: labels.get(c.k) ?? c.k,
@@ -108,8 +130,8 @@ export function componentBreakdown(card: DatasetCard): ComponentBreakdown[] {
 }
 
 /** Components with no historical data, with their labels. */
-export function unavailableComponents(card: DatasetCard): string[] {
+export function unavailableComponents(card: BootCard): string[] {
   const model = POSITION_MODELS[card.position];
   const labels = new Map(model.components.map((c) => [c.key, c.label]));
-  return card.unavailable.map((key) => labels.get(key) ?? key);
+  return (components()[card.id]?.u ?? []).map((key) => labels.get(key) ?? key);
 }

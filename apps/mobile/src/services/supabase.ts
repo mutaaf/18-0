@@ -62,8 +62,11 @@ export async function fetchLeaderboard(
   const from = since(period);
   if (from) query = query.gte('completed_at', from);
 
+  // Throws rather than returning [] so the screen can distinguish "no rankings
+  // yet" from "could not reach the server".
   const { data, error } = await query;
-  if (error || !data) return [];
+  if (error) throw new Error(error.message);
+  if (!data) return [];
   return data.map((r) => ({
     gameSessionId: r.game_session_id as string,
     handle: (r.handle as string) ?? 'player',
@@ -88,12 +91,20 @@ export interface ChallengeRow {
 
 export async function fetchMyChallenges(): Promise<ChallengeRow[]> {
   if (!supabase) return [];
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return [];
+
+  // `creator_user_id` references public.profiles, so the embed hint is the
+  // profiles constraint — hinting the auth.users one resolves to nothing and
+  // PostgREST fails with PGRST200.
   const { data, error } = await supabase
     .from('challenges')
     .select('id, share_token, status, created_at, creator_game_session_id, game_sessions!challenges_creator_game_session_id_fkey(final_rating, record_wins, record_losses), profiles!challenges_creator_user_id_fkey(handle)')
+    .or(`creator_user_id.eq.${auth.user.id},opponent_user_id.eq.${auth.user.id}`)
     .order('created_at', { ascending: false })
     .limit(50);
-  if (error || !data) return [];
+  if (error) throw new Error(error.message);
+  if (!data) return [];
   return data.map((row) => {
     const session = (row as Record<string, unknown>).game_sessions as
       | { final_rating: number; record_wins: number; record_losses: number }

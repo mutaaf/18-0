@@ -11,7 +11,7 @@ import {
 import { Screen } from '@/components/Screen';
 import { useGameStore } from '@/state/game';
 import { RatingBadge } from '@/components/RatingBadge';
-import { color, font, positionColor, radius, space, tracking } from '@/theme';
+import { color, font, positionColor, radius, space, tabular, tracking } from '@/theme';
 
 /**
  * Player detail (PRFAQ §22.3). Shows enough to trust the number — component
@@ -72,7 +72,7 @@ export default function CardDetail() {
 
         {blind ? null : (
         <View style={styles.statStrip}>
-          {card.stats.map((stat) => (
+          {card.stats.slice(0, 4).map((stat) => (
             <View key={stat.label} style={styles.statCell}>
               <Text style={styles.statValue}>{stat.value}</Text>
               <Text style={styles.statLabel}>{stat.label}</Text>
@@ -96,7 +96,11 @@ export default function CardDetail() {
                 </Text>
                 <Text style={styles.componentScore}>{component.score.toFixed(1)}</Text>
               </View>
-              <View style={styles.track}>
+              <View
+            style={styles.track}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
                 <View
                   style={[
                     styles.trackFill,
@@ -145,7 +149,15 @@ export default function CardDetail() {
 
 const styles = StyleSheet.create({
   header: { alignItems: 'flex-end', paddingHorizontal: space.lg, paddingTop: space.sm },
-  close: { fontFamily: font.body, fontSize: 18, color: color.textDim },
+  close: {
+    fontFamily: font.body,
+    fontSize: 18,
+    color: color.textDim,
+    minWidth: 44,
+    minHeight: 44,
+    lineHeight: 44,
+    textAlign: 'center',
+  },
   scroll: { paddingHorizontal: space.lg, paddingBottom: 40, gap: space.xl },
   hero: { gap: 4 },
   positionTag: {
@@ -182,7 +194,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   statCell: { flex: 1, alignItems: 'center', paddingVertical: space.md, backgroundColor: '#FFFFFF04' },
-  statValue: { fontFamily: font.display, fontSize: 19, color: color.text, includeFontPadding: false },
+  statValue: { fontFamily: font.display, fontSize: 19, color: color.text, includeFontPadding: false, ...tabular },
   statLabel: {
     fontFamily: font.label,
     fontSize: 9,
@@ -201,7 +213,7 @@ const styles = StyleSheet.create({
   component: { gap: 3, marginTop: space.sm },
   componentTop: { flexDirection: 'row', justifyContent: 'space-between', gap: space.sm },
   componentLabel: { fontFamily: font.body, fontSize: 13, color: color.text, flex: 1 },
-  componentScore: { fontFamily: font.heading, fontSize: 14, color: color.textDim },
+  componentScore: { fontFamily: font.heading, fontSize: 14, color: color.textDim, ...tabular },
   track: { height: 3, borderRadius: 2, backgroundColor: '#FFFFFF0D', overflow: 'hidden' },
   trackFill: { height: 3, borderRadius: 2, opacity: 0.8 },
   componentMeta: { fontFamily: font.bodyRegular, fontSize: 10, color: color.textFaint },

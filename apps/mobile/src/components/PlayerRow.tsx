@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { DatasetCard } from '@18-0/data';
+import type { BootCard } from '@18-0/data';
 import { color, font, positionColor, radius, space, tracking, type PressState } from '@/theme';
 import { RatingBadge } from './RatingBadge';
 
@@ -17,7 +17,7 @@ export function PlayerRow({
   onPress,
   onDetails,
 }: {
-  card: DatasetCard;
+  card: BootCard;
   name: string;
   selected: boolean;
   disabled: boolean;
@@ -68,12 +68,13 @@ export function PlayerRow({
       {blind ? null : (
         <Pressable
           onPress={onDetails}
-          hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel={`Details for ${name}`}
           style={styles.info}
         >
-          <Text style={styles.infoGlyph}>i</Text>
+          <View style={styles.infoRing}>
+            <Text style={styles.infoGlyph}>i</Text>
+          </View>
         </Pressable>
       )}
 
@@ -92,8 +93,9 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 56,
     gap: space.sm,
-    paddingVertical: 9,
+    paddingVertical: 6,
     paddingHorizontal: space.md,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -117,6 +119,12 @@ const styles = StyleSheet.create({
   statValue: { fontFamily: font.bodyBold, color: color.textDim },
   statLabel: { fontFamily: font.bodyRegular, color: color.textFaint, fontSize: 10 },
   info: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoRing: {
     width: 20,
     height: 20,
     borderRadius: 10,

@@ -30,6 +30,12 @@ import type { Dataset, DatasetCard, DatasetComponent, StatLine } from './schema.
 const HERE = dirname(fileURLToPath(import.meta.url));
 const RAW = resolve(HERE, '../../../data/raw');
 const OUT = resolve(HERE, '../generated/dataset.json');
+/**
+ * Component scores are 60% of the dataset's bytes and are read by exactly one
+ * screen — the player detail modal. Splitting them out keeps them off the
+ * startup path entirely.
+ */
+const OUT_COMPONENTS = resolve(HERE, '../generated/card-components.json');
 
 // ---------------------------------------------------------------------------
 // CSV
@@ -673,10 +679,23 @@ function main(): void {
     cards: finalCards,
   };
 
-  writeFileSync(OUT, JSON.stringify(dataset));
+  const componentIndex: Record<string, { c: DatasetCard['components']; u: readonly string[] }> = {};
+  for (const card of finalCards) {
+    componentIndex[card.id] = { c: card.components, u: card.unavailable };
+  }
+  writeFileSync(OUT_COMPONENTS, JSON.stringify(componentIndex));
+
+  const boot = {
+    ...dataset,
+    cards: finalCards.map(({ components, unavailable, ...rest }) => rest),
+  };
+  writeFileSync(OUT, JSON.stringify(boot));
+
   const bytes = readFileSync(OUT).length;
+  const componentBytes = readFileSync(OUT_COMPONENTS).length;
   console.log(`  ${combos.length} valid franchise-era combos across ${eraKeys.length} eras`);
-  console.log(`  wrote ${OUT} (${(bytes / 1024 / 1024).toFixed(2)} MB)`);
+  console.log(`  wrote ${OUT} (${(bytes / 1024 / 1024).toFixed(2)} MB, loaded at startup)`);
+  console.log(`  wrote ${OUT_COMPONENTS} (${(componentBytes / 1024 / 1024).toFixed(2)} MB, loaded on demand)`);
 }
 
 main();

@@ -20,12 +20,14 @@ export const color = {
   lineBright: '#33405180',
   chalk: '#FFFFFF14',
 
-  // Type
+  // Type. `textFaint` carries almost every label in the app at 9-13px, so it
+  // has to clear 4.5:1 on the void — #5C6675 measured 3.43:1.
   text: '#EEF2F7',
   textDim: '#98A3B3',
-  textFaint: '#5C6675',
+  textFaint: '#7A8496',
 
-  // Live action
+  // Live action. `red` is 4.13:1 on the void — a fill colour, not a text
+  // colour. Anything under 24px uses `redBright` (5.68:1).
   red: '#E01A2B',
   redBright: '#FF3B4E',
   redGlow: '#E01A2B33',
@@ -43,31 +45,42 @@ export const color = {
 } as const;
 
 /** Position accents, used on badges and slot chrome. */
+/**
+ * Position accents. Quarterback is white-hot rather than red: at #FF4D5E it sat
+ * three units from `redBright`, so every QB badge read as "press this" — red
+ * has to mean live action and nothing else.
+ */
 export const positionColor = {
-  QB: '#FF4D5E',
-  RB: '#4D9DFF',
-  WR: '#3FD68C',
-  TE: '#FFB03A',
-  DEF: '#B47CFF',
+  QB: '#E8EEF6',
+  RB: '#6FB0FF',
+  WR: '#5FDCA1',
+  TE: '#FFC061',
+  DEF: '#C49BFF',
 } as const;
 
 /**
  * Result tiers never signal by colour alone (PRFAQ §34) — every use is paired
  * with the tier letter and the ending name.
  */
+/**
+ * Result tiers. The C band used to be three muddy olive-golds, which read as
+ * gold — the one colour that must mean 18-0 and nothing else. They are slate
+ * now. S is nudged off `positionColor.DEF` so purple does not mean both
+ * "defense" and "16-2".
+ */
 export const tierColor: Record<string, string> = {
-  F: '#6B7280',
-  D: '#8B7355',
-  'C-': '#9A8F6B',
-  C: '#A89A6B',
-  'C+': '#B5A76B',
+  F: '#8A93A1',
+  D: '#9C9486',
+  'C-': '#8E9683',
+  C: '#98A08A',
+  'C+': '#A3AB93',
   'B-': '#7FA8C9',
   B: '#6FA3D6',
   'B+': '#5B9BE0',
   'A-': '#4DBF8A',
   A: '#3FD68C',
   'A+': '#2FE39A',
-  S: '#B47CFF',
+  S: '#CE8CF0',
   'S+': '#7FB2FF',
   IMMORTAL: '#F2C43D',
 };
@@ -91,6 +104,19 @@ export const radius = {
 } as const;
 
 /** Wide letter-spacing on small caps is the broadcast-lower-third signature. */
+/**
+ * Depth. React Native ignores `shadow*` on Android, so every raised surface
+ * needs an `elevation` alongside it or the app is flat on half its devices.
+ */
+export const elevate = (level: number) => ({
+  elevation: level,
+  shadowOffset: { width: 0, height: Math.round(level / 2) },
+  shadowRadius: level * 2,
+});
+
+/** Scoreboard numerals must not jitter as they change. */
+export const tabular = { fontVariant: ['tabular-nums' as const] };
+
 export const tracking = {
   tight: -1.2,
   normal: 0,

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
@@ -8,9 +8,14 @@ import { color, useLayout } from '@/theme';
  * The stadium bowl: near-black, with two blown-out light sources bleeding in
  * from the upper corners the way broadcast cameras see a night game.
  */
-export function StadiumBackdrop() {
+export const StadiumBackdrop = memo(function StadiumBackdrop() {
   return (
-    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+    <Svg
+      style={StyleSheet.absoluteFill}
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+    >
       <Defs>
         <RadialGradient id="lightL" cx="12%" cy="0%" r="62%">
           <Stop offset="0" stopColor="#5C7DA8" stopOpacity="0.30" />
@@ -34,7 +39,7 @@ export function StadiumBackdrop() {
       <Circle cx="90%" cy="1%" r="2.5" fill="#DCE8F5" opacity="0.35" />
     </Svg>
   );
-}
+});
 
 /**
  * The game is phone-first, so on a wide screen it holds a bounded column

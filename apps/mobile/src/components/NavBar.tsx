@@ -15,6 +15,15 @@ const ICONS: Record<string, string> = {
 
 const LABELS: Record<string, string> = {
   games: 'Games',
+  leaderboard: 'Ranks',
+  index: 'Play',
+  challenges: 'Versus',
+  stats: 'Stats',
+};
+
+/** The full name, for screen readers and the desktop rail. */
+const FULL_LABELS: Record<string, string> = {
+  games: 'Games',
   leaderboard: 'Leaderboards',
   index: 'Play',
   challenges: 'Challenges',
@@ -27,7 +36,7 @@ function Glyph({ name, active }: { name: string; active: boolean }) {
       <Path
         d={ICONS[name] ?? ''}
         stroke={active ? color.redBright : color.textFaint}
-        strokeWidth={active ? 2 : 1.6}
+        strokeWidth={1.75}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -82,7 +91,7 @@ export function NavBar({ state, navigation }: NavBarProps) {
                 onPress={() => go(index)}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: active }}
-                accessibilityLabel={LABELS[route.name] ?? route.name}
+                accessibilityLabel={FULL_LABELS[route.name] ?? route.name}
                 style={({ hovered }: PressState) => [
                   styles.railItem,
                   hovered && styles.railItemHover,
@@ -92,7 +101,7 @@ export function NavBar({ state, navigation }: NavBarProps) {
                 <View style={[styles.railMarker, active && styles.railMarkerActive]} />
                 <Glyph name={route.name} active={active} />
                 <Text style={[styles.railLabel, active && { color: color.text }]}>
-                  {LABELS[route.name] ?? route.name}
+                  {FULL_LABELS[route.name] ?? route.name}
                 </Text>
               </Pressable>
             );
@@ -120,7 +129,7 @@ export function NavBar({ state, navigation }: NavBarProps) {
             onPress={() => go(index)}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
-            accessibilityLabel={LABELS[route.name] ?? route.name}
+            accessibilityLabel={FULL_LABELS[route.name] ?? route.name}
             style={styles.barItem}
           >
             <Glyph name={route.name} active={active} />
@@ -157,6 +166,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
+    minHeight: 44,
     paddingVertical: 11,
     paddingHorizontal: space.md,
     borderRadius: radius.sm,
@@ -186,10 +196,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#080B0FF2',
     paddingTop: space.md,
   },
-  barItem: { flex: 1, alignItems: 'center', gap: 3, paddingHorizontal: 2 },
+  barItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    minHeight: 48,
+    paddingHorizontal: 2,
+  },
   barLabel: {
     fontFamily: font.label,
-    fontSize: 8,
+    fontSize: 11,
     letterSpacing: tracking.wide,
     color: color.textFaint,
     textTransform: 'uppercase',

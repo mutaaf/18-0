@@ -17,7 +17,7 @@ import {
   type RosterSlot,
   type SpinResult,
 } from '@18-0/domain';
-import { DATASET, eligibleCards, toRatedSeason, type DatasetCard } from '@18-0/data';
+import { DATASET, cardById, eligibleCards, toRatedSeason, type BootCard } from '@18-0/data';
 
 /**
  * The gameplay state machine (PRFAQ §29), persisted so an in-progress game
@@ -60,20 +60,20 @@ interface GameState {
 
   startGame: (mode?: GameMode) => void;
   spin: (options?: { assist?: boolean }) => SpinResult | null;
-  select: (card: DatasetCard, slot: RosterSlot) => { ok: true } | { ok: false; message: string };
+  select: (card: BootCard, slot: RosterSlot) => { ok: true } | { ok: false; message: string };
   removeSelection: (slot: RosterSlot) => void;
   complete: () => GameResult | null;
   abandon: () => void;
 }
 
-const cardIndex = new Map(DATASET.cards.map((c) => [c.id, c]));
-export const lookupCard = (id: string): DatasetCard | undefined => cardIndex.get(id);
+/** Re-exported so screens have one lookup, not two competing indexes. */
+export const lookupCard = (id: string): BootCard | undefined => cardById(id);
 
 /** Rebuilds the domain roster from the stored card ids. */
 export function rosterFrom(selections: readonly StoredSelection[]): PartialRoster {
   const roster: Record<string, unknown> = {};
   for (const selection of selections) {
-    const card = cardIndex.get(selection.cardId);
+    const card = cardById(selection.cardId);
     if (!card) continue;
     roster[selection.slot] = {
       slot: selection.slot,
@@ -224,7 +224,7 @@ export const filledSlots = (s: GameState): Set<RosterSlot> => new Set(s.selectio
 export const openSlotsOf = (s: GameState): RosterSlot[] => openSlots(rosterFrom(s.selections));
 
 /** Which slots this card may legally fill right now. */
-export function slotsForCard(card: DatasetCard, selections: readonly StoredSelection[]): RosterSlot[] {
+export function slotsForCard(card: BootCard, selections: readonly StoredSelection[]): RosterSlot[] {
   return eligibleSlotsFor(toRatedSeason(card), rosterFrom(selections));
 }
 
