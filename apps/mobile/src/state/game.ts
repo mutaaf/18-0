@@ -28,6 +28,16 @@ import { DATASET, eligibleCards, toRatedSeason, type DatasetCard } from '@18-0/d
  */
 export type GameStatus = 'idle' | 'ready_to_spin' | 'spun' | 'complete';
 
+/**
+ * How much the game tells you.
+ *
+ * `rookie` shows every rating and stat line — the training wheels that teach
+ * what the model values. `player_iq` hides all of it: name, position, franchise
+ * and season only. You pick on what you actually know about football, and the
+ * numbers are revealed with the result.
+ */
+export type GameMode = 'rookie' | 'player_iq';
+
 interface StoredSelection {
   readonly slot: RosterSlot;
   readonly cardId: string;
@@ -40,6 +50,7 @@ interface GameState {
   selections: StoredSelection[];
   startedAt: number | null;
   result: GameResult | null;
+  mode: GameMode;
   /**
    * True once a rigged spin has been used. Assisted games still save and still
    * show their result — they are just marked, and kept off the leaderboard, so
@@ -47,7 +58,7 @@ interface GameState {
    */
   assisted: boolean;
 
-  startGame: () => void;
+  startGame: (mode?: GameMode) => void;
   spin: (options?: { assist?: boolean }) => SpinResult | null;
   select: (card: DatasetCard, slot: RosterSlot) => { ok: true } | { ok: false; message: string };
   removeSelection: (slot: RosterSlot) => void;
@@ -110,17 +121,19 @@ export const useGameStore = create<GameState>()(
       selections: [],
       startedAt: null,
       result: null,
+      mode: 'rookie',
       assisted: false,
 
-      startGame: () =>
-        set({
+      startGame: (mode) =>
+        set((state) => ({
           status: 'ready_to_spin',
           spins: [],
           selections: [],
           startedAt: Date.now(),
           result: null,
           assisted: false,
-        }),
+          mode: mode ?? state.mode,
+        })),
 
       spin: (options) => {
         const { spins, selections, status, assisted } = get();
@@ -196,6 +209,7 @@ export const useGameStore = create<GameState>()(
         startedAt: s.startedAt,
         result: s.result,
         assisted: s.assisted,
+        mode: s.mode,
       }),
     },
   ),

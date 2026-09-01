@@ -13,6 +13,7 @@ export function PlayerRow({
   name,
   selected,
   disabled,
+  blind,
   onPress,
   onDetails,
 }: {
@@ -20,6 +21,8 @@ export function PlayerRow({
   name: string;
   selected: boolean;
   disabled: boolean;
+  /** Player IQ mode: no rating, no stats, no way to peek. */
+  blind?: boolean;
   onPress: () => void;
   onDetails: () => void;
 }) {
@@ -29,9 +32,9 @@ export function PlayerRow({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected, disabled }}
-      accessibilityLabel={`${name}. ${card.position}. ${card.year}. Rating ${card.rating.toFixed(1)}.${
-        disabled ? ' Already on your roster.' : ''
-      }`}
+      accessibilityLabel={`${name}. ${card.position}. ${card.year}.${
+        blind ? '' : ` Rating ${card.rating.toFixed(1)}.`
+      }${disabled ? ' Already on your roster.' : ''}`}
       onPress={disabled ? undefined : onPress}
       style={({ pressed, hovered }: PressState) => [
         styles.row,
@@ -51,26 +54,36 @@ export function PlayerRow({
         </Text>
         <View style={styles.stats}>
           <Text style={styles.year}>{card.year}</Text>
-          {card.stats.slice(0, 3).map((stat) => (
-            <Text key={stat.label} style={styles.stat}>
-              <Text style={styles.statValue}>{stat.value}</Text>
-              <Text style={styles.statLabel}> {stat.label}</Text>
-            </Text>
-          ))}
+          {blind
+            ? null
+            : card.stats.slice(0, 3).map((stat) => (
+                <Text key={stat.label} style={styles.stat}>
+                  <Text style={styles.statValue}>{stat.value}</Text>
+                  <Text style={styles.statLabel}> {stat.label}</Text>
+                </Text>
+              ))}
         </View>
       </View>
 
-      <Pressable
-        onPress={onDetails}
-        hitSlop={10}
-        accessibilityRole="button"
-        accessibilityLabel={`Details for ${name}`}
-        style={styles.info}
-      >
-        <Text style={styles.infoGlyph}>i</Text>
-      </Pressable>
+      {blind ? null : (
+        <Pressable
+          onPress={onDetails}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel={`Details for ${name}`}
+          style={styles.info}
+        >
+          <Text style={styles.infoGlyph}>i</Text>
+        </Pressable>
+      )}
 
-      <RatingBadge rating={card.rating} />
+      {blind ? (
+        <View style={styles.hidden}>
+          <Text style={styles.hiddenGlyph}>??</Text>
+        </View>
+      ) : (
+        <RatingBadge rating={card.rating} />
+      )}
     </Pressable>
   );
 }
@@ -113,4 +126,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   infoGlyph: { fontFamily: font.bodyBold, fontSize: 11, color: color.textFaint, includeFontPadding: false },
+  hidden: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: color.line,
+    borderRadius: radius.sm,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  hiddenGlyph: {
+    fontFamily: font.display,
+    fontSize: 17,
+    color: color.textFaint,
+    includeFontPadding: false,
+  },
 });

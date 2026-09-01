@@ -22,6 +22,9 @@ export interface DatasetFranchise {
 
 export interface DatasetEra {
   readonly key: EraKey;
+  /** The name a fan would use, e.g. "The Greatest Show". */
+  readonly name: string;
+  /** The year range, e.g. "1999–2004". */
   readonly label: string;
   readonly startYear: number;
   readonly endYear: number;

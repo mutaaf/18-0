@@ -129,6 +129,12 @@ export default function Result() {
           </Animated.View>
         </Animated.View>
 
+      {game.mode === 'player_iq' ? (
+        <View style={styles.blindBadge}>
+          <Text style={styles.blindBadgeText}>Built blind · Player IQ</Text>
+        </View>
+      ) : null}
+
       {game.assisted ? (
         <View style={styles.assisted}>
           <Text style={styles.assistedTitle}>Assisted</Text>
@@ -351,6 +357,22 @@ const styles = StyleSheet.create({
   dot: { color: color.textFaint },
   rating: { fontFamily: font.heading, fontSize: 15, color: color.text },
   ratingLabel: { fontFamily: font.label, fontSize: 9, letterSpacing: tracking.wide, color: color.textFaint },
+  blindBadge: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#B47CFF66',
+    backgroundColor: '#B47CFF14',
+    borderRadius: radius.pill,
+    paddingHorizontal: space.md,
+    paddingVertical: 4,
+  },
+  blindBadgeText: {
+    fontFamily: font.label,
+    fontSize: 10,
+    letterSpacing: tracking.wide,
+    color: '#C9A6FF',
+    textTransform: 'uppercase',
+  },
   assisted: {
     borderWidth: 1,
     borderColor: '#F2C43D40',

@@ -35,6 +35,20 @@ export default function Stats() {
           </Text>
         </View>
 
+        <View style={styles.chase}>
+          <Text style={styles.chaseTitle}>Player IQ</Text>
+          <View style={styles.chaseRow}>
+            <ChaseStat label="Blind seasons" value={stats.playerIqGames} />
+            <ChaseStat
+              label="Best blind rating"
+              value={stats.bestPlayerIqRating ? Number(stats.bestPlayerIqRating.toFixed(1)) : 0}
+            />
+          </View>
+          <Text style={styles.chaseNote}>
+            Built with no ratings and no stat lines on screen.
+          </Text>
+        </View>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tendencies</Text>
           <Row label="Most-used franchise" value={stats.topFranchise ? franchise(stats.topFranchise).name : '—'} />

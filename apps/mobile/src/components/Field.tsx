@@ -56,17 +56,21 @@ interface SlotProps {
   card: DatasetCard | undefined;
   franchiseAbbr: string | undefined;
   highlighted: boolean;
+  targeted: boolean;
+  blind: boolean;
   scale: number;
   onPress?: (slot: RosterSlot) => void;
 }
 
-function Slot({ slot, card, franchiseAbbr, highlighted, scale, onPress }: SlotProps) {
+function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, scale, onPress }: SlotProps) {
   const accent = positionColor[SLOT_POSITION[slot]];
   const filled = card !== undefined;
 
   const label = filled
-    ? `${SLOT_LABEL[slot]} slot. ${card.name || `${card.year} defense`}. Rating ${card.rating.toFixed(1)}. Selected.`
-    : `${SLOT_LABEL[slot]} slot. Empty.`;
+    ? `${SLOT_LABEL[slot]} slot. ${card.name || `${card.year} defense`}.${
+        blind ? '' : ` Rating ${card.rating.toFixed(1)}.`
+      } Selected.`
+    : `${SLOT_LABEL[slot]} slot. Empty.${onPress ? ' Tap to fill this position.' : ''}`;
 
   return (
     <Pressable
@@ -78,6 +82,8 @@ function Slot({ slot, card, franchiseAbbr, highlighted, scale, onPress }: SlotPr
         { width: 96 * scale, minHeight: 62 * scale },
         filled ? styles.slotFilled : styles.slotEmpty,
         highlighted && { borderColor: accent, shadowColor: accent, shadowOpacity: 0.55 },
+        targeted && styles.slotTargeted,
+        targeted && { borderColor: accent, shadowColor: accent, shadowOpacity: 0.7 },
         pressed && onPress ? { opacity: 0.75 } : null,
       ]}
     >
@@ -94,13 +100,13 @@ function Slot({ slot, card, franchiseAbbr, highlighted, scale, onPress }: SlotPr
               {franchiseAbbr ?? ''} '{String(card.year).slice(2)}
             </Text>
             <Text style={[styles.slotRating, { color: accent, fontSize: 14 * scale }]}>
-              {card.rating.toFixed(1)}
+              {blind ? '' : card.rating.toFixed(1)}
             </Text>
           </View>
         </>
       ) : (
         <Text style={[styles.slotEmptyLabel, { fontSize: 10 * scale, lineHeight: 13 * scale }]} numberOfLines={2}>
-          {SLOT_LABEL[slot]}
+          {targeted ? 'Choose a player' : SLOT_LABEL[slot]}
         </Text>
       )}
       <View style={[styles.slotUnderline, { backgroundColor: filled ? accent : color.line }]} />
@@ -118,11 +124,16 @@ export function Field({
   cards,
   franchiseAbbrs,
   highlight,
+  target,
+  blind,
   onSlotPress,
 }: {
   cards: Partial<Record<RosterSlot, DatasetCard>>;
   franchiseAbbrs: Partial<Record<RosterSlot, string>>;
   highlight?: readonly RosterSlot[];
+  /** The slot the player is filling right now. */
+  target?: RosterSlot | null;
+  blind?: boolean;
   onSlotPress?: (slot: RosterSlot) => void;
 }) {
   const layout = useLayout();
@@ -136,6 +147,8 @@ export function Field({
       card={cards[key]}
       franchiseAbbr={franchiseAbbrs[key]}
       highlighted={highlighted.has(key)}
+      targeted={target === key}
+      blind={blind === true}
       scale={scale}
       {...(onSlotPress ? { onPress: onSlotPress } : {})}
     />
@@ -190,6 +203,7 @@ const styles = StyleSheet.create({
     borderColor: '#FFFFFF30',
     backgroundColor: '#00000059',
   },
+  slotTargeted: { borderStyle: 'solid', backgroundColor: '#0A0F14F2' },
   slotFilled: {
     borderColor: '#FFFFFF26',
     backgroundColor: '#080C10E6',

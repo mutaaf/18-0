@@ -4,29 +4,69 @@ import type { EraKey } from '@18-0/domain';
  * The era table.
  *
  * PRFAQ §6.2 proposed decades, which only yields three usable buckets from the
- * seasons open data actually covers (1999-2025) — too little spin variety for a
- * game whose whole premise is "spin history". These five periods cut the same
- * real data into franchise-eras that are both more numerous and more
- * evocative: a fan knows exactly what "PIT '05-'09" means.
+ * seasons open data covers (1999-2025). These five periods cut the same real
+ * data into franchise-eras that are both more numerous and more evocative — a
+ * fan should read the spin card and immediately picture the football.
+ *
+ * Each era is named for the thing it is actually remembered for, not for its
+ * date range. The dates are the fine print.
  *
  * Pre-1999 remains unavailable: Pro-Football-Reference is the only complete
  * source back to 1920 and it blocks automated access. See docs/FINDINGS.md.
  */
 export interface EraDefinition {
   readonly key: EraKey;
+  /** The name a fan would use. Shown large on the spin card. */
+  readonly name: string;
+  /** The year range, shown as supporting detail. */
   readonly label: string;
   readonly startYear: number;
   readonly endYear: number;
-  /** A one-line hook for the spin card. */
+  /** One line on what defined it. */
   readonly tagline: string;
 }
 
 export const ERA_TABLE: readonly EraDefinition[] = [
-  { key: '1999_2004', label: "'99–'04", startYear: 1999, endYear: 2004, tagline: 'The Greatest Show and the dynasty forming' },
-  { key: '2005_2009', label: "'05–'09", startYear: 2005, endYear: 2009, tagline: 'Steel, Colts and the perfect regular season' },
-  { key: '2010_2014', label: "'10–'14", startYear: 2010, endYear: 2014, tagline: 'Offense unleashed, Legion of Boom' },
-  { key: '2015_2019', label: "'15–'19", startYear: 2015, endYear: 2019, tagline: 'Brady late, Mahomes early' },
-  { key: '2020_2025', label: "'20–'25", startYear: 2020, endYear: 2025, tagline: 'The modern game' },
+  {
+    key: '1999_2004',
+    name: 'The Greatest Show',
+    label: "1999–2004",
+    startYear: 1999,
+    endYear: 2004,
+    tagline: "Warner's Rams outrunning everyone, Baltimore's record defense answering",
+  },
+  {
+    key: '2005_2009',
+    name: 'Chasing Perfect',
+    label: '2005–2009',
+    startYear: 2005,
+    endYear: 2009,
+    tagline: 'Manning against Brady, 16-0, and the one that got away',
+  },
+  {
+    key: '2010_2014',
+    name: 'The Passing Boom',
+    label: '2010–2014',
+    startYear: 2010,
+    endYear: 2014,
+    tagline: '5,000-yard seasons, until the Legion of Boom answered',
+  },
+  {
+    key: '2015_2019',
+    name: 'The Torch Pass',
+    label: '2015–2019',
+    startYear: 2015,
+    endYear: 2019,
+    tagline: '28-3, and a kid from Texas Tech taking the league',
+  },
+  {
+    key: '2020_2025',
+    name: 'The Mahomes Era',
+    label: '2020–2025',
+    startYear: 2020,
+    endYear: 2025,
+    tagline: 'Kansas City on top, and a seventeenth game',
+  },
 ];
 
 const BY_KEY = new Map(ERA_TABLE.map((e) => [e.key, e]));
@@ -42,6 +82,10 @@ export function era(key: EraKey): EraDefinition {
   const found = BY_KEY.get(key);
   if (!found) throw new Error(`Unknown era: ${key}`);
   return found;
+}
+
+export function eraName(key: EraKey): string {
+  return BY_KEY.get(key)?.name ?? key;
 }
 
 export function eraLabel(key: EraKey): string {

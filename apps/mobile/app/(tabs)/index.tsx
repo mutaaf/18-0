@@ -16,9 +16,9 @@ export default function Home() {
   const inProgress = hasGameInProgress(game);
   const stats = computeStats(useHistoryStore((s) => s.games));
 
-  const startFresh = () => {
+  const startFresh = (mode: 'rookie' | 'player_iq') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    game.startGame();
+    game.startGame(mode);
     router.push('/play');
   };
 
@@ -62,18 +62,54 @@ export default function Home() {
         </Pressable>
       ) : null}
 
-      <Pressable
-        style={({ pressed, hovered }: PressState) => [
-          styles.play,
-          hovered && styles.playHover,
-          pressed && styles.pressed,
-        ]}
-        onPress={startFresh}
-        accessibilityRole="button"
-        accessibilityLabel={inProgress ? 'Start a new game' : 'Play'}
-      >
-        <Text style={styles.playLabel}>{inProgress ? 'Start New Game' : 'Play'}</Text>
-      </Pressable>
+      <View style={styles.modes}>
+        <Pressable
+          style={({ pressed, hovered }: PressState) => [
+            styles.mode,
+            styles.modeHero,
+            hovered && styles.modeHeroHover,
+            pressed && styles.pressed,
+          ]}
+          onPress={() => startFresh('player_iq')}
+          accessibilityRole="button"
+          accessibilityLabel="Play in Player IQ mode. Ratings and statistics are hidden."
+        >
+          <View style={styles.modeHead}>
+            <Text style={styles.modeName}>Player IQ</Text>
+            <View style={styles.modeBadge}>
+              <Text style={styles.modeBadgeText}>Blind</Text>
+            </View>
+          </View>
+          <Text style={styles.modeCopy}>
+            No ratings. No stat lines. Just a name, a team and a year — pick on what you actually
+            know about football. The numbers arrive with your record.
+          </Text>
+          <Text style={styles.modeGo}>Play blind →</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed, hovered }: PressState) => [
+            styles.mode,
+            hovered && { borderColor: color.line },
+            pressed && styles.pressed,
+          ]}
+          onPress={() => startFresh('rookie')}
+          accessibilityRole="button"
+          accessibilityLabel="Play in Rookie mode. Ratings and statistics are shown."
+        >
+          <View style={styles.modeHead}>
+            <Text style={styles.modeNameQuiet}>Rookie</Text>
+            <View style={styles.modeBadgeQuiet}>
+              <Text style={styles.modeBadgeQuietText}>Beginner</Text>
+            </View>
+          </View>
+          <Text style={styles.modeCopy}>
+            Every rating and stat line on screen. The training wheels — good for learning what the
+            model rewards before you go blind.
+          </Text>
+          <Text style={styles.modeGoQuiet}>Play with ratings →</Text>
+        </Pressable>
+      </View>
     </View>
   );
 
@@ -199,25 +235,70 @@ const styles = StyleSheet.create({
     color: color.textDim,
     maxWidth: 400,
   },
-  play: {
-    backgroundColor: color.red,
+  modes: { gap: space.sm },
+  mode: {
+    borderWidth: 1,
+    borderColor: color.line,
     borderRadius: radius.md,
-    paddingVertical: 17,
-    alignItems: 'center',
-    shadowColor: color.red,
-    shadowOpacity: 0.5,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 6 },
+    padding: space.lg,
+    gap: 6,
+    backgroundColor: '#FFFFFF04',
   },
-  playLabel: {
+  modeHero: {
+    borderColor: color.red,
+    backgroundColor: '#E01A2B12',
+    shadowColor: color.red,
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 5 },
+  },
+  modeHeroHover: { shadowOpacity: 0.5, shadowRadius: 26, transform: [{ translateY: -1 }] },
+  modeHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  modeName: {
     fontFamily: font.display,
-    fontSize: 21,
-    letterSpacing: tracking.wide,
-    color: '#FFFFFF',
-    textTransform: 'uppercase',
+    fontSize: 25,
+    color: color.text,
+    letterSpacing: tracking.tight,
     includeFontPadding: false,
   },
-  playHover: { shadowOpacity: 0.75, shadowRadius: 26, transform: [{ translateY: -1 }] },
+  modeNameQuiet: {
+    fontFamily: font.display,
+    fontSize: 20,
+    color: color.textDim,
+    letterSpacing: tracking.tight,
+    includeFontPadding: false,
+  },
+  modeBadge: {
+    borderWidth: 1,
+    borderColor: '#FF3B4E80',
+    borderRadius: radius.pill,
+    paddingHorizontal: space.sm,
+    paddingVertical: 1,
+  },
+  modeBadgeText: {
+    fontFamily: font.label,
+    fontSize: 9,
+    letterSpacing: tracking.wide,
+    color: color.redBright,
+    textTransform: 'uppercase',
+  },
+  modeBadgeQuiet: {
+    borderWidth: 1,
+    borderColor: color.line,
+    borderRadius: radius.pill,
+    paddingHorizontal: space.sm,
+    paddingVertical: 1,
+  },
+  modeBadgeQuietText: {
+    fontFamily: font.label,
+    fontSize: 9,
+    letterSpacing: tracking.wide,
+    color: color.textFaint,
+    textTransform: 'uppercase',
+  },
+  modeCopy: { fontFamily: font.bodyRegular, fontSize: 12.5, color: color.textDim, lineHeight: 18 },
+  modeGo: { fontFamily: font.label, fontSize: 12, letterSpacing: tracking.wide, color: color.redBright },
+  modeGoQuiet: { fontFamily: font.label, fontSize: 12, letterSpacing: tracking.wide, color: color.textFaint },
   pressed: { opacity: 0.82 },
   resume: {
     borderWidth: 1,

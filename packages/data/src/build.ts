@@ -491,16 +491,47 @@ function main(): void {
 
   console.log(`  ${draft.length.toLocaleString()} qualifying cards (${skipped.toLocaleString()} below the §12 floors)`);
 
+  /**
+   * One card per identity per franchise-era (PRFAQ §7).
+   *
+   * "The user chooses a player, not a year" — the game automatically uses that
+   * player's highest-rated qualifying season for the spun franchise and era.
+   * Listing every season made a spin read like a spreadsheet with the same name
+   * four times.
+   *
+   * A team defense collapses on the franchise, not the season, for the same
+   * reason: a bucket should offer *the* Ravens defense of that era, not five
+   * near-identical ones.
+   */
+  const collapseKey = (card: (typeof draft)[number]) =>
+    card.position === 'DEF'
+      ? `${card.franchiseId}:${card.era}:DEF`
+      : `${card.franchiseId}:${card.era}:${card.entityId}`;
+
+  const bestPerIdentity = new Map<string, (typeof draft)[number]>();
+  for (const card of draft) {
+    const key = collapseKey(card);
+    const held = bestPerIdentity.get(key);
+    if (!held || card.raw > held.raw) bestPerIdentity.set(key, card);
+  }
+  const collapsedDraft = [...bestPerIdentity.values()];
+  console.log(
+    `  ${collapsedDraft.length.toLocaleString()} after collapsing to each identity's best season ` +
+      `(${(draft.length - collapsedDraft.length).toLocaleString()} duplicates removed)`,
+  );
+
   // Map each position's raw distribution onto the published rating scale
   // (PRFAQ §9), so a 98 means "historically dominant" rather than "top of an
   // averaged nine-component score".
   const calibrations: Record<string, PlayerCalibration> = {};
   for (const position of ['QB', 'RB', 'WR', 'TE', 'DEF'] as Position[]) {
+    // Calibrated on every qualifying season, not just the surviving best ones,
+    // so the published scale still means what §9 says across the whole league.
     const raws = draft.filter((d) => d.position === position).map((d) => d.raw);
     if (raws.length >= 50) calibrations[position] = fitPlayerCalibration(raws);
   }
 
-  const cards: DatasetCard[] = draft.map(({ raw, ...rest }) => {
+  const cards: DatasetCard[] = collapsedDraft.map(({ raw, ...rest }) => {
     const curve = calibrations[rest.position];
     return { ...rest, rating: curve ? applyPlayerCalibration(raw, curve) : raw };
   });
@@ -579,6 +610,7 @@ function main(): void {
     coverage: { firstSeason: Math.min(...years), lastSeason: Math.max(...years) },
     eras: ERA_TABLE.filter((e) => eraKeys.includes(e.key)).map((e) => ({
       key: e.key,
+      name: e.name,
       label: e.label,
       startYear: e.startYear,
       endYear: e.endYear,

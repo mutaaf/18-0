@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { POSITIONS, ROSTER_SLOTS, type Position, type RosterSlot } from '@18-0/domain';
-import { DATASET, displayName, eligibleCards, era as eraDef, eraLabel, franchise, type DatasetCard } from '@18-0/data';
+import { POSITIONS, ROSTER_SLOTS, SLOT_POSITION, type Position, type RosterSlot } from '@18-0/domain';
+import { DATASET, displayName, eligibleCards, era as eraDef, franchise, type DatasetCard } from '@18-0/data';
 import { Brand } from '@/components/Brand';
 import { Field } from '@/components/Field';
 import { PlayerRow } from '@/components/PlayerRow';
@@ -39,6 +39,7 @@ export default function Play() {
   const [lastPick, setLastPick] = useState<{ card: DatasetCard; slot: RosterSlot } | null>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [assistArmed, setAssistArmed] = useState(false);
+  const [targetSlot, setTargetSlot] = useState<RosterSlot | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   /** Live touch count, for the three-finger spin. */
   const fingers = useRef(0);
@@ -63,6 +64,8 @@ export default function Play() {
    * whatever the wheel gives you. That constraint is the whole game.
    */
   const canPick = game.status === 'spun' && !complete;
+  /** Player IQ mode: no ratings, no stats, no detail screen to peek at. */
+  const blind = game.mode === 'player_iq';
 
   const filled = useMemo(
     () =>
@@ -120,6 +123,7 @@ export default function Play() {
     setSelectedId(null);
     setNotice(null);
     setLastPick(null);
+    setTargetSlot(null);
     setQuery('');
     setPositionFilter('ALL');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -163,9 +167,28 @@ export default function Play() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid).catch(() => {});
       setSelectedId(null);
       setNotice(null);
+      setTargetSlot(null);
+      setPositionFilter('ALL');
       setLastPick({ card, slot });
     },
     [game],
+  );
+
+  /**
+   * Filling a position by tapping it on the field. Choosing the slot first and
+   * the player second is how people actually think about a lineup — and it
+   * removes the second tap that the RB1/RB2 picker used to need.
+   */
+  const pressSlot = useCallback(
+    (slot: RosterSlot) => {
+      if (!canPick || filled[slot]) return;
+      const next = targetSlot === slot ? null : slot;
+      setTargetSlot(next);
+      setPositionFilter(next ? SLOT_POSITION[slot] : 'ALL');
+      setSelectedId(null);
+      Haptics.selectionAsync().catch(() => {});
+    },
+    [canPick, filled, targetSlot],
   );
 
   const reveal = useCallback(() => {
@@ -176,6 +199,7 @@ export default function Play() {
       completedAt: Date.now(),
       result,
       assisted: game.assisted,
+      mode: game.mode,
       roster: game.selections.map((s) => {
         const card = lookupCard(s.cardId)!;
         return {
@@ -212,11 +236,17 @@ export default function Play() {
           </Text>
         </View>
         <View style={[styles.spinCard, styles.eraCard, layout.roomy && styles.spinCardRoomy]}>
-          <Text style={[styles.spinLabel, { color: '#B47CFF' }]}>Era</Text>
-          <Text style={[styles.spinValue, layout.roomy && styles.spinValueRoomy]}>
-            {shown ? eraLabel(shown.era) : '—'}
+          <Text style={[styles.spinLabel, { color: '#B47CFF' }]}>
+            Era{shown ? ` · ${eraDef(shown.era).label}` : ''}
           </Text>
-          <Text style={styles.spinSub} numberOfLines={1}>
+          <Text
+            style={[styles.eraName, layout.roomy && styles.eraNameRoomy]}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+          >
+            {shown ? eraDef(shown.era).name : '—'}
+          </Text>
+          <Text style={styles.spinSub} numberOfLines={2}>
             {shown ? eraDef(shown.era).tagline : 'Awaiting spin'}
           </Text>
         </View>
@@ -290,7 +320,18 @@ export default function Play() {
         </View>
       ) : null}
 
-      <Field cards={filled} franchiseAbbrs={abbrs} highlight={targetSlots} />
+      <Field
+        cards={filled}
+        franchiseAbbrs={abbrs}
+        highlight={targetSlots}
+        target={targetSlot}
+        blind={blind}
+        onSlotPress={canPick ? pressSlot : undefined}
+      />
+
+      {canPick && !targetSlot ? (
+        <Text style={styles.fieldHint}>Tap a position on the field to fill it</Text>
+      ) : null}
     </View>
   );
 
@@ -321,7 +362,8 @@ export default function Play() {
       />
 
       <Text style={styles.count}>
-        {visible.length} eligible · {team?.name} {shown ? eraLabel(shown.era) : ''} · one pick from this spin
+        {targetSlot ? `Filling ${targetSlot} · ` : ''}
+        {visible.length} eligible · one pick from this spin
       </Text>
 
       <View style={styles.list}>
@@ -334,8 +376,10 @@ export default function Play() {
               name={displayName(card)}
               selected={selectedId === card.id}
               disabled={slots.length === 0}
+              blind={blind}
               onPress={() => {
-                if (slots.length === 1) assign(card, slots[0]!);
+                if (targetSlot && slots.includes(targetSlot)) assign(card, targetSlot);
+                else if (slots.length === 1) assign(card, slots[0]!);
                 else setSelectedId(selectedId === card.id ? null : card.id);
               }}
               onDetails={() => router.push(`/card/${encodeURIComponent(card.id)}`)}
@@ -370,7 +414,14 @@ export default function Play() {
         onTouchCancel={() => trackTouches(0)}
       />
       <View style={styles.header}>
-        <Brand size={layout.wide ? 26 : 22} />
+        <View style={styles.headerLeft}>
+          <Brand size={layout.wide ? 26 : 22} />
+          {blind ? (
+            <View style={styles.modeChip}>
+              <Text style={styles.modeChipText}>Player IQ</Text>
+            </View>
+          ) : null}
+        </View>
         <View style={styles.headerRight}>
           <View style={styles.progressTrack}>
             <View
@@ -479,6 +530,22 @@ const styles = StyleSheet.create({
     paddingTop: space.sm,
     paddingBottom: space.md,
   },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  modeChip: {
+    borderWidth: 1,
+    borderColor: '#B47CFF66',
+    backgroundColor: '#B47CFF1A',
+    borderRadius: radius.pill,
+    paddingHorizontal: space.sm,
+    paddingVertical: 2,
+  },
+  modeChipText: {
+    fontFamily: font.label,
+    fontSize: 9,
+    letterSpacing: tracking.wide,
+    color: '#C9A6FF',
+    textTransform: 'uppercase',
+  },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   progressTrack: { width: 96, height: 3, borderRadius: 2, backgroundColor: '#FFFFFF12', overflow: 'hidden' },
   progressFill: { height: 3, borderRadius: 2, backgroundColor: color.red },
@@ -515,7 +582,22 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   spinValueRoomy: { fontSize: 44 },
-  spinSub: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint },
+  spinSub: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint, lineHeight: 15 },
+  eraName: {
+    fontFamily: font.display,
+    fontSize: 23,
+    color: color.text,
+    letterSpacing: tracking.tight,
+    includeFontPadding: false,
+    marginTop: 1,
+  },
+  eraNameRoomy: { fontSize: 30 },
+  fieldHint: {
+    fontFamily: font.bodyRegular,
+    fontSize: 11,
+    color: color.textFaint,
+    textAlign: 'center',
+  },
 
   spinButton: {
     backgroundColor: color.red,

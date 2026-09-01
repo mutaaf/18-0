@@ -24,6 +24,25 @@ npx expo start --web
 The desktop layout is a different composition, not a scaled phone — left nav
 rail, two-column gameplay, hover states.
 
+## Modes
+
+**Player IQ** hides every rating and stat line — name, position, franchise and
+season only. You pick on what you actually know about football, and the numbers
+arrive with your record. The detail screen is blanked too, so there is no way
+around it mid-game.
+
+**Rookie** shows everything. It is the beginner mode: useful for learning what
+the model rewards before playing blind.
+
+Blind seasons are counted separately in My Stats.
+
+## Filling a position
+
+Tap a position on the field to target it — the eligible list filters to that
+position and the next player you tap goes straight into that slot. Tapping a
+player without targeting still works; a running back or receiver will ask which
+of its two slots you meant.
+
 ## The three-finger spin
 
 Hold three fingers anywhere on screen while tapping **Spin** and the wheel

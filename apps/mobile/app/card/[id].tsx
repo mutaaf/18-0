@@ -9,6 +9,7 @@ import {
   unavailableComponents,
 } from '@18-0/data';
 import { Screen } from '@/components/Screen';
+import { useGameStore } from '@/state/game';
 import { RatingBadge } from '@/components/RatingBadge';
 import { color, font, positionColor, radius, space, tracking } from '@/theme';
 
@@ -21,6 +22,9 @@ export default function CardDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const card = id ? cardById(decodeURIComponent(id)) : undefined;
+  // Player IQ hides the numbers everywhere, including here — otherwise the
+  // detail screen is just a way around the mode.
+  const blind = useGameStore((s) => s.mode === 'player_iq' && s.status !== 'complete');
 
   if (!card) {
     return (
@@ -54,12 +58,19 @@ export default function CardDetail() {
           <Text style={styles.meta}>
             {card.year} {team.name} · {eraLabel(card.era)} · {card.games} games
           </Text>
-          <View style={styles.ratingRow}>
-            <RatingBadge rating={card.rating} size="lg" />
-            <Text style={styles.ratingCaption}>18-0 rating for this season</Text>
-          </View>
+          {blind ? (
+            <Text style={styles.blindNote}>
+              Ratings are hidden in Player IQ mode. They arrive with your result.
+            </Text>
+          ) : (
+            <View style={styles.ratingRow}>
+              <RatingBadge rating={card.rating} size="lg" />
+              <Text style={styles.ratingCaption}>18-0 rating for this season</Text>
+            </View>
+          )}
         </View>
 
+        {blind ? null : (
         <View style={styles.statStrip}>
           {card.stats.map((stat) => (
             <View key={stat.label} style={styles.statCell}>
@@ -68,7 +79,9 @@ export default function CardDetail() {
             </View>
           ))}
         </View>
+        )}
 
+        {blind ? null : (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Component scores</Text>
           <Text style={styles.sectionNote}>
@@ -98,8 +111,9 @@ export default function CardDetail() {
             </View>
           ))}
         </View>
+        )}
 
-        {missing.length > 0 ? (
+        {!blind && missing.length > 0 ? (
           <View style={styles.missingData}>
             <Text style={styles.missingDataTitle}>Not measurable for this season</Text>
             <Text style={styles.missingDataCopy}>
@@ -153,6 +167,13 @@ const styles = StyleSheet.create({
   meta: { fontFamily: font.bodyRegular, fontSize: 13, color: color.textDim },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginTop: space.md },
   ratingCaption: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint, flex: 1 },
+  blindNote: {
+    fontFamily: font.bodyRegular,
+    fontSize: 12,
+    color: color.textFaint,
+    marginTop: space.md,
+    lineHeight: 17,
+  },
   statStrip: {
     flexDirection: 'row',
     borderWidth: 1,

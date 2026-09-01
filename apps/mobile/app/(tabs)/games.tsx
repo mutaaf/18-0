@@ -72,6 +72,7 @@ function GameCard({
             <Text style={[styles.ending, { color: accent }]}>{result.ending.label.toUpperCase()}</Text>
             <Text style={styles.cardDate}>
               {date.toLocaleDateString()} · Tier {result.ending.tier}
+              {game.mode === 'player_iq' ? ' · Player IQ' : ''}
               {game.assisted ? ' · Assisted' : ''}
             </Text>
           </View>

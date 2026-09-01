@@ -15,6 +15,8 @@ export interface HistoryEntry {
   readonly result: GameResult;
   /** True when the three-finger spin was used. Kept out of every record. */
   readonly assisted?: boolean;
+  /** Which mode this season was built in. */
+  readonly mode?: 'rookie' | 'player_iq';
   readonly roster: readonly {
     readonly slot: RosterSlot;
     readonly cardId: string;
@@ -55,6 +57,9 @@ export interface ProfileStats {
   topFranchise: string | null;
   topEra: string | null;
   bestCard: HistoryEntry['roster'][number] | null;
+  /** Seasons built blind. The number worth bragging about. */
+  playerIqGames: number;
+  bestPlayerIqRating: number | null;
 }
 
 export interface ProfileStatsInput {
@@ -72,6 +77,7 @@ export function computeStats(all: readonly HistoryEntry[]): ProfileStats {
     return {
       played: all.length, bestRating: null, bestRecord: null, perfectSeasons: 0,
       heartbreaks: 0, averageRating: null, topFranchise: null, topEra: null, bestCard: null,
+      playerIqGames: 0, bestPlayerIqRating: null,
     };
   }
 
@@ -94,8 +100,14 @@ export function computeStats(all: readonly HistoryEntry[]): ProfileStats {
   const top = (map: Map<string, number>) =>
     [...map.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
+  const blind = games.filter((g) => g.mode === 'player_iq');
+
   return {
     played: all.length,
+    playerIqGames: blind.length,
+    bestPlayerIqRating: blind.length
+      ? Math.max(...blind.map((g) => g.result.finalRating))
+      : null,
     bestRating: best.result.finalRating,
     bestRecord: best.result.record,
     perfectSeasons: games.filter((g) => g.result.ending.key === 'PERFECT').length,
