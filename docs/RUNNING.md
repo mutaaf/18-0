@@ -69,9 +69,21 @@ supabase functions deploy complete-game
 Then set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in
 `apps/mobile/.env` (see `.env.example`).
 
-**Not yet verified against a live project.** The schema, function and client
-typecheck and the SQL is generated from the real dataset, but nothing here has
-been run against a running Supabase instance.
+### Verifying it
+
+```bash
+supabase functions serve
+eval "$(supabase status -o env | sed 's/^/export /')"
+node scripts/verify/e2e.mjs
+```
+
+Plays a full ranked game and then tries to cheat it every way the threat model
+cares about — forging a completed session, tampering with a result, completing
+someone else's game, spinning into it, picking without a spin, taking a card
+from outside the issued franchise-era. 22 checks, all of which must pass.
+
+If the default ports collide with another local Supabase stack, the ports in
+`supabase/config.toml` are already moved to the 544xx range.
 
 ## Regenerating the model
 
