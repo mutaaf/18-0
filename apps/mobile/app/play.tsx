@@ -252,8 +252,8 @@ export default function Play() {
           </Text>
         </View>
         <View style={[styles.spinCard, styles.eraCard, layout.roomy && styles.spinCardRoomy]}>
-          <Text style={[styles.spinLabel, { color: '#B47CFF' }]}>
-            Era{shown ? ` · ${eraDef(shown.era).label}` : ''}
+          <Text style={[styles.spinLabel, { color: '#C49BFF' }]}>
+            Era{shown && !spinning ? ` · ${eraDef(shown.era).label}` : ''}
           </Text>
           {spinning && reel ? (
             <SpinReel
@@ -427,12 +427,14 @@ export default function Play() {
   ) : (
     <View style={styles.waiting}>
       <Text style={styles.waitingTitle}>
-        {complete ? 'Roster complete' : spin ? 'Slot filled' : 'Spin to begin'}
+        {complete ? 'Roster complete' : spinning ? 'Spinning…' : spin ? 'Slot filled' : 'Spin to begin'}
       </Text>
       <Text style={styles.waitingCopy}>
         {complete
           ? 'Seven picks are in. Reveal your season.'
-          : `Each spin gives you exactly one pick. ${remaining} ${remaining === 1 ? 'slot' : 'slots'} to go.`}
+          : spinning
+            ? 'Finding you a franchise and an era.'
+            : `Each spin gives you exactly one pick. ${remaining} ${remaining === 1 ? 'slot' : 'slots'} to go.`}
       </Text>
     </View>
   );
