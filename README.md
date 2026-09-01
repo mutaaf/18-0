@@ -11,6 +11,12 @@ from 0-18 to 18-0.
 No possession simulation. No random losses. The same roster always earns the
 same record — so every choice is yours.
 
+### [▶ Play it in your browser](https://mutaaf.github.io/18-0/)
+
+[![CI](https://github.com/mutaaf/18-0/actions/workflows/ci.yml/badge.svg)](https://github.com/mutaaf/18-0/actions/workflows/ci.yml)
+[![Deploy](https://github.com/mutaaf/18-0/actions/workflows/pages.yml/badge.svg)](https://github.com/mutaaf/18-0/actions/workflows/pages.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 </div>
 
 ---
@@ -84,17 +90,22 @@ Nobody hand-picked those. They fell out of the model.
 
 ## Play it
 
+**In a browser:** [mutaaf.github.io/18-0](https://mutaaf.github.io/18-0/) —
+deployed from `main` on every push.
+
+**On your phone**, which is where it belongs:
+
 ```bash
 pnpm install
 cd apps/mobile && npx expo start
 ```
 
-Scan the QR code with **Expo Go**. That is where it belongs — the haptics, the
-three-finger spin and the reveal do not land in a browser.
+Scan the QR code with **Expo Go**. The haptics, the three-finger spin and the
+reveal all land properly on a device and none of them do in a browser.
 
-`npx expo start --web` for the desktop build, which is a different composition
-rather than a stretched phone: a left nav rail, and the lineup graphic beside
-the eligible list so a pick never costs a scroll.
+The desktop build is a different composition rather than a stretched phone: a
+left nav rail, and the lineup graphic beside the eligible list so a pick never
+costs a scroll.
 
 ### Modes
 
