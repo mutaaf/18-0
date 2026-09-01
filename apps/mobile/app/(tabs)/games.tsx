@@ -72,6 +72,7 @@ function GameCard({
             <Text style={[styles.ending, { color: accent }]}>{result.ending.label.toUpperCase()}</Text>
             <Text style={styles.cardDate}>
               {date.toLocaleDateString()} · Tier {result.ending.tier}
+              {game.assisted ? ' · Assisted' : ''}
             </Text>
           </View>
           <RatingBadge rating={result.finalRating} size="sm" />

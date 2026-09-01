@@ -3,6 +3,7 @@ import raw from '../generated/dataset.json' with { type: 'json' };
 import type { Dataset, DatasetCard, DatasetFranchise } from './schema.js';
 
 export * from './schema.js';
+export * from './eras.js';
 
 /**
  * The bundled historical dataset.

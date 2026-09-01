@@ -7,11 +7,19 @@ import { color, font, radius, space, tracking, useLayout, type PressState } from
 
 const ICONS: Record<string, string> = {
   games: 'M12 3a9 9 0 1 0 9 9 M12 7v5l3.5 2 M12 3l-3 2.4 3 2.4',
+  leaderboard: 'M8 21h8 M12 17v4 M7 4h10v5a5 5 0 0 1-10 0z M7 5H4v2a3 3 0 0 0 3 3 M17 5h3v2a3 3 0 0 1-3 3',
   index: 'M4 6h16v12H4z M12 6v12 M4 10h3 M17 10h3 M4 14h3 M17 14h3',
+  challenges: 'M4 4l7 7 M20 4l-7 7 M9 15l-5 5 M15 15l5 5 M11 11l2 2',
   stats: 'M4 20V10 M10 20V4 M16 20v-7 M22 20h-20',
 };
 
-const LABELS: Record<string, string> = { games: 'Games', index: 'Play', stats: 'My Stats' };
+const LABELS: Record<string, string> = {
+  games: 'Games',
+  leaderboard: 'Leaderboards',
+  index: 'Play',
+  challenges: 'Challenges',
+  stats: 'My Stats',
+};
 
 function Glyph({ name, active }: { name: string; active: boolean }) {
   return (
@@ -178,10 +186,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#080B0FF2',
     paddingTop: space.md,
   },
-  barItem: { flex: 1, alignItems: 'center', gap: 3 },
+  barItem: { flex: 1, alignItems: 'center', gap: 3, paddingHorizontal: 2 },
   barLabel: {
     fontFamily: font.label,
-    fontSize: 9,
+    fontSize: 8,
     letterSpacing: tracking.wide,
     color: color.textFaint,
     textTransform: 'uppercase',

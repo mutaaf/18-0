@@ -1,14 +1,36 @@
-import { useEffect } from 'react';
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeInDown,
+  ReduceMotion,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { ROSTER_SLOTS, isPerfectionDenied, type RosterSlot } from '@18-0/domain';
-import { displayName, franchise } from '@18-0/data';
+import { displayName, eraLabel, franchise } from '@18-0/data';
 import { Brand } from '@/components/Brand';
+import { ShareCard, type ShareRosterRow } from '@/components/ShareCard';
+import { shareResult } from '@/features/share';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
 import { lookupCard, useGameStore } from '@/state/game';
 import { color, font, positionColor, radius, space, tierColor, tracking, useLayout, type PressState } from '@/theme';
+
+/**
+ * The reveal is the payoff, so it is orchestrated rather than scattered: the
+ * record lands first, the verdict follows, then the roster fills in row by row.
+ * Every animation defers to the system Reduce Motion setting (PRFAQ §34).
+ */
+const enter = (delay: number, distance = 14) =>
+  FadeInDown.delay(delay).duration(380).easing(Easing.out(Easing.cubic)).reduceMotion(ReduceMotion.System);
 
 export default function Result() {
   const router = useRouter();
@@ -16,14 +38,31 @@ export default function Result() {
   const game = useGameStore();
   const result = game.result;
 
+  // 18-0 gets a slow breathing glow. Nothing else in the app is gold, so this
+  // reads as the moment it is.
+  const glow = useSharedValue(0);
+  const glowStyle = useAnimatedStyle(() => ({ shadowOpacity: 0.28 + glow.value * 0.34 }));
+
   useEffect(() => {
     if (!result) router.replace('/(tabs)');
   }, [result]);
 
   useEffect(() => {
-    if (result?.ending.key === 'PERFECT') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    }
+    if (result?.ending.key !== 'PERFECT') return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    glow.value = withDelay(
+      420,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
+          withTiming(0, { duration: 1600, easing: Easing.inOut(Easing.sin) }),
+        ),
+        -1,
+        false,
+        undefined,
+        ReduceMotion.System,
+      ),
+    );
   }, [result?.ending.key]);
 
   if (!result) return <Screen><View /></Screen>;
@@ -33,21 +72,28 @@ export default function Result() {
   const heartbreak = result.ending.key === 'HEARTBREAK';
   const accent = perfect ? color.gold : tierColor[result.ending.tier] ?? color.text;
 
+  const cardRef = useRef<View>(null);
+
   const rosterCards = game.selections
     .map((s) => ({ slot: s.slot, card: lookupCard(s.cardId) }))
     .filter((x): x is { slot: RosterSlot; card: NonNullable<ReturnType<typeof lookupCard>> } => !!x.card)
     .sort((a, b) => ROSTER_SLOTS.indexOf(a.slot) - ROSTER_SLOTS.indexOf(b.slot));
 
+  const shareRows: ShareRosterRow[] = useMemo(
+    () =>
+      rosterCards.map(({ slot, card }) => ({
+        slot,
+        name: displayName(card),
+        abbr: franchise(card.franchiseId).abbr,
+        year: card.year,
+        rating: card.rating,
+        position: card.position,
+      })),
+    [rosterCards],
+  );
+
   const share = () => {
-    const lines = rosterCards.map(
-      (r) => `${r.slot.padEnd(4)} ${displayName(r.card)} '${String(r.card.year).slice(2)}  ${r.card.rating.toFixed(1)}`,
-    );
-    Share.share({
-      message:
-        `18-0 — ${result.record.wins}-${result.record.losses} ${result.ending.label.toUpperCase()}\n` +
-        `Rating ${result.finalRating.toFixed(1)} · Tier ${result.ending.tier}\n\n${lines.join('\n')}\n\n` +
-        `Can you beat this roster?`,
-    }).catch(() => {});
+    void shareResult(cardRef, result, shareRows);
   };
 
   const buildAnother = () => {
@@ -57,21 +103,22 @@ export default function Result() {
 
   const verdict = (
     <View style={styles.verdictColumn}>
-      <View
-        style={[styles.hero, { borderColor: `${accent}59` }, perfect && styles.heroPerfect]}
+      <Animated.View
+        entering={enter(0, 18)}
+        style={[styles.hero, { borderColor: `${accent}59` }, perfect && styles.heroPerfect, perfect && glowStyle]}
           accessible
           accessibilityLabel={`Final result. ${result.record.wins} and ${result.record.losses}. ${result.ending.label}. Tier ${result.ending.tier}. Rating ${result.finalRating.toFixed(1)}.`}
         >
           <Text style={styles.heroKicker}>Projected Record</Text>
-          <View style={styles.recordRow}>
+          <Animated.View entering={enter(90, 10)} style={styles.recordRow}>
             <Text style={[styles.recordNum, perfect && { color: color.goldBright }]}>{result.record.wins}</Text>
             <View style={[styles.recordDash, { backgroundColor: accent }]} />
             <Text style={[styles.recordNum, perfect && { color: color.goldBright }]}>{result.record.losses}</Text>
-          </View>
-          <Text style={[styles.endingName, { color: accent }]}>
+          </Animated.View>
+          <Animated.Text entering={enter(220, 8)} style={[styles.endingName, { color: accent }]}>
             {perfect ? 'PERFECT' : result.ending.label.toUpperCase()}
-          </Text>
-          <View style={styles.heroMeta}>
+          </Animated.Text>
+          <Animated.View entering={enter(300, 6)} style={styles.heroMeta}>
             <Text style={styles.tier}>
               TIER <Text style={{ color: accent }}>{result.ending.tier}</Text>
             </Text>
@@ -79,39 +126,48 @@ export default function Result() {
             <Text style={styles.rating}>
               {result.finalRating.toFixed(1)} <Text style={styles.ratingLabel}>18-0 RATING</Text>
             </Text>
-          </View>
+          </Animated.View>
+        </Animated.View>
+
+      {game.assisted ? (
+        <View style={styles.assisted}>
+          <Text style={styles.assistedTitle}>Assisted</Text>
+          <Text style={styles.assistedCopy}>
+            A rigged spin was used, so this season is saved but kept out of your records.
+          </Text>
         </View>
+      ) : null}
 
-        {perfect ? (
-          <View style={styles.immortal}>
+      {perfect ? (
+        <Animated.View entering={enter(420, 10)} style={styles.immortal}>
             <Text style={styles.immortalWord}>IMMORTAL</Text>
-            <Text style={styles.immortalCopy}>
-              No weaknesses. No compromises. A roster for the ages.
-            </Text>
-          </View>
-        ) : null}
+          <Text style={styles.immortalCopy}>
+            No weaknesses. No compromises. A roster for the ages.
+          </Text>
+        </Animated.View>
+      ) : null}
 
-        {denied ? (
-          <View style={styles.denied}>
+      {denied ? (
+        <Animated.View entering={enter(420, 10)} style={styles.denied}>
             <Text style={styles.deniedTitle}>Perfection Denied</Text>
             <Text style={styles.deniedCopy}>
               This roster cleared the {result.perfectEligibility.reachedThreshold ? '' : ''}
               18-0 score. It failed the gates.
             </Text>
-            {result.perfectEligibility.failedGates.slice(0, 3).map((gate) => (
-              <Text key={`${gate.kind}-${gate.slot}`} style={styles.deniedGate}>
-                — {gate.message}
-              </Text>
-            ))}
-          </View>
-        ) : heartbreak ? (
-          <View style={styles.heartbreak}>
+          {result.perfectEligibility.failedGates.slice(0, 3).map((gate) => (
+            <Text key={`${gate.kind}-${gate.slot}`} style={styles.deniedGate}>
+              — {gate.message}
+            </Text>
+          ))}
+        </Animated.View>
+      ) : heartbreak ? (
+        <Animated.View entering={enter(420, 10)} style={styles.heartbreak}>
             <Text style={styles.heartbreakTitle}>Heartbreak</Text>
             <Text style={styles.heartbreakCopy}>
               One loss from immortality. {result.distanceFromPerfection.toFixed(2)} rating points short
               of the 18-0 threshold.
             </Text>
-          </View>
+        </Animated.View>
       ) : (
         <View style={styles.gap}>
           <Text style={styles.gapLabel}>Distance from 18-0</Text>
@@ -119,7 +175,7 @@ export default function Result() {
         </View>
       )}
 
-      <View style={styles.actions}>
+      <Animated.View entering={enter(560, 10)} style={styles.actions}>
         <Pressable
           style={({ pressed, hovered }: PressState) => [styles.primary, hovered && styles.lift, pressed && { opacity: 0.85 }]}
           onPress={buildAnother}
@@ -136,7 +192,7 @@ export default function Result() {
         >
           <Text style={styles.secondaryLabel}>Share</Text>
         </Pressable>
-      </View>
+      </Animated.View>
     </View>
   );
 
@@ -144,21 +200,21 @@ export default function Result() {
     <View style={styles.detailColumn}>
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Roster</Text>
-          {rosterCards.map(({ slot, card }) => (
-            <View key={slot} style={styles.rosterRow}>
+        {rosterCards.map(({ slot, card }, index) => (
+          <Animated.View key={slot} entering={enter(320 + index * 55)} style={styles.rosterRow}>
               <Text style={[styles.rosterSlot, { color: positionColor[card.position] }]}>{slot}</Text>
               <View style={styles.rosterMain}>
                 <Text style={styles.rosterName} numberOfLines={1}>
                   {displayName(card)}
                 </Text>
                 <Text style={styles.rosterMeta}>
-                  {franchise(card.franchiseId).abbr} · {card.year} · {card.era}
+                  {franchise(card.franchiseId).abbr} · {card.year} · {eraLabel(card.era)}
                 </Text>
               </View>
-              <RatingBadge rating={card.rating} size="sm" />
-            </View>
-          ))}
-        </View>
+            <RatingBadge rating={card.rating} size="sm" />
+          </Animated.View>
+        ))}
+      </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>How it scored</Text>
@@ -224,6 +280,12 @@ export default function Result() {
           </>
         )}
       </ScrollView>
+
+      {/* Rendered off-screen at a fixed size so the captured image is
+          identical on every device. */}
+      <View style={styles.captureHost} pointerEvents="none" collapsable={false}>
+        <ShareCard ref={cardRef} result={result} roster={shareRows} assisted={game.assisted} />
+      </View>
     </Screen>
   );
 }
@@ -243,6 +305,7 @@ const styles = StyleSheet.create({
   verdictColumn: { flex: 1, gap: space.lg, minWidth: 0 },
   detailColumn: { flex: 1, gap: space.xl, minWidth: 0 },
   lift: { transform: [{ translateY: -1 }] },
+  captureHost: { position: 'absolute', left: -10000, top: 0, opacity: 0 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: space.sm },
   close: { fontFamily: font.body, fontSize: 18, color: color.textDim },
   hero: {
@@ -256,8 +319,7 @@ const styles = StyleSheet.create({
   heroPerfect: {
     backgroundColor: '#1A140099',
     shadowColor: color.gold,
-    shadowOpacity: 0.4,
-    shadowRadius: 30,
+    shadowRadius: 34,
     shadowOffset: { width: 0, height: 0 },
   },
   heroKicker: {
@@ -289,6 +351,22 @@ const styles = StyleSheet.create({
   dot: { color: color.textFaint },
   rating: { fontFamily: font.heading, fontSize: 15, color: color.text },
   ratingLabel: { fontFamily: font.label, fontSize: 9, letterSpacing: tracking.wide, color: color.textFaint },
+  assisted: {
+    borderWidth: 1,
+    borderColor: '#F2C43D40',
+    backgroundColor: '#F2C43D0D',
+    borderRadius: radius.md,
+    padding: space.md,
+    gap: 2,
+  },
+  assistedTitle: {
+    fontFamily: font.label,
+    fontSize: 10,
+    letterSpacing: tracking.wider,
+    color: color.gold,
+    textTransform: 'uppercase',
+  },
+  assistedCopy: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textDim, lineHeight: 17 },
   immortal: { alignItems: 'center', gap: 4 },
   immortalWord: {
     fontFamily: font.displayBlack,

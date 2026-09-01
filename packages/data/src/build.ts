@@ -24,6 +24,7 @@ import {
   type PlayerCalibration,
   type SeasonStats,
 } from '@18-0/domain';
+import { ERA_TABLE, eraForYear } from './eras.js';
 import type { Dataset, DatasetCard, DatasetComponent, StatLine } from './schema.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -85,8 +86,6 @@ const TEAM_TO_FRANCHISE: Readonly<Record<string, string>> = {
   NYJ: 'nyj', PHI: 'phi', PIT: 'pit', SEA: 'sea', SF: 'sf', TB: 'tb', TEN: 'ten',
   WAS: 'was',
 };
-
-const eraForYear = (year: number): EraKey => `${Math.floor(year / 10) * 10}s` as EraKey;
 
 const POSITION_MAP: Readonly<Record<string, Position>> = {
   QB: 'QB', RB: 'RB', FB: 'RB', HB: 'RB', WR: 'WR', TE: 'TE',
@@ -405,8 +404,8 @@ function main(): void {
     else groups.set(key, [season]);
   }
 
-  /** An era is only offered if the dataset actually covers most of it. */
-  const MIN_SEASONS_PER_ERA = 5;
+  /** An era is only offered if the dataset covers most of its span. */
+  const MIN_ERA_COVERAGE = 0.8;
 
   const draft: (Omit<DatasetCard, 'rating'> & { raw: number })[] = [];
   let skipped = 0;
@@ -470,6 +469,8 @@ function main(): void {
       }));
 
       const franchise = season.franchiseId;
+      const eraKey = eraForYear(season.year);
+      if (!eraKey) continue;
       draft.push({
         id: `${season.playerId}-${season.year}`,
         entityId: season.position === 'DEF' ? `def-${franchise}-${season.year}` : season.playerId,
@@ -477,7 +478,7 @@ function main(): void {
         position: season.position,
         franchiseId: franchise,
         year: season.year,
-        era: eraForYear(season.year),
+        era: eraKey,
         raw: rating.overall,
         games: season.stats.games ?? 0,
         archetypes: deriveArchetypes(season, rank),
@@ -520,15 +521,12 @@ function main(): void {
     set.add(card.year);
     seasonsPerEra.set(card.era, set);
   }
-  const coveredEras = new Set(
-    [...seasonsPerEra.entries()]
-      .filter(([, years]) => years.size >= MIN_SEASONS_PER_ERA)
-      .map(([era]) => era),
-  );
-  for (const [era, years] of seasonsPerEra) {
-    if (!coveredEras.has(era)) {
-      console.log(`  dropping ${era}: only ${years.size} season(s) of coverage`);
-    }
+  const coveredEras = new Set<EraKey>();
+  for (const definition of ERA_TABLE) {
+    const years = seasonsPerEra.get(definition.key)?.size ?? 0;
+    const span = definition.endYear - definition.startYear + 1;
+    if (years / span >= MIN_ERA_COVERAGE) coveredEras.add(definition.key);
+    else console.log(`  dropping ${definition.key}: ${years}/${span} seasons covered`);
   }
 
   // Only offer eras we can actually populate at every position.
@@ -579,10 +577,13 @@ function main(): void {
     generatedAt: new Date().toISOString(),
     source: 'nflverse-data (stats_player_reg, stats_team_week, schedules), regular season only',
     coverage: { firstSeason: Math.min(...years), lastSeason: Math.max(...years) },
-    eras: eraKeys.map((key) => {
-      const startYear = Number(key.slice(0, 4));
-      return { key, label: key, startYear, endYear: startYear + 9 };
-    }),
+    eras: ERA_TABLE.filter((e) => eraKeys.includes(e.key)).map((e) => ({
+      key: e.key,
+      label: e.label,
+      startYear: e.startYear,
+      endYear: e.endYear,
+      tagline: e.tagline,
+    })),
     franchises,
     combos,
     cards: finalCards,

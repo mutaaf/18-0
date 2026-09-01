@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "analyze": "tsx src/cli/analyze.ts",
-    "tune": "tsx src/cli/tune-gates.ts"
+    "tune": "tsx src/cli/tune-gates.ts",
+    "seed:sql": "tsx src/cli/seed-sql.ts"
   },
   "dependencies": {
     "@18-0/domain": "workspace:*"

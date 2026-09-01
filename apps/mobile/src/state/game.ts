@@ -40,9 +40,15 @@ interface GameState {
   selections: StoredSelection[];
   startedAt: number | null;
   result: GameResult | null;
+  /**
+   * True once a rigged spin has been used. Assisted games still save and still
+   * show their result — they are just marked, and kept off the leaderboard, so
+   * an honest run and a helped one are never confused.
+   */
+  assisted: boolean;
 
   startGame: () => void;
-  spin: () => SpinResult | null;
+  spin: (options?: { assist?: boolean }) => SpinResult | null;
   select: (card: DatasetCard, slot: RosterSlot) => { ok: true } | { ok: false; message: string };
   removeSelection: (slot: RosterSlot) => void;
   complete: () => GameResult | null;
@@ -69,6 +75,33 @@ export function rosterFrom(selections: readonly StoredSelection[]): PartialRoste
 
 const MAX_SPIN_ATTEMPTS = 60;
 
+/**
+ * The three-finger spin.
+ *
+ * Hold three fingers on the screen while spinning (or Shift-click on a pointer
+ * device) and the wheel is rigged: it lands on whichever franchise-era holds
+ * the single best card still available for a slot you have not filled.
+ *
+ * It is a cheat, and the game says so — any run that uses it is flagged
+ * `assisted` for the rest of the game, so a rigged 18-0 can never be mistaken
+ * for an earned one.
+ */
+function bestAvailableCombo(roster: PartialRoster): { franchiseId: string; era: EraKey } | null {
+  let best: { franchiseId: string; era: EraKey; rating: number } | null = null;
+
+  for (const combo of DATASET.combos) {
+    const era = combo.era as EraKey;
+    for (const card of eligibleCards(combo.franchiseId, era)) {
+      if (card.rating <= (best?.rating ?? -Infinity)) break; // list is rating-sorted
+      if (eligibleSlotsFor(toRatedSeason(card), roster).length === 0) continue;
+      best = { franchiseId: combo.franchiseId, era, rating: card.rating };
+      break;
+    }
+  }
+
+  return best ? { franchiseId: best.franchiseId, era: best.era } : null;
+}
+
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
@@ -77,30 +110,41 @@ export const useGameStore = create<GameState>()(
       selections: [],
       startedAt: null,
       result: null,
+      assisted: false,
 
       startGame: () =>
-        set({ status: 'ready_to_spin', spins: [], selections: [], startedAt: Date.now(), result: null }),
+        set({
+          status: 'ready_to_spin',
+          spins: [],
+          selections: [],
+          startedAt: Date.now(),
+          result: null,
+          assisted: false,
+        }),
 
-      spin: () => {
-        const { spins, selections, status } = get();
+      spin: (options) => {
+        const { spins, selections, status, assisted } = get();
         if (status === 'complete') return null;
         const roster = rosterFrom(selections);
+
+        const land = (franchiseId: string, era: EraKey, rigged: boolean) => {
+          const result: SpinResult = { sequence: spins.length + 1, franchiseId, era };
+          set({ spins: [...spins, result], status: 'spun', assisted: assisted || rigged });
+          return result;
+        };
+
+        if (options?.assist) {
+          const best = bestAvailableCombo(roster);
+          if (best) return land(best.franchiseId, best.era, true);
+        }
 
         // Re-spin rather than dead-end when a franchise-era offers nothing for
         // any open slot (PRFAQ §6.3).
         for (let attempt = 0; attempt < MAX_SPIN_ATTEMPTS; attempt++) {
           const combo = DATASET.combos[Math.floor(Math.random() * DATASET.combos.length)]!;
           const cards = eligibleCards(combo.franchiseId, combo.era as EraKey);
-          const playable = spinHasPlayableOption(cards.map(toRatedSeason), roster);
-          if (!playable) continue;
-
-          const result: SpinResult = {
-            sequence: spins.length + 1,
-            franchiseId: combo.franchiseId,
-            era: combo.era as EraKey,
-          };
-          set({ spins: [...spins, result], status: 'spun' });
-          return result;
+          if (!spinHasPlayableOption(cards.map(toRatedSeason), roster)) continue;
+          return land(combo.franchiseId, combo.era as EraKey, false);
         }
         return null;
       },
@@ -139,7 +183,8 @@ export const useGameStore = create<GameState>()(
         return result;
       },
 
-      abandon: () => set({ status: 'idle', spins: [], selections: [], startedAt: null, result: null }),
+      abandon: () =>
+        set({ status: 'idle', spins: [], selections: [], startedAt: null, result: null, assisted: false }),
     }),
     {
       name: '18-0.game',
@@ -150,6 +195,7 @@ export const useGameStore = create<GameState>()(
         selections: s.selections,
         startedAt: s.startedAt,
         result: s.result,
+        assisted: s.assisted,
       }),
     },
   ),

@@ -12,7 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { POSITIONS, ROSTER_SLOTS, type Position, type RosterSlot } from '@18-0/domain';
-import { DATASET, displayName, eligibleCards, franchise, type DatasetCard } from '@18-0/data';
+import { DATASET, displayName, eligibleCards, era as eraDef, eraLabel, franchise, type DatasetCard } from '@18-0/data';
 import { Brand } from '@/components/Brand';
 import { Field } from '@/components/Field';
 import { PlayerRow } from '@/components/PlayerRow';
@@ -38,7 +38,10 @@ export default function Play() {
   const [notice, setNotice] = useState<string | null>(null);
   const [lastPick, setLastPick] = useState<{ card: DatasetCard; slot: RosterSlot } | null>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [assistArmed, setAssistArmed] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Live touch count, for the three-finger spin. */
+  const fingers = useRef(0);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
@@ -101,8 +104,19 @@ export default function Play() {
   const selected = selectedId ? eligible.find((c) => c.id === selectedId) ?? null : null;
   const targetSlots = selected ? slotsForCard(selected, game.selections) : [];
 
-  const doSpin = useCallback(() => {
+  /**
+   * The three-finger spin: hold three fingers anywhere on the screen while
+   * tapping Spin and the wheel lands on the best card still available. On a
+   * pointer device the equivalent is Shift-click.
+   */
+  const trackTouches = useCallback((count: number) => {
+    fingers.current = count;
+    setAssistArmed(count >= 3);
+  }, []);
+
+  const doSpin = useCallback((event?: { shiftKey?: boolean }) => {
     if (spinning || complete) return;
+    const assist = fingers.current >= 3 || event?.shiftKey === true;
     setSelectedId(null);
     setNotice(null);
     setLastPick(null);
@@ -111,7 +125,7 @@ export default function Play() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 
     const land = () => {
-      const result = game.spin();
+      const result = game.spin({ assist });
       setSpinning(false);
       setTeaser(null);
       if (!result) {
@@ -161,6 +175,7 @@ export default function Play() {
       id: `${game.startedAt ?? Date.now()}`,
       completedAt: Date.now(),
       result,
+      assisted: game.assisted,
       roster: game.selections.map((s) => {
         const card = lookupCard(s.cardId)!;
         return {
@@ -199,9 +214,11 @@ export default function Play() {
         <View style={[styles.spinCard, styles.eraCard, layout.roomy && styles.spinCardRoomy]}>
           <Text style={[styles.spinLabel, { color: '#B47CFF' }]}>Era</Text>
           <Text style={[styles.spinValue, layout.roomy && styles.spinValueRoomy]}>
-            {shown ? shown.era : '—'}
+            {shown ? eraLabel(shown.era) : '—'}
           </Text>
-          <Text style={styles.spinSub}>{shown ? 'Eligible seasons' : 'Awaiting spin'}</Text>
+          <Text style={styles.spinSub} numberOfLines={1}>
+            {shown ? eraDef(shown.era).tagline : 'Awaiting spin'}
+          </Text>
         </View>
       </View>
 
@@ -220,7 +237,7 @@ export default function Play() {
         </Pressable>
       ) : (
         <Pressable
-          onPress={doSpin}
+          onPress={(event) => doSpin(event?.nativeEvent as { shiftKey?: boolean } | undefined)}
           disabled={spinning || canPick}
           accessibilityRole="button"
           accessibilityLabel={canPick ? 'Make a pick before spinning again' : 'Spin the wheel'}
@@ -235,11 +252,29 @@ export default function Play() {
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={[styles.spinButtonLabel, canPick && { color: color.textFaint }]}>
-              {canPick ? 'Take a player first' : spin ? `Spin · ${remaining} left` : 'Spin The Wheel'}
+              {canPick
+                ? 'Take a player first'
+                : assistArmed
+                  ? 'Rigged Spin'
+                  : spin
+                    ? `Spin · ${remaining} left`
+                    : 'Spin The Wheel'}
             </Text>
           )}
         </Pressable>
       )}
+
+      {assistArmed && !canPick && !complete ? (
+        <Text style={styles.assistHint}>Three fingers down — this spin will find the best card left.</Text>
+      ) : null}
+
+      {game.assisted ? (
+        <View style={styles.assistedFlag}>
+          <Text style={styles.assistedFlagText}>
+            Assisted run · this season won't count toward records
+          </Text>
+        </View>
+      ) : null}
 
       {notice ? <Text style={styles.notice}>{notice}</Text> : null}
 
@@ -286,7 +321,7 @@ export default function Play() {
       />
 
       <Text style={styles.count}>
-        {visible.length} eligible · one pick from this spin
+        {visible.length} eligible · {team?.name} {shown ? eraLabel(shown.era) : ''} · one pick from this spin
       </Text>
 
       <View style={styles.list}>
@@ -327,6 +362,13 @@ export default function Play() {
 
   return (
     <Screen maxWidth={layout.maxWidth}>
+      <View
+        style={styles.touchLayer}
+        pointerEvents="box-none"
+        onTouchStart={(e) => trackTouches(e.nativeEvent.touches.length)}
+        onTouchEnd={(e) => trackTouches(e.nativeEvent.touches.length)}
+        onTouchCancel={() => trackTouches(0)}
+      />
       <View style={styles.header}>
         <Brand size={layout.wide ? 26 : 22} />
         <View style={styles.headerRight}>
@@ -521,6 +563,29 @@ const styles = StyleSheet.create({
   },
   lift: { transform: [{ translateY: -1 }] },
   notice: { fontFamily: font.body, fontSize: 12, color: color.negative, textAlign: 'center' },
+  touchLayer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  assistHint: {
+    fontFamily: font.body,
+    fontSize: 12,
+    color: color.gold,
+    textAlign: 'center',
+  },
+  assistedFlag: {
+    borderWidth: 1,
+    borderColor: '#F2C43D40',
+    backgroundColor: '#F2C43D0D',
+    borderRadius: radius.sm,
+    paddingVertical: 6,
+    paddingHorizontal: space.md,
+  },
+  assistedFlagText: {
+    fontFamily: font.label,
+    fontSize: 9,
+    letterSpacing: tracking.wide,
+    color: color.gold,
+    textTransform: 'uppercase',
+    textAlign: 'center',
+  },
 
   lastPick: {
     flexDirection: 'row',

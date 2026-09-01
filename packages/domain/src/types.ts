@@ -41,7 +41,17 @@ export const SLOT_POSITION: Readonly<Record<RosterSlot, Position>> = {
 // Eras and franchises (PRFAQ §6.2, §27)
 // ---------------------------------------------------------------------------
 
-export const ERA_KEYS = [
+/**
+ * Eras are data, not a fixed enum (PRFAQ §27).
+ *
+ * The spec proposed decades, but the era table is defined by whatever the
+ * dataset can actually populate — see `packages/data/src/eras.ts`. Keeping the
+ * key open means re-cutting the periods is a data change, not a type change.
+ */
+export type EraKey = string;
+
+/** The decade labels the synthetic simulation harness still uses. */
+export const LEGACY_DECADE_KEYS = [
   '1950s',
   '1960s',
   '1970s',
@@ -51,8 +61,6 @@ export const ERA_KEYS = [
   '2010s',
   '2020s',
 ] as const;
-
-export type EraKey = (typeof ERA_KEYS)[number];
 
 export interface Era {
   readonly key: EraKey;

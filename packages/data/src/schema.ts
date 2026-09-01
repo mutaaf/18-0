@@ -25,6 +25,7 @@ export interface DatasetEra {
   readonly label: string;
   readonly startYear: number;
   readonly endYear: number;
+  readonly tagline: string;
 }
 
 /** A headline stat shown on a player card, already formatted for display. */

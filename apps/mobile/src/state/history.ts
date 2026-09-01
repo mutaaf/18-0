@@ -13,6 +13,8 @@ export interface HistoryEntry {
   readonly id: string;
   readonly completedAt: number;
   readonly result: GameResult;
+  /** True when the three-finger spin was used. Kept out of every record. */
+  readonly assisted?: boolean;
   readonly roster: readonly {
     readonly slot: RosterSlot;
     readonly cardId: string;
@@ -55,10 +57,20 @@ export interface ProfileStats {
   bestCard: HistoryEntry['roster'][number] | null;
 }
 
-export function computeStats(games: readonly HistoryEntry[]): ProfileStats {
+export interface ProfileStatsInput {
+  readonly games: readonly HistoryEntry[];
+}
+
+/**
+ * Records come only from honest runs. Assisted games still appear in history —
+ * they just cannot set a best rating, a best record, or a perfect-season count,
+ * so the numbers a player is proud of stay meaningful.
+ */
+export function computeStats(all: readonly HistoryEntry[]): ProfileStats {
+  const games = all.filter((g) => !g.assisted);
   if (games.length === 0) {
     return {
-      played: 0, bestRating: null, bestRecord: null, perfectSeasons: 0,
+      played: all.length, bestRating: null, bestRecord: null, perfectSeasons: 0,
       heartbreaks: 0, averageRating: null, topFranchise: null, topEra: null, bestCard: null,
     };
   }
@@ -83,7 +95,7 @@ export function computeStats(games: readonly HistoryEntry[]): ProfileStats {
     [...map.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
   return {
-    played: games.length,
+    played: all.length,
     bestRating: best.result.finalRating,
     bestRecord: best.result.record,
     perfectSeasons: games.filter((g) => g.result.ending.key === 'PERFECT').length,

@@ -4,6 +4,7 @@ import {
   cardById,
   componentBreakdown,
   displayName,
+  eraLabel,
   franchise,
   unavailableComponents,
 } from '@18-0/data';
@@ -51,7 +52,7 @@ export default function CardDetail() {
           </View>
           <Text style={styles.name}>{displayName(card)}</Text>
           <Text style={styles.meta}>
-            {card.year} {team.name} · {card.era} · {card.games} games
+            {card.year} {team.name} · {eraLabel(card.era)} · {card.games} games
           </Text>
           <View style={styles.ratingRow}>
             <RatingBadge rating={card.rating} size="lg" />

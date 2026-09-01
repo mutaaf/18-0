@@ -14,12 +14,15 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "sim": "tsx src/sim/cli/reachability.ts",
-    "calibrate": "tsx src/sim/cli/calibrate.ts"
+    "calibrate": "tsx src/sim/cli/calibrate.ts",
+    "regen:fixtures": "tsx src/sim/cli/regen-fixtures.ts",
+    "build:edge": "esbuild src/index.ts --bundle --format=esm --platform=neutral --target=es2022 --outfile=../../supabase/functions/_shared/domain.ts"
   },
   "devDependencies": {
     "typescript": "^5.7.2",
     "vitest": "^2.1.8",
     "tsx": "^4.19.2",
-    "@types/node": "^22.10.2"
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.24.0"
   }
 }

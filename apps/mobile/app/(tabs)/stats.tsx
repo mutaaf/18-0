@@ -1,5 +1,5 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { franchise } from '@18-0/data';
+import { eraLabel, franchise } from '@18-0/data';
 import { Screen } from '@/components/Screen';
 import { computeStats, useHistoryStore } from '@/state/history';
 import { color, font, radius, space, tracking, useLayout } from '@/theme';
@@ -38,7 +38,7 @@ export default function Stats() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Tendencies</Text>
           <Row label="Most-used franchise" value={stats.topFranchise ? franchise(stats.topFranchise).name : '—'} />
-          <Row label="Most-used era" value={stats.topEra ?? '—'} />
+          <Row label="Most-used era" value={stats.topEra ? eraLabel(stats.topEra) : '—'} />
           <Row
             label="Highest-rated pick"
             value={stats.bestCard ? `${stats.bestCard.name} (${stats.bestCard.rating.toFixed(1)})` : '—'}

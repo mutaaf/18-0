@@ -269,19 +269,23 @@ const RECORD_BANDS: readonly RecordBand[] = [
  * cleanly against the §9 scale:
  *
  *   93 = First-Team All-Pro caliber  -> no slot is an obvious weakness
- *   97 = all-time elite              -> QB and defence must be all-time elite,
+ *   96 = all-time elite              -> QB and defence must be all-time elite,
  *                                       and four positions in total
+ *
+ * Refitted again when the era table moved from three decades to five periods:
+ * smaller franchise-era buckets offer fewer elite cards per spin, which made
+ * the previous floors a 1-in-200,000 event. These land it at 1 in ~12,000.
  */
 const PERFECTION: PerfectionConfig = {
   minFinalRating: 98.5,
-  slotMinimums: { QB: 97, DEF: 97 },
+  slotMinimums: { QB: 96, DEF: 96 },
   universalSlotMinimum: 93,
-  eliteCount: { minRating: 97, minCount: 4 },
+  eliteCount: { minRating: 96, minCount: 4 },
   deniedEndingKey: 'HEARTBREAK',
 };
 
 export const SCORING_CONFIG_V1: ScoringConfig = {
-  version: '1.1.0',
+  version: '1.2.0',
   rosterWeights: ROSTER_WEIGHTS,
   weakLink: WEAK_LINK,
   eliteDepth: ELITE_DEPTH,
@@ -295,7 +299,7 @@ export const DEFAULT_SCORING_CONFIG = SCORING_CONFIG_V1;
 export const RATING_MODEL_VERSION = SCORING_CONFIG_V1.version;
 
 const REGISTRY: Readonly<Record<string, ScoringConfig>> = {
-  '1.1.0': SCORING_CONFIG_V1,
+  '1.2.0': SCORING_CONFIG_V1,
 };
 
 /** Historical results must be re-readable under the model that produced them. */

@@ -1,4 +1,4 @@
-import { ERA_KEYS, type Era, type EraKey, type FranchiseEra } from '../types.js';
+import { LEGACY_DECADE_KEYS, type Era, type EraKey, type FranchiseEra } from '../types.js';
 
 /**
  * Franchise lineage start years. Relocations inherit the lineage (Baltimore
@@ -47,7 +47,7 @@ export const SIM_FRANCHISES: readonly SimFranchise[] = [
   { id: 'was', abbreviation: 'WAS', displayName: 'Washington Commanders', activeFrom: 1932 },
 ];
 
-export const ERAS: readonly Era[] = ERA_KEYS.map((key, index) => {
+export const ERAS: readonly Era[] = LEGACY_DECADE_KEYS.map((key, index) => {
   const startYear = 1950 + index * 10;
   return {
     key,
