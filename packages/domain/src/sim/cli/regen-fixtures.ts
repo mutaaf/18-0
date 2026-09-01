@@ -18,6 +18,7 @@ import {
   scoreRoster,
   type CompletedRoster,
   type Position,
+  type RosterSelection,
   type RosterSlot,
 } from '../../index.js';
 
@@ -26,22 +27,29 @@ const POSITION: Record<RosterSlot, Position> = {
   QB: 'QB', RB1: 'RB', RB2: 'RB', WR1: 'WR', WR2: 'WR', TE1: 'TE', DEF: 'DEF',
 };
 
-const build = (ratings: Record<RosterSlot, number>): CompletedRoster =>
-  Object.fromEntries(
-    ROSTER_SLOTS.map((slot) => [
+const build = (ratings: Record<RosterSlot, number>): CompletedRoster => {
+  const entries = ROSTER_SLOTS.map((slot): [RosterSlot, RosterSelection] => [
+    slot,
+    {
       slot,
-      {
-        slot,
-        spinSequence: 1,
-        season: {
-          id: slot, entityId: `${slot}-e`, entityType: slot === 'DEF' ? 'defense' : 'player',
-          displayName: slot, position: POSITION[slot], franchiseId: 'f', seasonYear: 2010,
-          era: '2010_2014', rating: Math.round(ratings[slot] * 10) / 10, archetypes: [],
-          ratingModelVersion: config.version,
-        },
+      spinSequence: 1,
+      season: {
+        id: String(slot),
+        entityId: `${slot}-e`,
+        entityType: slot === 'DEF' ? 'defense' : 'player',
+        displayName: String(slot),
+        position: POSITION[slot],
+        franchiseId: 'f',
+        seasonYear: 2010,
+        era: '2010_2014',
+        rating: Math.round(ratings[slot] * 10) / 10,
+        archetypes: [],
+        ratingModelVersion: config.version,
       },
-    ]),
-  ) as CompletedRoster;
+    },
+  ]);
+  return Object.fromEntries(entries) as CompletedRoster;
+};
 
 /** A believable spread — a roster is never seven identical ratings. */
 const OFFSETS: Record<RosterSlot, number> = {
