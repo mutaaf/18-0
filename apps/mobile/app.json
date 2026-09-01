@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "18-0",
+    "slug": "eighteen-zero",
+    "scheme": "eighteenzero",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#07090C",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#07090C",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.eighteenzero.app"
+    },
+    "android": {
+      "package": "com.eighteenzero.app",
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "backgroundColor": "#07090C"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-status-bar",
+      "expo-splash-screen"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
