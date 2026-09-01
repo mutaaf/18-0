@@ -47,20 +47,20 @@ var ARCHETYPES = [
 
 // src/constants/calibration.generated.ts
 var GENERATED_CALIBRATION_ANCHORS = [
-  { raw: 47.6438, final: 30 },
-  { raw: 72.6438, final: 58 },
-  { raw: 75.6355, final: 64 },
-  { raw: 78.1593, final: 68 },
-  { raw: 80.5593, final: 71.5 },
-  { raw: 84.9471, final: 76 },
-  { raw: 89.7299, final: 80 },
-  { raw: 92.4101, final: 87 },
-  { raw: 93.8919, final: 92 },
-  { raw: 94.6406, final: 95 },
-  { raw: 95.8853, final: 97.5 },
-  { raw: 97.101, final: 99 },
-  { raw: 97.9134, final: 99.35 },
-  { raw: 99.6357, final: 99.6 },
+  { raw: 50.3179, final: 30 },
+  { raw: 75.3179, final: 58 },
+  { raw: 78.2713, final: 64 },
+  { raw: 80.6693, final: 68 },
+  { raw: 82.9144, final: 71.5 },
+  { raw: 86.7981, final: 76 },
+  { raw: 90.5327, final: 80 },
+  { raw: 92.7246, final: 87 },
+  { raw: 94.108, final: 92 },
+  { raw: 94.8358, final: 95 },
+  { raw: 96.024, final: 97.5 },
+  { raw: 97.1812, final: 99 },
+  { raw: 98.0355, final: 99.35 },
+  { raw: 99.7273, final: 99.6 },
   { raw: 100, final: 100 }
 ];
 
@@ -574,13 +574,13 @@ var ROSTER_FIXTURES = [
     expectedRecord: [6, 12],
     expectedEndingKey: "UNDERACHIEVER",
     slots: {
-      QB: slot(85.2, "Fixture QB", "atl", 1994),
-      RB1: slot(83.2, "Fixture RB1", "atl", 1993),
-      RB2: slot(81.4, "Fixture RB2", "chi", 1988),
-      WR1: slot(84.7, "Fixture WR1", "nyj", 1999),
-      WR2: slot(82.5, "Fixture WR2", "cle", 1986),
-      TE1: slot(81.9, "Fixture TE1", "det", 1997),
-      DEF: slot(84.4, "Fixture Defense", "phi", 1991)
+      QB: slot(86.2, "Fixture QB", "atl", 1994),
+      RB1: slot(84.2, "Fixture RB1", "atl", 1993),
+      RB2: slot(82.4, "Fixture RB2", "chi", 1988),
+      WR1: slot(85.7, "Fixture WR1", "nyj", 1999),
+      WR2: slot(83.5, "Fixture WR2", "cle", 1986),
+      TE1: slot(82.9, "Fixture TE1", "det", 1997),
+      DEF: slot(85.4, "Fixture Defense", "phi", 1991)
     }
   },
   {
@@ -622,13 +622,13 @@ var ROSTER_FIXTURES = [
     expectedRecord: [15, 3],
     expectedEndingKey: "CHAMPIONSHIP_CALIBER",
     slots: {
-      QB: slot(95.7, "Fixture QB", "ne", 2007),
-      RB1: slot(93.7, "Fixture RB1", "det", 1997),
-      RB2: slot(91.9, "Fixture RB2", "was", 1983),
-      WR1: slot(95.2, "Fixture WR1", "sf", 1987),
-      WR2: slot(93, "Fixture WR2", "min", 1998),
-      TE1: slot(92.4, "Fixture TE1", "kc", 2004),
-      DEF: slot(94.9, "Fixture Defense", "chi", 1985)
+      QB: slot(95.8, "Fixture QB", "ne", 2007),
+      RB1: slot(93.8, "Fixture RB1", "det", 1997),
+      RB2: slot(92, "Fixture RB2", "was", 1983),
+      WR1: slot(95.3, "Fixture WR1", "sf", 1987),
+      WR2: slot(93.1, "Fixture WR2", "min", 1998),
+      TE1: slot(92.5, "Fixture TE1", "kc", 2004),
+      DEF: slot(95, "Fixture Defense", "chi", 1985)
     }
   },
   {
@@ -638,13 +638,13 @@ var ROSTER_FIXTURES = [
     expectedRecord: [16, 2],
     expectedEndingKey: "DYNASTY",
     slots: {
-      QB: slot(96.2, "Fixture QB", "ne", 2007),
-      RB1: slot(94.2, "Fixture RB1", "det", 1997),
-      RB2: slot(92.4, "Fixture RB2", "was", 1983),
-      WR1: slot(95.7, "Fixture WR1", "sf", 1987),
-      WR2: slot(93.5, "Fixture WR2", "min", 1998),
-      TE1: slot(92.9, "Fixture TE1", "kc", 2004),
-      DEF: slot(95.4, "Fixture Defense", "chi", 1985)
+      QB: slot(96.7, "Fixture QB", "ne", 2007),
+      RB1: slot(94.7, "Fixture RB1", "det", 1997),
+      RB2: slot(92.9, "Fixture RB2", "was", 1983),
+      WR1: slot(96.2, "Fixture WR1", "sf", 1987),
+      WR2: slot(94, "Fixture WR2", "min", 1998),
+      TE1: slot(93.4, "Fixture TE1", "kc", 2004),
+      DEF: slot(95.9, "Fixture Defense", "chi", 1985)
     }
   },
   {
@@ -654,13 +654,13 @@ var ROSTER_FIXTURES = [
     expectedRecord: [17, 1],
     expectedEndingKey: "HEARTBREAK",
     slots: {
-      QB: slot(96.7, "Fixture QB", "ne", 2007),
-      RB1: slot(94.7, "Fixture RB1", "det", 1997),
-      RB2: slot(92.9, "Fixture RB2", "was", 1983),
-      WR1: slot(96.2, "Fixture WR1", "sf", 1987),
-      WR2: slot(94, "Fixture WR2", "min", 1998),
-      TE1: slot(93.4, "Fixture TE1", "kc", 2004),
-      DEF: slot(95.9, "Fixture Defense", "chi", 1985)
+      QB: slot(97.6, "Fixture QB", "ne", 2007),
+      RB1: slot(95.6, "Fixture RB1", "det", 1997),
+      RB2: slot(93.8, "Fixture RB2", "was", 1983),
+      WR1: slot(97.1, "Fixture WR1", "sf", 1987),
+      WR2: slot(94.9, "Fixture WR2", "min", 1998),
+      TE1: slot(94.3, "Fixture TE1", "kc", 2004),
+      DEF: slot(96.8, "Fixture Defense", "chi", 1985)
     }
   },
   {

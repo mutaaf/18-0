@@ -15,14 +15,15 @@ import { POSITIONS, ROSTER_SLOTS, SLOT_POSITION, type Position, type RosterSlot 
 import { DATASET, displayName, eligibleCards, era as eraDef, franchise, type DatasetCard } from '@18-0/data';
 import { Brand } from '@/components/Brand';
 import { Field } from '@/components/Field';
+import { SpinReel } from '@/components/SpinReel';
 import { PlayerRow } from '@/components/PlayerRow';
 import { Screen } from '@/components/Screen';
 import { lookupCard, slotsForCard, useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
 import { color, font, positionColor, radius, space, tracking, useLayout, type PressState } from '@/theme';
 
-const SPIN_TICKS = 14;
-const SPIN_INTERVAL = 55;
+/** How many names blur past before the reel settles on the result. */
+const REEL_LENGTH = 18;
 
 export default function Play() {
   const router = useRouter();
@@ -31,7 +32,7 @@ export default function Play() {
   const record = useHistoryStore((s) => s.record);
 
   const [spinning, setSpinning] = useState(false);
-  const [teaser, setTeaser] = useState<{ franchiseId: string; era: string } | null>(null);
+  const [reel, setReel] = useState<{ teams: string[]; eras: string[] } | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [positionFilter, setPositionFilter] = useState<Position | 'ALL'>('ALL');
@@ -40,15 +41,11 @@ export default function Play() {
   const [reduceMotion, setReduceMotion] = useState(false);
   const [assistArmed, setAssistArmed] = useState(false);
   const [targetSlot, setTargetSlot] = useState<RosterSlot | null>(null);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   /** Live touch count, for the three-finger spin. */
   const fingers = useRef(0);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
-    return () => {
-      if (timer.current) clearInterval(timer.current);
-    };
   }, []);
 
   useEffect(() => {
@@ -130,30 +127,29 @@ export default function Play() {
 
     const land = () => {
       const result = game.spin({ assist });
-      setSpinning(false);
-      setTeaser(null);
       if (!result) {
         setNotice('No franchise-era left with a player for your open slots.');
-        return;
+        return null;
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      return result;
     };
 
-    if (reduceMotion) {
-      land();
-      return;
-    }
+    // The result is decided first and the reel travels toward it, rather than
+    // the animation deciding the outcome. Cheaper, and it means Reduce Motion
+    // shows the same spin without the theatre.
+    const result = land();
+    if (!result || reduceMotion) return;
 
-    setSpinning(true);
-    let ticks = 0;
-    timer.current = setInterval(() => {
+    const decoys = Array.from({ length: REEL_LENGTH }, () => {
       const combo = DATASET.combos[Math.floor(Math.random() * DATASET.combos.length)]!;
-      setTeaser({ franchiseId: combo.franchiseId, era: combo.era });
-      if (++ticks >= SPIN_TICKS) {
-        if (timer.current) clearInterval(timer.current);
-        land();
-      }
-    }, SPIN_INTERVAL);
+      return combo;
+    });
+    setReel({
+      teams: [...decoys.map((c) => franchise(c.franchiseId).abbr), franchise(result.franchiseId).abbr],
+      eras: [...decoys.map((c) => eraDef(c.era).name), eraDef(result.era).name],
+    });
+    setSpinning(true);
   }, [complete, game, reduceMotion, spinning]);
 
   const assign = useCallback(
@@ -217,7 +213,7 @@ export default function Play() {
     router.replace('/result');
   }, [game, record, router]);
 
-  const shown = teaser ?? (spin && canPick ? { franchiseId: spin.franchiseId, era: spin.era } : null);
+  const shown = spin && canPick ? { franchiseId: spin.franchiseId, era: spin.era } : null;
   const team = shown ? franchise(shown.franchiseId) : null;
   const remaining = ROSTER_SLOTS.length - game.selections.length;
 
@@ -228,26 +224,48 @@ export default function Play() {
       <View style={styles.spinRow}>
         <View style={[styles.spinCard, styles.teamCard, layout.roomy && styles.spinCardRoomy]}>
           <Text style={[styles.spinLabel, { color: color.red }]}>Team</Text>
-          <Text style={[styles.spinValue, layout.roomy && styles.spinValueRoomy]} numberOfLines={1}>
-            {team ? team.abbr : '—'}
-          </Text>
+          {spinning && reel ? (
+            <SpinReel
+              items={reel.teams}
+              itemHeight={layout.roomy ? 46 : 38}
+              spinning={spinning}
+              textStyle={StyleSheet.flatten([styles.spinValue, layout.roomy && styles.spinValueRoomy])}
+            />
+          ) : (
+            <Text style={[styles.spinValue, layout.roomy && styles.spinValueRoomy]} numberOfLines={1}>
+              {team ? team.abbr : '—'}
+            </Text>
+          )}
           <Text style={styles.spinSub} numberOfLines={1}>
-            {team ? team.nick : 'Awaiting spin'}
+            {spinning ? 'Spinning…' : team ? team.nick : 'Awaiting spin'}
           </Text>
         </View>
         <View style={[styles.spinCard, styles.eraCard, layout.roomy && styles.spinCardRoomy]}>
           <Text style={[styles.spinLabel, { color: '#B47CFF' }]}>
             Era{shown ? ` · ${eraDef(shown.era).label}` : ''}
           </Text>
-          <Text
-            style={[styles.eraName, layout.roomy && styles.eraNameRoomy]}
-            numberOfLines={2}
-            adjustsFontSizeToFit
-          >
-            {shown ? eraDef(shown.era).name : '—'}
-          </Text>
+          {spinning && reel ? (
+            <SpinReel
+              items={reel.eras}
+              itemHeight={layout.roomy ? 38 : 30}
+              spinning={spinning}
+              textStyle={StyleSheet.flatten([styles.eraName, layout.roomy && styles.eraNameRoomy])}
+              onSettled={() => {
+                setSpinning(false);
+                setReel(null);
+              }}
+            />
+          ) : (
+            <Text
+              style={[styles.eraName, layout.roomy && styles.eraNameRoomy]}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+            >
+              {shown ? eraDef(shown.era).name : '—'}
+            </Text>
+          )}
           <Text style={styles.spinSub} numberOfLines={2}>
-            {shown ? eraDef(shown.era).tagline : 'Awaiting spin'}
+            {spinning ? '' : shown ? eraDef(shown.era).tagline : 'Awaiting spin'}
           </Text>
         </View>
       </View>
