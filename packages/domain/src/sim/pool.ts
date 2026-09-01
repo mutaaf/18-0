@@ -192,3 +192,47 @@ export function countAtOrAbove(pool: RatingPool, position: Position, min: number
 }
 
 export { ARCHETYPES };
+
+/**
+ * Builds a pool from real rated seasons instead of synthetic draws.
+ *
+ * Lets the calibration and reachability harnesses run against the bundled
+ * historical dataset, so their answers stop being a function of `PoolSpec` and
+ * start being a function of actual NFL history.
+ */
+export function poolFromSeasons(
+  seasons: readonly RatedSeason[],
+  combos: readonly { franchiseId: string; era: EraKey; spinWeight: number }[],
+): RatingPool {
+  const buckets = new Map<string, Bucket>();
+  for (const combo of combos) {
+    buckets.set(bucketKey(combo.franchiseId, combo.era), { QB: [], RB: [], WR: [], TE: [], DEF: [] });
+  }
+
+  for (const season of seasons) {
+    const bucket = buckets.get(bucketKey(season.franchiseId, season.era));
+    if (!bucket) continue;
+    (bucket[season.position] as RatedSeason[]).push(season);
+  }
+
+  for (const bucket of buckets.values()) {
+    for (const position of POSITIONS) {
+      (bucket[position] as RatedSeason[]).sort((a, b) => b.rating - a.rating);
+    }
+  }
+
+  const cumulativeWeights: number[] = [];
+  let running = 0;
+  for (const combo of combos) {
+    running += combo.spinWeight;
+    cumulativeWeights.push(running);
+  }
+
+  return {
+    buckets,
+    combos: [...combos],
+    spec: DEFAULT_POOL_SPEC,
+    cumulativeWeights,
+    totalWeight: running,
+  };
+}

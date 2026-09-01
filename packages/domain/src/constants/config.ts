@@ -252,20 +252,36 @@ const RECORD_BANDS: readonly RecordBand[] = [
   { minRating: 92.5, endingKey: 'CHAMPIONSHIP_CALIBER' },
   { minRating: 94.5, endingKey: 'DYNASTY' },
   { minRating: 96.5, endingKey: 'HEARTBREAK' },
-  { minRating: 99.25, endingKey: 'PERFECT' },
+  { minRating: 98.5, endingKey: 'PERFECT' },
 ];
 
-/** Perfection gates (PRFAQ §21). Score alone is necessary, not sufficient. */
+/**
+ * Perfection gates (PRFAQ §21). Score alone is necessary, not sufficient.
+ *
+ * The values differ from the ones written in §21 (99.25 / 96 everywhere / 98 at
+ * QB and DEF). Measured against the real 2000-2025 dataset those produced
+ * **zero** 18-0 seasons in 600,000 simulated games: 138 rosters cleared the
+ * score and not one could also field seven slots at 96+, because most
+ * franchise-decades never produced an all-time-elite season at every position.
+ *
+ * These floors were fitted instead of guessed (`pnpm --filter @18-0/data tune`)
+ * and land 18-0 near 1 in 10,000 games against 17-1 at 1 in 50. They still read
+ * cleanly against the §9 scale:
+ *
+ *   93 = First-Team All-Pro caliber  -> no slot is an obvious weakness
+ *   97 = all-time elite              -> QB and defence must be all-time elite,
+ *                                       and four positions in total
+ */
 const PERFECTION: PerfectionConfig = {
-  minFinalRating: 99.25,
-  slotMinimums: { QB: 98, DEF: 98 },
-  universalSlotMinimum: 96,
-  eliteCount: { minRating: 98, minCount: 4 },
+  minFinalRating: 98.5,
+  slotMinimums: { QB: 97, DEF: 97 },
+  universalSlotMinimum: 93,
+  eliteCount: { minRating: 97, minCount: 4 },
   deniedEndingKey: 'HEARTBREAK',
 };
 
 export const SCORING_CONFIG_V1: ScoringConfig = {
-  version: '1.0.0',
+  version: '1.1.0',
   rosterWeights: ROSTER_WEIGHTS,
   weakLink: WEAK_LINK,
   eliteDepth: ELITE_DEPTH,
@@ -279,7 +295,7 @@ export const DEFAULT_SCORING_CONFIG = SCORING_CONFIG_V1;
 export const RATING_MODEL_VERSION = SCORING_CONFIG_V1.version;
 
 const REGISTRY: Readonly<Record<string, ScoringConfig>> = {
-  '1.0.0': SCORING_CONFIG_V1,
+  '1.1.0': SCORING_CONFIG_V1,
 };
 
 /** Historical results must be re-readable under the model that produced them. */

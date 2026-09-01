@@ -36,15 +36,26 @@ describe('score-to-record mapping (PRFAQ §20)', () => {
     }
   });
 
-  // Exact boundary values called out in PRFAQ §37.
+  // Exact boundary behaviour called out in PRFAQ §37. The 18-0 floor is read
+  // from config rather than hard-coded, because it was refitted against the
+  // real dataset (see docs/FINDINGS.md) — the boundary *rule* is what matters.
   it.each([
     [96.499, 16, 2],
     [96.5, 17, 1],
-    [99.249, 17, 1],
-    [99.25, 18, 0],
   ])('rating %s maps to %i-%i', (rating, wins, losses) => {
     const ending = endingForRating(rating, config);
     expect([ending.wins, ending.losses]).toEqual([wins, losses]);
+  });
+
+  it('is exact at the 18-0 floor', () => {
+    const floor = config.perfection.minFinalRating;
+    expect(endingForRating(floor - 0.001, config).wins).toBe(17);
+    expect(endingForRating(floor, config).wins).toBe(18);
+  });
+
+  it('the 18-0 band floor and the perfection threshold agree', () => {
+    const band = config.recordBands.find((b) => b.endingKey === 'PERFECT');
+    expect(band?.minRating).toBe(config.perfection.minFinalRating);
   });
 
   it.each([

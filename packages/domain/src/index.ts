@@ -12,3 +12,5 @@ export * from './scoring/perfection.js';
 export * from './scoring/score.js';
 export { clamp, roundTo, RATING_PRECISION } from './util/math.js';
 export * from './fixtures/rosters.js';
+export * from './ratings/index.js';
+export * from './util/curve.js';
