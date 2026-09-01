@@ -16,14 +16,16 @@ import { DATASET, displayName, eligibleCards, era as eraDef, franchise, type Boo
 import { Brand } from '@/components/Brand';
 import { Field } from '@/components/Field';
 import { SpinReel } from '@/components/SpinReel';
-import { PlayerRow } from '@/components/PlayerRow';
+import { PlayerCard } from '@/components/PlayerCard';
 import { Screen } from '@/components/Screen';
 import { lookupCard, slotsForCard, useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
+import { ratingBucket, track } from '@/features/telemetry';
 import { color, elevate, font, positionColor, radius, space, tabular, tracking, useLayout, type PressState } from '@/theme';
 
 /** How many names blur past before the reel settles on the result. */
 const REEL_LENGTH = 18;
+const REEL_DURATION = 1150;
 
 export default function Play() {
   const router = useRouter();
@@ -43,13 +45,17 @@ export default function Play() {
   const [targetSlot, setTargetSlot] = useState<RosterSlot | null>(null);
   /** Live touch count, for the three-finger spin. */
   const fingers = useRef(0);
+  const reelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
     // Sampling once meant a user who turned Reduce Motion on while the app was
     // backgrounded still got the reel when they came back.
     const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => subscription?.remove();
+    return () => {
+      subscription?.remove();
+      if (reelTimer.current) clearTimeout(reelTimer.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -101,12 +107,21 @@ export default function Play() {
 
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return eligible.filter((card) => {
+    const matched = eligible.filter((card) => {
       if (positionFilter !== 'ALL' && card.position !== positionFilter) return false;
       if (!needle) return true;
       return displayName(card).toLowerCase().includes(needle) || String(card.year).includes(needle);
     });
-  }, [eligible, positionFilter, query]);
+    if (!blind) return matched;
+    // A rating-sorted list tells you the ratings even when they are hidden, so
+    // Player IQ orders by position then name — no ranking information at all.
+    return [...matched].sort(
+      (a, b) =>
+        a.position.localeCompare(b.position) ||
+        displayName(a).localeCompare(displayName(b)) ||
+        a.year - b.year,
+    );
+  }, [eligible, positionFilter, query, blind]);
 
   const selected = selectedId ? eligible.find((c) => c.id === selectedId) ?? null : null;
   const targetSlots = selected ? slotsForCard(selected, game.selections) : [];
@@ -136,8 +151,17 @@ export default function Play() {
       const result = game.spin({ assist });
       if (!result) {
         setNotice('No franchise-era left with a player for your open slots.');
+        track('spin_dead_end', { filled: game.selections.length });
         return null;
       }
+      track('spin_completed', {
+        sequence: result.sequence,
+        franchise: result.franchiseId,
+        era: result.era,
+        rigged: assist,
+        filled: game.selections.length,
+      });
+      if (assist) track('spin_rigged', { sequence: result.sequence });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       AccessibilityInfo.announceForAccessibility(
         `${franchise(result.franchiseId).name}, ${eraDef(result.era).name}. Choose a player.`,
@@ -160,17 +184,31 @@ export default function Play() {
       eras: [...decoys.map((c) => eraDef(c.era).name), eraDef(result.era).name],
     });
     setSpinning(true);
+    if (reelTimer.current) clearTimeout(reelTimer.current);
+    reelTimer.current = setTimeout(() => {
+      setSpinning(false);
+      setReel(null);
+    }, REEL_DURATION + 120);
   }, [complete, game, reduceMotion, spinning]);
 
   const assign = useCallback(
     (card: BootCard, slot: RosterSlot) => {
       const outcome = game.select(card, slot);
       if (!outcome.ok) {
+        track('selection_rejected', { slot, reason: outcome.message });
         setNotice(outcome.message);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
         AccessibilityInfo.announceForAccessibility(outcome.message);
         return;
       }
+      track('player_selected', {
+        slot,
+        position: card.position,
+        rating: ratingBucket(card.rating),
+        era: card.era,
+        franchise: card.franchiseId,
+        blind,
+      });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid).catch(() => {});
       setSelectedId(null);
       setNotice(null);
@@ -189,13 +227,25 @@ export default function Play() {
   const pressSlot = useCallback(
     (slot: RosterSlot) => {
       if (!canPick || filled[slot]) return;
+
+      // If a player is already chosen and this slot can take them, this tap IS
+      // the decision — assign. Previously it cleared the selection instead, so
+      // tapping RB1 while the RB1/RB2 chooser was open dismissed the chooser
+      // and made you pick the player all over again.
+      const pending = selectedId ? eligible.find((c) => c.id === selectedId) : null;
+      if (pending && slotsForCard(pending, game.selections).includes(slot)) {
+        assign(pending, slot);
+        return;
+      }
+
       const next = targetSlot === slot ? null : slot;
       setTargetSlot(next);
       setPositionFilter(next ? SLOT_POSITION[slot] : 'ALL');
       setSelectedId(null);
+      if (next) track('slot_targeted', { slot: next });
       Haptics.selectionAsync().catch(() => {});
     },
-    [canPick, filled, targetSlot],
+    [assign, canPick, eligible, filled, game.selections, selectedId, targetSlot],
   );
 
   const reveal = useCallback(() => {
@@ -219,6 +269,14 @@ export default function Play() {
           rating: card.rating,
         };
       }),
+    });
+    track('roster_completed', {
+      rating: ratingBucket(result.finalRating),
+      record: `${result.record.wins}-${result.record.losses}`,
+      ending: result.ending.key,
+      mode: game.mode,
+      assisted: game.assisted,
+      spins: game.spins.length,
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     router.replace('/result');
@@ -261,10 +319,6 @@ export default function Play() {
               itemHeight={layout.roomy ? 38 : 30}
               spinning={spinning}
               textStyle={StyleSheet.flatten([styles.eraName, layout.roomy && styles.eraNameRoomy])}
-              onSettled={() => {
-                setSpinning(false);
-                setReel(null);
-              }}
             />
           ) : (
             <Text
@@ -362,8 +416,14 @@ export default function Play() {
         onSlotPress={canPick ? pressSlot : undefined}
       />
 
-      {canPick && !targetSlot ? (
-        <Text style={styles.fieldHint}>Tap a position on the field to fill it</Text>
+      {canPick ? (
+        <Text style={styles.fieldHint}>
+          {selected && targetSlots.length > 1
+            ? `Tap ${targetSlots.join(' or ')} on the field to place ${displayName(selected)}`
+            : targetSlot
+              ? `Filling ${targetSlot} — choose a player`
+              : 'Tap a position on the field, or pick a player'}
+        </Text>
       ) : null}
     </View>
   );
@@ -400,12 +460,13 @@ export default function Play() {
       </Text>
 
       <View style={styles.list}>
-        {visible.map((card) => {
+        {visible.map((card, index) => {
           const slots = slotsForCard(card, game.selections);
           return (
-            <PlayerRow
+            <PlayerCard
               key={card.id}
               card={card}
+              index={index}
               name={displayName(card)}
               selected={selectedId === card.id}
               disabled={slots.length === 0}
@@ -415,7 +476,10 @@ export default function Play() {
                 else if (slots.length === 1) assign(card, slots[0]!);
                 else setSelectedId(selectedId === card.id ? null : card.id);
               }}
-              onDetails={() => router.push(`/card/${encodeURIComponent(card.id)}`)}
+              onDetails={() => {
+                track('player_details_opened', { position: card.position });
+                router.push(`/card/${encodeURIComponent(card.id)}`);
+              }}
             />
           );
         })}
@@ -440,7 +504,7 @@ export default function Play() {
   );
 
   return (
-    <Screen maxWidth={layout.maxWidth}>
+    <Screen maxWidth={layout.wide ? 780 : undefined}>
       <View
         style={styles.touchLayer}
         pointerEvents="box-none"
@@ -480,26 +544,14 @@ export default function Play() {
         </View>
       </View>
 
-      {layout.wide ? (
-        <View style={styles.columns}>
-          <ScrollView style={styles.leftColumn} contentContainerStyle={styles.columnContent} showsVerticalScrollIndicator={false}>
-            {spinPanel}
-          </ScrollView>
-          <ScrollView
-            style={styles.rightColumn}
-            contentContainerStyle={styles.columnContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {browser}
-          </ScrollView>
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          {spinPanel}
-          {browser}
-        </ScrollView>
-      )}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {spinPanel}
+        {browser}
+      </ScrollView>
 
       {selected && targetSlots.length > 1 ? (
         <View style={[styles.actionBar, { maxWidth: layout.wide ? 520 : undefined }]}>
@@ -602,9 +654,9 @@ const styles = StyleSheet.create({
   },
 
   scroll: { paddingHorizontal: space.lg, paddingBottom: 140, gap: space.md },
-  columns: { flex: 1, flexDirection: 'row', gap: space.lg, paddingHorizontal: space.lg },
-  leftColumn: { flex: 1.05 },
-  rightColumn: { flex: 1 },
+  columns: { flex: 1, flexDirection: 'row', gap: space.lg, paddingHorizontal: space.lg, overflow: 'hidden' },
+  leftColumn: { width: '52%', minWidth: 0 },
+  rightColumn: { width: '45%', minWidth: 0 },
   columnContent: { paddingBottom: 120, gap: space.md },
   stack: { gap: space.md },
 
@@ -618,7 +670,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#0A0E13CC',
   },
   spinCardRoomy: { paddingVertical: space.lg },
-  teamCard: { borderColor: '#E01A2B59' },
+  teamCard: { borderColor: '#D50A0A59' },
   eraCard: { borderColor: '#B47CFF4D' },
   spinLabel: { fontFamily: font.label, fontSize: 9, letterSpacing: tracking.wider, textTransform: 'uppercase' },
   spinValue: {

@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: color.line,
   },
-  tabActive: { backgroundColor: '#E01A2B26', borderColor: color.red },
+  tabActive: { backgroundColor: '#D50A0A26', borderColor: color.red },
   tabLabel: { fontFamily: font.label, fontSize: 12, letterSpacing: tracking.wide, color: color.textDim },
   loading: { paddingVertical: space.xxxl },
   list: { paddingHorizontal: space.lg, paddingBottom: 120, gap: 4 },

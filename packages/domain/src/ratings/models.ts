@@ -10,6 +10,76 @@ const ratio = (num: number | undefined, den: number | undefined, minDen = 1): nu
   return num / den;
 };
 
+/**
+ * A rate, regressed toward a league-typical prior by sample size.
+ *
+ *   (observed + prior * k) / (n + k)
+ *
+ * A raw rate on 25 targets is mostly noise, and scoring it at full weight let
+ * low-volume specialists out-rate players who beat them on receptions, yards
+ * AND touchdowns — 94 such inversions shipped in the first dataset. Adding `k`
+ * phantom league-average attempts pulls a thin sample toward the middle and
+ * lets volume win, while a full season's work is barely touched.
+ *
+ * EPA priors are 0 because EPA is centred on zero by construction.
+ */
+const shrunk = (
+  total: number | undefined,
+  attempts: number | undefined,
+  prior: number,
+  k: number,
+  minAttempts = 1,
+): number | null => {
+  if (total === undefined || attempts === undefined || attempts < minAttempts) return null;
+  return (total + prior * k) / (attempts + k);
+};
+
+/**
+ * Value above expectation: what a player produced, minus what an average
+ * player would have produced on the same opportunities.
+ *
+ * A per-opportunity *rate* is not monotone in production — a receiver with more
+ * catches and more yards can have a worse yards-per-target and score lower,
+ * which is indefensible when both cards sit in the same list. A *value* stat
+ * still rewards efficiency (beat the expectation by more per touch and you
+ * gain more) while never punishing someone for producing more.
+ */
+const aboveExpected = (
+  total: number | undefined,
+  opportunities: number | undefined,
+  perOpportunity: number,
+  minOpportunities = 1,
+): number | null => {
+  if (total === undefined || opportunities === undefined || opportunities < minOpportunities) {
+    return null;
+  }
+  return total - opportunities * perOpportunity;
+};
+
+/** Yards from scrimmage — receivers run the ball and backs catch it. */
+const scrimmageYards = (s: SeasonStats): number | null => {
+  const rushing = s.rushing_yards;
+  const receiving = s.receiving_yards;
+  if (rushing === undefined && receiving === undefined) return null;
+  return (rushing ?? 0) + (receiving ?? 0);
+};
+
+/** Every touchdown a skill player scored, however they got there. */
+const scrimmageTds = (s: SeasonStats): number | null => {
+  const rushing = s.rushing_tds;
+  const receiving = s.receiving_tds;
+  if (rushing === undefined && receiving === undefined) return null;
+  return (rushing ?? 0) + (receiving ?? 0);
+};
+
+/** Carries plus catches. */
+const touchesOf = (s: SeasonStats): number | null => {
+  const carries = s.carries;
+  const receptions = s.receptions;
+  if (carries === undefined && receptions === undefined) return null;
+  return (carries ?? 0) + (receptions ?? 0);
+};
+
 const metric = (
   key: string,
   label: string,
@@ -39,9 +109,9 @@ const QB_COMPONENTS: readonly ComponentDef[] = [
     weight: 0.33,
     metrics: [
       metric('epa_per_dropback', 'EPA per dropback', (s) =>
-        ratio(s.passing_epa, (s.attempts ?? 0) + (s.sacks_suffered ?? 0), 100)),
+        shrunk(s.passing_epa, (s.attempts ?? 0) + (s.sacks_suffered ?? 0), 0, 120, 100)),
       metric('anya', 'Adjusted net yards per attempt', anya),
-      metric('ypa', 'Yards per attempt', (s) => ratio(s.passing_yards, s.attempts, 100)),
+      metric('ypa', 'Yards per attempt', (s) => shrunk(s.passing_yards, s.attempts, 7, 120, 100)),
     ],
   },
   {
@@ -49,7 +119,7 @@ const QB_COMPONENTS: readonly ComponentDef[] = [
     label: 'Touchdown production',
     weight: 0.17,
     metrics: [
-      metric('td_rate', 'Touchdown rate', (s) => ratio(s.passing_tds, s.attempts, 100)),
+      metric('td_rate', 'Touchdown rate', (s) => shrunk(s.passing_tds, s.attempts, 0.045, 120, 100)),
       metric('passing_tds', 'Passing touchdowns', (s) => n(s.passing_tds)),
     ],
   },
@@ -61,7 +131,7 @@ const QB_COMPONENTS: readonly ComponentDef[] = [
       metric('turnover_rate', 'Interception + fumble rate', (s) => {
         const giveaways =
           (s.passing_interceptions ?? 0) + (s.sack_fumbles_lost ?? 0) + (s.rushing_fumbles_lost ?? 0);
-        const r = ratio(giveaways, s.attempts, 100);
+        const r = shrunk(giveaways, s.attempts, 0.03, 120, 100);
         return r === null ? null : -r;
       }),
     ],
@@ -90,7 +160,7 @@ const QB_COMPONENTS: readonly ComponentDef[] = [
     weight: 0.055,
     metrics: [
       metric('sack_rate', 'Sack rate', (s) => {
-        const r = ratio(s.sacks_suffered, (s.attempts ?? 0) + (s.sacks_suffered ?? 0), 100);
+        const r = shrunk(s.sacks_suffered, (s.attempts ?? 0) + (s.sacks_suffered ?? 0), 0.065, 120, 100);
         return r === null ? null : -r;
       }),
     ],
@@ -114,47 +184,54 @@ const touches = (s: SeasonStats) => (s.carries ?? 0) + (s.receptions ?? 0);
 const RB_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'rushing_efficiency',
-    label: 'Era-adjusted rushing efficiency',
-    weight: 0.26,
+    label: 'Value above expectation',
+    weight: 0.17,
     metrics: [
-      metric('rush_epa_per_carry', 'Rushing EPA per carry', (s) => ratio(s.rushing_epa, s.carries, 80)),
-      metric('ypc', 'Yards per carry', (s) => ratio(s.rushing_yards, s.carries, 80)),
+      metric('rushing_value', 'Total rushing EPA', (s) => n(s.rushing_epa)),
+      metric('rush_yards_above_expected', 'Rushing yards above expectation', (s) =>
+        aboveExpected(s.rushing_yards, s.carries, 4.2, 80)),
     ],
   },
   {
     key: 'rushing_production',
-    label: 'Rushing production',
-    weight: 0.21,
+    label: 'All-purpose production',
+    weight: 0.30,
     metrics: [
+      // Scrimmage yards first: a back who catches sixty passes is producing,
+      // and rushing yards alone cannot see it.
+      metric('scrimmage_yards', 'Yards from scrimmage', scrimmageYards),
       metric('rushing_yards', 'Rushing yards', (s) => n(s.rushing_yards)),
-      metric('scrimmage_yards', 'Yards from scrimmage', (s) =>
-        n((s.rushing_yards ?? 0) + (s.receiving_yards ?? 0))),
     ],
   },
   {
+    // Backs catch passes; a receiving back is doing a different job well and
+    // the rushing columns cannot see any of it.
     key: 'receiving_value',
-    label: 'Receiving value',
+    label: 'Receiving work',
     weight: 0.16,
     metrics: [
-      metric('rb_rec_epa', 'Receiving EPA', (s) => n(s.receiving_epa)),
       metric('rb_rec_yards', 'Receiving yards', (s) => n(s.receiving_yards)),
+      metric('rb_receptions', 'Receptions', (s) => n(s.receptions)),
     ],
   },
   {
     key: 'scoring',
     label: 'Scoring value',
     weight: 0.105,
-    metrics: [
-      metric('total_tds', 'Total touchdowns', (s) => n((s.rushing_tds ?? 0) + (s.receiving_tds ?? 0))),
-    ],
+    metrics: [metric('total_tds', 'Total touchdowns', scrimmageTds)],
   },
   {
     key: 'success_rate',
     label: 'First-down conversion',
     weight: 0.105,
     metrics: [
-      metric('first_down_rate', 'First downs per touch', (s) =>
-        ratio((s.rushing_first_downs ?? 0) + (s.receiving_first_downs ?? 0), touches(s), 80)),
+      metric('first_downs_above_expected', 'First downs above expectation', (s) =>
+        aboveExpected(
+          (s.rushing_first_downs ?? 0) + (s.receiving_first_downs ?? 0),
+          touchesOf(s) ?? undefined,
+          0.24,
+          80,
+        )),
     ],
   },
   {
@@ -170,10 +247,10 @@ const RB_COMPONENTS: readonly ComponentDef[] = [
     label: 'Ball security',
     weight: 0.055,
     metrics: [
-      metric('fumble_rate', 'Fumbles lost per touch', (s) => {
+      metric('fumbles_above_expected', 'Fumbles versus expectation', (s) => {
         const lost = (s.rushing_fumbles_lost ?? 0) + (s.receiving_fumbles_lost ?? 0);
-        const r = ratio(lost, touches(s), 80);
-        return r === null ? null : -r;
+        const v = aboveExpected(lost, touchesOf(s) ?? undefined, 0.008, 80);
+        return v === null ? null : -v;
       }),
     ],
   },
@@ -195,25 +272,30 @@ const RB_COMPONENTS: readonly ComponentDef[] = [
 const RECEIVER_COMPONENTS = (peakMetric: string): readonly ComponentDef[] => [
   {
     key: 'receiving_production',
-    label: 'Era-adjusted receiving production',
-    weight: 0.26,
-    metrics: [metric('receiving_yards', 'Receiving yards', (s) => n(s.receiving_yards))],
+    label: 'All-purpose production',
+    weight: 0.30,
+    metrics: [
+      // Scrimmage yards, because receivers take handoffs — a jet sweep is
+      // production and the receiving column cannot see it.
+      metric('scrimmage_yards', 'Yards from scrimmage', scrimmageYards),
+      metric('receiving_yards', 'Receiving yards', (s) => n(s.receiving_yards)),
+    ],
   },
   {
     key: 'receiving_efficiency',
-    label: 'Receiving efficiency',
-    weight: 0.21,
+    label: 'Value above expectation',
+    weight: 0.17,
     metrics: [
-      metric('rec_epa_per_target', 'Receiving EPA per target', (s) => ratio(s.receiving_epa, s.targets, 25)),
-      metric('yards_per_target', 'Yards per target', (s) => ratio(s.receiving_yards, s.targets, 25)),
-      metric('yards_per_reception', 'Yards per reception', (s) => ratio(s.receiving_yards, s.receptions, 15)),
+      metric('receiving_value', 'Total receiving EPA', (s) => n(s.receiving_epa)),
+      metric('yards_above_expected', 'Yards above expectation', (s) =>
+        aboveExpected(s.receiving_yards, s.targets, 8, 25)),
     ],
   },
   {
     key: 'td_production',
     label: 'Touchdown production',
     weight: 0.16,
-    metrics: [metric('receiving_tds', 'Receiving touchdowns', (s) => n(s.receiving_tds))],
+    metrics: [metric('total_tds', 'Total touchdowns', scrimmageTds)],
   },
   {
     key: 'first_downs',
@@ -241,10 +323,11 @@ const RECEIVER_COMPONENTS = (peakMetric: string): readonly ComponentDef[] => [
   },
   {
     key: 'catch_efficiency',
-    label: 'Catch efficiency',
+    label: 'Catches above expectation',
     weight: 0.055,
     metrics: [
-      metric('catch_rate', 'Catch rate', (s) => ratio(s.receptions, s.targets, 25)),
+      metric('catches_above_expected', 'Catches above expectation', (s) =>
+        aboveExpected(s.receptions, s.targets, 0.62, 25)),
     ],
   },
   {
@@ -266,24 +349,28 @@ const RECEIVER_COMPONENTS = (peakMetric: string): readonly ComponentDef[] => [
 const TE_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'receiving_efficiency',
-    label: 'Receiving efficiency',
-    weight: 0.235,
+    label: 'Value above expectation',
+    weight: 0.185,
     metrics: [
-      metric('rec_epa_per_target', 'Receiving EPA per target', (s) => ratio(s.receiving_epa, s.targets, 20)),
-      metric('yards_per_target', 'Yards per target', (s) => ratio(s.receiving_yards, s.targets, 20)),
+      metric('receiving_value', 'Total receiving EPA', (s) => n(s.receiving_epa)),
+      metric('yards_above_expected', 'Yards above expectation', (s) =>
+        aboveExpected(s.receiving_yards, s.targets, 7.5, 20)),
     ],
   },
   {
     key: 'receiving_production',
-    label: 'Receiving production',
-    weight: 0.235,
-    metrics: [metric('receiving_yards', 'Receiving yards', (s) => n(s.receiving_yards))],
+    label: 'All-purpose production',
+    weight: 0.285,
+    metrics: [
+      metric('scrimmage_yards', 'Yards from scrimmage', scrimmageYards),
+      metric('receiving_yards', 'Receiving yards', (s) => n(s.receiving_yards)),
+    ],
   },
   {
     key: 'td_production',
     label: 'Touchdown production',
     weight: 0.175,
-    metrics: [metric('receiving_tds', 'Receiving touchdowns', (s) => n(s.receiving_tds))],
+    metrics: [metric('total_tds', 'Total touchdowns', scrimmageTds)],
   },
   {
     key: 'positional_dominance',

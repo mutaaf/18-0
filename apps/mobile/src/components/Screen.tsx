@@ -17,18 +17,18 @@ export const StadiumBackdrop = memo(function StadiumBackdrop() {
       importantForAccessibility="no-hide-descendants"
     >
       <Defs>
-        <RadialGradient id="lightL" cx="12%" cy="0%" r="62%">
-          <Stop offset="0" stopColor="#5C7DA8" stopOpacity="0.30" />
-          <Stop offset="0.55" stopColor="#22303F" stopOpacity="0.10" />
-          <Stop offset="1" stopColor="#07090C" stopOpacity="0" />
+        <RadialGradient id="lightL" cx="10%" cy="-4%" r="66%">
+          <Stop offset="0" stopColor="#2D6BB5" stopOpacity="0.34" />
+          <Stop offset="0.5" stopColor="#013369" stopOpacity="0.16" />
+          <Stop offset="1" stopColor="#06080F" stopOpacity="0" />
         </RadialGradient>
-        <RadialGradient id="lightR" cx="92%" cy="4%" r="58%">
-          <Stop offset="0" stopColor="#7A5A66" stopOpacity="0.22" />
-          <Stop offset="1" stopColor="#07090C" stopOpacity="0" />
+        <RadialGradient id="lightR" cx="94%" cy="2%" r="60%">
+          <Stop offset="0" stopColor="#8E1620" stopOpacity="0.22" />
+          <Stop offset="1" stopColor="#06080F" stopOpacity="0" />
         </RadialGradient>
-        <RadialGradient id="floor" cx="50%" cy="108%" r="70%">
-          <Stop offset="0" stopColor="#12202B" stopOpacity="0.55" />
-          <Stop offset="1" stopColor="#07090C" stopOpacity="0" />
+        <RadialGradient id="floor" cx="50%" cy="110%" r="74%">
+          <Stop offset="0" stopColor="#013369" stopOpacity="0.42" />
+          <Stop offset="1" stopColor="#06080F" stopOpacity="0" />
         </RadialGradient>
       </Defs>
       <Rect x="0" y="0" width="100%" height="100%" fill={color.void} />

@@ -453,10 +453,23 @@ function main(): void {
     console.log('    counting stats withheld for these; rate stats are unaffected');
   }
 
-  // Group by (year, position): the era-normalization basis (PRFAQ §10).
+  /**
+   * Group by (era, position) — the normalization basis.
+   *
+   * PRFAQ §10 says season, and season is the statistically tighter reference.
+   * But a spin shows one franchise-era, so a player compares cards from
+   * different years side by side, and season-level normalization made a 1999
+   * receiver score against a different distribution than a 2001 one. The result
+   * was 94 pairs where a receiver beat another on receptions, yards AND
+   * touchdowns and still rated lower — indefensible on the screen where it
+   * shows. An era is five or six years, so it is still an era-relative rating;
+   * it is just one a player can read without it looking broken.
+   */
   const groups = new Map<string, RawSeason[]>();
   for (const season of all) {
-    const key = `${season.year}:${season.position}`;
+    const era = eraForYear(season.year);
+    if (!era) continue;
+    const key = `${era}:${season.position}`;
     const bucket = groups.get(key);
     if (bucket) bucket.push(season);
     else groups.set(key, [season]);
@@ -469,12 +482,14 @@ function main(): void {
   let skipped = 0;
 
   for (const [key, seasons] of groups) {
-    const [yearStr, positionStr] = key.split(':') as [string, Position];
-    const year = Number(yearStr);
+    const positionStr = key.split(':')[1] as Position;
     const model = POSITION_MODELS[positionStr];
-    const seasonGames = year === 2020 ? 16 : year >= 2021 ? 17 : 16;
 
-    const qualified = seasons.filter((s) => model.qualifies(s.stats, seasonGames));
+    // Qualification stays per-season: a 17-game year has a proportionally
+    // higher floor than a 16-game one (PRFAQ §12).
+    const qualified = seasons.filter((s) =>
+      model.qualifies(s.stats, s.year >= 2021 ? 17 : 16),
+    );
     skipped += seasons.length - qualified.length;
     if (qualified.length < 8) continue;
 
@@ -527,8 +542,7 @@ function main(): void {
       }));
 
       const franchise = season.franchiseId;
-      const eraKey = eraForYear(season.year);
-      if (!eraKey) continue;
+      const eraKey = eraForYear(season.year)!;
       draft.push({
         id: `${season.playerId}-${season.year}`,
         entityId: season.position === 'DEF' ? `def-${franchise}-${season.year}` : season.playerId,

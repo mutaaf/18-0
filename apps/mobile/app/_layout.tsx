@@ -6,26 +6,23 @@ import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
+import { Rajdhani_600SemiBold, Rajdhani_700Bold } from '@expo-google-fonts/rajdhani';
 import {
-  SairaCondensed_600SemiBold,
-  SairaCondensed_700Bold,
-  SairaCondensed_800ExtraBold,
-  SairaCondensed_900Black,
-} from '@expo-google-fonts/saira-condensed';
-import { Barlow_400Regular, Barlow_500Medium, Barlow_700Bold } from '@expo-google-fonts/barlow';
+  Montserrat_400Regular,
+  Montserrat_500Medium,
+  Montserrat_700Bold,
+} from '@expo-google-fonts/montserrat';
 import { color, font } from '@/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const [ready, error] = useFonts({
-    SairaCondensed_600SemiBold,
-    SairaCondensed_700Bold,
-    SairaCondensed_800ExtraBold,
-    SairaCondensed_900Black,
-    Barlow_400Regular,
-    Barlow_500Medium,
-    Barlow_700Bold,
+    Rajdhani_600SemiBold,
+    Rajdhani_700Bold,
+    Montserrat_400Regular,
+    Montserrat_500Medium,
+    Montserrat_700Bold,
   });
 
   useEffect(() => {
@@ -56,6 +53,7 @@ export default function RootLayout() {
           <Stack.Screen name="play" />
           <Stack.Screen name="result" options={{ animation: 'fade', gestureEnabled: false }} />
           <Stack.Screen name="card/[id]" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="admin" options={{ animation: 'slide_from_bottom' }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

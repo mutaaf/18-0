@@ -1,72 +1,77 @@
 /**
- * 18-0 visual system — a night broadcast, not a fantasy spreadsheet.
+ * 18-0 visual system.
  *
- * Near-black with a blue cast (a stadium bowl under lights), a single hot red
- * for the live/primary action, and gold reserved exclusively for perfection.
- * Nothing else is allowed to be gold: the first time a player sees it should be
- * the moment they earn it.
+ * Three sources, reconciled deliberately:
+ *
+ *   NFL       Navy #013369 and red #D50A0A — the ground and the action.
+ *   ESPN      Dense red header bars, hard uppercase labels, ticker rhythm.
+ *   18-0      Victory Gold #FFB400, Steel Silver #C0C0C6 from the brand sheet.
+ *
+ * So the chrome is a broadcast: a navy-black bowl, red for anything live, and
+ * silver type. Gold is not chrome — it is the colour of the chase, and the
+ * crown that wears it is reserved for an earned 18-0.
  */
 
 export const color = {
-  // Ground
-  void: '#07090C',
-  field: '#0B0F14',
-  surface: '#11161D',
-  surfaceRaised: '#171E27',
-  surfaceHigh: '#1F2833',
+  // Ground — black with the NFL's navy in it rather than neutral grey.
+  void: '#06080F',
+  field: '#090C16',
+  surface: '#0E1220',
+  surfaceRaised: '#141A2B',
+  surfaceHigh: '#1C2437',
+  navy: '#013369',
+  navyDeep: '#011E3F',
 
   // Structure
-  line: '#242D3A',
-  lineBright: '#33405180',
-  chalk: '#FFFFFF14',
+  line: '#222C42',
+  lineBright: '#31405F',
+  lineGold: '#FFB40033',
+  chalk: '#FFFFFF12',
 
-  // Type. `textFaint` carries almost every label in the app at 9-13px, so it
-  // has to clear 4.5:1 on the void — #5C6675 measured 3.43:1.
-  text: '#EEF2F7',
-  textDim: '#98A3B3',
-  textFaint: '#7A8496',
+  // Type — silver is the brand's body metal, not plain white.
+  text: '#F2F5FA',
+  silver: '#C0C0C6',
+  textDim: '#9AA4B8',
+  textFaint: '#7C8699',
 
-  // Live action. `red` is 4.13:1 on the void — a fill colour, not a text
-  // colour. Anything under 24px uses `redBright` (5.68:1).
-  red: '#E01A2B',
-  redBright: '#FF3B4E',
-  redGlow: '#E01A2B33',
+  // Live action — NFL red, with ESPN's hotter red for small type.
+  red: '#D50A0A',
+  redBright: '#FF2B2B',
+  redGlow: '#D50A0A33',
 
-  // Reserved for 18-0 only
-  gold: '#F2C43D',
-  goldBright: '#FFDA6B',
-  goldGlow: '#F2C43D2E',
+  // The chase
+  gold: '#FFB400',
+  goldBright: '#FFD152',
+  goldDeep: '#C98A00',
+  goldGlow: '#FFB40033',
 
-  // Heartbreak
+  // Kept as a secondary heat, not a primary.
+  ignition: '#FF6A00',
+  ignitionBright: '#FF8A33',
+  ignitionGlow: '#FF6A0033',
+
+  // Heartbreak stays cold against all that heat.
   ice: '#7FB2FF',
 
-  positive: '#3FBF7F',
+  positive: '#3FD68C',
   negative: '#FF6B6B',
 } as const;
 
-/** Position accents, used on badges and slot chrome. */
 /**
- * Position accents. Quarterback is white-hot rather than red: at #FF4D5E it sat
- * three units from `redBright`, so every QB badge read as "press this" — red
- * has to mean live action and nothing else.
+ * Position accents. Deliberately restrained metals and one cool tone so gold
+ * and orange stay the loudest things on screen.
  */
 export const positionColor = {
-  QB: '#E8EEF6',
-  RB: '#6FB0FF',
-  WR: '#5FDCA1',
-  TE: '#FFC061',
+  QB: '#F2F5FA',
+  RB: '#5B9BFF',
+  WR: '#3FD68C',
+  TE: '#FFB400',
   DEF: '#C49BFF',
 } as const;
 
 /**
- * Result tiers never signal by colour alone (PRFAQ §34) — every use is paired
- * with the tier letter and the ending name.
- */
-/**
- * Result tiers. The C band used to be three muddy olive-golds, which read as
- * gold — the one colour that must mean 18-0 and nothing else. They are slate
- * now. S is nudged off `positionColor.DEF` so purple does not mean both
- * "defense" and "16-2".
+ * Result tiers. Never the only signal — every use is paired with the tier
+ * letter and the ending name (PRFAQ §34).
  */
 export const tierColor: Record<string, string> = {
   F: '#8A93A1',
@@ -82,17 +87,17 @@ export const tierColor: Record<string, string> = {
   'A+': '#2FE39A',
   S: '#CE8CF0',
   'S+': '#7FB2FF',
-  IMMORTAL: '#F2C43D',
+  IMMORTAL: '#FFB400',
 };
 
 export const font = {
-  display: 'SairaCondensed_800ExtraBold',
-  displayBlack: 'SairaCondensed_900Black',
-  heading: 'SairaCondensed_700Bold',
-  label: 'SairaCondensed_600SemiBold',
-  body: 'Barlow_500Medium',
-  bodyBold: 'Barlow_700Bold',
-  bodyRegular: 'Barlow_400Regular',
+  display: 'Rajdhani_700Bold',
+  displayBlack: 'Rajdhani_700Bold',
+  heading: 'Rajdhani_600SemiBold',
+  label: 'Rajdhani_600SemiBold',
+  body: 'Montserrat_500Medium',
+  bodyBold: 'Montserrat_700Bold',
+  bodyRegular: 'Montserrat_400Regular',
 } as const;
 
 export const space = {
@@ -103,7 +108,6 @@ export const radius = {
   sm: 6, md: 10, lg: 14, xl: 20, pill: 999,
 } as const;
 
-/** Wide letter-spacing on small caps is the broadcast-lower-third signature. */
 /**
  * Depth. React Native ignores `shadow*` on Android, so every raised surface
  * needs an `elevation` alongside it or the app is flat on half its devices.
@@ -117,9 +121,10 @@ export const elevate = (level: number) => ({
 /** Scoreboard numerals must not jitter as they change. */
 export const tabular = { fontVariant: ['tabular-nums' as const] };
 
+/** Rajdhani is a squarish display face; a little tracking keeps caps legible. */
 export const tracking = {
-  tight: -1.2,
-  normal: 0,
-  wide: 1.4,
-  wider: 2.6,
+  tight: 0,
+  normal: 0.4,
+  wide: 1.6,
+  wider: 3,
 } as const;
