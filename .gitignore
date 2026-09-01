@@ -14,3 +14,7 @@ data/raw/*.csv
 # Supabase local stack
 supabase/.temp/
 supabase/.branches/
+
+# Concept art — kept locally, not published
+*.png
+!apps/mobile/assets/*.png

@@ -36,33 +36,15 @@ There is **no possession simulation and no random win/loss simulation after rost
 
 # 2. Visual Direction
 
-## Existing Basketball Product Reference
-
-The existing product establishes the visual language and interaction patterns that should be retained where useful.
-
-### Existing result screen
-
-![Existing result screen](./existing-results.png)
-
-### Existing game history screen
-
-![Existing history screen](./existing-history.png)
-
-### Existing profile screen
-
-![Existing profile screen](./existing-profile.png)
+> **Note:** the original concept images that accompanied this document are not
+> included in the public repository. What they established is captured below and
+> implemented in `apps/mobile/src/theme/tokens.ts`: a dark stadium/broadcast
+> language, a top-down field carrying the seven roster slots in formation, and
+> collectible-feeling position cards.
 
 ## NFL Direction
 
 The NFL version should preserve the dark, premium, game-like presentation while moving away from basketball conventions.
-
-### NFL roster concept
-
-![NFL roster concept](./nfl-roster-concept.png)
-
-### NFL broadcast-field direction
-
-![NFL broadcast concept](./nfl-broadcast-concept.png)
 
 ### Design principles
 
