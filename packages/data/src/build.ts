@@ -179,6 +179,9 @@ function loadPlayerSeasons(): RawSeason[] {
 // Team defensive seasons
 // ---------------------------------------------------------------------------
 
+/** Seasons whose weekly rows did not match the scoreboard, reported at build time. */
+const incompleteSeasons: string[] = [];
+
 function loadDefenseSeasons(): RawSeason[] {
   const files = readdirSync(RAW).filter((f) => /^stats_team_week_\d{4}\.csv$/.test(f)).sort();
   const games = existsSync(join(RAW, 'games.csv')) ? parseCsv(join(RAW, 'games.csv')) : [];
@@ -212,16 +215,34 @@ function loadDefenseSeasons(): RawSeason[] {
     // opponent's defence allowed. Aggregating by opponent_team inverts it.
     const allowed = new Map<string, Record<string, number>>();
     const own = new Map<string, Record<string, number>>();
+    // How many weekly rows contributed, per team. A season missing a row would
+    // otherwise under-count every summed stat while looking complete.
+    const rowsSeen = new Map<string, number>();
+    // Fields where even one missing weekly value makes the season total a lie.
+    const incomplete = new Map<string, Set<string>>();
+
     const add = (map: Map<string, Record<string, number>>, key: string, field: string, value: number | undefined) => {
-      if (value === undefined) return;
+      if (value === undefined) {
+        const missing = incomplete.get(key) ?? new Set<string>();
+        missing.add(field);
+        incomplete.set(key, missing);
+        return;
+      }
       const entry = map.get(key) ?? {};
       entry[field] = (entry[field] ?? 0) + value;
       map.set(key, entry);
     };
 
+    /** A summed field is only usable if every contributing row supplied it. */
+    const complete = (key: string, field: string): number | undefined => {
+      if (incomplete.get(key)?.has(field)) return undefined;
+      return (field.startsWith('def_') || field.startsWith('fumble_') ? own : allowed).get(key)?.[field];
+    };
+
     for (const r of rows) {
       const defence = TEAM_TO_FRANCHISE[r.opponent_team ?? ''];
       const offence = TEAM_TO_FRANCHISE[r.team ?? ''];
+      if (defence) rowsSeen.set(defence, (rowsSeen.get(defence) ?? 0) + 1);
       if (defence) {
         add(allowed, defence, 'pass_yards_allowed', num(r.passing_yards));
         add(allowed, defence, 'pass_attempts_faced', num(r.attempts));
@@ -240,28 +261,54 @@ function loadDefenseSeasons(): RawSeason[] {
       }
     }
 
-    for (const [franchiseId, allowedStats] of allowed) {
-      const ownStats = own.get(franchiseId) ?? {};
+    for (const [franchiseId] of allowed) {
       const scoreboard = pointsAllowed.get(`${year}:${franchiseId}`);
-      const dropbacks = (allowedStats.pass_attempts_faced ?? 0) + (allowedStats.sacks_taken_by_opponent ?? 0);
-      const plays = dropbacks + (allowedStats.carries_faced ?? 0);
+
+      // A weekly file missing a game (nflverse's 1999 drop is short two rows)
+      // would silently under-count sacks and takeaways against every other
+      // team. Per-game rates absorb it; totals do not, so the season is only
+      // trusted when the weekly rows match the scoreboard.
+      const weeklyRows = rowsSeen.get(franchiseId) ?? 0;
+      const gamesPlayed = scoreboard?.games;
+      const weeklyComplete = gamesPlayed !== undefined && weeklyRows === gamesPlayed;
+      if (gamesPlayed !== undefined && !weeklyComplete) {
+        incompleteSeasons.push(`${year} ${franchiseId}: ${weeklyRows}/${gamesPlayed} weekly rows`);
+      }
+
+      // Never coalesce a missing half to zero (PRFAQ §10): a real, plausible
+      // number is far more dangerous than an absent one.
+      const sum = (...fields: (number | undefined)[]) =>
+        fields.some((f) => f === undefined) ? undefined : fields.reduce((a, b) => a! + b!, 0);
+
+      const passAttempts = complete(franchiseId, 'pass_attempts_faced');
+      const sacksTaken = complete(franchiseId, 'sacks_taken_by_opponent');
+      const carriesFaced = complete(franchiseId, 'carries_faced');
+      const dropbacks = sum(passAttempts, sacksTaken);
+      const plays = sum(dropbacks, carriesFaced);
 
       const stats: SeasonStats = {
-        games: scoreboard?.games,
+        games: gamesPlayed,
         points_allowed: scoreboard?.points,
         plays_faced: plays,
         dropbacks_faced: dropbacks,
-        yards_allowed: (allowedStats.pass_yards_allowed ?? 0) + (allowedStats.rush_yards_allowed ?? 0),
-        epa_allowed: (allowedStats.pass_epa_allowed ?? 0) + (allowedStats.rush_epa_allowed ?? 0),
-        pass_yards_allowed: allowedStats.pass_yards_allowed,
-        pass_attempts_faced: allowedStats.pass_attempts_faced,
-        pass_epa_allowed: allowedStats.pass_epa_allowed,
-        rush_yards_allowed: allowedStats.rush_yards_allowed,
-        carries_faced: allowedStats.carries_faced,
-        rush_epa_allowed: allowedStats.rush_epa_allowed,
-        def_sacks: ownStats.def_sacks,
-        def_interceptions: ownStats.def_interceptions,
-        fumble_recoveries: ownStats.fumble_recoveries,
+        yards_allowed: sum(
+          complete(franchiseId, 'pass_yards_allowed'),
+          complete(franchiseId, 'rush_yards_allowed'),
+        ),
+        epa_allowed: sum(
+          complete(franchiseId, 'pass_epa_allowed'),
+          complete(franchiseId, 'rush_epa_allowed'),
+        ),
+        pass_yards_allowed: complete(franchiseId, 'pass_yards_allowed'),
+        pass_attempts_faced: passAttempts,
+        pass_epa_allowed: complete(franchiseId, 'pass_epa_allowed'),
+        rush_yards_allowed: complete(franchiseId, 'rush_yards_allowed'),
+        carries_faced: carriesFaced,
+        rush_epa_allowed: complete(franchiseId, 'rush_epa_allowed'),
+        // Counting stats are only meaningful over a complete set of weeks.
+        def_sacks: weeklyComplete ? complete(franchiseId, 'def_sacks') : undefined,
+        def_interceptions: weeklyComplete ? complete(franchiseId, 'def_interceptions') : undefined,
+        fumble_recoveries: weeklyComplete ? complete(franchiseId, 'fumble_recoveries') : undefined,
       };
 
       out.push({
@@ -394,6 +441,11 @@ function main(): void {
   const defenses = loadDefenseSeasons();
   const all = [...players, ...defenses];
   console.log(`  loaded ${players.length.toLocaleString()} player-seasons, ${defenses.length} team defensive seasons`);
+  if (incompleteSeasons.length > 0) {
+    console.log(`  ${incompleteSeasons.length} defensive season(s) with incomplete weekly data:`);
+    for (const note of incompleteSeasons.slice(0, 6)) console.log(`    ${note}`);
+    console.log('    counting stats withheld for these; rate stats are unaffected');
+  }
 
   // Group by (year, position): the era-normalization basis (PRFAQ §10).
   const groups = new Map<string, RawSeason[]>();

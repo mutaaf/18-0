@@ -13,10 +13,16 @@ export type SeasonStats = Readonly<Record<string, number | undefined>>;
 export interface MetricDef {
   readonly key: string;
   readonly label: string;
-  /** Returns null when the underlying data does not exist for this season. */
+  /**
+   * Returns null when the underlying data does not exist for this season.
+   *
+   * Metrics where lower is better (points allowed, sack rate) negate here, so
+   * every metric in the system is unambiguously higher-is-better by the time
+   * it reaches the z-score. There is deliberately no `higherIsBetter` flag: one
+   * existed, nothing read it, and it was a trap for the next person to add a
+   * lower-is-better metric.
+   */
   readonly extract: (stats: SeasonStats) => number | null;
-  /** False for metrics where lower is better, e.g. points allowed. */
-  readonly higherIsBetter?: boolean;
 }
 
 /**

@@ -55,11 +55,19 @@ export function scoreFromZ(z: number, anchors: readonly ScaleAnchor[] = COMPONEN
   return last.score;
 }
 
-/** Percentile rank (0-1) mapped onto the same component scale via its z-equivalent. */
-export function scoreFromPercentile(percentile: number): number {
-  // Inverse normal CDF, Acklam's rational approximation — accurate to ~1e-9
-  // and dependency-free, which keeps the domain package pure.
-  const p = Math.min(Math.max(percentile, 1e-6), 1 - 1e-6);
+/**
+ * Percentile rank (0-1) mapped onto the same component scale via its
+ * z-equivalent.
+ *
+ * `sampleSize` matters: clamping at a fixed 1e-6 handed every league leader an
+ * identical z of 4.75 — so the top tight end in a 40-man pool and the top one
+ * in an 8-man pool scored the same, and beating the field by one yard was worth
+ * seven points. The ceiling now scales with the evidence behind it.
+ */
+export function scoreFromPercentile(percentile: number, sampleSize?: number): number {
+  const ceiling = sampleSize && sampleSize > 1 ? 1 - 1 / (2 * sampleSize) : 1 - 1e-6;
+  const floor = sampleSize && sampleSize > 1 ? 1 / (2 * sampleSize) : 1e-6;
+  const p = Math.min(Math.max(percentile, floor), ceiling);
   const a = [-39.6968302866538, 220.946098424521, -275.928510446969, 138.357751867269, -30.6647980661472, 2.50662827745924];
   const b = [-54.4760987982241, 161.585836858041, -155.698979859887, 66.8013118877197, -13.2806815528857];
   const c = [-0.00778489400243029, -0.322396458041136, -2.40075827716184, -2.54973253934373, 4.37466414146497, 2.93816398269878];

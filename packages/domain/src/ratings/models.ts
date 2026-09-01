@@ -14,8 +14,7 @@ const metric = (
   key: string,
   label: string,
   extract: (s: SeasonStats) => number | null,
-  higherIsBetter = true,
-): MetricDef => ({ key, label, extract, higherIsBetter });
+): MetricDef => ({ key, label, extract });
 
 // ---------------------------------------------------------------------------
 // Quarterback (PRFAQ §11)
@@ -37,7 +36,7 @@ const QB_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'passing_efficiency',
     label: 'Era-adjusted passing efficiency',
-    weight: 0.3,
+    weight: 0.33,
     metrics: [
       metric('epa_per_dropback', 'EPA per dropback', (s) =>
         ratio(s.passing_epa, (s.attempts ?? 0) + (s.sacks_suffered ?? 0), 100)),
@@ -48,7 +47,7 @@ const QB_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'scoring_production',
     label: 'Touchdown production',
-    weight: 0.15,
+    weight: 0.17,
     metrics: [
       metric('td_rate', 'Touchdown rate', (s) => ratio(s.passing_tds, s.attempts, 100)),
       metric('passing_tds', 'Passing touchdowns', (s) => n(s.passing_tds)),
@@ -57,10 +56,11 @@ const QB_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'turnover_avoidance',
     label: 'Turnover avoidance',
-    weight: 0.15,
+    weight: 0.17,
     metrics: [
       metric('turnover_rate', 'Interception + fumble rate', (s) => {
-        const giveaways = (s.passing_interceptions ?? 0) + (s.sack_fumbles_lost ?? 0);
+        const giveaways =
+          (s.passing_interceptions ?? 0) + (s.sack_fumbles_lost ?? 0) + (s.rushing_fumbles_lost ?? 0);
         const r = ratio(giveaways, s.attempts, 100);
         return r === null ? null : -r;
       }),
@@ -69,7 +69,7 @@ const QB_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'passing_volume',
     label: 'Total passing value',
-    weight: 0.1,
+    weight: 0.11,
     metrics: [
       metric('total_passing_epa', 'Total passing EPA', (s) => n(s.passing_epa)),
       metric('passing_yards', 'Passing yards', (s) => n(s.passing_yards)),
@@ -78,7 +78,7 @@ const QB_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'rushing_value',
     label: 'Rushing value',
-    weight: 0.05,
+    weight: 0.055,
     metrics: [
       metric('qb_rush_epa', 'Rushing EPA', (s) => n(s.rushing_epa)),
       metric('qb_rush_yards', 'Rushing yards', (s) => n(s.rushing_yards)),
@@ -87,7 +87,7 @@ const QB_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'sack_avoidance',
     label: 'Sack avoidance',
-    weight: 0.05,
+    weight: 0.055,
     metrics: [
       metric('sack_rate', 'Sack rate', (s) => {
         const r = ratio(s.sacks_suffered, (s.attempts ?? 0) + (s.sacks_suffered ?? 0), 100);
@@ -98,24 +98,10 @@ const QB_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'peak_dominance',
     label: 'Peak dominance vs league',
-    weight: 0.1,
+    weight: 0.11,
     metrics: [],
-    percentileOf: 'epa_per_dropback',
-  },
-  {
-    key: 'awards',
-    label: 'Awards and honors',
-    weight: 0.05,
-    metrics: [metric('award_share', 'Award share', (s) => n(s.award_share))],
-  },
-  {
-    key: 'team_success',
-    label: 'Team offensive success',
-    weight: 0.05,
-    metrics: [
-      metric('team_off_epa', 'Team offensive EPA per play', (s) => n(s.team_off_epa_per_play)),
-      metric('team_points', 'Team points per game', (s) => n(s.team_points_per_game)),
-    ],
+    // Season value, not the per-play rate `passing_efficiency` already scores.
+    percentileOf: 'total_passing_epa',
   },
 ];
 
@@ -129,7 +115,7 @@ const RB_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'rushing_efficiency',
     label: 'Era-adjusted rushing efficiency',
-    weight: 0.25,
+    weight: 0.26,
     metrics: [
       metric('rush_epa_per_carry', 'Rushing EPA per carry', (s) => ratio(s.rushing_epa, s.carries, 80)),
       metric('ypc', 'Yards per carry', (s) => ratio(s.rushing_yards, s.carries, 80)),
@@ -138,13 +124,17 @@ const RB_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'rushing_production',
     label: 'Rushing production',
-    weight: 0.2,
-    metrics: [metric('rushing_yards', 'Rushing yards', (s) => n(s.rushing_yards))],
+    weight: 0.21,
+    metrics: [
+      metric('rushing_yards', 'Rushing yards', (s) => n(s.rushing_yards)),
+      metric('scrimmage_yards', 'Yards from scrimmage', (s) =>
+        n((s.rushing_yards ?? 0) + (s.receiving_yards ?? 0))),
+    ],
   },
   {
     key: 'receiving_value',
     label: 'Receiving value',
-    weight: 0.15,
+    weight: 0.16,
     metrics: [
       metric('rb_rec_epa', 'Receiving EPA', (s) => n(s.receiving_epa)),
       metric('rb_rec_yards', 'Receiving yards', (s) => n(s.receiving_yards)),
@@ -153,7 +143,7 @@ const RB_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'scoring',
     label: 'Scoring value',
-    weight: 0.1,
+    weight: 0.105,
     metrics: [
       metric('total_tds', 'Total touchdowns', (s) => n((s.rushing_tds ?? 0) + (s.receiving_tds ?? 0))),
     ],
@@ -161,7 +151,7 @@ const RB_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'success_rate',
     label: 'First-down conversion',
-    weight: 0.1,
+    weight: 0.105,
     metrics: [
       metric('first_down_rate', 'First downs per touch', (s) =>
         ratio((s.rushing_first_downs ?? 0) + (s.receiving_first_downs ?? 0), touches(s), 80)),
@@ -170,7 +160,7 @@ const RB_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'explosive',
     label: 'Explosive plays',
-    weight: 0.05,
+    weight: 0.055,
     metrics: [
       metric('explosive_runs', 'Runs of 20+ yards', (s) => n(s.rushing_20)),
     ],
@@ -178,7 +168,7 @@ const RB_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'ball_security',
     label: 'Ball security',
-    weight: 0.05,
+    weight: 0.055,
     metrics: [
       metric('fumble_rate', 'Fumbles lost per touch', (s) => {
         const lost = (s.rushing_fumbles_lost ?? 0) + (s.receiving_fumbles_lost ?? 0);
@@ -192,13 +182,9 @@ const RB_COMPONENTS: readonly ComponentDef[] = [
     label: 'Peak dominance',
     weight: 0.05,
     metrics: [],
-    percentileOf: 'rushing_yards',
-  },
-  {
-    key: 'awards',
-    label: 'Awards and honors',
-    weight: 0.05,
-    metrics: [metric('award_share', 'Award share', (s) => n(s.award_share))],
+    // Total scrimmage yards, so this is not a second scoring of the rushing
+    // yards `rushing_production` already covers.
+    percentileOf: 'scrimmage_yards',
   },
 ];
 
@@ -210,13 +196,13 @@ const RECEIVER_COMPONENTS = (peakMetric: string): readonly ComponentDef[] => [
   {
     key: 'receiving_production',
     label: 'Era-adjusted receiving production',
-    weight: 0.25,
+    weight: 0.26,
     metrics: [metric('receiving_yards', 'Receiving yards', (s) => n(s.receiving_yards))],
   },
   {
     key: 'receiving_efficiency',
     label: 'Receiving efficiency',
-    weight: 0.2,
+    weight: 0.21,
     metrics: [
       metric('rec_epa_per_target', 'Receiving EPA per target', (s) => ratio(s.receiving_epa, s.targets, 25)),
       metric('yards_per_target', 'Yards per target', (s) => ratio(s.receiving_yards, s.targets, 25)),
@@ -226,13 +212,13 @@ const RECEIVER_COMPONENTS = (peakMetric: string): readonly ComponentDef[] => [
   {
     key: 'td_production',
     label: 'Touchdown production',
-    weight: 0.15,
+    weight: 0.16,
     metrics: [metric('receiving_tds', 'Receiving touchdowns', (s) => n(s.receiving_tds))],
   },
   {
     key: 'first_downs',
     label: 'First-down creation',
-    weight: 0.1,
+    weight: 0.105,
     metrics: [
       metric('receiving_first_downs', 'Receiving first downs', (s) => n(s.receiving_first_downs)),
     ],
@@ -240,24 +226,23 @@ const RECEIVER_COMPONENTS = (peakMetric: string): readonly ComponentDef[] => [
   {
     key: 'offense_share',
     label: 'Share of team offense',
-    weight: 0.1,
+    weight: 0.105,
     metrics: [
-      metric('wopr', 'Weighted opportunity rating', (s) => n(s.wopr)),
-      metric('target_share', 'Target share', (s) => n(s.target_share)),
       metric('team_yard_share', 'Share of team receiving yards', (s) =>
         ratio(s.receiving_yards, s.team_receiving_yards, 500)),
+      metric('target_share', 'Target share', (s) => n(s.target_share)),
     ],
   },
   {
     key: 'explosive',
     label: 'Explosive plays',
-    weight: 0.05,
+    weight: 0.055,
     metrics: [metric('explosive_catches', 'Catches of 20+ yards', (s) => n(s.receiving_20))],
   },
   {
     key: 'catch_efficiency',
     label: 'Catch efficiency',
-    weight: 0.05,
+    weight: 0.055,
     metrics: [
       metric('catch_rate', 'Catch rate', (s) => ratio(s.receptions, s.targets, 25)),
     ],
@@ -266,14 +251,11 @@ const RECEIVER_COMPONENTS = (peakMetric: string): readonly ComponentDef[] => [
     key: 'peak_dominance',
     label: 'Peak dominance',
     weight: 0.05,
-    metrics: [],
+    metrics: [
+      metric('wopr', 'Weighted opportunity rating', (s) => n(s.wopr)),
+    ],
+    // Opportunity share, not the receiving yards `receiving_production` scores.
     percentileOf: peakMetric,
-  },
-  {
-    key: 'awards',
-    label: 'Awards and honors',
-    weight: 0.05,
-    metrics: [metric('award_share', 'Award share', (s) => n(s.award_share))],
   },
 ];
 
@@ -285,7 +267,7 @@ const TE_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'receiving_efficiency',
     label: 'Receiving efficiency',
-    weight: 0.2,
+    weight: 0.235,
     metrics: [
       metric('rec_epa_per_target', 'Receiving EPA per target', (s) => ratio(s.receiving_epa, s.targets, 20)),
       metric('yards_per_target', 'Yards per target', (s) => ratio(s.receiving_yards, s.targets, 20)),
@@ -294,46 +276,34 @@ const TE_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'receiving_production',
     label: 'Receiving production',
-    weight: 0.2,
+    weight: 0.235,
     metrics: [metric('receiving_yards', 'Receiving yards', (s) => n(s.receiving_yards))],
   },
   {
     key: 'td_production',
     label: 'Touchdown production',
-    weight: 0.1,
+    weight: 0.175,
     metrics: [metric('receiving_tds', 'Receiving touchdowns', (s) => n(s.receiving_tds))],
   },
   {
     key: 'positional_dominance',
     label: 'Dominance among tight ends',
-    weight: 0.2,
+    weight: 0.235,
     metrics: [],
-    percentileOf: 'receiving_yards',
+    // Share of the receiving work, not the raw yardage `receiving_production`
+    // already scores — otherwise two components spend 47% of the rating on one
+    // number.
+    percentileOf: 'team_yard_share',
   },
   {
     key: 'first_downs',
     label: 'First-down creation',
-    weight: 0.1,
-    metrics: [metric('receiving_first_downs', 'Receiving first downs', (s) => n(s.receiving_first_downs))],
-  },
-  {
-    key: 'blocking',
-    label: 'Blocking contribution',
-    weight: 0.1,
-    metrics: [metric('block_grade', 'Blocking grade', (s) => n(s.block_grade))],
-  },
-  {
-    key: 'peak_dominance',
-    label: 'Peak dominance',
-    weight: 0.05,
-    metrics: [],
-    percentileOf: 'rec_epa_per_target',
-  },
-  {
-    key: 'awards',
-    label: 'Awards and honors',
-    weight: 0.05,
-    metrics: [metric('award_share', 'Award share', (s) => n(s.award_share))],
+    weight: 0.12,
+    metrics: [
+      metric('receiving_first_downs', 'Receiving first downs', (s) => n(s.receiving_first_downs)),
+      metric('team_yard_share', 'Share of team receiving yards', (s) =>
+        ratio(s.receiving_yards, s.team_receiving_yards, 500)),
+    ],
   },
 ];
 
@@ -345,7 +315,7 @@ const DEF_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'points_allowed',
     label: 'Points allowed',
-    weight: 0.2,
+    weight: 0.235,
     metrics: [
       metric('points_allowed_per_drive', 'Points allowed per drive', (s) => {
         const v = n(s.points_allowed_per_drive);
@@ -360,7 +330,7 @@ const DEF_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'def_epa',
     label: 'Defensive EPA per play',
-    weight: 0.2,
+    weight: 0.235,
     metrics: [
       metric('def_epa_per_play', 'EPA allowed per play', (s) => {
         const r = ratio(s.epa_allowed, s.plays_faced, 300);
@@ -375,7 +345,7 @@ const DEF_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'pass_defense',
     label: 'Passing defense',
-    weight: 0.12,
+    weight: 0.14,
     metrics: [
       metric('pass_epa_allowed', 'Passing EPA allowed per dropback', (s) => {
         const r = ratio(s.pass_epa_allowed, s.dropbacks_faced, 200);
@@ -390,7 +360,7 @@ const DEF_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'rush_defense',
     label: 'Rushing defense',
-    weight: 0.1,
+    weight: 0.12,
     metrics: [
       metric('rush_epa_allowed', 'Rushing EPA allowed per carry', (s) => {
         const r = ratio(s.rush_epa_allowed, s.carries_faced, 150);
@@ -405,52 +375,30 @@ const DEF_COMPONENTS: readonly ComponentDef[] = [
   {
     key: 'takeaways',
     label: 'Turnovers forced',
-    weight: 0.1,
+    weight: 0.118,
     metrics: [
-      metric('takeaways', 'Takeaways', (s) =>
-        n((s.def_interceptions ?? 0) + (s.fumble_recoveries ?? 0))),
+      // Per game, so a season with a missing weekly row is not silently
+      // penalised against seasons with complete data.
+      metric('takeaways_per_game', 'Takeaways per game', (s) =>
+        ratio((s.def_interceptions ?? 0) + (s.fumble_recoveries ?? 0), s.games, 4)),
     ],
   },
   {
     key: 'pressure',
     label: 'Sack and pressure production',
-    weight: 0.08,
-    metrics: [metric('def_sacks', 'Sacks', (s) => n(s.def_sacks))],
-  },
-  {
-    key: 'red_zone',
-    label: 'Red-zone defense',
-    weight: 0.05,
+    weight: 0.095,
     metrics: [
-      metric('red_zone_td_rate', 'Red-zone touchdown rate allowed', (s) => {
-        const v = n(s.red_zone_td_rate_allowed);
-        return v === null ? null : -v;
-      }),
-    ],
-  },
-  {
-    key: 'third_down',
-    label: 'Third-down defense',
-    weight: 0.05,
-    metrics: [
-      metric('third_down_rate', 'Third-down conversion rate allowed', (s) => {
-        const v = n(s.third_down_rate_allowed);
-        return v === null ? null : -v;
-      }),
+      metric('sacks_per_game', 'Sacks per game', (s) => ratio(s.def_sacks, s.games, 4)),
     ],
   },
   {
     key: 'era_dominance',
     label: 'Era dominance',
-    weight: 0.05,
+    weight: 0.057,
     metrics: [],
-    percentileOf: 'points_allowed_per_game',
-  },
-  {
-    key: 'honors',
-    label: 'Historical adjustment',
-    weight: 0.05,
-    metrics: [metric('award_share', 'Award share', (s) => n(s.award_share))],
+    // Yards per play allowed — a different axis from the points-allowed the
+    // `points_allowed` component already scores.
+    percentileOf: 'yards_per_play_allowed',
   },
 ];
 
@@ -473,7 +421,9 @@ export const POSITION_MODELS: Readonly<Record<Position, PositionModel>> = {
   },
   WR: {
     position: 'WR',
-    components: RECEIVER_COMPONENTS('receiving_yards'),
+    // Peak dominance ranks opportunity share, so it is not a second reading of
+    // the receiving yards `receiving_production` already scores.
+    components: RECEIVER_COMPONENTS('wopr'),
     qualifies: (s, g) => (s.targets ?? 0) >= proportional(40, g),
   },
   TE: {

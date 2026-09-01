@@ -43,7 +43,7 @@ export function rateSeason(
         key: component.key,
         label: component.label,
         weight: component.weight,
-        score: scoreFromPercentile(percentileRank(value, distribution)),
+        score: scoreFromPercentile(percentileRank(value, distribution), distribution.count),
         z: null,
         metricUsed: component.percentileOf,
         value,

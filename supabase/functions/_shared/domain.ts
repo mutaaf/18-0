@@ -47,20 +47,20 @@ var ARCHETYPES = [
 
 // src/constants/calibration.generated.ts
 var GENERATED_CALIBRATION_ANCHORS = [
-  { raw: 50.3179, final: 30 },
-  { raw: 75.3179, final: 58 },
-  { raw: 78.2713, final: 64 },
-  { raw: 80.6693, final: 68 },
-  { raw: 82.9144, final: 71.5 },
-  { raw: 86.7981, final: 76 },
-  { raw: 90.5327, final: 80 },
-  { raw: 92.7246, final: 87 },
-  { raw: 94.108, final: 92 },
-  { raw: 94.8358, final: 95 },
-  { raw: 96.024, final: 97.5 },
-  { raw: 97.1812, final: 99 },
-  { raw: 98.0355, final: 99.35 },
-  { raw: 99.7273, final: 99.6 },
+  { raw: 50.3714, final: 30 },
+  { raw: 75.3714, final: 58 },
+  { raw: 78.2971, final: 64 },
+  { raw: 80.7311, final: 68 },
+  { raw: 82.9854, final: 71.5 },
+  { raw: 86.8963, final: 76 },
+  { raw: 90.6285, final: 80 },
+  { raw: 92.7895, final: 87 },
+  { raw: 94.1584, final: 92 },
+  { raw: 94.865, final: 95 },
+  { raw: 96.032, final: 97.5 },
+  { raw: 97.209, final: 99 },
+  { raw: 98.0668, final: 99.35 },
+  { raw: 99.6661, final: 99.6 },
   { raw: 100, final: 100 }
 ];
 
@@ -622,13 +622,13 @@ var ROSTER_FIXTURES = [
     expectedRecord: [15, 3],
     expectedEndingKey: "CHAMPIONSHIP_CALIBER",
     slots: {
-      QB: slot(95.8, "Fixture QB", "ne", 2007),
-      RB1: slot(93.8, "Fixture RB1", "det", 1997),
-      RB2: slot(92, "Fixture RB2", "was", 1983),
-      WR1: slot(95.3, "Fixture WR1", "sf", 1987),
-      WR2: slot(93.1, "Fixture WR2", "min", 1998),
-      TE1: slot(92.5, "Fixture TE1", "kc", 2004),
-      DEF: slot(95, "Fixture Defense", "chi", 1985)
+      QB: slot(96, "Fixture QB", "ne", 2007),
+      RB1: slot(94, "Fixture RB1", "det", 1997),
+      RB2: slot(92.2, "Fixture RB2", "was", 1983),
+      WR1: slot(95.5, "Fixture WR1", "sf", 1987),
+      WR2: slot(93.3, "Fixture WR2", "min", 1998),
+      TE1: slot(92.7, "Fixture TE1", "kc", 2004),
+      DEF: slot(95.2, "Fixture Defense", "chi", 1985)
     }
   },
   {
@@ -762,8 +762,10 @@ function scoreFromZ(z, anchors = COMPONENT_SCALE) {
   }
   return last.score;
 }
-function scoreFromPercentile(percentile) {
-  const p = Math.min(Math.max(percentile, 1e-6), 1 - 1e-6);
+function scoreFromPercentile(percentile, sampleSize) {
+  const ceiling = sampleSize && sampleSize > 1 ? 1 - 1 / (2 * sampleSize) : 1 - 1e-6;
+  const floor = sampleSize && sampleSize > 1 ? 1 / (2 * sampleSize) : 1e-6;
+  const p = Math.min(Math.max(percentile, floor), ceiling);
   const a = [-39.6968302866538, 220.946098424521, -275.928510446969, 138.357751867269, -30.6647980661472, 2.50662827745924];
   const b = [-54.4760987982241, 161.585836858041, -155.698979859887, 66.8013118877197, -13.2806815528857];
   const c = [-0.00778489400243029, -0.322396458041136, -2.40075827716184, -2.54973253934373, 4.37466414146497, 2.93816398269878];
@@ -790,7 +792,7 @@ var ratio = (num, den, minDen = 1) => {
   if (num === void 0 || den === void 0 || den < minDen) return null;
   return num / den;
 };
-var metric = (key, label, extract, higherIsBetter = true) => ({ key, label, extract, higherIsBetter });
+var metric = (key, label, extract) => ({ key, label, extract });
 var anya = (s) => {
   const { passing_yards, passing_tds, passing_interceptions, attempts, sacks_suffered, sack_yards_lost } = s;
   if (passing_yards === void 0 || attempts === void 0 || attempts < 100) return null;
@@ -802,7 +804,7 @@ var QB_COMPONENTS = [
   {
     key: "passing_efficiency",
     label: "Era-adjusted passing efficiency",
-    weight: 0.3,
+    weight: 0.33,
     metrics: [
       metric("epa_per_dropback", "EPA per dropback", (s) => ratio(s.passing_epa, (s.attempts ?? 0) + (s.sacks_suffered ?? 0), 100)),
       metric("anya", "Adjusted net yards per attempt", anya),
@@ -812,7 +814,7 @@ var QB_COMPONENTS = [
   {
     key: "scoring_production",
     label: "Touchdown production",
-    weight: 0.15,
+    weight: 0.17,
     metrics: [
       metric("td_rate", "Touchdown rate", (s) => ratio(s.passing_tds, s.attempts, 100)),
       metric("passing_tds", "Passing touchdowns", (s) => n(s.passing_tds))
@@ -821,10 +823,10 @@ var QB_COMPONENTS = [
   {
     key: "turnover_avoidance",
     label: "Turnover avoidance",
-    weight: 0.15,
+    weight: 0.17,
     metrics: [
       metric("turnover_rate", "Interception + fumble rate", (s) => {
-        const giveaways = (s.passing_interceptions ?? 0) + (s.sack_fumbles_lost ?? 0);
+        const giveaways = (s.passing_interceptions ?? 0) + (s.sack_fumbles_lost ?? 0) + (s.rushing_fumbles_lost ?? 0);
         const r = ratio(giveaways, s.attempts, 100);
         return r === null ? null : -r;
       })
@@ -833,7 +835,7 @@ var QB_COMPONENTS = [
   {
     key: "passing_volume",
     label: "Total passing value",
-    weight: 0.1,
+    weight: 0.11,
     metrics: [
       metric("total_passing_epa", "Total passing EPA", (s) => n(s.passing_epa)),
       metric("passing_yards", "Passing yards", (s) => n(s.passing_yards))
@@ -842,7 +844,7 @@ var QB_COMPONENTS = [
   {
     key: "rushing_value",
     label: "Rushing value",
-    weight: 0.05,
+    weight: 0.055,
     metrics: [
       metric("qb_rush_epa", "Rushing EPA", (s) => n(s.rushing_epa)),
       metric("qb_rush_yards", "Rushing yards", (s) => n(s.rushing_yards))
@@ -851,7 +853,7 @@ var QB_COMPONENTS = [
   {
     key: "sack_avoidance",
     label: "Sack avoidance",
-    weight: 0.05,
+    weight: 0.055,
     metrics: [
       metric("sack_rate", "Sack rate", (s) => {
         const r = ratio(s.sacks_suffered, (s.attempts ?? 0) + (s.sacks_suffered ?? 0), 100);
@@ -862,24 +864,10 @@ var QB_COMPONENTS = [
   {
     key: "peak_dominance",
     label: "Peak dominance vs league",
-    weight: 0.1,
+    weight: 0.11,
     metrics: [],
-    percentileOf: "epa_per_dropback"
-  },
-  {
-    key: "awards",
-    label: "Awards and honors",
-    weight: 0.05,
-    metrics: [metric("award_share", "Award share", (s) => n(s.award_share))]
-  },
-  {
-    key: "team_success",
-    label: "Team offensive success",
-    weight: 0.05,
-    metrics: [
-      metric("team_off_epa", "Team offensive EPA per play", (s) => n(s.team_off_epa_per_play)),
-      metric("team_points", "Team points per game", (s) => n(s.team_points_per_game))
-    ]
+    // Season value, not the per-play rate `passing_efficiency` already scores.
+    percentileOf: "total_passing_epa"
   }
 ];
 var touches = (s) => (s.carries ?? 0) + (s.receptions ?? 0);
@@ -887,7 +875,7 @@ var RB_COMPONENTS = [
   {
     key: "rushing_efficiency",
     label: "Era-adjusted rushing efficiency",
-    weight: 0.25,
+    weight: 0.26,
     metrics: [
       metric("rush_epa_per_carry", "Rushing EPA per carry", (s) => ratio(s.rushing_epa, s.carries, 80)),
       metric("ypc", "Yards per carry", (s) => ratio(s.rushing_yards, s.carries, 80))
@@ -896,13 +884,16 @@ var RB_COMPONENTS = [
   {
     key: "rushing_production",
     label: "Rushing production",
-    weight: 0.2,
-    metrics: [metric("rushing_yards", "Rushing yards", (s) => n(s.rushing_yards))]
+    weight: 0.21,
+    metrics: [
+      metric("rushing_yards", "Rushing yards", (s) => n(s.rushing_yards)),
+      metric("scrimmage_yards", "Yards from scrimmage", (s) => n((s.rushing_yards ?? 0) + (s.receiving_yards ?? 0)))
+    ]
   },
   {
     key: "receiving_value",
     label: "Receiving value",
-    weight: 0.15,
+    weight: 0.16,
     metrics: [
       metric("rb_rec_epa", "Receiving EPA", (s) => n(s.receiving_epa)),
       metric("rb_rec_yards", "Receiving yards", (s) => n(s.receiving_yards))
@@ -911,7 +902,7 @@ var RB_COMPONENTS = [
   {
     key: "scoring",
     label: "Scoring value",
-    weight: 0.1,
+    weight: 0.105,
     metrics: [
       metric("total_tds", "Total touchdowns", (s) => n((s.rushing_tds ?? 0) + (s.receiving_tds ?? 0)))
     ]
@@ -919,7 +910,7 @@ var RB_COMPONENTS = [
   {
     key: "success_rate",
     label: "First-down conversion",
-    weight: 0.1,
+    weight: 0.105,
     metrics: [
       metric("first_down_rate", "First downs per touch", (s) => ratio((s.rushing_first_downs ?? 0) + (s.receiving_first_downs ?? 0), touches(s), 80))
     ]
@@ -927,7 +918,7 @@ var RB_COMPONENTS = [
   {
     key: "explosive",
     label: "Explosive plays",
-    weight: 0.05,
+    weight: 0.055,
     metrics: [
       metric("explosive_runs", "Runs of 20+ yards", (s) => n(s.rushing_20))
     ]
@@ -935,7 +926,7 @@ var RB_COMPONENTS = [
   {
     key: "ball_security",
     label: "Ball security",
-    weight: 0.05,
+    weight: 0.055,
     metrics: [
       metric("fumble_rate", "Fumbles lost per touch", (s) => {
         const lost = (s.rushing_fumbles_lost ?? 0) + (s.receiving_fumbles_lost ?? 0);
@@ -949,26 +940,22 @@ var RB_COMPONENTS = [
     label: "Peak dominance",
     weight: 0.05,
     metrics: [],
-    percentileOf: "rushing_yards"
-  },
-  {
-    key: "awards",
-    label: "Awards and honors",
-    weight: 0.05,
-    metrics: [metric("award_share", "Award share", (s) => n(s.award_share))]
+    // Total scrimmage yards, so this is not a second scoring of the rushing
+    // yards `rushing_production` already covers.
+    percentileOf: "scrimmage_yards"
   }
 ];
 var RECEIVER_COMPONENTS = (peakMetric) => [
   {
     key: "receiving_production",
     label: "Era-adjusted receiving production",
-    weight: 0.25,
+    weight: 0.26,
     metrics: [metric("receiving_yards", "Receiving yards", (s) => n(s.receiving_yards))]
   },
   {
     key: "receiving_efficiency",
     label: "Receiving efficiency",
-    weight: 0.2,
+    weight: 0.21,
     metrics: [
       metric("rec_epa_per_target", "Receiving EPA per target", (s) => ratio(s.receiving_epa, s.targets, 25)),
       metric("yards_per_target", "Yards per target", (s) => ratio(s.receiving_yards, s.targets, 25)),
@@ -978,13 +965,13 @@ var RECEIVER_COMPONENTS = (peakMetric) => [
   {
     key: "td_production",
     label: "Touchdown production",
-    weight: 0.15,
+    weight: 0.16,
     metrics: [metric("receiving_tds", "Receiving touchdowns", (s) => n(s.receiving_tds))]
   },
   {
     key: "first_downs",
     label: "First-down creation",
-    weight: 0.1,
+    weight: 0.105,
     metrics: [
       metric("receiving_first_downs", "Receiving first downs", (s) => n(s.receiving_first_downs))
     ]
@@ -992,23 +979,22 @@ var RECEIVER_COMPONENTS = (peakMetric) => [
   {
     key: "offense_share",
     label: "Share of team offense",
-    weight: 0.1,
+    weight: 0.105,
     metrics: [
-      metric("wopr", "Weighted opportunity rating", (s) => n(s.wopr)),
-      metric("target_share", "Target share", (s) => n(s.target_share)),
-      metric("team_yard_share", "Share of team receiving yards", (s) => ratio(s.receiving_yards, s.team_receiving_yards, 500))
+      metric("team_yard_share", "Share of team receiving yards", (s) => ratio(s.receiving_yards, s.team_receiving_yards, 500)),
+      metric("target_share", "Target share", (s) => n(s.target_share))
     ]
   },
   {
     key: "explosive",
     label: "Explosive plays",
-    weight: 0.05,
+    weight: 0.055,
     metrics: [metric("explosive_catches", "Catches of 20+ yards", (s) => n(s.receiving_20))]
   },
   {
     key: "catch_efficiency",
     label: "Catch efficiency",
-    weight: 0.05,
+    weight: 0.055,
     metrics: [
       metric("catch_rate", "Catch rate", (s) => ratio(s.receptions, s.targets, 25))
     ]
@@ -1017,21 +1003,18 @@ var RECEIVER_COMPONENTS = (peakMetric) => [
     key: "peak_dominance",
     label: "Peak dominance",
     weight: 0.05,
-    metrics: [],
+    metrics: [
+      metric("wopr", "Weighted opportunity rating", (s) => n(s.wopr))
+    ],
+    // Opportunity share, not the receiving yards `receiving_production` scores.
     percentileOf: peakMetric
-  },
-  {
-    key: "awards",
-    label: "Awards and honors",
-    weight: 0.05,
-    metrics: [metric("award_share", "Award share", (s) => n(s.award_share))]
   }
 ];
 var TE_COMPONENTS = [
   {
     key: "receiving_efficiency",
     label: "Receiving efficiency",
-    weight: 0.2,
+    weight: 0.235,
     metrics: [
       metric("rec_epa_per_target", "Receiving EPA per target", (s) => ratio(s.receiving_epa, s.targets, 20)),
       metric("yards_per_target", "Yards per target", (s) => ratio(s.receiving_yards, s.targets, 20))
@@ -1040,53 +1023,40 @@ var TE_COMPONENTS = [
   {
     key: "receiving_production",
     label: "Receiving production",
-    weight: 0.2,
+    weight: 0.235,
     metrics: [metric("receiving_yards", "Receiving yards", (s) => n(s.receiving_yards))]
   },
   {
     key: "td_production",
     label: "Touchdown production",
-    weight: 0.1,
+    weight: 0.175,
     metrics: [metric("receiving_tds", "Receiving touchdowns", (s) => n(s.receiving_tds))]
   },
   {
     key: "positional_dominance",
     label: "Dominance among tight ends",
-    weight: 0.2,
+    weight: 0.235,
     metrics: [],
-    percentileOf: "receiving_yards"
+    // Share of the receiving work, not the raw yardage `receiving_production`
+    // already scores — otherwise two components spend 47% of the rating on one
+    // number.
+    percentileOf: "team_yard_share"
   },
   {
     key: "first_downs",
     label: "First-down creation",
-    weight: 0.1,
-    metrics: [metric("receiving_first_downs", "Receiving first downs", (s) => n(s.receiving_first_downs))]
-  },
-  {
-    key: "blocking",
-    label: "Blocking contribution",
-    weight: 0.1,
-    metrics: [metric("block_grade", "Blocking grade", (s) => n(s.block_grade))]
-  },
-  {
-    key: "peak_dominance",
-    label: "Peak dominance",
-    weight: 0.05,
-    metrics: [],
-    percentileOf: "rec_epa_per_target"
-  },
-  {
-    key: "awards",
-    label: "Awards and honors",
-    weight: 0.05,
-    metrics: [metric("award_share", "Award share", (s) => n(s.award_share))]
+    weight: 0.12,
+    metrics: [
+      metric("receiving_first_downs", "Receiving first downs", (s) => n(s.receiving_first_downs)),
+      metric("team_yard_share", "Share of team receiving yards", (s) => ratio(s.receiving_yards, s.team_receiving_yards, 500))
+    ]
   }
 ];
 var DEF_COMPONENTS = [
   {
     key: "points_allowed",
     label: "Points allowed",
-    weight: 0.2,
+    weight: 0.235,
     metrics: [
       metric("points_allowed_per_drive", "Points allowed per drive", (s) => {
         const v = n(s.points_allowed_per_drive);
@@ -1101,7 +1071,7 @@ var DEF_COMPONENTS = [
   {
     key: "def_epa",
     label: "Defensive EPA per play",
-    weight: 0.2,
+    weight: 0.235,
     metrics: [
       metric("def_epa_per_play", "EPA allowed per play", (s) => {
         const r = ratio(s.epa_allowed, s.plays_faced, 300);
@@ -1116,7 +1086,7 @@ var DEF_COMPONENTS = [
   {
     key: "pass_defense",
     label: "Passing defense",
-    weight: 0.12,
+    weight: 0.14,
     metrics: [
       metric("pass_epa_allowed", "Passing EPA allowed per dropback", (s) => {
         const r = ratio(s.pass_epa_allowed, s.dropbacks_faced, 200);
@@ -1131,7 +1101,7 @@ var DEF_COMPONENTS = [
   {
     key: "rush_defense",
     label: "Rushing defense",
-    weight: 0.1,
+    weight: 0.12,
     metrics: [
       metric("rush_epa_allowed", "Rushing EPA allowed per carry", (s) => {
         const r = ratio(s.rush_epa_allowed, s.carries_faced, 150);
@@ -1146,51 +1116,29 @@ var DEF_COMPONENTS = [
   {
     key: "takeaways",
     label: "Turnovers forced",
-    weight: 0.1,
+    weight: 0.118,
     metrics: [
-      metric("takeaways", "Takeaways", (s) => n((s.def_interceptions ?? 0) + (s.fumble_recoveries ?? 0)))
+      // Per game, so a season with a missing weekly row is not silently
+      // penalised against seasons with complete data.
+      metric("takeaways_per_game", "Takeaways per game", (s) => ratio((s.def_interceptions ?? 0) + (s.fumble_recoveries ?? 0), s.games, 4))
     ]
   },
   {
     key: "pressure",
     label: "Sack and pressure production",
-    weight: 0.08,
-    metrics: [metric("def_sacks", "Sacks", (s) => n(s.def_sacks))]
-  },
-  {
-    key: "red_zone",
-    label: "Red-zone defense",
-    weight: 0.05,
+    weight: 0.095,
     metrics: [
-      metric("red_zone_td_rate", "Red-zone touchdown rate allowed", (s) => {
-        const v = n(s.red_zone_td_rate_allowed);
-        return v === null ? null : -v;
-      })
-    ]
-  },
-  {
-    key: "third_down",
-    label: "Third-down defense",
-    weight: 0.05,
-    metrics: [
-      metric("third_down_rate", "Third-down conversion rate allowed", (s) => {
-        const v = n(s.third_down_rate_allowed);
-        return v === null ? null : -v;
-      })
+      metric("sacks_per_game", "Sacks per game", (s) => ratio(s.def_sacks, s.games, 4))
     ]
   },
   {
     key: "era_dominance",
     label: "Era dominance",
-    weight: 0.05,
+    weight: 0.057,
     metrics: [],
-    percentileOf: "points_allowed_per_game"
-  },
-  {
-    key: "honors",
-    label: "Historical adjustment",
-    weight: 0.05,
-    metrics: [metric("award_share", "Award share", (s) => n(s.award_share))]
+    // Yards per play allowed — a different axis from the points-allowed the
+    // `points_allowed` component already scores.
+    percentileOf: "yards_per_play_allowed"
   }
 ];
 var proportional = (base, seasonGames) => base * Math.min(seasonGames, 17) / 17;
@@ -1207,7 +1155,9 @@ var POSITION_MODELS = {
   },
   WR: {
     position: "WR",
-    components: RECEIVER_COMPONENTS("receiving_yards"),
+    // Peak dominance ranks opportunity share, so it is not a second reading of
+    // the receiving yards `receiving_production` already scores.
+    components: RECEIVER_COMPONENTS("wopr"),
     qualifies: (s, g) => (s.targets ?? 0) >= proportional(40, g)
   },
   TE: {
@@ -1243,7 +1193,7 @@ function extractMetrics(stats, model) {
   }
   return values;
 }
-function buildSeasonContext(qualifiedSeasons, minSample = 8) {
+function buildSeasonContext(qualifiedSeasons, minSample = 20) {
   const byMetric = /* @__PURE__ */ new Map();
   for (const season of qualifiedSeasons) {
     for (const [key, value] of season) {
@@ -1257,7 +1207,7 @@ function buildSeasonContext(qualifiedSeasons, minSample = 8) {
   for (const [key, values] of byMetric) {
     if (values.length < minSample) continue;
     const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
-    const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / values.length;
+    const variance = values.reduce((sum, v) => sum + (v - mean) ** 2, 0) / Math.max(1, values.length - 1);
     const stddev = Math.sqrt(variance);
     if (stddev < 1e-9) continue;
     context.set(key, {
@@ -1278,7 +1228,7 @@ function percentileRank(value, distribution) {
     if (sorted[mid] <= value) lo = mid + 1;
     else hi = mid;
   }
-  return lo / sorted.length;
+  return Math.max(0, (lo - 0.5) / sorted.length);
 }
 
 // src/ratings/rate.ts
@@ -1299,7 +1249,7 @@ function rateSeason(stats, model, context) {
         key: component.key,
         label: component.label,
         weight: component.weight,
-        score: scoreFromPercentile(percentileRank(value, distribution)),
+        score: scoreFromPercentile(percentileRank(value, distribution), distribution.count),
         z: null,
         metricUsed: component.percentileOf,
         value,
