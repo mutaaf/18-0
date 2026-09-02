@@ -289,6 +289,9 @@ const RECEIVER_COMPONENTS = (peakMetric: string): readonly ComponentDef[] => [
       metric('receiving_value', 'Total receiving EPA', (s) => n(s.receiving_epa)),
       metric('yards_above_expected', 'Yards above expectation', (s) =>
         aboveExpected(s.receiving_yards, s.targets, 8, 25)),
+      // Seasons before targets were recorded still have receptions.
+      metric('yards_above_expected_per_catch', 'Yards above expectation per catch', (s) =>
+        aboveExpected(s.receiving_yards, s.receptions, 12, 15)),
     ],
   },
   {
@@ -336,6 +339,10 @@ const RECEIVER_COMPONENTS = (peakMetric: string): readonly ComponentDef[] => [
     weight: 0.05,
     metrics: [
       metric('wopr', 'Weighted opportunity rating', (s) => n(s.wopr)),
+      // Older seasons have no target data; share of the team's receiving yards
+      // measures the same idea from what does exist.
+      metric('team_yard_share', 'Share of team receiving yards', (s) =>
+        ratio(s.receiving_yards, s.team_receiving_yards, 500)),
     ],
     // Opportunity share, not the receiving yards `receiving_production` scores.
     percentileOf: peakMetric,
@@ -355,6 +362,8 @@ const TE_COMPONENTS: readonly ComponentDef[] = [
       metric('receiving_value', 'Total receiving EPA', (s) => n(s.receiving_epa)),
       metric('yards_above_expected', 'Yards above expectation', (s) =>
         aboveExpected(s.receiving_yards, s.targets, 7.5, 20)),
+      metric('yards_above_expected_per_catch', 'Yards above expectation per catch', (s) =>
+        aboveExpected(s.receiving_yards, s.receptions, 11, 12)),
     ],
   },
   {
@@ -511,12 +520,21 @@ export const POSITION_MODELS: Readonly<Record<Position, PositionModel>> = {
     // Peak dominance ranks opportunity share, so it is not a second reading of
     // the receiving yards `receiving_production` already scores.
     components: RECEIVER_COMPONENTS('wopr'),
-    qualifies: (s, g) => (s.targets ?? 0) >= proportional(40, g),
+    // Targets were not recorded before the late 1990s, so seasons without them
+    // qualify on receptions instead — otherwise every pre-1999 receiver fails
+    // the floor and the older eras have no receivers at all.
+    qualifies: (s, g) =>
+      s.targets === undefined
+        ? (s.receptions ?? 0) >= proportional(25, g)
+        : s.targets >= proportional(40, g),
   },
   TE: {
     position: 'TE',
     components: TE_COMPONENTS,
-    qualifies: (s, g) => (s.targets ?? 0) >= proportional(30, g),
+    qualifies: (s, g) =>
+      s.targets === undefined
+        ? (s.receptions ?? 0) >= proportional(18, g)
+        : s.targets >= proportional(30, g),
   },
   DEF: {
     position: 'DEF',

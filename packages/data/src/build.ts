@@ -25,6 +25,7 @@ import {
   type SeasonStats,
 } from '@18-0/domain';
 import { ERA_TABLE, eraForYear } from './eras.js';
+import { loadLegacySeasons } from './legacy.js';
 import type { Dataset, DatasetCard, DatasetComponent, StatLine } from './schema.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -445,8 +446,39 @@ function main(): void {
   console.log('Building 18-0 dataset from', RAW);
   const players = loadPlayerSeasons();
   const defenses = loadDefenseSeasons();
-  const all = [...players, ...defenses];
-  console.log(`  loaded ${players.length.toLocaleString()} player-seasons, ${defenses.length} team defensive seasons`);
+
+  // 1980-1998 from NFL.com's published statistics; nflverse starts at 1999.
+  //
+  // Off by default. The only free mirror of those seasons carries 49% of the
+  // skill players on the nflverse rosters for the same years, and the omissions
+  // are not the marginal ones: Emmitt Smith, Joe Montana and Brent Jones are
+  // absent entirely, so 1990s Dallas fields Tommie Agee at running back and the
+  // 49ers cannot field a tight end. A game whose whole claim is that the
+  // ratings are real cannot ship that. The loader is complete and the eras are
+  // defined; set LEGACY_SEASONS=1 to build them anyway, and point
+  // `data/raw/nfl` at a licensed source to turn them on for good.
+  //
+  // See docs/FINDINGS.md.
+  const legacyEnabled = process.env.LEGACY_SEASONS === '1';
+  const legacy = (legacyEnabled ? loadLegacySeasons(RAW) : []).map((s) => ({
+    playerId: s.playerId,
+    name: s.name,
+    position: s.position,
+    franchiseId: s.franchiseId,
+    year: s.year,
+    stats: s.stats,
+    display: s.stats as Record<string, number | undefined>,
+  }));
+
+  const all = [...players, ...defenses, ...legacy];
+  console.log(
+    `  loaded ${players.length.toLocaleString()} player-seasons and ${defenses.length} defensive seasons from nflverse (1999+)`,
+  );
+  console.log(
+    legacyEnabled
+      ? `  loaded ${legacy.length.toLocaleString()} seasons from NFL.com (1980-1998)`
+      : '  1980-1998 not built: source is 49% complete (LEGACY_SEASONS=1 to override)',
+  );
   if (incompleteSeasons.length > 0) {
     console.log(`  ${incompleteSeasons.length} defensive season(s) with incomplete weekly data:`);
     for (const note of incompleteSeasons.slice(0, 6)) console.log(`    ${note}`);
@@ -650,6 +682,21 @@ function main(): void {
       return { franchiseId, era, spinWeight: 1 };
     })
     .sort((a, b) => a.franchiseId.localeCompare(b.franchiseId) || a.era.localeCompare(b.era));
+
+  // A franchise-era that cannot field a roster is dropped along with every card
+  // in it, so it is worth saying out loud which position came up short.
+  const shortfall = new Map<string, string[]>();
+  for (const [key, counts] of byCombo) {
+    const missing = REQUIRED.filter(([position, min]) => (counts.get(position) ?? 0) < min);
+    if (!missing.length) continue;
+    const [franchiseId, era] = key.split(':') as [string, string];
+    const list = shortfall.get(era) ?? [];
+    list.push(`${franchiseId}(${missing.map(([p, min]) => `${p} ${counts.get(p) ?? 0}/${min}`).join(' ')})`);
+    shortfall.set(era, list);
+  }
+  for (const [era, list] of [...shortfall].sort()) {
+    console.log(`  ${era} dropped: ${list.sort().join(', ')}`);
+  }
 
   const validCombo = new Set(combos.map((c) => `${c.franchiseId}:${c.era}`));
   const finalCards = cards.filter((c) => validCombo.has(`${c.franchiseId}:${c.era}`));

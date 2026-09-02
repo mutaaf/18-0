@@ -187,12 +187,21 @@ Bringing the server up locally, and everything else operational, is in
 
 ## Known limits
 
-**The dataset starts at 1999.** Pro-Football-Reference is the only complete
-source back to 1920 and it blocks automated access; ESPN's historical endpoints
-return modern players for old seasons. Rather than author statistics from
-memory into a game whose whole value is a trustworthy rating, the eras stop
-where the open data does. Extending back needs a licensed source — the ingest
-takes a flat stats bag and does not care where the numbers come from.
+**The dataset starts at 1999**, which is where nflverse starts.
+
+The pipeline for 1980–1998 is built and it runs — NFL.com's own season files
+for the statistics, nflverse rosters for the positions, two more named eras,
+201 franchise-era combinations instead of 157. It is switched off, because the
+only free source for those years turns out to be **49% complete** and the
+missing half includes Emmitt Smith and Joe Montana outright. That leaves 1990s
+Dallas with no qualifying running back and the 49ers with no tight end: a
+plausible-looking, quietly false version of NFL history, which is the one thing
+this game cannot ship.
+
+`LEGACY_SEASONS=1 pnpm --filter @18-0/data build:dataset` builds them anyway.
+Turning them on for good needs a licensed source, not more code — the ingest
+takes a flat stats bag and does not care where the numbers come from. The
+measurements are in [`docs/FINDINGS.md`](docs/FINDINGS.md#7-the-19801998-ingest-and-why-those-eras-are-switched-off).
 
 **Seven rating components are not measurable** from the available data — awards,
 tight-end blocking, red-zone and third-down defense among them. They were

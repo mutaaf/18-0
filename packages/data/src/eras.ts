@@ -11,8 +11,9 @@ import type { EraKey } from '@18-0/domain';
  * Each era is named for the thing it is actually remembered for, not for its
  * date range. The dates are the fine print.
  *
- * Pre-1999 remains unavailable: Pro-Football-Reference is the only complete
- * source back to 1920 and it blocks automated access. See docs/FINDINGS.md.
+ * 1980-1998 comes from NFL.com's published statistics (see `legacy.ts`) and is
+ * thinner than nflverse — no EPA, no targets. Because normalization is per era,
+ * every card inside those eras is scored on the same basis as its neighbours.
  */
 export interface EraDefinition {
   readonly key: EraKey;
@@ -27,6 +28,22 @@ export interface EraDefinition {
 }
 
 export const ERA_TABLE: readonly EraDefinition[] = [
+  {
+    key: '1980_1989',
+    name: 'The 46 and the Catch',
+    label: '1980–1989',
+    startYear: 1980,
+    endYear: 1989,
+    tagline: "Montana's dynasty, and the most feared defence ever fielded",
+  },
+  {
+    key: '1990_1998',
+    name: 'Three Rings and Four Falls',
+    label: '1990–1998',
+    startYear: 1990,
+    endYear: 1998,
+    tagline: "Dallas's three, Buffalo's four straight heartbreaks, Sanders in full flight",
+  },
   {
     key: '1999_2004',
     name: 'The Greatest Show',

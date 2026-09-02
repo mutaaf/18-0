@@ -112,3 +112,73 @@ The pool is synthetic. It says the *mechanism* is sound: the loop produces a
 usable distribution, all 19 endings are reachable, and perfection is rare
 without being impossible. It does not say what the real rarity will be. That
 needs the historical dataset — the largest remaining piece of work.
+
+---
+
+## 7. The 1980–1998 ingest, and why those eras are switched off
+
+The dataset stops at 1999 because that is where nflverse starts. The obvious
+next move is to fill 1980–1998 from somewhere else, and the pipeline for it is
+built: `packages/data/src/legacy.ts` reads NFL.com's own season files from a
+public mirror, maps every franchise name used since 1980 through its
+relocations, derives team defence from game-log scorelines, and joins nflverse
+rosters — which *do* go back to 1920 — for the positions the mirror leaves
+blank. Two new eras are defined for it, **The 46 and the Catch** (1980–89) and
+**Three Rings and Four Falls** (1990–98).
+
+It runs. `LEGACY_SEASONS=1 pnpm --filter @18-0/data build:dataset` produces
+5,551 extra seasons and **201 franchise-era combinations across 7 eras**,
+against 157 across 5.
+
+**It is off by default, because the source is 49% complete.**
+
+Counting distinct skill players per season against the nflverse rosters for the
+same years:
+
+| | |
+|---|---|
+| Skill players on 1980–1998 rosters | 10,582 |
+| Present in the mirror | 5,183 |
+| **Coverage** | **49.0%** |
+
+Per-season coverage never rises above 53% or falls below 44%. If the omissions
+were the marginal half of a roster that would be survivable — a spin only needs
+the best player at each position. They are not:
+
+- **Emmitt Smith** — zero rows. The all-time leading rusher.
+- **Joe Montana** — zero rows.
+- **Brent Jones** — zero rows.
+
+The consequences are exactly as bad as they sound. 1990s Dallas has **no
+qualifying running back at all**, so the franchise-era is dropped; the best
+Cowboys back the file knows about is Tommie Agee. San Francisco 1990–98 cannot
+field a tight end and is dropped too, taking Jerry Rice's 1,848-yard 1995 with
+it. Nine franchises fall out of that era and six out of the 1980s. The two eras
+that survive are a plausible-looking, quietly false version of NFL history —
+and a game whose entire claim is *the ratings are real* cannot ship that.
+
+Checked and ruled out as alternatives: nflverse publishes 25 data releases and
+**none carries pre-1999 statistics** (rosters are the only asset that goes
+back); Pro-Football-Reference blocks automated access; ESPN's historical
+endpoints return modern players for old seasons. The same mirror's game-log
+files — a separate 22 MB of it — have the identical gaps, so the shortfall is in
+the original scrape, not in which file was chosen.
+
+**The remaining work is a licensed source, not more code.** The loader takes a
+flat stats bag and does not care where the numbers come from; point
+`data/raw/nfl` at complete season files and the eras turn on with an
+environment variable.
+
+### Two bugs the exercise did surface
+
+Both were in the legacy loader and both are fixed, and both are the kind that
+would have been invisible in the output:
+
+1. **Trick plays minted quarterbacks.** Any passing row became a QB card, so
+   Jerry Rice's two 1986 attempts and Barry Sanders' one 1996 attempt produced
+   quarterback cards. Now a passing row needs a roster position of QB, or 100
+   attempts where the roster is silent.
+2. **Mid-season trades lost half a season.** Season rows were keyed on player
+   and year but not team, so a traded player's two rows overwrote each other —
+   Eric Dickerson's 1987 was three Rams games *or* nine Colts games depending on
+   file order, never both.

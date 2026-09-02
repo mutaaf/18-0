@@ -10,6 +10,7 @@ sim-output/
 
 # Raw source CSVs — re-fetch with data/raw/fetch.sh, never committed
 data/raw/*.csv
+data/raw/nfl/
 
 # Supabase local stack
 supabase/.temp/
