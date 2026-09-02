@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { POSITIONS, ROSTER_SLOTS, SLOT_POSITION, type EraKey, type Position, type RosterSlot } from '@18-0/domain';
-import { DATASET, displayName, eligibleCards, era as eraDef, franchise, type BootCard } from '@18-0/data';
+import { DATASET, displayName, eligibleCards, era as eraDef, franchise, franchiseEraTagline, type BootCard } from '@18-0/data';
 import { Brand } from '@/components/Brand';
 import { Field } from '@/components/Field';
 import { SpinReel } from '@/components/SpinReel';
@@ -565,10 +565,16 @@ export default function Play() {
           </View>
         </View>
 
-        {/* The tagline is the flavour that makes an era mean something, so it
-            gets the full width instead of being cut off mid-word. */}
+        {/* The flavour has to be about the franchise-era on the card, not the
+            era in general: the era line introduced a Dallas spin by talking
+            about Kansas City. This names the best players in the pool this
+            spin actually draws from. Full width, so it is never cut mid-word. */}
         <Text style={styles.heroTagline} numberOfLines={3}>
-          {spinning ? '' : shown ? eraDef(shown.era).tagline : 'Spin for a franchise and an era.'}
+          {spinning
+            ? ''
+            : shown
+              ? franchiseEraTagline(shown.franchiseId, shown.era) || eraDef(shown.era).tagline
+              : 'Spin for a franchise and an era.'}
         </Text>
       </Animated.View>
 
