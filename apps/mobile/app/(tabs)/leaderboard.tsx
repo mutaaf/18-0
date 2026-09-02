@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '@/components/Screen';
+import { AccountPanel } from '@/components/AccountPanel';
 import { RatingBadge } from '@/components/RatingBadge';
 import {
   fetchLeaderboard,
@@ -47,6 +48,10 @@ export default function Leaderboard() {
       <View style={styles.header}>
         <Text style={styles.title}>Leaderboards</Text>
         <Text style={styles.subtitle}>Highest 18-0 rating</Text>
+      </View>
+
+      <View style={styles.account}>
+        <AccountPanel />
       </View>
 
       {!isBackendConfigured ? (
@@ -138,6 +143,7 @@ export default function Leaderboard() {
 }
 
 const styles = StyleSheet.create({
+  account: { paddingHorizontal: space.lg, paddingBottom: space.md },
   header: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.md },
   title: {
     fontFamily: font.displayBlack,

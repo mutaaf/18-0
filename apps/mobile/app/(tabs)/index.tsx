@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -11,6 +11,8 @@ import { Hall } from '@/components/Hall';
 import { Screen } from '@/components/Screen';
 import { LeaderboardStrip } from '@/components/LeaderboardStrip';
 import { track } from '@/features/telemetry';
+import { beginRanked } from '@/features/ranked';
+import { isBackendConfigured } from '@/services/supabase';
 import { useGameStore, type GameMode } from '@/state/game';
 import { computeStats, useHistoryStore } from '@/state/history';
 import {
@@ -31,6 +33,16 @@ export default function Home() {
   const game = useGameStore();
   const games = useHistoryStore((s) => s.games);
   const stats = useMemo(() => computeStats(games), [games]);
+  /**
+   * Off by default, and deliberately.
+   *
+   * A ranked game is played against the server, so it needs a connection and it
+   * is slower by a round trip per spin. The offline game is the product; the
+   * leaderboard is the reason to go online, not a tax on everyone who does not
+   * care about it.
+   */
+  const [ranked, setRanked] = useState(false);
+  const [opening, setOpening] = useState(false);
 
   useEffect(() => {
     track('app_opened', { games: games.length });
@@ -44,10 +56,25 @@ export default function Home() {
   const inProgress = game.status !== 'idle' && game.selections.length > 0
     && game.selections.length < ROSTER_SLOTS.length;
 
-  const start = (mode: GameMode) => {
+  const start = async (mode: GameMode) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    track('play_started', { mode, replacing: inProgress });
-    game.startGame(mode);
+    track('play_started', { mode, replacing: inProgress, ranked });
+    game.startGame(mode, { ranked });
+
+    // The session is opened before the first spin, so a player learns that
+    // ranked is unavailable now rather than seven picks from now.
+    if (ranked) {
+      setOpening(true);
+      const opened = await beginRanked();
+      setOpening(false);
+      if (opened.ok) {
+        game.attachServerSession(opened.value.sessionId, opened.value.idempotencyKey);
+        track('ranked_started', { mode });
+      } else {
+        game.downgrade(opened.message);
+        track('ranked_downgraded', { reason: opened.message });
+      }
+    }
     router.push('/play');
   };
 
@@ -128,6 +155,41 @@ export default function Home() {
               <Text style={styles.discardLabel}>Discard</Text>
             </Pressable>
           </View>
+        </Reveal>
+      ) : null}
+
+      {isBackendConfigured ? (
+        <Reveal delay={120}>
+          <Pressable
+            onPress={() => {
+              setRanked((on: boolean) => !on);
+              Haptics.selectionAsync().catch(() => {});
+            }}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: ranked }}
+            accessibilityLabel="Play for the leaderboard"
+            style={({ hovered }: PressState) => [
+              styles.ranked,
+              hovered && { borderColor: color.lineBright },
+              ranked && styles.rankedOn,
+            ]}
+          >
+            <View style={[styles.rankedTick, ranked && styles.rankedTickOn]}>
+              {ranked ? <Text style={styles.rankedTickMark}>✓</Text> : null}
+            </View>
+            <View style={styles.rankedBody}>
+              <Text style={[styles.rankedTitle, ranked && { color: color.text }]}>
+                Play for the leaderboard
+              </Text>
+              <Text style={styles.rankedCopy}>
+                {opening
+                  ? 'Opening a ranked game…'
+                  : ranked
+                    ? 'The server deals every spin and scores the roster. Needs a connection.'
+                    : 'Off — this season stays on your device.'}
+              </Text>
+            </View>
+          </Pressable>
         </Reveal>
       ) : null}
 
@@ -321,6 +383,32 @@ const styles = StyleSheet.create({
   split: { flexDirection: 'row', gap: space.xxl, alignItems: 'flex-start', width: '100%' },
   splitMain: { flex: 1.45, minWidth: 0 },
   splitSide: { flex: 1, minWidth: 0, maxWidth: 440 },
+
+  ranked: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    padding: space.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: color.line,
+    backgroundColor: '#0A0E1799',
+  },
+  rankedOn: { borderColor: `${color.gold}66`, backgroundColor: '#14110699' },
+  rankedTick: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: color.lineBright,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankedTickOn: { backgroundColor: color.gold, borderColor: color.gold },
+  rankedTickMark: { fontFamily: font.bodyBold, fontSize: 13, color: '#0A0E17' },
+  rankedBody: { flex: 1, minWidth: 0, gap: 2 },
+  rankedTitle: { fontFamily: font.heading, fontSize: 17, color: color.textDim },
+  rankedCopy: { fontFamily: font.bodyRegular, fontSize: 12, lineHeight: 17, color: color.textFaint },
 
   steps: { gap: space.md },
   stepsWide: { flexDirection: 'row' },

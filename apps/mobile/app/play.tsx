@@ -13,7 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-import { POSITIONS, ROSTER_SLOTS, SLOT_POSITION, type Position, type RosterSlot } from '@18-0/domain';
+import { POSITIONS, ROSTER_SLOTS, SLOT_POSITION, type EraKey, type Position, type RosterSlot } from '@18-0/domain';
 import { DATASET, displayName, eligibleCards, era as eraDef, franchise, type BootCard } from '@18-0/data';
 import { Brand } from '@/components/Brand';
 import { Field } from '@/components/Field';
@@ -23,6 +23,7 @@ import { Screen } from '@/components/Screen';
 import { lookupCard, slotsForCard, useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
 import { ratingBucket, track } from '@/features/telemetry';
+import { rankedComplete, rankedSelect, rankedSpin } from '@/features/ranked';
 import { DECORATIVE, color, elevate, font, positionColor, radius, space, tabular, tracking, useLayout, type PressState } from '@/theme';
 
 /** How many names blur past before the reel settles on the result. */
@@ -44,6 +45,8 @@ export default function Play() {
   const [lastPick, setLastPick] = useState<{ card: BootCard; slot: RosterSlot } | null>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [assistArmed, setAssistArmed] = useState(false);
+  /** A ranked action is in flight. The server decides; we wait for it. */
+  const [awaitingServer, setAwaitingServer] = useState(false);
   const [targetSlot, setTargetSlot] = useState<RosterSlot | null>(null);
   /** Live touch count, for the three-finger spin. */
   const fingers = useRef(0);
@@ -142,8 +145,8 @@ export default function Play() {
     setAssistArmed(count >= 3);
   }, []);
 
-  const doSpin = useCallback((event?: { shiftKey?: boolean }) => {
-    if (spinning || complete) return;
+  const doSpin = useCallback(async (event?: { shiftKey?: boolean }) => {
+    if (spinning || complete || awaitingServer) return;
     const assist = fingers.current >= 3 || event?.shiftKey === true;
     setSelectedId(null);
     setNotice(null);
@@ -153,7 +156,32 @@ export default function Play() {
     setPositionFilter('ALL');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 
-    const land = () => {
+    const land = async () => {
+      // In a ranked game the wheel turns on the server. A client that could
+      // choose its own franchise-era could choose the seven holding the best
+      // cards in the dataset.
+      if (game.ranked && game.serverSessionId) {
+        setAwaitingServer(true);
+        const issued = await rankedSpin(game.serverSessionId, assist);
+        setAwaitingServer(false);
+        if (issued.ok) {
+          const spun = {
+            sequence: issued.value.sequence,
+            franchiseId: issued.value.franchiseId,
+            era: issued.value.era as EraKey,
+          };
+          game.applyServerSpin(spun, issued.value.assisted);
+          return spun;
+        }
+        if (issued.kind === 'refused') {
+          setNotice(issued.message);
+          return null;
+        }
+        // The connection went, not the game. Finish it offline, unranked.
+        game.downgrade(issued.message);
+        setNotice(`${issued.message} This season will not be ranked.`);
+      }
+
       const result = game.spin({ assist });
       if (!result) {
         setNotice('No franchise-era left with a player for your open slots.');
@@ -178,7 +206,7 @@ export default function Play() {
     // The result is decided first and the reel travels toward it, rather than
     // the animation deciding the outcome. Cheaper, and it means Reduce Motion
     // shows the same spin without the theatre.
-    const result = land();
+    const result = await land();
     if (!result || reduceMotion) return;
 
     const decoys = Array.from({ length: REEL_LENGTH }, () => {
@@ -195,10 +223,28 @@ export default function Play() {
       setSpinning(false);
       setReel(null);
     }, REEL_DURATION + 120);
-  }, [complete, game, reduceMotion, spinning]);
+  }, [awaitingServer, complete, game, reduceMotion, spinning]);
 
   const assign = useCallback(
-    (card: BootCard, slot: RosterSlot) => {
+    async (card: BootCard, slot: RosterSlot) => {
+      // The server is asked first: if it will not record the pick, the pick did
+      // not happen, and the local roster must not drift away from the one that
+      // will be scored.
+      if (game.ranked && game.serverSessionId) {
+        setAwaitingServer(true);
+        const recorded = await rankedSelect(game.serverSessionId, slot, card.id);
+        setAwaitingServer(false);
+        if (!recorded.ok) {
+          if (recorded.kind === 'refused') {
+            setNotice(recorded.message);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+            return;
+          }
+          game.downgrade(recorded.message);
+          setNotice(`${recorded.message} This season will not be ranked.`);
+        }
+      }
+
       const outcome = game.select(card, slot);
       if (!outcome.ok) {
         track('selection_rejected', { slot, reason: outcome.message });
@@ -254,9 +300,36 @@ export default function Play() {
     [assign, canPick, eligible, filled, game.selections, selectedId, targetSlot],
   );
 
-  const reveal = useCallback(() => {
+  const reveal = useCallback(async () => {
     const result = game.complete();
     if (!result) return;
+
+    // The roster is scored twice, independently: here, and on the server from
+    // the spins and picks it recorded. The model is deterministic and both
+    // sides run the same code, so the two must agree — and if they ever do
+    // not, the server's answer is the one that counts and the player is told
+    // rather than quietly shown a number that will not match the board.
+    if (game.ranked && game.serverSessionId && game.serverIdempotencyKey) {
+      setAwaitingServer(true);
+      const scored = await rankedComplete(game.serverSessionId, game.serverIdempotencyKey);
+      setAwaitingServer(false);
+      if (scored.ok) {
+        const drift = Math.abs(scored.value.finalRating - result.finalRating);
+        if (drift > 0.01) {
+          track('score_disagreement', { drift: drift.toFixed(3) });
+          game.downgrade(
+            `The server scored this ${scored.value.finalRating.toFixed(1)}, not ${result.finalRating.toFixed(1)}.`,
+          );
+        }
+      } else {
+        game.downgrade(
+          scored.kind === 'refused'
+            ? scored.message
+            : 'Could not reach the server. This season stayed on this device.',
+        );
+      }
+    }
+
     record({
       id: `${game.startedAt ?? Date.now()}`,
       completedAt: Date.now(),
@@ -416,7 +489,7 @@ export default function Play() {
       ) : (
         <Pressable
           onPress={(event) => doSpin(event?.nativeEvent as { shiftKey?: boolean } | undefined)}
-          disabled={spinning || canPick}
+          disabled={spinning || canPick || awaitingServer}
           accessibilityRole="button"
           accessibilityLabel={canPick ? 'Make a pick before spinning again' : 'Spin the wheel'}
           style={({ pressed, hovered }: PressState) => [
@@ -426,7 +499,7 @@ export default function Play() {
             (spinning || canPick) && styles.spinButtonMuted,
           ]}
         >
-          {spinning ? (
+          {spinning || awaitingServer ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={[styles.spinButtonLabel, canPick && { color: color.textFaint }]}>

@@ -58,7 +58,31 @@ interface GameState {
    */
   assisted: boolean;
 
-  startGame: (mode?: GameMode) => void;
+  /**
+   * A ranked game is played against the server: it issues the spins and scores
+   * the roster, because a client that could declare either could declare a
+   * perfect season. A casual game is entirely local and needs no connection,
+   * which is why it stays the default.
+   */
+  ranked: boolean;
+  /** The row in `game_sessions` this game belongs to, once one exists. */
+  serverSessionId: string | null;
+  /** Replay protection for the completion, minted with the session. */
+  serverIdempotencyKey: string | null;
+  /** Why a ranked game stopped being ranked, if it did. */
+  serverNote: string | null;
+
+  startGame: (mode?: GameMode, options?: { ranked?: boolean }) => void;
+  attachServerSession: (id: string, idempotencyKey: string) => void;
+  /** Records a spin the server issued, rather than one this device invented. */
+  applyServerSpin: (spin: SpinResult, assisted: boolean) => void;
+  /**
+   * Drop out of ranked and carry on offline.
+   *
+   * Losing the network mid-game should cost you the leaderboard, not the seven
+   * picks you already made.
+   */
+  downgrade: (note: string) => void;
   spin: (options?: { assist?: boolean }) => SpinResult | null;
   select: (card: BootCard, slot: RosterSlot) => { ok: true } | { ok: false; message: string };
   removeSelection: (slot: RosterSlot) => void;
@@ -123,8 +147,12 @@ export const useGameStore = create<GameState>()(
       result: null,
       mode: 'rookie',
       assisted: false,
+      ranked: false,
+      serverSessionId: null,
+      serverIdempotencyKey: null,
+      serverNote: null,
 
-      startGame: (mode) =>
+      startGame: (mode, options) =>
         set((state) => ({
           status: 'ready_to_spin',
           spins: [],
@@ -133,7 +161,24 @@ export const useGameStore = create<GameState>()(
           result: null,
           assisted: false,
           mode: mode ?? state.mode,
+          ranked: options?.ranked ?? false,
+          serverSessionId: null,
+          serverIdempotencyKey: null,
+          serverNote: null,
         })),
+
+      attachServerSession: (id, idempotencyKey) =>
+        set({ serverSessionId: id, serverIdempotencyKey: idempotencyKey }),
+
+      applyServerSpin: (spin, assisted) =>
+        set((state) => ({
+          spins: [...state.spins, spin],
+          status: 'spun',
+          assisted: state.assisted || assisted,
+        })),
+
+      downgrade: (note) =>
+        set({ ranked: false, serverSessionId: null, serverIdempotencyKey: null, serverNote: note }),
 
       spin: (options) => {
         const { spins, selections, status, assisted } = get();

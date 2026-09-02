@@ -30,7 +30,15 @@ export type EventName =
   | 'result_shared'
   | 'build_another_tapped'
   | 'leaderboard_viewed'
-  | 'profile_viewed';
+  | 'profile_viewed'
+  // Ranked play. `score_disagreement` should never fire: both sides run the
+  // same deterministic model, so if it ever does, something drifted between
+  // the client's copy and the server's.
+  | 'ranked_started'
+  | 'ranked_downgraded'
+  | 'score_disagreement'
+  | 'handle_claimed'
+  | 'account_deleted';
 
 export interface TelemetryEvent {
   readonly name: EventName;

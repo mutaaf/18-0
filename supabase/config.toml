@@ -382,3 +382,26 @@ s3_region = "env(S3_REGION)"
 s3_access_key = "env(S3_ACCESS_KEY)"
 # Configures AWS_SECRET_ACCESS_KEY for S3 bucket
 s3_secret_key = "env(S3_SECRET_KEY)"
+
+# ---------------------------------------------------------------------------
+# Edge functions
+#
+# The platform's own JWT gate is off for all four, and that is not a weakening.
+# It rejects the CORS preflight — which carries no Authorization header by
+# definition — before the function ever runs, so a browser can never reach
+# them with it on. Each function does its own authentication instead, and does
+# more than the gate would: it resolves the caller, checks the session belongs
+# to them, and refuses anonymous callers outright. scripts/verify/e2e.mjs
+# proves it, including that an unauthenticated completion is refused.
+# ---------------------------------------------------------------------------
+[functions.spin]
+verify_jwt = false
+
+[functions.select]
+verify_jwt = false
+
+[functions.complete-game]
+verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = false

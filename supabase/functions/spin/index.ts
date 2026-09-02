@@ -22,7 +22,12 @@ const SLOT_POSITION: Record<RosterSlot, string> = {
 
 const CORS = {
   'access-control-allow-origin': Deno.env.get('ALLOWED_ORIGIN') ?? '*',
-  'access-control-allow-headers': 'authorization, content-type',
+  // supabase-js sends `apikey` and `x-client-info` on every call, and the
+  // browser names them in the preflight. Omitting them here meant the preflight
+  // failed and the request never left the page — which looks exactly like the
+  // server being down, and is not.
+  'access-control-allow-headers':
+    'authorization, apikey, content-type, x-client-info, x-request-id, x-client',
   'access-control-allow-methods': 'POST, OPTIONS',
 };
 

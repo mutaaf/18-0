@@ -318,10 +318,13 @@ if (SERVICE) {
 // ---------------------------------------------------------------------------
 console.log('\nIDENTITY AND HANDLES');
 
+// Unique per run: unlike the local database, a hosted one keeps yesterday's
+// handles, and a verification that only passes on a fresh database is not one.
+const HANDLE = `verify_${crypto.randomUUID().slice(0, 8)}`;
 const claim = await alice.sb.from('profiles')
-  .upsert({ id: alice.user.id, handle: 'alice_verify' }, { onConflict: 'id' }).select();
+  .upsert({ id: alice.user.id, handle: HANDLE }, { onConflict: 'id' }).select();
 check('a player can claim a handle', claim.error === null,
-  claim.error ? claim.error.message : 'alice_verify');
+  claim.error ? claim.error.message : HANDLE);
 
 const badHandle = await bob.sb.from('profiles')
   .upsert({ id: bob.user.id, handle: '  padded' }, { onConflict: 'id' }).select();
@@ -329,7 +332,7 @@ check('a handle cannot be padded to fake sort order', badHandle.error !== null,
   badHandle.error ? badHandle.error.code : 'accepted');
 
 const takenHandle = await bob.sb.from('profiles')
-  .upsert({ id: bob.user.id, handle: 'alice_verify' }, { onConflict: 'id' }).select();
+  .upsert({ id: bob.user.id, handle: HANDLE }, { onConflict: 'id' }).select();
 check('a handle cannot be taken twice', takenHandle.error !== null,
   takenHandle.error ? takenHandle.error.code : 'accepted');
 
