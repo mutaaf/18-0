@@ -200,7 +200,36 @@ The JavaScript is served from this Mac, so the app stops working when the
 laptop sleeps or leaves the network. Right for developing, wrong for carrying
 around. `pnpm device:clear` if the bundler starts lying to you.
 
-### 2. Standalone Android — free, no Apple account, no laptop
+### 2. Standalone Android, locally — free, no accounts at all
+
+```bash
+cd apps/mobile && pnpm android:device
+```
+
+Builds a release APK and installs it on a connected device or a running
+emulator. Like the iOS route it embeds the JavaScript, so it needs no Metro.
+
+**Signed with the debug keystore.** That is the Expo template's default and it
+is what makes a local install need no key management — and it is also why this
+APK can never go to Play. A store build needs a real upload key, which belongs
+in EAS credentials, not in this repository.
+
+Only the target's own architecture is built. The default universal APK carries
+native libraries for all four ABIs and comes out at 111 MB, which was enough to
+make the emulator's package service fall over mid-install; the ABI-matched one
+is 49 MB.
+
+Two things worth knowing if the emulator misbehaves. It needs more Gradle
+memory than the template allocates — the script passes it on the command line
+rather than in `android/gradle.properties`, which prebuild regenerates — and
+running a long build while the emulator is up can starve `system_server` until
+it stops responding. A cold boot fixes it:
+
+```bash
+emulator -avd Pixel_8_API_36 -wipe-data -gpu auto -memory 4096 -cores 4
+```
+
+### 3. Standalone Android via EAS — free, no Apple account, no laptop
 
 ```bash
 npm i -g eas-cli && eas login        # a free Expo account
@@ -219,7 +248,7 @@ They are deliberately not in `eas.json`. Not because the anon key is sensitive
 it can be rotated without a commit. An *empty* value in `eas.json` would be
 worse than none at all: it shadows the secret rather than falling back to it.
 
-### 3. Standalone iPhone — needs an Apple account
+### 4. Standalone iPhone via EAS — needs an Apple account
 
 `eas build -p ios --profile preview` needs a paid Apple Developer membership
 ($99/yr) to sign for a physical device; TestFlight is the sane distribution
