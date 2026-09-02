@@ -12,6 +12,7 @@ import {
   UIManager,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { displayName, franchise } from '@18-0/data';
 import { lookupCard } from '@/state/game';
@@ -474,12 +475,28 @@ function Entry({
 
 /** One player from somebody else's seven, resolved out of the bundled dataset. */
 function RosterLine({ pick }: { pick: RosterPick }) {
+  const router = useRouter();
   const card = lookupCard(pick.cardId);
   const position = positionOf(pick.slot);
   const tint = positionColor[position as keyof typeof positionColor] ?? color.textDim;
 
   return (
-    <View style={styles.rosterLine}>
+    // Somebody else's roster is the most interesting list of names in the app,
+    // and every one of them opens its card.
+    <Pressable
+      onPress={() => router.push(`/card/${encodeURIComponent(pick.cardId)}`)}
+      accessibilityRole="button"
+      accessibilityLabel={
+        card
+          ? `${pick.slot}. ${displayName(card)}. Tap for the card.`
+          : `${pick.slot}. Tap for the card.`
+      }
+      style={({ hovered, pressed }: PressState) => [
+        styles.rosterLine,
+        hovered && { backgroundColor: '#FFFFFF0A' },
+        pressed && { opacity: 0.85 },
+      ]}
+    >
       <Text style={[styles.rosterSlot, { color: tint }]}>{pick.slot}</Text>
       {card ? (
         <>
@@ -498,7 +515,7 @@ function RosterLine({ pick }: { pick: RosterPick }) {
           Not in this version's data
         </Text>
       )}
-    </View>
+    </Pressable>
   );
 }
 

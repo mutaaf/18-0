@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from './supabase';
+import { invalidateIdentity } from '@/features/cache';
 
 /**
  * Optional sign-in, without losing what you have already played.
@@ -160,6 +161,22 @@ export async function signInWith(
     // already linked to another user" with nothing to do about it.
     return outcome(cause instanceof Error ? cause.message : 'Sign-in failed.', anonymous);
   }
+}
+
+/**
+ * Sign out, leaving the account where it is.
+ *
+ * Only ever offered on an account with a real identity attached. An anonymous
+ * account has no credentials, so signing out of one does not release it, it
+ * abandons it: there is no way back in, and every ranked season on it is
+ * stranded. Deleting is the honest verb for that, and the panel already has it.
+ */
+export async function signOut(): Promise<void> {
+  if (!supabase) return;
+  await supabase.auth.signOut().catch(() => {});
+  // The identity is cached to disk, so without this the next screen can still
+  // paint the name of the account that just left.
+  invalidateIdentity();
 }
 
 /**

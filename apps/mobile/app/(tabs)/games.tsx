@@ -5,7 +5,7 @@ import { franchise } from '@18-0/data';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
 import { useHistoryStore, type HistoryEntry } from '@/state/history';
-import { color, font, positionColor, radius, space, tabular, tierColor, tracking, useLayout } from '@/theme';
+import { color, font, positionColor, radius, space, tabular, tierColor, tracking, useLayout, type PressState } from '@/theme';
 
 export default function Games() {
   const router = useRouter();
@@ -69,6 +69,7 @@ function GameCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const router = useRouter();
   const { result } = game;
   const accent = result.ending.key === 'PERFECT' ? color.gold : tierColor[result.ending.tier] ?? color.text;
   const date = new Date(game.completedAt);
@@ -101,11 +102,16 @@ function GameCard({
         {expanded ? (
           <View style={styles.roster}>
             {game.roster.map((pick) => (
-              <View
+              <Pressable
                 key={pick.slot}
-                style={styles.rosterRow}
-                accessible
-                accessibilityLabel={`${pick.slot}. ${pick.name}. ${pick.year} ${franchise(pick.franchiseId).name}. Rating ${pick.rating.toFixed(1)}.`}
+                onPress={() => router.push(`/card/${encodeURIComponent(pick.cardId)}`)}
+                style={({ hovered, pressed }: PressState) => [
+                  styles.rosterRow,
+                  hovered && { backgroundColor: '#FFFFFF0A' },
+                  pressed && { opacity: 0.85 },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`${pick.slot}. ${pick.name}. ${pick.year} ${franchise(pick.franchiseId).name}. Rating ${pick.rating.toFixed(1)}. Tap for the card.`}
               >
                 <Text
                   style={[
@@ -122,7 +128,7 @@ function GameCard({
                   {franchise(pick.franchiseId).abbr} '{String(pick.year).slice(2)}
                 </Text>
                 <Text style={styles.rosterRating}>{pick.rating.toFixed(1)}</Text>
-              </View>
+              </Pressable>
             ))}
           </View>
         ) : null}

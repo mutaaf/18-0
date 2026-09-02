@@ -387,13 +387,20 @@ export default function Result() {
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Roster</Text>
         {rosterCards.map(({ slot, card }, index) => (
-          <Reveal
-            key={slot}
-            delay={280 + index * 50}
-            style={styles.rosterRow}
-            accessible
-            accessibilityLabel={`${slot}. ${displayName(card)}. ${card.year} ${franchise(card.franchiseId).name}. Rating ${card.rating.toFixed(1)}.`}
-          >
+          <Reveal key={slot} delay={280 + index * 50}>
+            {/* Every name in the app opens its card. A player who has just
+                been told a roster scored 92.6 will want to look at the seven
+                seasons that did it. */}
+            <Pressable
+              onPress={() => router.push(`/card/${encodeURIComponent(card.id)}`)}
+              style={({ hovered, pressed }: PressState) => [
+                styles.rosterRow,
+                hovered && { backgroundColor: '#FFFFFF0A' },
+                pressed && { opacity: 0.85 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={`${slot}. ${displayName(card)}. ${card.year} ${franchise(card.franchiseId).name}. Rating ${card.rating.toFixed(1)}. Tap for the card.`}
+            >
             <Text style={[styles.rosterSlot, { color: positionColor[card.position] }]}>{slot}</Text>
             <View style={styles.rosterMain}>
               <Text style={styles.rosterName} numberOfLines={1}>
@@ -404,6 +411,7 @@ export default function Result() {
               </Text>
             </View>
             <RatingBadge rating={card.rating} size="sm" />
+            </Pressable>
           </Reveal>
         ))}
       </View>

@@ -11,6 +11,7 @@ import {
   linkedProviders,
   providerLabel,
   signInWith,
+  signOut,
   socialProviders,
   socialSignInAvailable,
   type SocialProvider,
@@ -112,6 +113,16 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
     if (result.alreadyLinked) setElsewhere(provider);
     setNote(result.error ?? 'Could not sign in.');
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+  };
+
+  const leave = async () => {
+    setBusy(true);
+    await signOut();
+    setBusy(false);
+    setLinked([]);
+    setElsewhere(null);
+    setNote('Signed out. Your seasons are still on the account you signed in with.');
+    await refresh();
   };
 
   const remove = async () => {
@@ -277,10 +288,24 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
       {socialSignInAvailable ? (
         <View style={styles.signIn}>
           {linked.length > 0 ? (
-            <Text style={styles.copy}>
-              Signed in with {linked.map(providerLabel).join(' and ')}. Your name and your
-              seasons come back on any device.
-            </Text>
+            <>
+              <Text style={styles.copy}>
+                Signed in with {linked.map(providerLabel).join(' and ')}. Your name and your
+                seasons come back on any device.
+              </Text>
+              {/* Only offered here. Signing out of an anonymous account would
+                  abandon it rather than release it, because there is nothing to
+                  sign back in with. */}
+              <Pressable
+                onPress={leave}
+                disabled={busy}
+                accessibilityRole="button"
+                accessibilityLabel="Sign out"
+                style={styles.dangerLink}
+              >
+                <Text style={styles.subtleLink}>Sign out</Text>
+              </Pressable>
+            </>
           ) : (
             <>
               <Text style={styles.copy}>
