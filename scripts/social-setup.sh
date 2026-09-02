@@ -50,13 +50,22 @@ esac
 # would put a client id Apple has never heard of into the config.
 BUNDLE_ID="${APPLE_BUNDLE_ID:-$(grep -o "bundleIdentifier: '[^']*'" apps/mobile/app.config.js | cut -d\' -f2)}"
 
-# jq builds the body so the key's newlines are encoded properly. Passing a PEM
-# through shell interpolation is how it silently arrives as one line.
+# Supabase does not take an Apple .p8. Its Apple provider wants a client
+# secret, and for Apple that is an ES256 JWT signed with the .p8. Passing the
+# key file instead produced a secret Apple rejected, and the app reported
+# "Unable to exchange external code", which names none of the four values that
+# could have been wrong.
+#
+# The JWT expires: Apple caps it at six months. Rerun this script before then.
+APPLE_SECRET=$("${PYTHON:-python3}" scripts/apple-client-secret.py .local/social.env) || {
+  echo "Could not generate the Apple client secret." >&2
+  echo "Needs the 'cryptography' package: pip install cryptography" >&2
+  exit 1
+}
+
 BODY=$(jq -n \
   --arg services "$APPLE_SERVICES_ID" \
-  --arg team "${APPLE_TEAM_ID:-95988FTS33}" \
-  --arg keyid "$APPLE_KEY_ID" \
-  --rawfile key "$APPLE_KEY_FILE" \
+  --arg secret "$APPLE_SECRET" \
   --arg bundle "$BUNDLE_ID" \
   --arg gid "${GOOGLE_CLIENT_ID:-}" \
   --arg gsecret "${GOOGLE_CLIENT_SECRET:-}" \
@@ -67,7 +76,7 @@ BODY=$(jq -n \
     # The bundle id belongs here so a future native Sign in with Apple sheet is
     # accepted too. The web flow this app uses presents the Services ID.
     external_apple_additional_client_ids: $bundle,
-    external_apple_secret: ($team + "\n" + $keyid + "\n" + $key),
+    external_apple_secret: $secret,
     security_manual_linking_enabled: true
   }
   + (if $withGoogle == "1" then {

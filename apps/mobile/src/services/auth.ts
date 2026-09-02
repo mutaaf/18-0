@@ -127,12 +127,28 @@ export async function signInWith(
     const result = await WebBrowser.openAuthSessionAsync(url, redirectTo);
     if (result.type !== 'success') return { ok: false, cancelled: true };
 
-    const code = new URL(result.url).searchParams.get('code');
+    const returned = new URL(result.url);
+    const code = returned.searchParams.get('code');
     if (!code) {
-      // An error here is the provider's, and its text is meant for the person
-      // who caused it — pass it through rather than inventing one.
-      const described = new URL(result.url).searchParams.get('error_description');
-      return { ok: false, error: described ?? 'Sign-in did not complete.' };
+      /**
+       * The callback came back with a failure rather than a code.
+       *
+       * This is where both real sign-in failures actually surfaced, and it was
+       * the one path that did not translate them: the provider's own words
+       * went to the screen untouched, so a player read "Identity is already
+       * linked to another user" and "Unable to exchange external code: c4e2"
+       * with no idea what either meant or what to do. Supabase reports through
+       * the redirect, not through the call, so this branch matters more than
+       * the ones that already mapped.
+       */
+      const described =
+        returned.searchParams.get('error_description') ??
+        returned.searchParams.get('error') ??
+        // Some providers answer in the fragment rather than the query.
+        new URLSearchParams(returned.hash.replace(/^#/, '')).get('error_description');
+      return described
+        ? outcome(described, anonymous)
+        : { ok: false, error: 'Sign-in did not complete.' };
     }
 
     const { error } = await supabase.auth.exchangeCodeForSession(code);
@@ -181,6 +197,13 @@ function outcome(message: string, anonymous: boolean): SignInOutcome {
 }
 
 function explain(message: string, anonymous: boolean): string {
+  // Apple's rejection of the client secret arrives as this, with a short code
+  // that identifies the request and nothing about the cause. It always means
+  // the secret is wrong or has expired -- Apple caps it at six months -- so say
+  // so rather than repeating a string nobody can act on.
+  if (/exchange external code|invalid_client/i.test(message)) {
+    return 'Sign in with Apple is not set up correctly on the server yet.';
+  }
   // Manual linking is off by default on a Supabase project, and the failure it
   // produces names an internal API rather than the setting.
   if (anonymous && /manual linking|identity_not_allowed|not enabled/i.test(message)) {
