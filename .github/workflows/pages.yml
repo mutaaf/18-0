@@ -37,6 +37,12 @@ jobs:
           # rotated without a commit, not because exposure would breach anything.
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          # A repository variable, not a secret: the value is the word
+          # "apple,google". It is empty until the providers are actually
+          # configured in Supabase, and while it is empty the app shows no
+          # sign-in buttons at all. A button that fails when tapped is worse
+          # than no button, and is the first thing App Review taps.
+          EXPO_PUBLIC_AUTH_PROVIDERS: ${{ vars.AUTH_PROVIDERS }}
         run: npx expo export --platform web --output-dir ../../dist
       - name: The link preview must survive the build
         # A share of this game is a URL in somebody's chat. The tags that make

@@ -27,25 +27,18 @@ Treat the first run as a test, not a deployment.
 
 ## 1. Supabase
 
-Two settings, both in the dashboard for project `keqwdtnyotdovrtcswel`:
+**Already done, on the hosted project:**
 
-1. **Authentication → Providers** — enable Apple and Google, and paste the
-   credentials from the two sections below.
-2. **Authentication → Advanced → Manual linking** — turn it on. Without it
-   `linkIdentity` fails, and the failure names an internal API rather than the
-   setting. The app translates that message into something a player can read,
-   but the fix is here.
+- **Manual linking is on.** Without it `linkIdentity` fails and the error names
+  an internal API rather than the setting.
+- **Redirect URLs are set**: `eighteenzero://auth-callback` (the native deep
+  link, scheme from `app.config.js`), the deployed web build, and localhost for
+  web development.
+- **Anonymous sign-ins are capped at 1000/hour/IP** rather than the default 30,
+  which mobile carrier NAT would have hit on its own.
 
-Add these to **Authentication → URL Configuration → Redirect URLs**:
-
-```
-eighteenzero://auth-callback
-https://mutaaf.github.io/18-0
-http://localhost:8082
-```
-
-The first is the native deep link (the scheme comes from `app.config.js`), the
-second is the deployed web build, the third is local web development.
+The providers themselves are what `scripts/social-setup.sh` fills in, from the
+credentials in the two sections below.
 
 ## 2. Apple
 
@@ -84,16 +77,25 @@ through Supabase, which is a web origin, and not through Google's native SDK.
 
 ## 4. Switch it on
 
-In `apps/mobile/.env` for local work, and in the repository's GitHub Actions
-secrets for the deployed web build:
+Do not do this by hand. Fill in `.local/social.env` (copy the `.example`) and run:
 
 ```
-EXPO_PUBLIC_AUTH_PROVIDERS=apple,google
+scripts/social-setup.sh
 ```
 
-`EXPO_PUBLIC_*` values are inlined into the bundle at build time, so the web
-build needs the variable added to `.github/workflows/pages.yml` alongside the
-Supabase ones before it takes effect there.
+It reads the credentials and the `.p8` straight from that gitignored file,
+configures the hosted project, reads the settings back to prove they landed, and
+only then turns the buttons on: `EXPO_PUBLIC_AUTH_PROVIDERS` in
+`apps/mobile/.env` and the `AUTH_PROVIDERS` repository variable that
+`pages.yml` reads for the web build.
+
+The ordering is the point. While that variable is empty the app shows no
+sign-in buttons at all, so a half-configured provider cannot reach a user, or a
+reviewer.
+
+Nothing is echoed by the script. A private key that has been printed to a
+terminal lives in a scrollback buffer and a session log afterwards, and should
+be rotated rather than trusted.
 
 ## 5. Check it actually works
 
