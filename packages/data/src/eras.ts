@@ -46,11 +46,11 @@ export const ERA_TABLE: readonly EraDefinition[] = [
   },
   {
     key: '1999_2004',
-    name: 'The Greatest Show',
+    name: 'The Indoor Years',
     label: "1999–2004",
     startYear: 1999,
     endYear: 2004,
-    tagline: "Warner's Rams outrunning everyone, Baltimore's record defense answering",
+    tagline: 'St. Louis outscoring everyone, Baltimore\'s record defense answering',
   },
   {
     key: '2005_2009',
@@ -66,7 +66,7 @@ export const ERA_TABLE: readonly EraDefinition[] = [
     label: '2010–2014',
     startYear: 2010,
     endYear: 2014,
-    tagline: '5,000-yard seasons, until the Legion of Boom answered',
+    tagline: '5,000-yard seasons, until Seattle\'s secondary answered',
   },
   {
     key: '2015_2019',
@@ -78,7 +78,7 @@ export const ERA_TABLE: readonly EraDefinition[] = [
   },
   {
     key: '2020_2025',
-    name: 'The Mahomes Era',
+    name: 'The Long Season',
     label: '2020–2025',
     startYear: 2020,
     endYear: 2025,

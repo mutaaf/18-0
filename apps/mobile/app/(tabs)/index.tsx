@@ -66,7 +66,7 @@ export default function Home() {
   const hero = (
     <View style={styles.heroColumn}>
       <Reveal delay={0}>
-        <Text style={styles.kicker}>The NFL history roster game</Text>
+        <Text style={styles.kicker}>The pro football history game</Text>
         <Text style={[styles.headline, { fontSize: display, lineHeight: display * 0.98 }]}>
           Spin history.{'\n'}Build seven.{'\n'}
           <Text style={styles.headlineAccent}>Chase perfection.</Text>

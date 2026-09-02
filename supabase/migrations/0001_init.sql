@@ -30,14 +30,15 @@ create table public.eras (
   sort_order  int  not null
 );
 
+-- Franchises are identified by city. The club name and marks are not ours, so
+-- they are not in the dataset and there is nowhere here to put them.
 create table public.franchises (
   id            text primary key,
   abbreviation  text not null,
   display_name  text not null,
   nickname      text not null,
   conference    text,
-  primary_color text,
-  logo_url      text
+  primary_color text
 );
 
 create table public.franchise_eras (

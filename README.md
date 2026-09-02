@@ -4,7 +4,7 @@
 
 **Spin history. Build seven. Chase perfection.**
 
-An NFL historical roster game. Spin for a franchise and an era, take one player,
+A pro football history game. Spin for a franchise and an era, take one player,
 fill seven slots, and receive a deterministic rating mapped to an 18-game record
 from 0-18 to 18-0.
 
@@ -80,11 +80,11 @@ Nobody hand-picked those. They fell out of the model.
 
 | Era | Named for |
 |---|---|
-| **The Greatest Show** · 1999–2004 | Warner's Rams outrunning everyone, Baltimore's record defense answering |
+| **The Indoor Years** · 1999–2004 | St. Louis outscoring everyone, Baltimore's record defense answering |
 | **Chasing Perfect** · 2005–2009 | Manning against Brady, 16-0, and the one that got away |
-| **The Passing Boom** · 2010–2014 | 5,000-yard seasons, until the Legion of Boom answered |
+| **The Passing Boom** · 2010–2014 | 5,000-yard seasons, until Seattle's secondary answered |
 | **The Torch Pass** · 2015–2019 | 28-3, and a kid from Texas Tech taking the league |
-| **The Mahomes Era** · 2020–2025 | Kansas City on top, and a seventeenth game |
+| **The Long Season** · 2020–2025 | Kansas City on top, and a seventeenth game |
 
 ---
 
@@ -194,7 +194,7 @@ for the statistics, nflverse rosters for the positions, two more named eras,
 201 franchise-era combinations instead of 157. It is switched off, because the
 only free source for those years turns out to be **49% complete** and the
 missing half includes Emmitt Smith and Joe Montana outright. That leaves 1990s
-Dallas with no qualifying running back and the 49ers with no tight end: a
+Dallas with no qualifying running back and San Francisco with no tight end: a
 plausible-looking, quietly false version of NFL history, which is the one thing
 this game cannot ship.
 
@@ -212,6 +212,10 @@ weight tables are the ones that actually run.
 
 ## Licence
 
-MIT. Statistics from [nflverse](https://nflverse.com) under CC BY 4.0. NFL team
-names and marks belong to their respective owners; this project is unaffiliated
-with the National Football League.
+MIT. Statistics from [nflverse](https://nflverse.com) under CC BY 4.0.
+
+**This project uses no club names, marks, logos or colours.** Franchises are
+identified by city — "Baltimore", not the club — because a city is a place and
+the statistics are facts, while the club name is a trademark. Team palettes are
+generated per franchise rather than copied. It is unaffiliated with, and not
+endorsed by, any league or club.

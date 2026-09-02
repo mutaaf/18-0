@@ -30,12 +30,12 @@ out.push(
 );
 out.push('');
 
-out.push('insert into public.franchises (id, abbreviation, display_name, nickname, conference, primary_color, logo_url) values');
+out.push('insert into public.franchises (id, abbreviation, display_name, nickname, conference, primary_color) values');
 out.push(
   DATASET.franchises
     .map(
       (f) =>
-        `  (${quote(f.id)}, ${quote(f.abbr)}, ${quote(f.name)}, ${quote(f.nick)}, ${quote(f.conference)}, ${quote(f.color)}, ${quote(f.logo)})`,
+        `  (${quote(f.id)}, ${quote(f.abbr)}, ${quote(f.name)}, ${quote(f.nick)}, ${quote(f.conference)}, ${quote(f.color)})`,
     )
     .join(',\n') + ';',
 );

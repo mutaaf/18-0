@@ -57,7 +57,7 @@ export const ShareCard = forwardRef<View, {
           <View style={styles.markDash} />
           <Text style={styles.mark}>0</Text>
         </View>
-        <Text style={styles.headMeta}>NFL HISTORY ROSTER GAME</Text>
+        <Text style={styles.headMeta}>PRO FOOTBALL HISTORY</Text>
       </View>
 
       <View style={styles.hero}>

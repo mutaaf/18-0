@@ -442,6 +442,53 @@ function statLines(season: RawSeason): StatLine[] {
 // Main
 // ---------------------------------------------------------------------------
 
+/**
+ * A franchise is identified by its city, never by the club.
+ *
+ * "Baltimore's 2006 defense" is how you would write about that season in a
+ * newspaper without anyone's permission: the statistics are facts, and the
+ * place is a place. The club name is a trademark, so it is dropped at the point
+ * the dataset is built rather than filtered in a dozen screens that each have
+ * to remember to do it.
+ */
+function cityOf(name: string | undefined, nick: string | undefined): string | undefined {
+  if (!name) return undefined;
+  if (!nick) return name;
+  const city = name.replace(new RegExp(`\\s*${nick}\\s*$`), '').trim();
+  return city || name;
+}
+
+/**
+ * Each franchise gets a stable colour of its own, generated rather than copied.
+ *
+ * Real club palettes are the visual half of a club's identity, and the cards
+ * lean on them hard. These are spaced by the golden angle so neighbouring
+ * franchises never collide, which as a bonus reads better than the real thing —
+ * the league has six near-identical navies and this does not.
+ */
+function franchiseColors(index: number): [string, string] {
+  const hue = (index * 137.508) % 360;
+  const saturation = index % 2 === 0 ? 0.68 : 0.56;
+  const lightness = index % 3 === 0 ? 0.54 : index % 3 === 1 ? 0.46 : 0.5;
+  return [hslToHex(hue, saturation, lightness), hslToHex(hue, saturation * 0.8, lightness * 0.55)];
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  const [r, g, b] =
+    h < 60 ? [c, x, 0]
+    : h < 120 ? [x, c, 0]
+    : h < 180 ? [0, c, x]
+    : h < 240 ? [0, x, c]
+    : h < 300 ? [x, 0, c]
+    : [c, 0, x];
+  const channel = (v: number) =>
+    Math.round((v + m) * 255).toString(16).padStart(2, '0');
+  return `#${channel(r)}${channel(g)}${channel(b)}`;
+}
+
 function main(): void {
   console.log('Building 18-0 dataset from', RAW);
   const players = loadPlayerSeasons();
@@ -703,18 +750,19 @@ function main(): void {
 
   const teams = parseCsv(join(RAW, 'teams.csv'));
   const franchiseIds = [...new Set(finalCards.map((c) => c.franchiseId))].sort();
-  const franchises = franchiseIds.map((id) => {
+  const franchises = franchiseIds.map((id, index) => {
     const abbr = Object.entries(TEAM_TO_FRANCHISE).find(([, v]) => v === id)?.[0] ?? id.toUpperCase();
     const row = teams.find((t) => TEAM_TO_FRANCHISE[t.team_abbr ?? ''] === id) ?? {};
+    const [color, color2] = franchiseColors(index);
     return {
       id,
       abbr: row.team_abbr ?? abbr,
-      name: row.team_name ?? id,
-      nick: row.team_nick ?? id,
+      // Cities, not clubs. See `cityOf`.
+      name: cityOf(row.team_name, row.team_nick) ?? id,
+      nick: cityOf(row.team_name, row.team_nick) ?? id,
       conference: row.team_conf ?? '',
-      color: row.team_color ?? '#1a1a1a',
-      color2: row.team_color2 ?? '#ffffff',
-      logo: row.team_logo_espn ?? '',
+      color,
+      color2,
     };
   });
 

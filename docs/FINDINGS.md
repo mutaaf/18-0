@@ -151,7 +151,7 @@ the best player at each position. They are not:
 
 The consequences are exactly as bad as they sound. 1990s Dallas has **no
 qualifying running back at all**, so the franchise-era is dropped; the best
-Cowboys back the file knows about is Tommie Agee. San Francisco 1990–98 cannot
+Dallas back the file knows about is Tommie Agee. San Francisco 1990–98 cannot
 field a tight end and is dropped too, taking Jerry Rice's 1,848-yard 1995 with
 it. Nine franchises fall out of that era and six out of the 1980s. The two eras
 that survive are a plausible-looking, quietly false version of NFL history —

@@ -30,12 +30,12 @@ const FULL_LABELS: Record<string, string> = {
   stats: 'My Stats',
 };
 
-function Glyph({ name, active }: { name: string; active: boolean }) {
+function Glyph({ name, active, tint, size = 20 }: { name: string; active: boolean; tint?: string; size?: number }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d={ICONS[name] ?? ''}
-        stroke={active ? color.redBright : color.textFaint}
+        stroke={tint ?? (active ? color.redBright : color.textFaint)}
         strokeWidth={1.75}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -85,6 +85,9 @@ export function NavBar({ state, navigation }: NavBarProps) {
         <View style={styles.railItems}>
           {state.routes.map((route, index) => {
             const active = state.index === index;
+            // Play is the product. Everything else on this rail is a place to
+            // look at what you already did.
+            const isPlay = route.name === 'index';
             return (
               <Pressable
                 key={route.key}
@@ -94,13 +97,23 @@ export function NavBar({ state, navigation }: NavBarProps) {
                 accessibilityLabel={FULL_LABELS[route.name] ?? route.name}
                 style={({ hovered }: PressState) => [
                   styles.railItem,
-                  hovered && styles.railItemHover,
-                  active && styles.railItemActive,
+                  hovered && !isPlay && styles.railItemHover,
+                  active && !isPlay && styles.railItemActive,
+                  isPlay && styles.railPlay,
+                  isPlay && hovered && styles.railPlayHover,
                 ]}
               >
-                <View style={[styles.railMarker, active && styles.railMarkerActive]} />
-                <Glyph name={route.name} active={active} />
-                <Text style={[styles.railLabel, active && { color: color.text }]}>
+                {isPlay ? null : (
+                  <View style={[styles.railMarker, active && styles.railMarkerActive]} />
+                )}
+                <Glyph name={route.name} active={active} tint={isPlay ? '#FFFFFF' : undefined} />
+                <Text
+                  style={[
+                    styles.railLabel,
+                    active && { color: color.text },
+                    isPlay && styles.railPlayLabel,
+                  ]}
+                >
                   {FULL_LABELS[route.name] ?? route.name}
                 </Text>
               </Pressable>
@@ -123,6 +136,7 @@ export function NavBar({ state, navigation }: NavBarProps) {
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, space.md) }]}>
       {state.routes.map((route, index) => {
         const active = state.index === index;
+        const isPlay = route.name === 'index';
         return (
           <Pressable
             key={route.key}
@@ -132,8 +146,20 @@ export function NavBar({ state, navigation }: NavBarProps) {
             accessibilityLabel={FULL_LABELS[route.name] ?? route.name}
             style={styles.barItem}
           >
-            <Glyph name={route.name} active={active} />
-            <Text style={[styles.barLabel, active && { color: color.redBright }]}>
+            {isPlay ? (
+              <View style={[styles.playDisc, active && styles.playDiscActive]}>
+                <Glyph name={route.name} active tint="#FFFFFF" size={24} />
+              </View>
+            ) : (
+              <Glyph name={route.name} active={active} />
+            )}
+            <Text
+              style={[
+                styles.barLabel,
+                active && { color: color.redBright },
+                isPlay && styles.playLabel,
+              ]}
+            >
               {LABELS[route.name] ?? route.name}
             </Text>
           </Pressable>
@@ -173,6 +199,19 @@ const styles = StyleSheet.create({
   },
   railItemHover: { backgroundColor: '#FFFFFF08' },
   railItemActive: { backgroundColor: '#FFFFFF0A' },
+  /** The one filled control on the rail. */
+  railPlay: {
+    backgroundColor: color.red,
+    borderRadius: radius.md,
+    marginVertical: space.xs,
+    shadowColor: color.red,
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  railPlayHover: { backgroundColor: color.redBright },
+  railPlayLabel: { color: '#FFFFFF', fontSize: 14 },
   railMarker: { position: 'absolute', left: 0, top: 12, bottom: 12, width: 2, borderRadius: 1 },
   railMarkerActive: { backgroundColor: color.red },
   railLabel: { fontFamily: font.label, fontSize: 13, letterSpacing: tracking.wide, color: color.textFaint },
@@ -194,7 +233,9 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: color.line,
     backgroundColor: '#080B0FF2',
-    paddingTop: space.md,
+    // Room for the raised Play disc to break the top edge without clipping.
+    paddingTop: space.lg,
+    overflow: 'visible',
   },
   barItem: {
     flex: 1,
@@ -211,4 +252,27 @@ const styles = StyleSheet.create({
     color: color.textFaint,
     textTransform: 'uppercase',
   },
+  /**
+   * Play sits above the bar rather than in it. Four of these five tabs are
+   * places to review what you already did; only one of them is the game.
+   */
+  playDisc: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    marginTop: -26,
+    marginBottom: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: color.red,
+    borderWidth: 3,
+    borderColor: '#080B0F',
+    shadowColor: color.red,
+    shadowOpacity: 0.55,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 8,
+  },
+  playDiscActive: { backgroundColor: color.redBright },
+  playLabel: { color: color.redBright, fontFamily: font.bodyBold },
 });

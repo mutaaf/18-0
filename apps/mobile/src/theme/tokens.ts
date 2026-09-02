@@ -3,7 +3,7 @@
  *
  * Three sources, reconciled deliberately:
  *
- *   NFL       Navy #013369 and red #D50A0A — the ground and the action.
+ *   Ground    Navy #013369 and red #D50A0A — a broadcast palette, not a club's.
  *   ESPN      Dense red header bars, hard uppercase labels, ticker rhythm.
  *   18-0      Victory Gold #FFB400, Steel Silver #C0C0C6 from the brand sheet.
  *
@@ -13,7 +13,7 @@
  */
 
 export const color = {
-  // Ground — black with the NFL's navy in it rather than neutral grey.
+  // Ground — black with navy in it rather than neutral grey.
   void: '#06080F',
   field: '#090C16',
   surface: '#0E1220',
@@ -34,7 +34,7 @@ export const color = {
   textDim: '#9AA4B8',
   textFaint: '#7C8699',
 
-  // Live action — NFL red, with ESPN's hotter red for small type.
+  // Live action — broadcast red, with a hotter red for small type.
   red: '#D50A0A',
   redBright: '#FF2B2B',
   redGlow: '#D50A0A33',

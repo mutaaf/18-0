@@ -9,20 +9,30 @@ import type { Archetype, EraKey, Position } from '@18-0/domain';
  * needs to exist for leaderboards and challenges.
  */
 
+/**
+ * A franchise, identified by where it plays.
+ *
+ * `name` and `nick` are both the city — the club name is a trademark and is
+ * dropped when the dataset is built, so nothing downstream can leak one. The
+ * colours are generated per franchise rather than taken from the club's own
+ * palette, and there is deliberately no logo field: the marks are not ours.
+ */
 export interface DatasetFranchise {
   readonly id: string;
+  /** Geographic short code, e.g. `BAL`. */
   readonly abbr: string;
+  /** The city, e.g. `Baltimore`. */
   readonly name: string;
+  /** The city again, kept for callers that want the short label. */
   readonly nick: string;
   readonly conference: string;
   readonly color: string;
   readonly color2: string;
-  readonly logo: string;
 }
 
 export interface DatasetEra {
   readonly key: EraKey;
-  /** The name a fan would use, e.g. "The Greatest Show". */
+  /** An editorial name for the period, e.g. "The Passing Boom". */
   readonly name: string;
   /** The year range, e.g. "1999–2004". */
   readonly label: string;
