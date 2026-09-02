@@ -223,13 +223,31 @@ worse than none at all: it shadows the secret rather than falling back to it.
 
 `eas build -p ios --profile preview` needs a paid Apple Developer membership
 ($99/yr) to sign for a physical device; TestFlight is the sane distribution
-from there. The free alternative is a local Xcode build against a personal
-team, which expires every 7 days and needs the developer directory switched
-first:
+from there. The free alternative is a local build signed against a personal team, which is
+what this project is set up for.
 
 ```bash
-sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+cd apps/mobile
+pnpm exec expo run:ios --device        # pick the phone when prompted
 ```
 
-Without that, `xcode-select -p` still points at CommandLineTools and no iOS
-build will find a toolchain.
+That builds natively and installs straight onto a paired iPhone. Prerequisites,
+all already true on this machine: Xcode installed and selected
+(`xcode-select -p` must point inside Xcode.app, not CommandLineTools —
+switching needs `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`),
+CocoaPods available, and the phone paired and trusted.
+
+**It expires after 7 days.** A personal-team provisioning profile is good for a
+week, after which the app refuses to launch until you run the same command
+again. That is Apple's limit on unpaid accounts, not a project setting.
+
+The signing team is written into the generated Xcode project rather than
+configured by hand. `ios/` and `android/` are gitignored: they are generated
+from `app.config.js` by `expo prebuild`, so they are build output, and
+committing them lets the config and the native project silently disagree. If
+the native project is missing or stale, delete it and let `run:ios` regenerate
+it — nothing in it is authored.
+
+Note that `expo prebuild` reads `apps/mobile/.env`, so a device build has the
+backend baked in and the leaderboard works away from this machine — unlike the
+tethered route, which needs Metro alive.

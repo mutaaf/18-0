@@ -22,3 +22,9 @@ supabase/.branches/
 
 # Local secrets, never committed
 .local/
+
+# Native projects are generated from app.config.js by `expo prebuild`, so they
+# are build output rather than source. Committing them means the config and the
+# native project can silently disagree; regenerating them takes one command.
+apps/mobile/ios/
+apps/mobile/android/
