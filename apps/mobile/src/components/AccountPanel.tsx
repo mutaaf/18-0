@@ -5,6 +5,7 @@ import * as Linking from 'expo-linking';
 import { PRIVACY_URL } from '@/features/links';
 import { track } from '@/features/telemetry';
 import { ManagerCard } from './ManagerCard';
+import { ProviderButton } from './ProviderButton';
 import { computeStats, useHistoryStore } from '@/state/history';
 import {
   linkedProviders,
@@ -259,23 +260,12 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
               </Text>
               <View style={styles.providerRow}>
                 {socialProviders.map((provider) => (
-                  <Pressable
+                  <ProviderButton
                     key={provider}
-                    onPress={() => connect(provider)}
+                    provider={provider}
                     disabled={busy}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Continue with ${providerLabel(provider)}`}
-                    style={({ hovered, pressed }: PressState) => [
-                      styles.provider,
-                      hovered && styles.providerHover,
-                      pressed && { opacity: 0.85 },
-                      busy && { opacity: 0.6 },
-                    ]}
-                  >
-                    <Text style={styles.providerLabel}>
-                      Continue with {providerLabel(provider)}
-                    </Text>
-                  </Pressable>
+                    onPress={() => connect(provider)}
+                  />
                 ))}
               </View>
             </>
@@ -405,23 +395,6 @@ const styles = StyleSheet.create({
 
   signIn: { marginTop: space.sm, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: color.line, gap: space.sm },
   providerRow: { gap: space.sm },
-  provider: {
-    height: 46,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: color.line,
-    backgroundColor: '#0F1420',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  providerHover: { borderColor: color.gold },
-  providerLabel: {
-    fontFamily: font.label,
-    fontSize: 14,
-    letterSpacing: tracking.wide,
-    color: color.text,
-    textTransform: 'uppercase',
-  },
 
   dangerZone: { marginTop: space.sm, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: color.line, gap: space.sm },
   dangerLink: { alignSelf: 'flex-start', paddingVertical: 4 },
