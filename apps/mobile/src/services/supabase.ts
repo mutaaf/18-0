@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { cached, invalidateIdentity } from '@/features/cache';
@@ -22,7 +23,29 @@ export const supabase: SupabaseClient | null = isBackendConfigured
         storage: AsyncStorage,
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: false,
+        /**
+         * PKCE, not the default implicit flow.
+         *
+         * Implicit returns the tokens in the URL fragment. On a native build
+         * the redirect therefore arrives as
+         * `eighteenzero://auth-callback#access_token=...`, and the sign-in code
+         * reads `?code=` and exchanges it, so it found nothing and reported
+         * "Sign-in did not complete" — on iOS and Android only. The web build
+         * worked, because the fragment is all the browser flow needs.
+         *
+         * PKCE returns `?code=` on every platform, which is both what that code
+         * expects and the flow Apple and Google recommend for a mobile client:
+         * the token never travels in a URL that ends up in browser history.
+         */
+        flowType: 'pkce',
+        /**
+         * The web build has no deep-link handler to catch the callback, so
+         * supabase-js has to read it off the URL itself. It also strips the
+         * parameters afterwards, which keeps the authorization code out of
+         * browser history. Native does the exchange explicitly in
+         * services/auth.ts, and enabling this there would race with it.
+         */
+        detectSessionInUrl: Platform.OS === 'web',
       },
     })
   : null;
