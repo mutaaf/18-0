@@ -24,11 +24,39 @@ const check = (name, ok, detail = '') => {
 
 const client = () => createClient(API, ANON, { auth: { persistSession: false } });
 
-async function signIn(label) {
+/**
+ * A fresh anonymous account.
+ *
+ * Supabase caps anonymous sign-ins per IP per hour, and one pass of this file
+ * makes seven of them. Running the harness a few times while iterating is
+ * enough to hit the cap, and the failure arrived as an unhandled rejection
+ * midway through — a stack trace where a result should have been, with the
+ * checks that had already passed scrolled off the top.
+ *
+ * A short backoff rides out a burst. A cap that is genuinely exhausted cannot
+ * be waited out inside a run, so that says so plainly instead.
+ */
+async function signIn(label, attempt = 0) {
   const sb = client();
   const { data, error } = await sb.auth.signInAnonymously();
-  if (error) throw new Error(`${label} sign-in failed: ${error.message}`);
-  return { sb, user: data.user, token: data.session.access_token };
+  if (!error) return { sb, user: data.user, token: data.session.access_token };
+
+  const throttled = /rate limit/i.test(error.message);
+  if (throttled && attempt < 3) {
+    const wait = 15_000 * (attempt + 1);
+    console.log(`  … ${label}: ${error.message}. Retrying in ${wait / 1000}s.`);
+    await new Promise((resolve) => setTimeout(resolve, wait));
+    return signIn(label, attempt + 1);
+  }
+  if (throttled) {
+    throw new Error(
+      `${label} sign-in failed: ${error.message}.\n\n` +
+        'This is the hosted project\'s hourly cap on anonymous sign-ins for this IP, ' +
+        'not a fault in the code under test. Each pass of this harness creates seven ' +
+        'accounts. Wait for the window to roll over and run it again.',
+    );
+  }
+  throw new Error(`${label} sign-in failed: ${error.message}`);
 }
 
 const call = async (fn, token, body) => {
@@ -335,6 +363,39 @@ const takenHandle = await bob.sb.from('profiles')
   .upsert({ id: bob.user.id, handle: HANDLE }, { onConflict: 'id' }).select();
 check('a handle cannot be taken twice', takenHandle.error !== null,
   takenHandle.error ? takenHandle.error.code : 'accepted');
+
+// Signing up assigns a `player-<hex>` placeholder, and nobody may claim one.
+const reserved = await bob.sb.from('profiles')
+  .update({ handle: 'player-0123456789ab' }).eq('id', bob.user.id).select();
+check('a placeholder name cannot be claimed',
+  /handle_not_allowed:reserved/.test(reserved.error?.message ?? ''),
+  reserved.error ? reserved.error.message.slice(0, 40) : 'accepted');
+
+// Claiming a real name over the placeholder does not start the clock (0008),
+// so this next change is the free correction — and it arms the check below.
+const RENAMED = `verify_${crypto.randomUUID().slice(0, 8)}`;
+const firstRename = await alice.sb.from('profiles')
+  .update({ handle: RENAMED }).eq('id', alice.user.id).select();
+check('the first correction is free', firstRename.error === null,
+  firstRename.error ? firstRename.error.message : RENAMED);
+
+const secondRename = await alice.sb.from('profiles')
+  .update({ handle: `verify_${crypto.randomUUID().slice(0, 8)}` }).eq('id', alice.user.id).select();
+check('but the second is not for a month',
+  /handle_cooldown:/.test(secondRename.error?.message ?? ''),
+  secondRename.error ? secondRename.error.message.slice(0, 40) : 'accepted');
+
+// The app renders the unlock date from this, and it must come from the server:
+// a client that could write it could set its own cooldown to zero.
+const { data: stamp } = await alice.sb.from('profiles')
+  .select('handle_set_at').eq('id', alice.user.id).maybeSingle();
+check('the rename is stamped by the server', Boolean(stamp?.handle_set_at),
+  `${stamp?.handle_set_at}`);
+
+const backdate = await alice.sb.from('profiles')
+  .update({ handle_set_at: '2000-01-01T00:00:00Z' }).eq('id', alice.user.id).select();
+check('a player cannot wind the cooldown back', backdate.error !== null,
+  backdate.error ? backdate.error.code : 'accepted');
 
 const impersonate = await bob.sb.from('profiles')
   .upsert({ id: alice.user.id, handle: 'not_alice' }, { onConflict: 'id' }).select();

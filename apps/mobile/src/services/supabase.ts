@@ -235,6 +235,39 @@ export interface Identity {
   readonly anonymous: boolean;
   readonly handle: string | null;
   readonly handleStatus: 'ok' | 'flagged' | 'hidden' | null;
+  /** When the name was last changed. Null until the player changes it once. */
+  readonly handleSetAt: string | null;
+  /**
+   * Whether the player has actually chosen this name.
+   *
+   * Signing up assigns `player-<hex>` (migration 0001), so `handle` is never
+   * empty and a screen testing it for null would never once offer to name
+   * anybody. This is what "has a name" means.
+   */
+  readonly named: boolean;
+  /**
+   * The moment a rename becomes possible, or null when nothing is holding one
+   * back. This is an absolute time and may be in the past: identity() is cached
+   * to disk, so a value that meant "not yet" when it was written has to still
+   * be readable as "yes, now" when it is read back hours later. Compare it with
+   * canRenameNow() rather than testing it for null.
+   *
+   * The server is what enforces this. Here it is a label.
+   */
+  readonly renameAvailableAt: string | null;
+}
+
+/** The shape the database assigns at signup. Mirrors is_placeholder_handle (0008). */
+const PLACEHOLDER_HANDLE = /^player-[0-9a-f]{12}([0-9a-f]{4})?$/;
+
+/** Matches `interval '30 days'` in enforce_handle_policy (migration 0006). */
+export const RENAME_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Whether the name can be changed right now, evaluated against the clock. */
+export function canRenameNow(who: Identity | null): boolean {
+  if (!who) return false;
+  if (!who.renameAvailableAt) return true;
+  return new Date(who.renameAvailableAt).getTime() <= Date.now();
 }
 
 export async function identity(onFresh?: (value: Identity | null) => void): Promise<Identity | null> {
@@ -247,14 +280,25 @@ export async function identity(onFresh?: (value: Identity | null) => void): Prom
     async () => {
       const { data: profile } = await supabase!
         .from('profiles')
-        .select('handle, handle_status')
+        .select('handle, handle_status, handle_set_at')
         .eq('id', me.id)
         .maybeSingle();
+      const setAt = (profile?.handle_set_at as string | null) ?? null;
+      const status = (profile?.handle_status as Identity['handleStatus']) ?? null;
+      const handle = (profile?.handle as string | null) ?? null;
+      // A flagged or hidden name can be replaced immediately — the server skips
+      // the cooldown in exactly those cases, so the UI must not claim otherwise.
+      const held = setAt && (status ?? 'ok') === 'ok'
+        ? new Date(new Date(setAt).getTime() + RENAME_COOLDOWN_MS)
+        : null;
       return {
         userId: me.id,
         anonymous: me.anonymous,
-        handle: (profile?.handle as string | null) ?? null,
-        handleStatus: (profile?.handle_status as Identity['handleStatus']) ?? null,
+        handle,
+        handleStatus: status,
+        handleSetAt: setAt,
+        named: Boolean(handle) && !PLACEHOLDER_HANDLE.test(handle!),
+        renameAvailableAt: held ? held.toISOString() : null,
       };
     },
     { ttl: 5 * 60_000, ...(onFresh ? { onFresh } : {}) },
@@ -376,9 +420,21 @@ export async function reportHandle(
 
 /** Turns the handle-policy trigger's error into something a person can act on. */
 export function explainHandleRejection(message: string): string | null {
+  const cooldown = /handle_cooldown:(\S+)/.exec(message);
+  if (cooldown) {
+    // The server sends the exact moment rather than a number of days, so the
+    // message stays true however long the player sat on the error screen.
+    const when = new Date(cooldown[1]!);
+    return Number.isNaN(when.getTime())
+      ? 'You can change your name once a month.'
+      : `You can change your name once a month — next on ${when.toLocaleDateString(undefined, {
+          month: 'long',
+          day: 'numeric',
+        })}.`;
+  }
   const match = /handle_not_allowed:(\w+)/.exec(message);
   if (!match) return null;
-  return match[1] === 'impersonation'
-    ? 'That name could be mistaken for the game or its staff.'
-    : 'That name is not allowed.';
+  if (match[1] === 'impersonation') return 'That name could be mistaken for the game or its staff.';
+  if (match[1] === 'reserved') return 'That name is reserved.';
+  return 'That name is not allowed.';
 }

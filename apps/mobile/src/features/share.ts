@@ -12,11 +12,12 @@ import type { ShareRosterRow } from '@/components/ShareCard';
  * field, and — because Android's file share drops the text entirely — the
  * exported image itself. A share that lands somewhere with no way back to the
  * game is just a screenshot.
+ *
+ * Defined in `links.ts` so that `app/+html.tsx`, which renders the page's head
+ * at build time in Node, can use the same value without importing React Native.
  */
-export const APP_URL = 'https://mutaaf.github.io/18-0';
-
-/** How the link reads when it is set as type rather than followed. */
-export const APP_URL_LABEL = APP_URL.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+export { APP_URL, APP_URL_LABEL } from './links';
+import { APP_URL } from './links';
 
 /**
  * Where a share points.

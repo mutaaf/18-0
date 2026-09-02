@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import * as Haptics from 'expo-haptics';
 import { track } from '@/features/telemetry';
 import {
+  canRenameNow,
   claimHandle,
   deleteAccount,
   handleProblem,
@@ -28,6 +29,7 @@ export function AccountPanel() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [renaming, setRenaming] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!isBackendConfigured) return;
@@ -56,6 +58,7 @@ export function AccountPanel() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setDraft('');
       setNote(null);
+      setRenaming(false);
       await refresh();
     } else {
       setNote(result.error ?? 'That did not work.');
@@ -83,7 +86,7 @@ export function AccountPanel() {
 
       {loading ? (
         <ActivityIndicator color={color.textFaint} style={{ alignSelf: 'flex-start' }} />
-      ) : me?.handle ? (
+      ) : me?.named && !renaming ? (
         <>
           <View style={styles.claimed}>
             <Text style={styles.handle}>{me.handle}</Text>
@@ -99,11 +102,39 @@ export function AccountPanel() {
             Ranked seasons you finish appear under this name. Casual seasons never leave your
             device.
           </Text>
+          {canRenameNow(me) ? (
+            <Pressable
+              onPress={() => {
+                setDraft(me.handle ?? '');
+                setNote(null);
+                setRenaming(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Change my display name"
+              style={styles.dangerLink}
+            >
+              <Text style={styles.subtleLink}>Change name</Text>
+            </Pressable>
+          ) : (
+            // The date, not "in 12 days" — a countdown computed here would be
+            // wrong the moment this screen is left open, and this panel is
+            // rendered from a cache that can be hours old.
+            <Text style={styles.cooldown}>
+              Names can be changed once a month. Yours unlocks on{' '}
+              {new Date(me.renameAvailableAt!).toLocaleDateString(undefined, {
+                month: 'long',
+                day: 'numeric',
+              })}
+              .
+            </Text>
+          )}
         </>
       ) : (
         <>
           <Text style={styles.copy}>
-            Nothing you have played is on the board. Pick a name and your ranked seasons will be.
+            {renaming
+              ? 'Pick your new name. You can change it again in a month.'
+              : 'Nothing you have played is on the board. Pick a name and your ranked seasons will be.'}
           </Text>
           <View style={styles.claimRow}>
             <TextInput
@@ -130,9 +161,27 @@ export function AccountPanel() {
                 pressed && { opacity: 0.85 },
               ]}
             >
-              {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.claimLabel}>Claim</Text>}
+              {busy ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.claimLabel}>{renaming ? 'Save' : 'Claim'}</Text>
+              )}
             </Pressable>
           </View>
+          {renaming ? (
+            <Pressable
+              onPress={() => {
+                setRenaming(false);
+                setDraft('');
+                setNote(null);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Keep my current name"
+              style={styles.dangerLink}
+            >
+              <Text style={styles.subtleLink}>Keep {me?.handle}</Text>
+            </Pressable>
+          ) : null}
         </>
       )}
 
@@ -247,6 +296,8 @@ const styles = StyleSheet.create({
   },
 
   note: { fontFamily: font.bodyRegular, fontSize: 12, color: color.gold },
+  subtleLink: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textDim, textDecorationLine: 'underline' },
+  cooldown: { fontFamily: font.bodyRegular, fontSize: 12, lineHeight: 18, color: color.textFaint },
 
   dangerZone: { marginTop: space.sm, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: color.line, gap: space.sm },
   dangerLink: { alignSelf: 'flex-start', paddingVertical: 4 },

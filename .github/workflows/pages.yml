@@ -38,6 +38,13 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: npx expo export --platform web --output-dir ../../dist
+      - name: The link preview must survive the build
+        # A share of this game is a URL in somebody's chat. The tags that make
+        # that URL worth tapping live in apps/mobile/public/index.html, and the
+        # first attempt at adding them put them somewhere Expo silently ignores
+        # -- the build passed and the page shipped bare. This reads what ships.
+        run: node scripts/verify/web-head.mjs dist
+
       - name: Serve the SPA on deep links
         # GitHub Pages has no rewrite rules; a copy of index.html as 404.html is
         # the standard way to make client-side routing survive a refresh.

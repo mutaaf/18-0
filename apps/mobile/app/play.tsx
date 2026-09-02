@@ -273,6 +273,14 @@ export default function Play() {
       setPositionFilter('ALL');
       setLastPick({ card, slot });
 
+      // The pick clears the board below — the filters and the player list both
+      // belong to a spin that has now been spent — so whatever was under the
+      // finger is gone and the scroll is left stranded part-way down a screen
+      // that no longer has anything on it. Going back to the top puts the
+      // team, the era and the next spin where they can be seen and acted on,
+      // which is the whole loop.
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+
       /**
        * The pick lands instantly and the server is told behind it.
        *
@@ -409,6 +417,33 @@ export default function Play() {
   const trackOpacity = collapsible ? scrollY.interpolate({ ...collapseRange, outputRange: [1, 0] }) : 1;
   // The hero eases out as it goes rather than being cut off by the sticky bar.
   const heroOpacity = collapsible ? scrollY.interpolate({ ...collapseRange, outputRange: [1, 0.15] }) : 1;
+
+  /**
+   * Never come to rest half-collapsed.
+   *
+   * Between collapseFrom and collapseTo the hero is fading out and the header
+   * line is fading in, so a scroll that stops in there leaves both half-drawn:
+   * a ghost of the team crest above a ghost of the same team's abbreviation,
+   * and the spin button sliced off by the sticky bar. It is the one band on
+   * this screen where nothing is fully readable, and it is exactly where a
+   * short flick tends to stop.
+   *
+   * snapToOffsets would be the obvious tool and is the wrong one: it snaps to
+   * the nearest listed offset everywhere, so once the player list is longer
+   * than the screen every scroll into it would be dragged back to the last
+   * offset. This only intervenes inside the band, and leaves every other
+   * resting place alone.
+   */
+  const settle = useCallback(
+    (y: number) => {
+      if (!collapsible || y <= collapseFrom || y >= collapseTo) return;
+      scrollRef.current?.scrollTo({
+        y: y < (collapseFrom + collapseTo) / 2 ? 0 : collapseTo,
+        animated: true,
+      });
+    },
+    [collapsible, collapseFrom, collapseTo],
+  );
 
   // --- pieces, composed differently per breakpoint -------------------------
 
@@ -793,6 +828,10 @@ export default function Play() {
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
           useNativeDriver: true,
         })}
+        // Both, because a drag released with no velocity never produces a
+        // momentum event and would otherwise stop wherever it was let go.
+        onScrollEndDrag={(e) => settle(e.nativeEvent.contentOffset.y)}
+        onMomentumScrollEnd={(e) => settle(e.nativeEvent.contentOffset.y)}
       >
         {spinPanel}
         {pickBar}

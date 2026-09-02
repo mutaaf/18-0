@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<!--
+  The HTML shell for the web build.
+
+  Expo's CLI uses this file in place of its own template because it sits in
+  `public/` (see @expo/cli webTemplate.js: getTemplateIndexHtmlAsync). An
+  `app/+html.tsx` would be the nicer place for this, but that file is only read
+  when `web.output` is "static" — this app exports as "single", so it would have
+  been silently ignored. It was, on the first attempt.
+
+  This exists because every share of this game eventually becomes a URL in
+  somebody's chat, and this page had no Open Graph tags at all. The share sheet
+  reading "1 Link and 1 Image / mutaaf.github.io" was not a fault in the share
+  code; it was an empty <head>, faithfully rendered. Scrapers do not run
+  JavaScript, so the tags have to be in the served HTML — which also means they
+  are the same for every route in this single-page build.
+
+  The strings here mirror src/features/links.ts, which is what the running app
+  shares. Change one, change the other; `pnpm verify:head` checks the built
+  output rather than trusting that anybody did.
+-->
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <!-- viewport-fit=cover so the field runs under the notch. No
+         user-scalable=no: pinch zoom is an accessibility feature. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
+    />
+
+    <title>18-0 — Build the perfect roster</title>
+    <meta
+      name="description"
+      content="Seven spins, sixty years of pro football, one shot at an undefeated season. Build a roster from the greatest seasons ever played and see how far it gets."
+    />
+    <link rel="canonical" href="https://mutaaf.github.io/18-0" />
+    <meta name="theme-color" content="#06080F" />
+
+    <!-- Open Graph: iMessage, Slack, Discord, Facebook, LinkedIn. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="18-0" />
+    <meta property="og:title" content="18-0 — Build the perfect roster" />
+    <meta
+      property="og:description"
+      content="Seven spins, sixty years of pro football, one shot at an undefeated season. Build a roster from the greatest seasons ever played and see how far it gets."
+    />
+    <meta property="og:url" content="https://mutaaf.github.io/18-0" />
+    <!-- Absolute, because a scraper does not resolve relative paths. -->
+    <meta property="og:image" content="https://mutaaf.github.io/18-0/og.png" />
+    <!-- Dimensions let a scraper reserve the space before the image arrives,
+         which is the difference between a preview and a preview that pops in
+         two seconds later. -->
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content="18-0: build the perfect roster" />
+
+    <!-- Twitter reads its own namespace and ignores og:type. Without
+         summary_large_image it renders a small square thumbnail. -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="18-0 — Build the perfect roster" />
+    <meta
+      name="twitter:description"
+      content="Seven spins, sixty years of pro football, one shot at an undefeated season. Build a roster from the greatest seasons ever played and see how far it gets."
+    />
+    <meta name="twitter:image" content="https://mutaaf.github.io/18-0/og.png" />
+    <meta name="twitter:image:alt" content="18-0: build the perfect roster" />
+
+    <meta name="apple-mobile-web-app-title" content="18-0" />
+
+    <!-- The react-native-web reset. Removing any of this breaks scrolling:
+         https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      html, body { height: 100%; }
+      /* Body scrolling is disabled so the app's own ScrollViews own the gesture. */
+      body { overflow: hidden; overscroll-behavior: none; }
+      #root { display: flex; height: 100%; flex: 1; }
+
+      /* The paint before the bundle arrives. Without this the first frame is
+         white and then goes near-black — a flash on every cold load, and a
+         bright one on a phone at night. */
+      :root { color-scheme: dark; }
+      html, body, #root { background-color: #06080F; }
+    </style>
+  </head>
+
+  <body>
+    <noscript>18-0 needs JavaScript to run.</noscript>
+    <div id="root"></div>
+  </body>
+</html>
