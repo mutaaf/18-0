@@ -73,11 +73,22 @@ async function cleanUp() {
   // Deleting the account cascades to its profile and its games, which is what
   // takes the run back off the leaderboard. The audit trail keeps the account
   // id, by design — it is append-only, and that is the point of it.
+  // An account that is already gone counts as gone: the deletion test has one
+  // of these delete itself, and reporting that as a failure to clean up reads
+  // as a leak when there is nothing left to leak.
   const removed = await Promise.all(
-    created.map((id) => admin.auth.admin.deleteUser(id).then((r) => !r.error).catch(() => false)),
+    created.map((id) =>
+      admin.auth.admin
+        .deleteUser(id)
+        .then((r) => !r.error || /not.?found/i.test(r.error.message))
+        .catch(() => false),
+    ),
   );
   const lost = removed.filter((ok) => !ok).length;
-  console.log(`  · removed ${removed.length - lost} of ${created.length} accounts this run created`);
+  console.log(
+    `  · removed ${removed.length - lost} of ${created.length} accounts this run created` +
+      (lost > 0 ? ` — ${lost} COULD NOT BE REMOVED` : ''),
+  );
 
   // And anything an earlier run abandoned. Matching on the tag rather than the
   // handle: handles are guessable and a real player could pick one.
