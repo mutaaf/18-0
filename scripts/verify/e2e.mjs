@@ -36,10 +36,79 @@ const client = () => createClient(API, ANON, { auth: { persistSession: false } }
  * A short backoff rides out a burst. A cap that is genuinely exhausted cannot
  * be waited out inside a run, so that says so plainly instead.
  */
+/**
+ * Everything this file creates is tagged with this, and deleted at the end.
+ *
+ * These accounts play *real* ranked games, because a verification that plays
+ * fake ones verifies nothing. Real ranked games go on the public leaderboard —
+ * so every run of this harness was quietly pushing another handful of
+ * `verify_*` and `player-*` entries onto the board people actually look at.
+ *
+ * The tag is what makes the cleanup safe: it deletes accounts this run made and
+ * cannot touch a real player's, however similar their handle looks.
+ */
+const RUN = `verify-${crypto.randomUUID()}`;
+const created = [];
+
+/**
+ * Take this run's accounts back off the board.
+ *
+ * Registered against process exit as well as being awaited at the end, because
+ * the run that most needs cleaning up is the one that died partway through —
+ * and the first version only cleaned up after a complete pass, so an abort left
+ * its games sitting on the public leaderboard.
+ */
+let cleaned = false;
+async function cleanUp() {
+  if (cleaned) return;
+  cleaned = true;
+
+  console.log('\nCLEANING UP');
+  if (!SERVICE) {
+    console.log('  · skipped (set SERVICE_KEY to clean up; this run left accounts behind)');
+    return;
+  }
+  const admin = createClient(API, SERVICE, { auth: { persistSession: false } });
+
+  // Deleting the account cascades to its profile and its games, which is what
+  // takes the run back off the leaderboard. The audit trail keeps the account
+  // id, by design — it is append-only, and that is the point of it.
+  const removed = await Promise.all(
+    created.map((id) => admin.auth.admin.deleteUser(id).then((r) => !r.error).catch(() => false)),
+  );
+  const lost = removed.filter((ok) => !ok).length;
+  console.log(`  · removed ${removed.length - lost} of ${created.length} accounts this run created`);
+
+  // And anything an earlier run abandoned. Matching on the tag rather than the
+  // handle: handles are guessable and a real player could pick one.
+  const { data: page } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  const orphans = (page?.users ?? []).filter(
+    (u) => typeof u.user_metadata?.harness_run === 'string' && !created.includes(u.id),
+  );
+  if (orphans.length > 0) {
+    await Promise.all(orphans.map((u) => admin.auth.admin.deleteUser(u.id).catch(() => {})));
+    console.log(`  · swept ${orphans.length} account(s) left behind by an earlier run`);
+  }
+}
+
+// An abort is exactly when this matters, so it is not left to the happy path.
+for (const signal of ['uncaughtException', 'unhandledRejection']) {
+  process.on(signal, async (cause) => {
+    console.error(`\n${cause instanceof Error ? cause.message : cause}`);
+    await cleanUp().catch(() => {});
+    process.exit(1);
+  });
+}
+
 async function signIn(label, attempt = 0) {
   const sb = client();
-  const { data, error } = await sb.auth.signInAnonymously();
-  if (!error) return { sb, user: data.user, token: data.session.access_token };
+  const { data, error } = await sb.auth.signInAnonymously({
+    options: { data: { harness_run: RUN } },
+  });
+  if (!error) {
+    created.push(data.user.id);
+    return { sb, user: data.user, token: data.session.access_token };
+  }
 
   const throttled = /rate limit/i.test(error.message);
   if (throttled && attempt < 3) {
@@ -608,6 +677,9 @@ for (const [label, origin] of [['the published site', shipped], ['local web deve
 // match — including another site's origin — is a refusal.
 const stranger = await preflight('https://evil.example');
 check('an unknown origin is not', stranger !== 'https://evil.example' && stranger !== '*', `${stranger}`);
+
+// ---------------------------------------------------------------------------
+await cleanUp();
 
 // ---------------------------------------------------------------------------
 console.log('\n' + '='.repeat(64));

@@ -3,6 +3,7 @@ import {
   AccessibilityInfo,
   ActivityIndicator,
   Animated,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -445,6 +446,39 @@ export default function Play() {
     [collapsible, collapseFrom, collapseTo],
   );
 
+  /**
+   * The same thing, for the web, where the events above do not exist.
+   *
+   * A browser has no notion of a drag ending or of momentum finishing, so
+   * react-native-web never calls onScrollEndDrag or onMomentumScrollEnd — it
+   * accepts the props and nothing ever invokes them. Waiting for the scroll
+   * position to stop changing is the only signal available, and the web build
+   * is where this was noticed in the first place.
+   */
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+  }, []);
+
+  const onScroll = useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+        useNativeDriver: true,
+        ...(Platform.OS === 'web'
+          ? {
+              listener: (event: { nativeEvent: { contentOffset: { y: number } } }) => {
+                const y = event.nativeEvent.contentOffset.y;
+                if (settleTimer.current) clearTimeout(settleTimer.current);
+                // Long enough to not fight a still-moving flick, short enough
+                // that the correction reads as part of the same gesture.
+                settleTimer.current = setTimeout(() => settle(y), 140);
+              },
+            }
+          : {}),
+      }),
+    [scrollY, settle],
+  );
+
   // --- pieces, composed differently per breakpoint -------------------------
 
   const spinPanel = (
@@ -825,11 +859,10 @@ export default function Play() {
         keyboardShouldPersistTaps="handled"
         stickyHeaderIndices={canPick ? [1] : undefined}
         scrollEventThrottle={16}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-          useNativeDriver: true,
-        })}
+        onScroll={onScroll}
         // Both, because a drag released with no velocity never produces a
         // momentum event and would otherwise stop wherever it was let go.
+        // Neither fires on the web; the listener above covers that.
         onScrollEndDrag={(e) => settle(e.nativeEvent.contentOffset.y)}
         onMomentumScrollEnd={(e) => settle(e.nativeEvent.contentOffset.y)}
       >
