@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
 import { PRIVACY_URL } from '@/features/links';
 import { track } from '@/features/telemetry';
+import { ManagerCard } from './ManagerCard';
+import { computeStats, useHistoryStore } from '@/state/history';
 import {
   linkedProviders,
   providerLabel,
@@ -32,7 +34,16 @@ import { color, font, radius, space, tracking, type PressState } from '@/theme';
  * the way to delete it lives in the same panel rather than three levels into a
  * settings screen nobody opens.
  */
-export function AccountPanel() {
+export function AccountPanel({ rank }: { rank?: number | null } = {}) {
+  const games = useHistoryStore((s) => s.games);
+  const stats = useMemo(() => computeStats(games), [games]);
+  // The oldest season on this device. ProfileStats carries no timestamps, and
+  // this is the only start date the game actually knows.
+  const sinceYear = useMemo(() => {
+    if (games.length === 0) return null;
+    return new Date(Math.min(...games.map((g) => g.completedAt))).getFullYear();
+  }, [games]);
+
   const [me, setMe] = useState<Identity | null>(null);
   const [loading, setLoading] = useState(isBackendConfigured);
   const [draft, setDraft] = useState('');
@@ -112,6 +123,8 @@ export function AccountPanel() {
 
   return (
     <View style={styles.panel}>
+      <ManagerCard identity={me} stats={stats} providers={linked} rank={rank} sinceYear={sinceYear} />
+
       <Text style={styles.label}>Your place on the board</Text>
 
       {loading ? (
@@ -162,9 +175,15 @@ export function AccountPanel() {
       ) : (
         <>
           <Text style={styles.copy}>
+            {/* A player who has finished a ranked season IS on the board, under
+                the generated placeholder. Telling them nothing they have played
+                is on it contradicts the rank shown directly above and reads as
+                the app having lost their seasons. */}
             {renaming
               ? 'Pick your new name. You can change it again in a month.'
-              : 'Nothing you have played is on the board. Pick a name and your ranked seasons will be.'}
+              : rank
+                ? `You are #${rank} as ${me?.handle}. Pick a name to replace it.`
+                : 'Nothing you have played is on the board. Pick a name and your ranked seasons will be.'}
           </Text>
           <View style={styles.claimRow}>
             <TextInput

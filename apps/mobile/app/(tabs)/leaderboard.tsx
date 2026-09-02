@@ -230,7 +230,7 @@ export default function Leaderboard() {
                 board itself below the fold on a phone. */}
             <Text style={styles.sectionLabel}>Your account</Text>
             <View style={styles.account}>
-              <AccountPanel />
+              <AccountPanel rank={mine?.rank ?? null} />
             </View>
           </>
         )}
