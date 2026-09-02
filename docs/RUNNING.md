@@ -177,3 +177,59 @@ was about a name, not a person.
 > callable function here must also `revoke execute … from public`, and 0003
 > exists partly to fix two that did not: any signed-in player could clear the
 > flag on their own handle, and could burn through another player's rate limit.
+
+
+---
+
+## Running it on a real device
+
+Three routes, and they are genuinely different trade-offs rather than three
+ways to do the same thing.
+
+### 1. Tethered to this machine — works right now, costs nothing
+
+```bash
+cd apps/mobile && pnpm device        # Metro on 8082, bound to the LAN
+```
+
+Install **Expo Go**, join the same Wi-Fi, scan the QR. The backend comes from
+`apps/mobile/.env`, which is gitignored and already points at the hosted
+project.
+
+The JavaScript is served from this Mac, so the app stops working when the
+laptop sleeps or leaves the network. Right for developing, wrong for carrying
+around. `pnpm device:clear` if the bundler starts lying to you.
+
+### 2. Standalone Android — free, no Apple account, no laptop
+
+```bash
+npm i -g eas-cli && eas login        # a free Expo account
+eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_URL      --value "<url>"
+eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "<anon key>"
+eas build -p android --profile preview
+```
+
+Produces an installable APK. **The secrets are not optional**: EAS cloud builds
+never see `.env`, because it is gitignored, so a build without them installs
+fine and silently has no leaderboard. They are set once per project and are the
+same values already in `.local/hosted.env`.
+
+They are deliberately not in `eas.json`. Not because the anon key is sensitive
+— it is public by design and already sits in the deployed web bundle — but so
+it can be rotated without a commit. An *empty* value in `eas.json` would be
+worse than none at all: it shadows the secret rather than falling back to it.
+
+### 3. Standalone iPhone — needs an Apple account
+
+`eas build -p ios --profile preview` needs a paid Apple Developer membership
+($99/yr) to sign for a physical device; TestFlight is the sane distribution
+from there. The free alternative is a local Xcode build against a personal
+team, which expires every 7 days and needs the developer directory switched
+first:
+
+```bash
+sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+```
+
+Without that, `xcode-select -p` still points at CommandLineTools and no iOS
+build will find a toolchain.
