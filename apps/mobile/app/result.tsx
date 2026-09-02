@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Animated, Easing } from 'react-native';
@@ -8,13 +8,14 @@ import { displayName, eraLabel, franchise } from '@18-0/data';
 import { Brand } from '@/components/Brand';
 import { Reveal } from '@/components/Reveal';
 import { Crown } from '@/components/Crown';
+import { Celebration } from '@/components/Celebration';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
 import { ShareCard, type ShareRosterRow } from '@/components/ShareCard';
 import { shareResult } from '@/features/share';
 import { lookupCard, useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
-import {
+import { DECORATIVE,
   color,
   elevate,
   font,
@@ -48,6 +49,12 @@ export default function Result() {
   // 18-0 breathes and wears the crown. Nothing else in the app does either.
   const glow = useRef(new Animated.Value(0)).current;
   const crownLift = useRef(new Animated.Value(0)).current;
+  // The record lands rather than appears: it overshoots, then settles.
+  const slam = useRef(new Animated.Value(0)).current;
+
+  // Read before the early return below, so the hook order never changes.
+  const winsTarget = result?.record.wins ?? 0;
+  const countedWins = useCountUp(winsTarget, 850);
 
   const rosterCards = useMemo(
     () =>
@@ -121,6 +128,15 @@ export default function Result() {
   }, [result?.ending.key]);
 
   useEffect(() => {
+    if (!result) return;
+    slam.setValue(0);
+    Animated.sequence([
+      Animated.delay(620),
+      Animated.spring(slam, { toValue: 1, damping: 6, stiffness: 190, mass: 0.9, useNativeDriver: true }),
+    ]).start();
+  }, [result?.finalRating]);
+
+  useEffect(() => {
     if (!result) router.replace('/(tabs)');
   }, [result]);
 
@@ -167,6 +183,10 @@ export default function Result() {
     router.replace('/play');
   };
 
+  // Confetti over a 4-14 would read as mockery, so the celebration only starts
+  // once the season is one worth celebrating, and grows from there.
+  const celebration = perfect ? 1 : wins >= 17 ? 0.92 : wins >= 15 ? 0.7 : wins >= 12 ? 0.45 : wins >= 10 ? 0.25 : 0;
+
   const beatBest = previousBest !== null && result.finalRating > previousBest;
   const toPerfect = Math.max(0, PERFECT_THRESHOLD - result.finalRating);
   const progress = Math.min(1, result.finalRating / PERFECT_THRESHOLD);
@@ -175,39 +195,59 @@ export default function Result() {
 
   const verdict = (
     <View style={styles.verdictColumn}>
-      <Reveal delay={0}
-        style={[styles.hero, { borderColor: `${accent}4D` }, perfect && styles.heroPerfect]}
-        accessible
-        accessibilityLabel={`Final result. ${wins} and ${result.record.losses}. ${result.ending.label}. Tier ${result.ending.tier}. Rating ${result.finalRating.toFixed(1)}.`}
-      >
+      <View style={styles.heroHalo}>
         {perfect ? (
-          <>
-            {/* A slow gold breath behind the record. Nothing else in the app
-                pulses, so this reads as the moment it is. */}
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.glow,
-                { opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.5] }) },
-              ]}
-            />
-            <Animated.View
-              style={{
-                opacity: crownLift,
-                transform: [
-                  { scale: crownLift.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
-                  { translateY: crownLift.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) },
-                ],
-              }}
-            >
-              <Crown size={layout.wide ? 64 : 50} />
-            </Animated.View>
-          </>
+          /* A slow gold breath behind the record. Nothing else in the app
+             pulses, so this reads as the moment it is.
+
+             It sits *behind* the card rather than inside it. As a child of the
+             card it was a filled rectangle painted over the card's own
+             background, which tinted the whole panel gold and left gold text on
+             a gold field — the one screen the entire game exists for, and you
+             could not read it. Outside and behind, the card's opaque background
+             masks the middle and only the halo escapes at the edges, which is
+             what a glow is. */
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.glow,
+              { opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.16, 0.42] }) },
+            ]}
+          />
+        ) : null}
+
+        <Reveal delay={0}
+          style={[styles.hero, { borderColor: `${accent}4D` }, perfect && styles.heroPerfect]}
+          accessible
+          accessibilityLabel={`Final result. ${wins} and ${result.record.losses}. ${result.ending.label}. Tier ${result.ending.tier}. Rating ${result.finalRating.toFixed(1)}.`}
+        >
+        <View style={styles.heroContent}>
+        {perfect ? (
+          <Animated.View
+            style={{
+              opacity: crownLift,
+              transform: [
+                { scale: crownLift.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
+                { translateY: crownLift.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) },
+              ],
+            }}
+          >
+            <Crown size={layout.wide ? 64 : 50} />
+          </Animated.View>
         ) : null}
 
         <Text style={styles.kicker}>Projected Record</Text>
 
-        <View style={styles.recordRow}>
+        <Animated.View
+          style={[
+            styles.recordRow,
+            {
+              transform: [
+                { scale: slam.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }) },
+              ],
+            },
+          ]}
+        >
           <Text
             maxFontSizeMultiplier={1.15}
             style={[
@@ -216,7 +256,7 @@ export default function Result() {
               perfect && styles.recordPerfect,
             ]}
           >
-            {wins}
+            {countedWins}
           </Text>
           <View style={[styles.recordBar, { backgroundColor: accent, height: recordSize * 0.09 }]} />
           <Text
@@ -229,7 +269,7 @@ export default function Result() {
           >
             {result.record.losses}
           </Text>
-        </View>
+        </Animated.View>
 
         <Text style={[styles.endingName, { color: accent }]}>
           {perfect ? 'PERFECT' : result.ending.label.toUpperCase()}
@@ -247,7 +287,9 @@ export default function Result() {
             <Text style={styles.metaLabel}> RATING</Text>
           </Text>
         </View>
-      </Reveal>
+        </View>
+        </Reveal>
+      </View>
 
       {/* The hook: how close you came, and what it would take to go again. */}
       <Reveal delay={220} style={styles.chase}>
@@ -455,13 +497,64 @@ export default function Result() {
         style={styles.captureHost}
         pointerEvents="none"
         collapsable={false}
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
+        {...DECORATIVE}
       >
         <ShareCard ref={cardRef} result={result} roster={shareRows} assisted={game.assisted} />
       </View>
+
+      {/* Last child so it sits over everything, and pointer-transparent so it
+          cannot swallow the Share or Build Another buttons underneath. */}
+      <Celebration intensity={celebration} palette={[accent, color.text, color.silver]} perfect={perfect} />
     </Screen>
   );
+}
+
+/**
+ * Counts to the final win total instead of printing it.
+ *
+ * Deliberately stepped rather than per-frame -- this re-renders the result
+ * screen on each tick, and ~20 of them reads as a scoreboard rolling over
+ * while 60 would just be expensive. Reduce Motion jumps straight to the answer,
+ * and a failsafe guarantees the real number even if the ticker is interrupted:
+ * decoration must never be the reason a score is wrong on screen.
+ */
+function useCountUp(target: number, duration: number): number {
+  const [value, setValue] = useState(target);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const stop = () => timer.current && clearTimeout(timer.current);
+
+    const failsafe = setTimeout(() => !cancelled && setValue(target), duration + 900);
+
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((reduced) => {
+        if (cancelled) return;
+        if (reduced || target <= 0) {
+          setValue(target);
+          return;
+        }
+        setValue(0);
+        const start = Date.now();
+        const tick = () => {
+          if (cancelled) return;
+          const t = Math.min(1, (Date.now() - start) / duration);
+          setValue(Math.round(target * (1 - (1 - t) ** 3)));
+          if (t < 1) timer.current = setTimeout(tick, 42);
+        };
+        timer.current = setTimeout(tick, 380);
+      })
+      .catch(() => !cancelled && setValue(target));
+
+    return () => {
+      cancelled = true;
+      stop();
+      clearTimeout(failsafe);
+    };
+  }, [target, duration]);
+
+  return value;
 }
 
 function Line({ label, value, tone }: { label: string; value: string; tone?: string }) {
@@ -503,19 +596,34 @@ const styles = StyleSheet.create({
     paddingBottom: space.lg,
     paddingHorizontal: space.lg,
     alignItems: 'center',
-    backgroundColor: '#0C0D11E6',
+    backgroundColor: '#0C0D11',
+    zIndex: 1,
   },
+  /** Holds the card above its own halo, on both paint models. */
+  heroHalo: { width: '100%' },
+  heroContent: { width: '100%', alignItems: 'center', zIndex: 1 },
+  /**
+   * A ring, not a fill.
+   *
+   * This was a filled gold rectangle sitting behind the card, which relies on
+   * the card's own background to mask its middle — and that held on native but
+   * not on the web, where the record ended up gold-on-gold and unreadable.
+   * A border has no interior to leak, so the halo is correct by construction on
+   * every platform rather than by luck of paint order.
+   */
   glow: {
     position: 'absolute',
-    top: -30,
-    left: -30,
-    right: -30,
-    bottom: -30,
-    borderRadius: 90,
-    backgroundColor: color.gold,
+    top: -22,
+    left: -22,
+    right: -22,
+    bottom: -22,
+    borderRadius: radius.lg + 22,
+    borderWidth: 22,
+    borderColor: color.gold,
   },
   heroPerfect: {
-    backgroundColor: '#171204F2',
+    backgroundColor: '#15100A',
+    zIndex: 1,
     borderColor: '#FFB40080',
     shadowColor: color.gold,
     ...elevate(14),

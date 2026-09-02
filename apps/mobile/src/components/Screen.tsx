@@ -2,7 +2,7 @@ import { memo, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { color, useLayout } from '@/theme';
+import { DECORATIVE, color, useLayout } from '@/theme';
 
 /**
  * The stadium bowl: near-black, with two blown-out light sources bleeding in
@@ -13,8 +13,7 @@ export const StadiumBackdrop = memo(function StadiumBackdrop() {
     <Svg
       style={StyleSheet.absoluteFill}
       pointerEvents="none"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      {...DECORATIVE}
     >
       <Defs>
         <RadialGradient id="lightL" cx="10%" cy="-4%" r="66%">

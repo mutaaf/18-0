@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { POSITIONS, ROSTER_SLOTS, SLOT_POSITION, type Position, type RosterSlot } from '@18-0/domain';
 import { DATASET, displayName, eligibleCards, era as eraDef, franchise, type BootCard } from '@18-0/data';
@@ -21,7 +23,7 @@ import { Screen } from '@/components/Screen';
 import { lookupCard, slotsForCard, useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
 import { ratingBucket, track } from '@/features/telemetry';
-import { color, elevate, font, positionColor, radius, space, tabular, tracking, useLayout, type PressState } from '@/theme';
+import { DECORATIVE, color, elevate, font, positionColor, radius, space, tabular, tracking, useLayout, type PressState } from '@/theme';
 
 /** How many names blur past before the reel settles on the result. */
 const REEL_LENGTH = 18;
@@ -46,6 +48,10 @@ export default function Play() {
   /** Live touch count, for the three-finger spin. */
   const fingers = useRef(0);
   const reelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  /** Drives the hero's collapse into the header. Native-driven, so it tracks the finger. */
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [heroHeight, setHeroHeight] = useState(0);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
@@ -181,7 +187,7 @@ export default function Play() {
     });
     setReel({
       teams: [...decoys.map((c) => franchise(c.franchiseId).abbr), franchise(result.franchiseId).abbr],
-      eras: [...decoys.map((c) => eraDef(c.era).name), eraDef(result.era).name],
+      eras: [...decoys.map((c) => eraDef(c.era).label), eraDef(result.era).label],
     });
     setSpinning(true);
     if (reelTimer.current) clearTimeout(reelTimer.current);
@@ -286,54 +292,113 @@ export default function Play() {
   const team = shown ? franchise(shown.franchiseId) : null;
   const remaining = ROSTER_SLOTS.length - game.selections.length;
 
+  // What you spun is the thing you are reasoning about for the whole pick, so
+  // it does not simply scroll away: the hero hands off to a compact line beside
+  // the step counter, and hands back on the way up. The two cross-fade over the
+  // second half of the hero's own height, which makes the swap read as one
+  // object moving rather than two things blinking.
+  const collapseFrom = Math.max(24, heroHeight * 0.35);
+  const collapseTo = Math.max(collapseFrom + 1, heroHeight * 0.85);
+  const collapseRange = { inputRange: [collapseFrom, collapseTo], extrapolate: 'clamp' as const };
+  const collapsible = team !== null && heroHeight > 0;
+  const pillOpacity = collapsible ? scrollY.interpolate({ ...collapseRange, outputRange: [0, 1] }) : 0;
+  const pillShift = collapsible ? scrollY.interpolate({ ...collapseRange, outputRange: [12, 0] }) : 0;
+  const trackOpacity = collapsible ? scrollY.interpolate({ ...collapseRange, outputRange: [1, 0] }) : 1;
+  // The hero eases out as it goes rather than being cut off by the sticky bar.
+  const heroOpacity = collapsible ? scrollY.interpolate({ ...collapseRange, outputRange: [1, 0.15] }) : 1;
+
   // --- pieces, composed differently per breakpoint -------------------------
 
   const spinPanel = (
     <View style={styles.stack}>
-      <View style={styles.spinRow}>
-        <View style={[styles.spinCard, styles.teamCard, layout.roomy && styles.spinCardRoomy]}>
-          <Text style={[styles.spinLabel, { color: color.red }]}>Team</Text>
-          {spinning && reel ? (
-            <SpinReel
-              items={reel.teams}
-              itemHeight={layout.roomy ? 46 : 38}
-              spinning={spinning}
-              textStyle={StyleSheet.flatten([styles.spinValue, layout.roomy && styles.spinValueRoomy])}
-            />
-          ) : (
-            <Text style={[styles.spinValue, layout.roomy && styles.spinValueRoomy]} numberOfLines={1}>
-              {team ? team.abbr : '—'}
+      {/* One full-width hero rather than two cramped columns. What a spin gave
+          you is the single most important thing on this screen, and at 34pt in
+          a half-width box it was reading as a caption. */}
+      <Animated.View
+        onLayout={(e) => setHeroHeight(e.nativeEvent.layout.height)}
+        style={[styles.hero, team ? { borderColor: `${team.color}73` } : null, { opacity: heroOpacity }]}
+      >
+        {team ? (
+          <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Defs>
+              <LinearGradient id="heroWash" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor={team.color} stopOpacity="0.34" />
+                <Stop offset="0.55" stopColor={team.color2 || team.color} stopOpacity="0.09" />
+                <Stop offset="1" stopColor={team.color} stopOpacity="0" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroWash)" />
+          </Svg>
+        ) : null}
+
+        <View style={styles.heroTop}>
+          <View style={[styles.heroTeam, layout.roomy && styles.heroTeamRoomy]}>
+            <Text style={[styles.spinLabel, { color: color.red }]}>Team</Text>
+            {spinning && reel ? (
+              <SpinReel
+                items={reel.teams}
+                itemHeight={layout.roomy ? 86 : 66}
+                spinning={spinning}
+                textStyle={StyleSheet.flatten([styles.heroAbbr, layout.roomy && styles.heroAbbrRoomy])}
+              />
+            ) : (
+              <Text
+                style={[
+                  styles.heroAbbr,
+                  layout.roomy && styles.heroAbbrRoomy,
+                  !team && styles.heroWaiting,
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {/* An em dash set at 62pt is a white bar, not a placeholder. */}
+                {team ? team.abbr : 'Ready'}
+              </Text>
+            )}
+            <Text style={styles.heroNick} numberOfLines={1}>
+              {spinning ? 'Spinning…' : team ? team.nick : 'Awaiting spin'}
             </Text>
-          )}
-          <Text style={styles.spinSub} numberOfLines={1}>
-            {spinning ? 'Spinning…' : team ? team.nick : 'Awaiting spin'}
-          </Text>
-        </View>
-        <View style={[styles.spinCard, styles.eraCard, layout.roomy && styles.spinCardRoomy]}>
-          <Text style={[styles.spinLabel, { color: '#C49BFF' }]}>
-            Era{shown && !spinning ? ` · ${eraDef(shown.era).label}` : ''}
-          </Text>
-          {spinning && reel ? (
-            <SpinReel
-              items={reel.eras}
-              itemHeight={layout.roomy ? 38 : 30}
-              spinning={spinning}
-              textStyle={StyleSheet.flatten([styles.eraName, layout.roomy && styles.eraNameRoomy])}
-            />
-          ) : (
-            <Text
-              style={[styles.eraName, layout.roomy && styles.eraNameRoomy]}
-              numberOfLines={2}
-              adjustsFontSizeToFit
-            >
-              {shown ? eraDef(shown.era).name : '—'}
+          </View>
+
+          <View style={styles.heroDivider} />
+
+          <View style={styles.heroEra}>
+            <Text style={[styles.spinLabel, { color: '#C49BFF' }]}>Era</Text>
+            {/* Years first. The era names are good flavour and useless at speed
+                -- you pick against a decade you can picture, not against a
+                phrase you have to decode mid-spin. */}
+            {spinning && reel ? (
+              <SpinReel
+                items={reel.eras}
+                itemHeight={layout.roomy ? 48 : 42}
+                spinning={spinning}
+                textStyle={StyleSheet.flatten([styles.heroEraYears, layout.roomy && styles.heroEraYearsRoomy])}
+              />
+            ) : (
+              <Text
+                style={[
+                  styles.heroEraYears,
+                  layout.roomy && styles.heroEraYearsRoomy,
+                  !shown && styles.heroWaiting,
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {shown ? eraDef(shown.era).label : 'Any year'}
+              </Text>
+            )}
+            <Text style={styles.heroEraName} numberOfLines={1}>
+              {spinning ? '' : shown ? eraDef(shown.era).name : ''}
             </Text>
-          )}
-          <Text style={styles.spinSub} numberOfLines={2}>
-            {spinning ? '' : shown ? eraDef(shown.era).tagline : 'Awaiting spin'}
-          </Text>
+          </View>
         </View>
-      </View>
+
+        {/* The tagline is the flavour that makes an era mean something, so it
+            gets the full width instead of being cut off mid-word. */}
+        <Text style={styles.heroTagline} numberOfLines={3}>
+          {spinning ? '' : shown ? eraDef(shown.era).tagline : 'Spin for a franchise and an era.'}
+        </Text>
+      </Animated.View>
 
       {complete ? (
         <Pressable
@@ -428,32 +493,77 @@ export default function Play() {
     </View>
   );
 
+  /**
+   * Position filters and search, pinned to the top of the list.
+   *
+   * The field graphic and the filter chips both scroll away as soon as you are
+   * a few players down the list, which left no way to change position or find a
+   * name without scrolling all the way back up. This bar sticks, and carries a
+   * shortcut back to the lineup with it.
+   */
+  const pickBar = canPick ? (
+    <View style={styles.pickBar}>
+      <View style={styles.pickBarRow}>
+        {targetSlot ? (
+          <Pressable
+            onPress={() => setTargetSlot(null)}
+            accessibilityRole="button"
+            accessibilityLabel={`Filling ${targetSlot}. Tap to clear.`}
+            style={styles.fillingPill}
+          >
+            <Text style={[styles.fillingText, { color: positionColor[SLOT_POSITION[targetSlot]] }]}>
+              {targetSlot} ✕
+            </Text>
+          </Pressable>
+        ) : null}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          <Chip label="All" active={positionFilter === 'ALL'} onPress={() => setPositionFilter('ALL')} />
+          {POSITIONS.map((position) => (
+            <Chip
+              key={position}
+              label={position}
+              tint={positionColor[position]}
+              dimmed={!openPositions.has(position)}
+              active={positionFilter === position}
+              onPress={() => setPositionFilter(position)}
+            />
+          ))}
+        </ScrollView>
+        <Pressable
+          onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
+          accessibilityRole="button"
+          accessibilityLabel="Back to the lineup"
+          style={({ pressed, hovered }: PressState) => [
+            styles.lineupButton,
+            hovered && styles.lift,
+            pressed && { opacity: 0.8 },
+          ]}
+        >
+          <Text style={styles.lineupButtonText}>↑ Lineup</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.pickBarRow}>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search players or year"
+          placeholderTextColor={color.textFaint}
+          style={[styles.search, styles.searchInBar]}
+          accessibilityLabel="Search eligible players"
+          autoCorrect={false}
+        />
+        <View style={styles.countPill}>
+          <Text style={styles.countPillValue}>{visible.length}</Text>
+        </View>
+      </View>
+    </View>
+  ) : (
+    <View />
+  );
+
   const browser = canPick ? (
     <View style={styles.browser}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-        <Chip label="All" active={positionFilter === 'ALL'} onPress={() => setPositionFilter('ALL')} />
-        {POSITIONS.map((position) => (
-          <Chip
-            key={position}
-            label={position}
-            tint={positionColor[position]}
-            dimmed={!openPositions.has(position)}
-            active={positionFilter === position}
-            onPress={() => setPositionFilter(position)}
-          />
-        ))}
-      </ScrollView>
-
-      <TextInput
-        value={query}
-        onChangeText={setQuery}
-        placeholder="Search players or year"
-        placeholderTextColor={color.textFaint}
-        style={styles.search}
-        accessibilityLabel="Search eligible players"
-        autoCorrect={false}
-      />
-
       <Text style={styles.count}>
         {targetSlot ? `Filling ${targetSlot} · ` : ''}
         {visible.length} eligible · one pick from this spin
@@ -522,36 +632,69 @@ export default function Play() {
           ) : null}
         </View>
         <View style={styles.headerRight}>
-          <View
-            style={styles.progressTrack}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-          >
-            <View
+          <View style={styles.headerSwap}>
+            <Animated.View
+              style={[styles.headerSwapLayer, { opacity: trackOpacity }]}
+              pointerEvents="none"
+              {...DECORATIVE}
+            >
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${(game.selections.length / ROSTER_SLOTS.length) * 100}%` },
+                  ]}
+                />
+              </View>
+            </Animated.View>
+            <Animated.View
               style={[
-                styles.progressFill,
-                { width: `${(game.selections.length / ROSTER_SLOTS.length) * 100}%` },
+                styles.headerSwapLayer,
+                styles.headerSpinLine,
+                { opacity: pillOpacity, transform: [{ translateY: pillShift }] },
               ]}
-            />
+              pointerEvents="none"
+              {...DECORATIVE}
+            >
+              <View style={styles.headerMetaPair}>
+                <Text style={styles.headerMetaLabel}>Team</Text>
+                <Text style={styles.headerAbbr} numberOfLines={1}>
+                  {team ? team.abbr : '—'}
+                </Text>
+              </View>
+              <View style={styles.headerMetaPair}>
+                <Text style={styles.headerMetaLabel}>Era</Text>
+                <Text style={styles.headerEra} numberOfLines={1}>
+                  {shown ? eraDef(shown.era).label : '—'}
+                </Text>
+              </View>
+            </Animated.View>
           </View>
           <Text style={styles.progress}>
             {game.selections.length}
             <Text style={styles.progressTotal}>/{ROSTER_SLOTS.length}</Text>
           </Text>
-          <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close game">
+          <Pressable onPress={() => router.back()} hitSlop={14} accessibilityRole="button" accessibilityLabel="Close game">
             <Text style={styles.close}>✕</Text>
           </Pressable>
         </View>
       </View>
 
-      <ScrollView
+      <Animated.ScrollView
+        ref={scrollRef}
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        stickyHeaderIndices={canPick ? [1] : undefined}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+          useNativeDriver: true,
+        })}
       >
         {spinPanel}
+        {pickBar}
         {browser}
-      </ScrollView>
+      </Animated.ScrollView>
 
       {selected && targetSlots.length > 1 ? (
         <View style={[styles.actionBar, { maxWidth: layout.wide ? 520 : undefined }]}>
@@ -622,7 +765,7 @@ const styles = StyleSheet.create({
     paddingTop: space.sm,
     paddingBottom: space.md,
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexShrink: 1 },
   modeChip: {
     borderWidth: 1,
     borderColor: '#B47CFF66',
@@ -638,8 +781,41 @@ const styles = StyleSheet.create({
     color: '#C9A6FF',
     textTransform: 'uppercase',
   },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  progressTrack: { width: 96, height: 3, borderRadius: 2, backgroundColor: '#FFFFFF12', overflow: 'hidden' },
+  headerRight: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: space.md },
+  /** Holds the progress track and the collapsed spin line in the same box.
+      Flexes rather than sitting at a fixed width: with labels the spin line is
+      much wider than the bare abbreviation was, and a fixed box clipped it. */
+  headerSwap: { flex: 1, minWidth: 0, height: 28, justifyContent: 'center' },
+  headerSwapLayer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'center' },
+  /** Pairs are grouped by spacing: 5pt binds a label to its value, 14pt separates
+      the two pairs. Without that contrast the line reads as four evenly-spaced
+      words rather than two facts. */
+  headerSpinLine: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', gap: 14 },
+  headerMetaPair: { flexDirection: 'row', alignItems: 'baseline', gap: 5, flexShrink: 1, minWidth: 0 },
+  headerMetaLabel: {
+    fontFamily: font.label,
+    fontSize: 9,
+    letterSpacing: tracking.wide,
+    textTransform: 'uppercase',
+    color: color.textFaint,
+    includeFontPadding: false,
+  },
+  headerAbbr: {
+    fontFamily: font.displayBlack,
+    fontSize: 17,
+    color: color.text,
+    letterSpacing: tracking.tight,
+    includeFontPadding: false,
+  },
+  headerEra: {
+    fontFamily: font.bodyBold,
+    fontSize: 12,
+    letterSpacing: tracking.wide,
+    color: color.textDim,
+    flexShrink: 1,
+    ...tabular,
+  },
+  progressTrack: { width: 96, height: 3, borderRadius: 2, backgroundColor: '#FFFFFF12', overflow: 'hidden', alignSelf: 'flex-end' },
   progressFill: { height: 3, borderRadius: 2, backgroundColor: color.red },
   progress: { fontFamily: font.display, fontSize: 20, color: color.text, includeFontPadding: false, ...tabular },
   progressTotal: { color: color.textFaint, fontSize: 14 },
@@ -647,8 +823,10 @@ const styles = StyleSheet.create({
     fontFamily: font.body,
     fontSize: 18,
     color: color.textDim,
-    minWidth: 44,
-    minHeight: 44,
+    // No minWidth/minHeight here: those reserved 44pt of *visual* width and
+    // tore a hole between the score and the ✕. The Pressable's hitSlop already
+    // provides the touch target.
+    includeFontPadding: false,
     lineHeight: 44,
     textAlign: 'center',
   },
@@ -660,38 +838,91 @@ const styles = StyleSheet.create({
   columnContent: { paddingBottom: 120, gap: space.md },
   stack: { gap: space.md },
 
-  spinRow: { flexDirection: 'row', gap: space.sm },
-  spinCard: {
-    flex: 1,
+  hero: {
     borderWidth: 1,
-    borderRadius: radius.md,
-    paddingVertical: space.md,
+    borderColor: '#D50A0A59',
+    borderRadius: radius.lg,
+    paddingVertical: space.lg,
     paddingHorizontal: space.lg,
-    backgroundColor: '#0A0E13CC',
+    backgroundColor: '#0A0E13E6',
+    overflow: 'hidden',
+    gap: space.sm,
   },
-  spinCardRoomy: { paddingVertical: space.lg },
-  teamCard: { borderColor: '#D50A0A59' },
-  eraCard: { borderColor: '#B47CFF4D' },
-  spinLabel: { fontFamily: font.label, fontSize: 9, letterSpacing: tracking.wider, textTransform: 'uppercase' },
-  spinValue: {
+  heroTop: { flexDirection: 'row', alignItems: 'flex-start', gap: space.md },
+  heroTeam: { width: 122 },
+  heroTeamRoomy: { width: 168 },
+  heroDivider: { alignSelf: 'stretch', width: 1, backgroundColor: color.line, marginVertical: 2 },
+  heroEra: { flex: 1, minWidth: 0, gap: 2 },
+  spinLabel: { fontFamily: font.label, fontSize: 10, letterSpacing: tracking.wider, textTransform: 'uppercase' },
+  heroAbbr: {
     fontFamily: font.displayBlack,
-    fontSize: 34,
+    fontSize: 62,
+    lineHeight: 66,
     color: color.text,
     letterSpacing: tracking.tight,
     includeFontPadding: false,
-    marginTop: 1,
   },
-  spinValueRoomy: { fontSize: 44 },
-  spinSub: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint, lineHeight: 15 },
-  eraName: {
-    fontFamily: font.display,
-    fontSize: 23,
+  heroAbbrRoomy: { fontSize: 82, lineHeight: 86 },
+  heroNick: { fontFamily: font.bodyRegular, fontSize: 13, color: color.textDim },
+  /** The pre-spin state: same slot, quieter and smaller, so nothing shouts a blank. */
+  heroWaiting: { fontSize: 30, lineHeight: 36, color: color.textFaint, letterSpacing: tracking.tight },
+  heroEraYears: {
+    fontFamily: font.displayBlack,
+    fontSize: 38,
+    lineHeight: 42,
     color: color.text,
     letterSpacing: tracking.tight,
     includeFontPadding: false,
-    marginTop: 1,
+    ...tabular,
   },
-  eraNameRoomy: { fontSize: 30 },
+  heroEraYearsRoomy: { fontSize: 46, lineHeight: 50 },
+  heroEraName: {
+    fontFamily: font.label,
+    fontSize: 13,
+    letterSpacing: tracking.wide,
+    color: '#C49BFF',
+    textTransform: 'uppercase',
+  },
+  heroTagline: { fontFamily: font.bodyRegular, fontSize: 13, lineHeight: 19, color: color.textFaint },
+
+  pickBar: {
+    backgroundColor: color.void,
+    paddingTop: space.sm,
+    paddingBottom: space.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: color.line,
+    gap: space.sm,
+  },
+  pickBarRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  fillingPill: {
+    borderWidth: 1,
+    borderColor: color.lineBright,
+    borderRadius: radius.pill,
+    paddingHorizontal: space.sm,
+    height: 34,
+    justifyContent: 'center',
+  },
+  fillingText: { fontFamily: font.label, fontSize: 12, letterSpacing: tracking.wide },
+  lineupButton: {
+    borderWidth: 1,
+    borderColor: color.lineBright,
+    borderRadius: radius.pill,
+    paddingHorizontal: space.sm,
+    height: 34,
+    justifyContent: 'center',
+  },
+  lineupButtonText: { fontFamily: font.label, fontSize: 11, letterSpacing: tracking.wide, color: color.textDim },
+  searchInBar: { flex: 1, marginBottom: 0 },
+  countPill: {
+    minWidth: 46,
+    height: 40,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: color.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  countPillValue: { fontFamily: font.display, fontSize: 19, color: color.text, ...tabular },
   fieldHint: {
     fontFamily: font.bodyRegular,
     fontSize: 11,

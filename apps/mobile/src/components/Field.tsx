@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, G, Line, LinearGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { ROSTER_SLOTS, SLOT_POSITION, type RosterSlot } from '@18-0/domain';
 import type { BootCard } from '@18-0/data';
-import { color, font, positionColor, radius, space, tabular, tracking, useLayout } from '@/theme';
+import { DECORATIVE, color, font, positionColor, radius, space, tabular, tracking, useLayout } from '@/theme';
 
 const SLOT_LABEL: Record<RosterSlot, string> = {
   QB: 'Quarterback',
@@ -44,8 +44,7 @@ const Turf = memo(function Turf() {
       style={StyleSheet.absoluteFill}
       viewBox="0 0 300 260"
       preserveAspectRatio="none"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      {...DECORATIVE}
     >
       <Defs>
         <LinearGradient id="turf" x1="0" y1="0" x2="0" y2="1">
@@ -238,15 +237,18 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     shadowRadius: 10,
   },
+  // Every slot is near-opaque on purpose. At 35% black the turf's yard numerals
+  // read straight through the empty boxes -- a "40" sitting inside WR1 -- which
+  // looked like a rendering fault rather than a field.
   slotEmpty: {
     borderStyle: 'dashed',
     borderColor: '#FFFFFF30',
-    backgroundColor: '#00000059',
+    backgroundColor: '#050A0FF7',
   },
-  slotTargeted: { borderStyle: 'solid', backgroundColor: '#0A0F14F2' },
+  slotTargeted: { borderStyle: 'solid', backgroundColor: '#0A0F14FA' },
   slotFilled: {
     borderColor: '#FFFFFF26',
-    backgroundColor: '#080C10E6',
+    backgroundColor: '#060A0EFA',
   },
   slotKey: {
     fontFamily: font.label,

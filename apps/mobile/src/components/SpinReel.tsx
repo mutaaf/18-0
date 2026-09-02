@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View, type TextStyle } from 'react-native';
+import { DECORATIVE } from '@/theme';
 
 /**
  * A slot-machine reel.
@@ -62,8 +63,7 @@ export function SpinReel({
     <View
       style={[styles.window, { height: itemHeight }]}
       pointerEvents="none"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      {...DECORATIVE}
     >
       <Animated.View
         style={{

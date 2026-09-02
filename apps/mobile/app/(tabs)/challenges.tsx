@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
+import { APP_URL } from '@/features/share';
 import { fetchMyChallenges, isBackendConfigured, type ChallengeRow } from '@/services/supabase';
 import { useHistoryStore } from '@/state/history';
 import { color, font, radius, space, tabular, tracking, useLayout, type PressState } from '@/theme';
@@ -56,13 +57,14 @@ export default function Challenges() {
               <RatingBadge rating={best.result.finalRating} size="sm" />
             </View>
             <Pressable
-              onPress={() =>
-                Share.share({
-                  message:
-                    `I built a ${best.result.record.wins}-${best.result.record.losses} roster in 18-0 ` +
-                    `(${best.result.finalRating.toFixed(1)}). Beat it.`,
-                }).catch(() => {})
-              }
+              onPress={() => {
+                const message =
+                  `I built a ${best.result.record.wins}-${best.result.record.losses} roster in 18-0 ` +
+                  `(${best.result.finalRating.toFixed(1)}). Beat it.\n${APP_URL}`;
+                // iOS renders a link preview from `url`; Android only reads the
+                // message, so the link is in both.
+                Share.share(Platform.OS === 'ios' ? { message, url: APP_URL } : { message }).catch(() => {});
+              }}
               accessibilityRole="button"
               accessibilityLabel="Challenge a friend with your best roster"
               style={({ pressed, hovered }: PressState) => [
@@ -75,7 +77,8 @@ export default function Challenges() {
             </Pressable>
             {!isBackendConfigured ? (
               <Text style={styles.pitchNote}>
-                Shares as text for now. Persistent challenge links need the server configured.
+                Shares a link to the game. Challenge links that carry this exact roster need
+                the server configured.
               </Text>
             ) : null}
           </View>

@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Reveal } from './Reveal';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -11,6 +11,12 @@ import { color, font, positionColor, radius, space, tabular, tracking, type Pres
  * Each one carries its franchise's own colours so a spin looks like that team's
  * cards, and reads as something collectible — PRFAQ §2: "position cards should
  * feel collectible and high-value."
+ *
+ * The row is a container holding two *sibling* controls: the card itself and
+ * the details button. They used to be nested, which react-native-web renders as
+ * a `<button>` inside a `<button>` — invalid HTML, and a keyboard user could
+ * never reach the inner one. Hover and press state, which the outer Pressable's
+ * render prop used to supply, is tracked here instead.
  */
 export const PlayerCard = memo(function PlayerCard({
   card,
@@ -32,6 +38,8 @@ export const PlayerCard = memo(function PlayerCard({
   onPress: () => void;
   onDetails: () => void;
 }) {
+  const [hovered, setHovered] = useState(false);
+  const [pressed, setPressed] = useState(false);
   const team = franchise(card.franchiseId);
   const accent = positionColor[card.position];
   const teamColor = team.color || '#3A3F4B';
@@ -39,14 +47,8 @@ export const PlayerCard = memo(function PlayerCard({
 
   return (
     <Reveal delay={Math.min(index, 12) * 24} distance={10} duration={260}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ selected, disabled }}
-        accessibilityLabel={`${name}. ${card.position}. ${card.year} ${team.name}.${
-          blind ? '' : ` Rating ${card.rating.toFixed(1)}.`
-        }${disabled ? ' Already on your roster.' : ''}`}
-        onPress={disabled ? undefined : onPress}
-        style={({ pressed, hovered }: PressState) => [
+      <View
+        style={[
           styles.card,
           hovered && !disabled && styles.hovered,
           selected && { borderColor: accent },
@@ -66,52 +68,71 @@ export const PlayerCard = memo(function PlayerCard({
           <Rect x="0" y="0" width="100%" height="100%" fill={`url(#tc-${card.id})`} />
         </Svg>
 
-        <View style={[styles.rail, { backgroundColor: teamColor }]} />
+        <View style={[styles.rail, { backgroundColor: teamColor }]} pointerEvents="none" />
 
-        <View style={[styles.position, { borderColor: `${accent}80`, backgroundColor: `${accent}1F` }]}>
-          <Text style={[styles.positionText, { color: accent }]}>{card.position}</Text>
-        </View>
-
-        <View style={styles.body}>
-          <Text style={styles.name} numberOfLines={1}>
-            {name}
-          </Text>
-          <View style={styles.metaRow}>
-            <Text style={styles.team}>{team.abbr}</Text>
-            <Text style={styles.year}>{card.year}</Text>
-            {blind
-              ? null
-              : card.stats.slice(0, 3).map((stat) => (
-                  <Text key={stat.label} style={styles.stat}>
-                    <Text style={styles.statValue}>{stat.value}</Text>
-                    <Text style={styles.statLabel}> {stat.label}</Text>
-                  </Text>
-                ))}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected, disabled }}
+          accessibilityLabel={`${name}. ${card.position}. ${card.year} ${team.name}.${
+            blind ? '' : ` Rating ${card.rating.toFixed(1)}.`
+          }${disabled ? ' Already on your roster.' : ''}`}
+          onPress={disabled ? undefined : onPress}
+          onHoverIn={() => setHovered(true)}
+          onHoverOut={() => setHovered(false)}
+          onPressIn={() => setPressed(true)}
+          onPressOut={() => setPressed(false)}
+          style={styles.main}
+        >
+          <View style={[styles.position, { borderColor: `${accent}80`, backgroundColor: `${accent}1F` }]}>
+            <Text style={[styles.positionText, { color: accent }]}>{card.position}</Text>
           </View>
-        </View>
 
-        {blind ? (
-          <View style={styles.hidden}>
-            <Text style={styles.hiddenGlyph}>?</Text>
+          <View style={styles.body}>
+            <Text style={styles.name} numberOfLines={1}>
+              {name}
+            </Text>
+            <View style={styles.metaRow}>
+              <Text style={styles.team}>{team.abbr}</Text>
+              <Text style={styles.year}>{card.year}</Text>
+              {blind
+                ? null
+                : card.stats.slice(0, 3).map((stat) => (
+                    <Text key={stat.label} style={styles.stat}>
+                      <Text style={styles.statValue}>{stat.value}</Text>
+                      <Text style={styles.statLabel}> {stat.label}</Text>
+                    </Text>
+                  ))}
+            </View>
           </View>
-        ) : (
-          <>
-            <Pressable
-              onPress={onDetails}
-              accessibilityRole="button"
-              accessibilityLabel={`Details for ${name}`}
-              style={styles.info}
-            >
-              <View style={styles.infoRing}>
-                <Text style={styles.infoGlyph}>i</Text>
-              </View>
-            </Pressable>
+
+          {blind ? (
+            <View style={styles.hidden}>
+              <Text style={styles.hiddenGlyph}>?</Text>
+            </View>
+          ) : (
             <View style={styles.ratingSeat}>
               <Text style={[styles.rating, ratingTone(card.rating)]}>{card.rating.toFixed(1)}</Text>
             </View>
-          </>
+          )}
+        </Pressable>
+
+        {blind ? null : (
+          <Pressable
+            onPress={onDetails}
+            accessibilityRole="button"
+            accessibilityLabel={`Details for ${name}`}
+            style={({ hovered: over, pressed: down }: PressState) => [
+              styles.info,
+              over && styles.infoActive,
+              down && styles.infoActive,
+            ]}
+          >
+            <View style={styles.infoRing}>
+              <Text style={styles.infoGlyph}>i</Text>
+            </View>
+          </Pressable>
         )}
-      </Pressable>
+      </View>
     </Reveal>
   );
 });
@@ -128,11 +149,10 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.md,
     minHeight: 68,
     paddingVertical: space.sm,
     paddingLeft: space.lg,
-    paddingRight: space.md,
+    paddingRight: space.xs,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: color.line,
@@ -143,6 +163,9 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.9, transform: [{ scale: 0.995 }] },
   disabled: { opacity: 0.3 },
   rail: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
+
+  /** The card's own tap target: everything except the details button. */
+  main: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: space.md },
 
   position: {
     minWidth: 46,
@@ -163,6 +186,7 @@ const styles = StyleSheet.create({
   statLabel: { fontFamily: font.bodyRegular, color: color.textFaint, fontSize: 11 },
 
   info: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  infoActive: { opacity: 0.7 },
   infoRing: {
     width: 22,
     height: 22,

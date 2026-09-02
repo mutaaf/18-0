@@ -2,6 +2,7 @@ import { forwardRef, type ComponentProps } from 'react';
 import { StyleSheet, Text as RNText, View } from 'react-native';
 import Svg, { Defs, Line, LinearGradient, Rect, Stop } from 'react-native-svg';
 import type { GameResult, RosterSlot } from '@18-0/domain';
+import { APP_URL } from '@/features/share';
 import { color, font, positionColor, radius, space, tabular, tierColor, tracking } from '@/theme';
 
 /**
@@ -93,7 +94,14 @@ export const ShareCard = forwardRef<View, {
 
       <View style={styles.foot}>
         {assisted ? <Text style={styles.assisted}>ASSISTED RUN</Text> : null}
-        <Text style={styles.cta}>Can you beat this roster?</Text>
+        <Text style={styles.cta}>
+          {perfect ? 'A perfect season. Beat it.' : 'Can you beat this roster?'}
+        </Text>
+        {/* Android's file share drops any caption, so the image has to carry the
+            link itself or the share is a dead end. */}
+        <View style={[styles.urlBar, perfect && { borderColor: '#F2C43D80' }]}>
+          <Text style={[styles.url, perfect && { color: color.goldBright }]}>{PLAY_AT}</Text>
+        </View>
         <Text style={styles.footNote}>
           Deterministic scoring · model {result.ratingModelVersion} · same roster, same record
         </Text>
@@ -101,6 +109,9 @@ export const ShareCard = forwardRef<View, {
     </View>
   );
 });
+
+/** Read as a URL without the scheme noise, the way a broadcast lower-third would. */
+const PLAY_AT = `PLAY AT ${APP_URL.replace(/^https?:\/\//, '').replace(/\/$/, '').toUpperCase()}`;
 
 export const SHARE_CARD_SIZE = { width: 540, height: 675 };
 
@@ -114,6 +125,21 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardPerfect: { borderWidth: 2, borderColor: '#F2C43D66' },
+  urlBar: {
+    marginTop: 8,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: color.line,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+  },
+  url: {
+    fontFamily: font.label,
+    fontSize: 12,
+    letterSpacing: tracking.wide,
+    color: color.silver,
+  },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   lockup: { flexDirection: 'row', alignItems: 'center' },
   mark: { fontFamily: font.displayBlack, fontSize: 30, color: color.text, includeFontPadding: false },

@@ -11,7 +11,7 @@ import {
 import { Screen } from '@/components/Screen';
 import { useGameStore } from '@/state/game';
 import { RatingBadge } from '@/components/RatingBadge';
-import { color, font, positionColor, radius, space, tabular, tracking } from '@/theme';
+import { DECORATIVE, color, font, positionColor, radius, space, tabular, tracking } from '@/theme';
 
 /**
  * Player detail (PRFAQ §22.3). Shows enough to trust the number — component
@@ -98,8 +98,7 @@ export default function CardDetail() {
               </View>
               <View
             style={styles.track}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
+            {...DECORATIVE}
           >
                 <View
                   style={[

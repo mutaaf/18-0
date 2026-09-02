@@ -1,5 +1,6 @@
+import { useId } from 'react';
 import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
-import { color } from '@/theme';
+import { DECORATIVE, color } from '@/theme';
 
 /**
  * The crown.
@@ -17,16 +18,21 @@ export function Crown({
   tint?: string;
   bright?: string;
 }) {
+  // A fixed gradient id resolves against the whole document on the web, so a
+  // second crown on the page silently blanked the first -- the reveal showed
+  // three gold finials floating over nothing. Unique per instance, with the
+  // colons React puts in ids stripped so it is a valid url() reference.
+  const fill = `crown-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
   return (
     <Svg
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
+      {...DECORATIVE}
     >
       <Defs>
-        <LinearGradient id="crownFill" x1="0" y1="0" x2="0" y2="1">
+        <LinearGradient id={fill} x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor={bright} />
           <Stop offset="0.55" stopColor={tint} />
           <Stop offset="1" stopColor={color.goldDeep} />
@@ -35,9 +41,9 @@ export function Crown({
       {/* Five spikes, centre tallest, on a solid band. */}
       <Path
         d="M3 8.4 L5.3 13.2 L7.6 6.2 L9.8 12.6 L12 3.2 L14.2 12.6 L16.4 6.2 L18.7 13.2 L21 8.4 L21 16.4 L3 16.4 Z"
-        fill="url(#crownFill)"
+        fill={`url(#${fill})`}
       />
-      <Path d="M2.6 17.4 H21.4 V20.4 H2.6 Z" fill="url(#crownFill)" />
+      <Path d="M2.6 17.4 H21.4 V20.4 H2.6 Z" fill={`url(#${fill})`} />
       {/* Ball finials, as on the brand mark. */}
       <Path d="M3 8.4 m-1.5 0 a1.5 1.5 0 1 0 3 0 a1.5 1.5 0 1 0 -3 0" fill={bright} />
       <Path d="M21 8.4 m-1.5 0 a1.5 1.5 0 1 0 3 0 a1.5 1.5 0 1 0 -3 0" fill={bright} />
