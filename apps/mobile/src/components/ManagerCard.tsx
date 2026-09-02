@@ -1,7 +1,8 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { era as eraDef, franchise } from '@18-0/data';
 import { Reveal } from './Reveal';
+import { useCardTilt } from './useCardTilt';
 import type { ProfileStats } from '@/state/history';
 import type { Identity } from '@/services/supabase';
 import type { SocialProvider } from '@/services/auth';
@@ -44,11 +45,15 @@ export function ManagerCard({
   // a player would recognise as a start date, so the first season is the date.
   const since = sinceYear ?? null;
 
+  // The same object the player cards are, so their own account reads as part of
+  // the collection rather than a settings panel with a border.
+  const { panHandlers, transform, sheenShift } = useCardTilt({ degrees: 5, sheenTravel: 200 });
+
   return (
     <Reveal distance={12} duration={320}>
-      <View style={[styles.card, elevate(4)]}>
+      <Animated.View {...panHandlers} style={[styles.card, elevate(4), { transform }]}>
         {/* The franchise they build with most, washed across the card. */}
-        <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
           <Defs>
             <LinearGradient id="mc-team" x1="0" y1="0" x2="1" y2="1">
               <Stop offset="0" stopColor={teamColor} stopOpacity="0.40" />
@@ -59,6 +64,23 @@ export function ManagerCard({
           <Rect x="0" y="0" width="100%" height="100%" fill="url(#mc-team)" />
         </Svg>
         <View style={[styles.rail, { backgroundColor: teamColor }]} pointerEvents="none" />
+
+        {/* Foil, matching the player cards. */}
+        <Animated.View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, { transform: [{ translateX: sheenShift }] }]}
+        >
+          <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+            <Defs>
+              <LinearGradient id="mc-foil" x1="0" y1="0" x2="1" y2="0">
+                <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0" />
+                <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity="0.09" />
+                <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#mc-foil)" />
+          </Svg>
+        </Animated.View>
 
         <View style={styles.head}>
           <Text style={styles.eyebrow}>Manager</Text>
@@ -113,7 +135,7 @@ export function ManagerCard({
           </Text>
           {since ? <Text style={styles.footEst}>EST. {since}</Text> : null}
         </View>
-      </View>
+      </Animated.View>
     </Reveal>
   );
 }
@@ -142,6 +164,8 @@ function tierOf(rating: number): string {
 
 const styles = StyleSheet.create({
   card: {
+    // Dragging a card on the web selected its text instead of turning it.
+    userSelect: 'none',
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: color.line,

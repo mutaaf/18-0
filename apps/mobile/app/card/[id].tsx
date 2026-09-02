@@ -10,7 +10,7 @@ import {
 } from '@18-0/data';
 import { Screen } from '@/components/Screen';
 import { useGameStore } from '@/state/game';
-import { RatingBadge } from '@/components/RatingBadge';
+import { CollectibleCard } from '@/components/CollectibleCard';
 import { DECORATIVE, color, font, positionColor, radius, space, tabular, tracking } from '@/theme';
 
 /**
@@ -50,11 +50,10 @@ export default function CardDetail() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* The card as an object first. The numbers that explain it follow. */}
+        <CollectibleCard card={card} blind={blind} />
+
         <View style={styles.hero}>
-          <View style={[styles.positionTag, { borderColor: `${accent}66`, backgroundColor: `${accent}1A` }]}>
-            <Text style={[styles.positionText, { color: accent }]}>{card.position}</Text>
-          </View>
-          <Text style={styles.name}>{displayName(card)}</Text>
           <Text style={styles.meta}>
             {card.year} {team.name} · {eraLabel(card.era)} · {card.games} games
           </Text>
@@ -62,12 +61,7 @@ export default function CardDetail() {
             <Text style={styles.blindNote}>
               Ratings are hidden in Player IQ mode. They arrive with your result.
             </Text>
-          ) : (
-            <View style={styles.ratingRow}>
-              <RatingBadge rating={card.rating} size="lg" />
-              <Text style={styles.ratingCaption}>18-0 rating for this season</Text>
-            </View>
-          )}
+          ) : null}
         </View>
 
         {blind ? null : (
