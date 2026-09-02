@@ -98,3 +98,51 @@ pnpm -r test
 
 Anything that changes a published score should bump `version` in
 `packages/domain/src/constants/config.ts`.
+
+
+---
+
+## The hosted project
+
+Live at project ref `keqwdtnyotdovrtcswel` (org DigitalCraft, West US North
+California). The dashboard is at
+<https://supabase.com/dashboard/project/keqwdtnyotdovrtcswel>.
+
+Credentials are **not** in the repository. `.local/` is gitignored and holds
+`hosted.env` (API URL, anon key, service key) and the database password. If you
+lose them, `supabase projects api-keys --project-ref keqwdtnyotdovrtcswel`
+prints the keys again; the database password can only be reset from the
+dashboard.
+
+```bash
+supabase db push                                    # apply migrations
+psql "$DATABASE_URL" -f supabase/seed/0001_dataset.sql
+supabase functions deploy spin select complete-game delete-account
+
+set -a; . .local/hosted.env; set +a
+node scripts/verify/e2e.mjs                         # 44 checks
+```
+
+Anonymous sign-ins are enabled and `site_url` points at the live demo. Both are
+project settings rather than repository state, so they do not come back from a
+`supabase db push` — if the project is ever recreated, set them again:
+
+```bash
+curl -X PATCH "https://api.supabase.com/v1/projects/<ref>/config/auth" \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"external_anonymous_users_enabled": true, "site_url": "https://mutaaf.github.io/18-0"}'
+```
+
+### Watching it
+
+Everything the server decides lands in `audit_events`, and the two rollups over
+it are the shape worth looking at:
+
+```sql
+select * from public.ops_events_hourly  order by hour desc limit 20;
+select * from public.ops_rejection_rate order by hour desc limit 20;
+```
+
+A rising `rejection_rate` is either an attack or a regression. Both are worth a
+look; neither is visible without this.

@@ -31,6 +31,12 @@ jobs:
         # against that base path.
         env:
           EXPO_BASE_URL: /${{ github.event.repository.name }}
+          # The anon key is designed to be public — every guarantee that matters
+          # is enforced by row level security and the edge functions, not by
+          # keeping it secret. It lives in repository secrets so the value can be
+          # rotated without a commit, not because exposure would breach anything.
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: npx expo export --platform web --output-dir ../../dist
       - name: Serve the SPA on deep links
         # GitHub Pages has no rewrite rules; a copy of index.html as 404.html is
