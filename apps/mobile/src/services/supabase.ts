@@ -153,6 +153,47 @@ async function loadLeaderboard(
   }));
 }
 
+export interface RosterPick {
+  readonly slot: string;
+  readonly cardId: string;
+  readonly spinSequence: number;
+}
+
+/**
+ * The seven players behind a leaderboard entry.
+ *
+ * Readable for anyone's *completed* game (see the `own selections readable`
+ * policy in 0001), which is what lets the board show what people actually
+ * built rather than only what they scored. An in-progress roster stays private,
+ * so nobody can watch a game being assembled and copy it.
+ *
+ * Only the card ids come back. Every card is in the bundled dataset, so the
+ * names, teams, years and ratings are resolved on the device with no second
+ * round trip.
+ */
+export async function fetchRoster(gameSessionId: string): Promise<RosterPick[]> {
+  if (!supabase) return [];
+  const read = await cached<RosterPick[]>(
+    `roster:${gameSessionId}`,
+    async () => {
+      const { data, error } = await supabase!
+        .from('game_selections')
+        .select('roster_slot, card_id, spin_sequence')
+        .eq('game_session_id', gameSessionId)
+        .order('spin_sequence');
+      if (error) throw error;
+      return (data ?? []).map((r) => ({
+        slot: r.roster_slot as string,
+        cardId: r.card_id as string,
+        spinSequence: r.spin_sequence as number,
+      }));
+    },
+    // A finished roster never changes, so this can be cached hard.
+    { ttl: 24 * 60 * 60_000 },
+  );
+  return read.value ?? [];
+}
+
 export interface ChallengeRow {
   readonly id: string;
   readonly shareToken: string;

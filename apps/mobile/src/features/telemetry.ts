@@ -30,6 +30,7 @@ export type EventName =
   | 'result_shared'
   | 'build_another_tapped'
   | 'leaderboard_viewed'
+  | 'leaderboard_roster_opened'
   | 'profile_viewed'
   // Ranked play. `score_disagreement` should never fire: both sides run the
   // same deterministic model, so if it ever does, something drifted between
