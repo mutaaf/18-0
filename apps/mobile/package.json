@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "echo \"no mobile tests yet\" && exit 0",
     "device": "expo start --port 8082 --lan",
-    "device:clear": "expo start --port 8082 --lan --clear"
+    "device:clear": "expo start --port 8082 --lan --clear",
+    "ios:device": "bash scripts/ios-device.sh"
   },
   "dependencies": {
     "@18-0/data": "workspace:*",

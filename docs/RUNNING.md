@@ -227,11 +227,26 @@ from there. The free alternative is a local build signed against a personal team
 what this project is set up for.
 
 ```bash
-cd apps/mobile
-pnpm exec expo run:ios --device        # pick the phone when prompted
+cd apps/mobile && pnpm ios:device
 ```
 
-That builds natively and installs straight onto a paired iPhone. Prerequisites,
+That builds natively and installs straight onto a paired iPhone. It finds the
+device itself; pass a UDID to pick a specific one.
+
+**Not `expo run:ios --device`.** That command does not pass
+`-allowProvisioningUpdates` to xcodebuild, so with no existing provisioning
+profile it stops at signing — and a personal team has no profile until Xcode
+creates one, which is precisely this case. It fails with *"No profiles for
+'com.eighteenzero.app' were found"*. The script exists because of that.
+
+It builds **Release**, not Debug, so the JavaScript is embedded and the app runs
+with the laptop closed. A Debug build needs Metro alive on the same network,
+which defeats the point of putting it on a phone.
+
+One manual step remains the first time, and no script can do it: iOS will
+refuse to launch an app signed by an untrusted developer.
+
+> Settings → General → VPN & Device Management → Apple Development → Trust Prerequisites,
 all already true on this machine: Xcode installed and selected
 (`xcode-select -p` must point inside Xcode.app, not CommandLineTools —
 switching needs `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`),
