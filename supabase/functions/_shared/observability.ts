@@ -145,3 +145,34 @@ export async function withinRateLimit(
 export function traceHeaders(ctx: RequestContext): Record<string, string> {
   return { 'x-request-id': ctx.requestId };
 }
+
+/**
+ * CORS for a specific caller, from an allow-list.
+ *
+ * `ALLOWED_ORIGIN` was previously read as one value and defaulted to `*`, which
+ * on the hosted project meant every origin on the internet could call these
+ * endpoints from a browser. Pinning it to one origin fixed that and immediately
+ * broke local development, because the web build runs on localhost.
+ *
+ * So it is a comma-separated list, and the matching origin is echoed back —
+ * which is what a browser requires, since it compares the header against its
+ * own origin rather than accepting a list. `Vary: Origin` keeps a shared cache
+ * from serving one caller's header to another.
+ */
+const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGIN') ?? '*')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
+
+export function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get('Origin') ?? '';
+  const allowAny = ALLOWED_ORIGINS.includes('*');
+  const permitted = allowAny || ALLOWED_ORIGINS.includes(origin);
+  return {
+    'access-control-allow-origin': allowAny ? '*' : permitted ? origin : ALLOWED_ORIGINS[0]!,
+    vary: 'Origin',
+    'access-control-allow-headers':
+      'authorization, apikey, content-type, x-client-info, x-request-id, x-client',
+    'access-control-allow-methods': 'POST, OPTIONS',
+  };
+}

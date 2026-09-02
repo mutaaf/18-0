@@ -7,7 +7,7 @@
  * is no roster for a modified client to invent.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { audit, beginRequest, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
+import { audit, beginRequest, corsHeaders, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
 
 const ROSTER_SLOTS = ['QB', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'DEF'] as const;
 type RosterSlot = (typeof ROSTER_SLOTS)[number];
@@ -16,22 +16,13 @@ const SLOT_POSITION: Record<RosterSlot, string> = {
 };
 const SLOT_SET = new Set<string>(ROSTER_SLOTS);
 
-const CORS = {
-  'access-control-allow-origin': Deno.env.get('ALLOWED_ORIGIN') ?? '*',
-  // supabase-js sends `apikey` and `x-client-info` on every call, and the
-  // browser names them in the preflight. Omitting them here meant the preflight
-  // failed and the request never left the page — which looks exactly like the
-  // server being down, and is not.
-  'access-control-allow-headers':
-    'authorization, apikey, content-type, x-client-info, x-request-id, x-client',
-  'access-control-allow-methods': 'POST, OPTIONS',
-};
 /** Picks per minute per player. Seven picks is a whole game. */
 const SELECTS_PER_MINUTE = 40;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 Deno.serve(async (req) => {
+  const CORS = corsHeaders(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   const ctx = beginRequest(req);

@@ -88,22 +88,36 @@ async function loadLeaderboard(
   limit: number,
 ): Promise<LeaderboardRow[]> {
   if (!supabase) return [];
-  let query = supabase
-    .from('leaderboard_rating')
-    .select('game_session_id, user_id, handle, final_rating, record_wins, record_losses, ending_key, tier, completed_at')
-    .order('final_rating', { ascending: false })
-    .order('completed_at', { ascending: true })
-    .limit(limit);
-
   const from = since(period);
-  if (from) query = query.gte('completed_at', from);
+
+  // A windowed board must filter BEFORE deduplicating by roster, which is why
+  // `leaderboard_rating_since` exists. Filtering the already-deduplicated view
+  // — as this did — drops a player whose best run on a roster was months ago
+  // but who replayed that roster this week: the view kept only the old row, and
+  // the window then removed it. They vanished from the board entirely.
+  const query = from
+    ? supabase
+        .rpc('leaderboard_rating_since', { since: from })
+        .select('game_session_id, user_id, handle, final_rating, record_wins, record_losses, ending_key, tier, completed_at')
+        .order('final_rating', { ascending: false })
+        .order('completed_at', { ascending: true })
+        .limit(limit)
+    : supabase
+        .from('leaderboard_rating')
+        .select('game_session_id, user_id, handle, final_rating, record_wins, record_losses, ending_key, tier, completed_at')
+        .order('final_rating', { ascending: false })
+        .order('completed_at', { ascending: true })
+        .limit(limit);
 
   // Throws rather than returning [] so the screen can distinguish "no rankings
   // yet" from "could not reach the server".
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   if (!data) return [];
-  return data.map((r) => ({
+  // A view select yields an array; an RPC select is typed as a single row even
+  // when the function returns a set, so both shapes are normalised here.
+  const rows = (Array.isArray(data) ? data : [data]) as Record<string, unknown>[];
+  return rows.map((r) => ({
     gameSessionId: r.game_session_id as string,
     userId: r.user_id as string,
     handle: (r.handle as string) ?? 'player',

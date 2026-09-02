@@ -374,7 +374,25 @@ const self = await targets.sb.from('handle_reports').insert({
 check('you cannot report yourself', self.error !== null,
   self.error ? self.error.code : 'accepted');
 
-const reporters = [alice, bob, carol];
+// Reporting now requires standing — one completed, unassisted game — so a
+// throwaway identity cannot remove anyone from the board. bob never finished a
+// game and carol's only run was assisted, so neither qualifies as they are;
+// they earn standing here the same way a real player would.
+const standing = await Promise.all([bob, carol].map(async (who) => {
+  const g = await playRankedGame(who);
+  await call('complete-game', who.token, { gameSessionId: g.sessionId, idempotencyKey: g.idempotencyKey });
+  return who;
+}));
+check('a throwaway account cannot report', await (async () => {
+  const nobody = await signIn('nobody');
+  const attempt = await nobody.sb.from('handle_reports').insert({
+    reported_user_id: targets.user.id, reporter_user_id: nobody.user.id,
+    reported_handle: targetHandle, reason: 'offensive',
+  }).select();
+  return attempt.error !== null;
+})(), 'no completed game, no report');
+
+const reporters = [alice, ...standing];
 for (const who of reporters) {
   await who.sb.from('handle_reports').insert({
     reported_user_id: targets.user.id, reporter_user_id: who.user.id,
@@ -501,6 +519,34 @@ if (SERVICE) {
 const afterDelete = await call('spin', doomed.token, { gameSessionId: doomedGame.sessionId });
 check('their token stops working', afterDelete.status === 401 || afterDelete.status === 403,
   `status ${afterDelete.status}`);
+
+// ---------------------------------------------------------------------------
+console.log('\nBROWSER ORIGINS');
+
+// These endpoints answered every origin with `*` until the allow-list landed,
+// and the first attempt at fixing that pinned them to one origin — which shut
+// out local web development without failing a single check here. Both halves
+// are asserted, because each one on its own is a bug.
+const preflight = async (origin) => {
+  const res = await fetch(`${API}/functions/v1/spin`, {
+    method: 'OPTIONS',
+    headers: { Origin: origin, 'Access-Control-Request-Method': 'POST' },
+  });
+  return res.headers.get('access-control-allow-origin');
+};
+
+const shipped = 'https://mutaaf.github.io';
+const dev = 'http://localhost:8082';
+
+for (const [label, origin] of [['the published site', shipped], ['local web development', dev]]) {
+  const allowed = await preflight(origin);
+  check(`${label} is allowed through`, allowed === origin, `${allowed}`);
+}
+
+// A browser compares this against its own origin, so anything but an exact
+// match — including another site's origin — is a refusal.
+const stranger = await preflight('https://evil.example');
+check('an unknown origin is not', stranger !== 'https://evil.example' && stranger !== '*', `${stranger}`);
 
 // ---------------------------------------------------------------------------
 console.log('\n' + '='.repeat(64));

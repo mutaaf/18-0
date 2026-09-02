@@ -10,7 +10,7 @@
  * Deploy: supabase functions deploy complete-game
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { audit, beginRequest, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
+import { audit, beginRequest, corsHeaders, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
 import {
   DEFAULT_SCORING_CONFIG,
   ROSTER_SLOTS,
@@ -25,16 +25,6 @@ interface CompleteRequest {
   idempotencyKey: string;
 }
 
-const CORS = {
-  'access-control-allow-origin': Deno.env.get('ALLOWED_ORIGIN') ?? '*',
-  // supabase-js sends `apikey` and `x-client-info` on every call, and the
-  // browser names them in the preflight. Omitting them here meant the preflight
-  // failed and the request never left the page — which looks exactly like the
-  // server being down, and is not.
-  'access-control-allow-headers':
-    'authorization, apikey, content-type, x-client-info, x-request-id, x-client',
-  'access-control-allow-methods': 'POST, OPTIONS',
-};
 
 /** Completions per minute per player. A game takes far longer than this allows. */
 const COMPLETIONS_PER_MINUTE = 12;
@@ -42,7 +32,7 @@ const COMPLETIONS_PER_MINUTE = 12;
 const jsonWith = (extra: Record<string, string>) => (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json', ...CORS },
+    headers: { 'content-type': 'application/json', ...extra },
   });
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -67,7 +57,10 @@ function toResponse(row: Record<string, unknown>) {
 
 Deno.serve(async (req) => {
   const ctx = beginRequest(req);
-  const json = jsonWith(traceHeaders(ctx));
+  const CORS = corsHeaders(req);
+  // Both, and in this order: `extra` was previously accepted and never spread,
+  // so every response from this endpoint went out without its trace header.
+  const json = jsonWith({ ...CORS, ...traceHeaders(ctx) });
 
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);

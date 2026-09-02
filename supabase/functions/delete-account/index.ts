@@ -14,20 +14,11 @@
  * resolves to an account.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { audit, beginRequest, log, traceHeaders } from '../_shared/observability.ts';
+import { audit, beginRequest, corsHeaders, log, traceHeaders } from '../_shared/observability.ts';
 
-const CORS = {
-  'access-control-allow-origin': Deno.env.get('ALLOWED_ORIGIN') ?? '*',
-  // supabase-js sends `apikey` and `x-client-info` on every call, and the
-  // browser names them in the preflight. Omitting them here meant the preflight
-  // failed and the request never left the page — which looks exactly like the
-  // server being down, and is not.
-  'access-control-allow-headers':
-    'authorization, apikey, content-type, x-client-info, x-request-id, x-client',
-  'access-control-allow-methods': 'POST, OPTIONS',
-};
 
 Deno.serve(async (req) => {
+  const CORS = corsHeaders(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
   const ctx = beginRequest(req);
