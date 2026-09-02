@@ -28,6 +28,8 @@ export const supabase: SupabaseClient | null = isBackendConfigured
 
 export interface LeaderboardRow {
   readonly gameSessionId: string;
+  /** Needed to report the handle; never shown. */
+  readonly userId: string;
   readonly handle: string;
   readonly finalRating: number;
   readonly wins: number;
@@ -54,7 +56,7 @@ export async function fetchLeaderboard(
   if (!supabase) return [];
   let query = supabase
     .from('leaderboard_rating')
-    .select('game_session_id, handle, final_rating, record_wins, record_losses, ending_key, tier, completed_at')
+    .select('game_session_id, user_id, handle, final_rating, record_wins, record_losses, ending_key, tier, completed_at')
     .order('final_rating', { ascending: false })
     .order('completed_at', { ascending: true })
     .limit(limit);
@@ -69,6 +71,7 @@ export async function fetchLeaderboard(
   if (!data) return [];
   return data.map((r) => ({
     gameSessionId: r.game_session_id as string,
+    userId: r.user_id as string,
     handle: (r.handle as string) ?? 'player',
     finalRating: Number(r.final_rating),
     wins: r.record_wins as number,
@@ -242,7 +245,8 @@ export async function claimHandle(handle: string): Promise<{ ok: boolean; error?
   if (error) {
     // 23505 is the unique violation on `handle`.
     if (error.code === '23505') return { ok: false, error: 'That name is taken.' };
-    return { ok: false, error: error.message };
+    const policy = explainHandleRejection(error.message);
+    return { ok: false, error: policy ?? error.message };
   }
   return { ok: true };
 }
@@ -263,4 +267,57 @@ export async function deleteAccount(): Promise<{ ok: boolean; error?: string }> 
   if (error) return { ok: false, error: error.message };
   await supabase.auth.signOut().catch(() => {});
   return { ok: true };
+}
+
+/**
+ * Reporting a handle.
+ *
+ * The one piece of user-generated content in the game is a display name, and
+ * App Store Review Guideline 1.2 asks that people be able to report it. Enough
+ * distinct reports take a name off the board automatically — see the trigger in
+ * migration 0003 — because a queue that only moves when somebody reads it is
+ * not a timely response at three in the morning.
+ */
+export type ReportReason = 'impersonation' | 'offensive' | 'spam' | 'other';
+
+export const REPORT_REASONS: readonly { value: ReportReason; label: string }[] = [
+  { value: 'impersonation', label: 'Pretending to be someone' },
+  { value: 'offensive', label: 'Offensive or abusive' },
+  { value: 'spam', label: 'Spam or advertising' },
+  { value: 'other', label: 'Something else' },
+];
+
+export async function reportHandle(
+  reportedUserId: string,
+  reportedHandle: string,
+  reason: ReportReason,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: 'backend_not_configured' };
+  if (!(await ensureSession())) return { ok: false, error: 'Could not start a session.' };
+
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { ok: false, error: 'unauthenticated' };
+  if (auth.user.id === reportedUserId) return { ok: false, error: 'That is you.' };
+
+  const { error } = await supabase.from('handle_reports').insert({
+    reported_user_id: reportedUserId,
+    reporter_user_id: auth.user.id,
+    reported_handle: reportedHandle,
+    reason,
+  });
+  if (error) {
+    // 23505 is the one-open-report-per-reporter index doing its job.
+    if (error.code === '23505') return { ok: true };
+    return { ok: false, error: error.message };
+  }
+  return { ok: true };
+}
+
+/** Turns the handle-policy trigger's error into something a person can act on. */
+export function explainHandleRejection(message: string): string | null {
+  const match = /handle_not_allowed:(\w+)/.exec(message);
+  if (!match) return null;
+  return match[1] === 'impersonation'
+    ? 'That name could be mistaken for the game or its staff.'
+    : 'That name is not allowed.';
 }

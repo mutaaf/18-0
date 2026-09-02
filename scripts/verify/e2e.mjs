@@ -355,6 +355,88 @@ if (SERVICE) {
 }
 
 // ---------------------------------------------------------------------------
+console.log('\nMODERATION');
+
+const banned = await bob.sb.from('profiles')
+  .upsert({ id: bob.user.id, handle: 'the admin' }, { onConflict: 'id' }).select();
+check('an impersonating handle is refused at claim time', banned.error !== null,
+  banned.error ? banned.error.message.slice(0, 46) : 'accepted');
+
+// Three distinct reporters should take a name off the board on their own.
+const targets = await signIn('target');
+const targetHandle = `target_${crypto.randomUUID().slice(0, 8)}`;
+await targets.sb.from('profiles').upsert({ id: targets.user.id, handle: targetHandle }, { onConflict: 'id' });
+
+const self = await targets.sb.from('handle_reports').insert({
+  reported_user_id: targets.user.id, reporter_user_id: targets.user.id,
+  reported_handle: targetHandle, reason: 'other',
+}).select();
+check('you cannot report yourself', self.error !== null,
+  self.error ? self.error.code : 'accepted');
+
+const reporters = [alice, bob, carol];
+for (const who of reporters) {
+  await who.sb.from('handle_reports').insert({
+    reported_user_id: targets.user.id, reporter_user_id: who.user.id,
+    reported_handle: targetHandle, reason: 'offensive',
+  });
+}
+const duplicate = await alice.sb.from('handle_reports').insert({
+  reported_user_id: targets.user.id, reporter_user_id: alice.user.id,
+  reported_handle: targetHandle, reason: 'offensive',
+}).select();
+check('the same person cannot report a handle twice', duplicate.error !== null,
+  duplicate.error ? duplicate.error.code : 'accepted');
+
+const forged = await alice.sb.from('handle_reports').insert({
+  reported_user_id: targets.user.id, reporter_user_id: bob.user.id,
+  reported_handle: targetHandle, reason: 'spam',
+}).select();
+check('a report cannot be filed in someone else\'s name', forged.error !== null,
+  forged.error ? forged.error.code : 'accepted');
+
+const others = await alice.sb.from('handle_reports')
+  .select('id').eq('reported_user_id', targets.user.id).neq('reporter_user_id', alice.user.id);
+check('you cannot read other people\'s reports', (others.data ?? []).length === 0,
+  `${(others.data ?? []).length} visible`);
+
+if (SERVICE) {
+  const admin = createClient(API, SERVICE, { auth: { persistSession: false } });
+  const { data: flagged } = await admin.from('profiles')
+    .select('handle_status').eq('id', targets.user.id).maybeSingle();
+  check('three reporters take a handle off the board by themselves',
+    flagged?.handle_status === 'flagged', `status ${flagged?.handle_status}`);
+
+  const { data: queue } = await admin.from('ops_moderation_queue')
+    .select('reported_user_id, reporters').eq('reported_user_id', targets.user.id).maybeSingle();
+  check('the report reaches the moderation queue', (queue?.reporters ?? 0) >= 3,
+    `${queue?.reporters ?? 0} reporters`);
+
+  await admin.rpc('moderation_dismiss', { p_user: targets.user.id });
+  const { data: restored } = await admin.from('profiles')
+    .select('handle_status').eq('id', targets.user.id).maybeSingle();
+  check('dismissing a report puts the handle back', restored?.handle_status === 'ok');
+
+  const { data: emptied } = await admin.from('ops_moderation_queue')
+    .select('reported_user_id').eq('reported_user_id', targets.user.id).maybeSingle();
+  check('and closes it out of the queue', !emptied);
+
+  await admin.rpc('moderation_uphold', { p_user: targets.user.id });
+  const { data: hidden } = await admin.from('profiles')
+    .select('handle_status').eq('id', targets.user.id).maybeSingle();
+  check('upholding one hides the handle', hidden?.handle_status === 'hidden');
+}
+
+const queuePeek = await alice.sb.from('ops_moderation_queue').select('reported_user_id').limit(1);
+check('a player cannot read the moderation queue',
+  queuePeek.error !== null || (queuePeek.data ?? []).length === 0,
+  queuePeek.error ? queuePeek.error.code : `${(queuePeek.data ?? []).length} rows`);
+
+const selfClear = await targets.sb.rpc('moderation_dismiss', { p_user: targets.user.id });
+check('a player cannot clear their own flag', selfClear.error !== null,
+  selfClear.error ? selfClear.error.code : 'accepted');
+
+// ---------------------------------------------------------------------------
 console.log('\nACCOUNT DELETION');
 
 const doomed = await signIn('doomed');

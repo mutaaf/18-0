@@ -146,3 +146,34 @@ select * from public.ops_rejection_rate order by hour desc limit 20;
 
 A rising `rejection_rate` is either an attack or a regression. Both are worth a
 look; neither is visible without this.
+
+
+### Moderation
+
+A leaderboard handle is the only user-generated content in the game. Names are
+filtered at claim time against `handle_denylist`, players can report one from
+the board, and three distinct reporters take a name off it automatically —
+because "timely response" cannot mean "whenever somebody reads the queue".
+
+```sql
+-- What is waiting, worst first
+select * from public.ops_moderation_queue;
+
+-- Act on one. Both close every open report against that account.
+select public.moderation_uphold('<user-uuid>');   -- hide the handle
+select public.moderation_dismiss('<user-uuid>');  -- put it back
+
+-- Adjust what is refused at claim time
+insert into public.handle_denylist (pattern, kind, reason)
+values ('somestring', 'substring', 'offensive');
+```
+
+Claiming a *new* name clears any moderation state on the old one: the decision
+was about a name, not a person.
+
+> **A grant that looks revoked and is not.** PostgreSQL grants `EXECUTE` on a
+> new function to `PUBLIC`. `revoke execute … from anon, authenticated` is
+> therefore a no-op — those roles were never using a grant of their own. Every
+> callable function here must also `revoke execute … from public`, and 0003
+> exists partly to fix two that did not: any signed-in player could clear the
+> flag on their own handle, and could burn through another player's rate limit.

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { AccountPanel } from '@/components/AccountPanel';
+import { ReportButton } from '@/components/ReportButton';
 import { RatingBadge } from '@/components/RatingBadge';
 import {
   fetchLeaderboard,
@@ -131,6 +132,7 @@ export default function Leaderboard() {
                       <Text style={styles.tier}>TIER {row.tier}</Text>
                     </View>
                     <RatingBadge rating={row.finalRating} size="sm" />
+                    <ReportButton userId={row.userId} handle={row.handle} />
                   </View>
                 );
               })}
