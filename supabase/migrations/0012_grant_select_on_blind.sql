@@ -1,0 +1,16 @@
+-- The board went empty because nobody could read the column it filters on.
+--
+-- 0011 added game_sessions.blind and made three leaderboard views filter on it.
+-- All three are `security_invoker`, which means they run with the *caller's*
+-- privileges, and 0001 deliberately replaced the table-wide SELECT grant with a
+-- column list. `blind` was not on it.
+--
+-- So the views referenced a column that anon and authenticated could not read,
+-- and every board came back empty for everyone except the service role. The
+-- harness caught it as four leaderboard checks failing at once while the new
+-- rules themselves all passed -- which is the signature of a plumbing fault
+-- rather than a rule being wrong.
+--
+-- Worth remembering when adding any column that a security_invoker view
+-- touches: the grant is part of the change, not a follow-up.
+grant select (blind) on public.game_sessions to anon, authenticated;

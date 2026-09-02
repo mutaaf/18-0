@@ -79,8 +79,17 @@ async function readError(error: unknown): Promise<string | null> {
   }
 }
 
-/** Opens a ranked session, signing in anonymously if this is the first one. */
-export async function beginRanked(): Promise<RankedResult<{ sessionId: string; idempotencyKey: string }>> {
+/**
+ * Opens a ranked session, signing in anonymously if this is the first one.
+ *
+ * `blind` is declared here, before the first spin, and cannot be changed
+ * afterwards: there is no update grant on game_sessions. Only blind seasons
+ * reach the leaderboard, so a player cannot decide a run was Player IQ once
+ * they have seen what it scored.
+ */
+export async function beginRanked(
+  blind: boolean,
+): Promise<RankedResult<{ sessionId: string; idempotencyKey: string }>> {
   if (!isBackendConfigured || !supabase) return offline('Ranked play is not configured.');
   if (!(await ensureSession())) return offline('Could not start a session.');
 
@@ -90,7 +99,7 @@ export async function beginRanked(): Promise<RankedResult<{ sessionId: string; i
   const idempotencyKey = uuid();
   const { data, error } = await supabase
     .from('game_sessions')
-    .insert({ user_id: me.id, status: 'in_progress', idempotency_key: idempotencyKey })
+    .insert({ user_id: me.id, status: 'in_progress', idempotency_key: idempotencyKey, blind })
     .select('id')
     .single();
   if (error || !data) return offline('Could not open a ranked game.');

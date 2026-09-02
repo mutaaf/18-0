@@ -152,11 +152,11 @@ const SLOTS = ['QB', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'DEF'];
 const SLOT_POSITION = { QB: 'QB', RB1: 'RB', RB2: 'RB', WR1: 'WR', WR2: 'WR', TE1: 'TE', DEF: 'DEF' };
 
 /** Plays a full ranked game: create session, spin 7 times, pick each time. */
-async function playRankedGame({ sb, user, token }, { assist = false } = {}) {
+async function playRankedGame({ sb, user, token }, { assist = false, blind = true } = {}) {
   const idempotencyKey = crypto.randomUUID();
   const { data: session, error } = await sb
     .from('game_sessions')
-    .insert({ user_id: user.id, status: 'in_progress', idempotency_key: idempotencyKey })
+    .insert({ user_id: user.id, status: 'in_progress', idempotency_key: idempotencyKey, blind })
     .select('id')
     .single();
   if (error) throw new Error(`session insert failed: ${error.message}`);
@@ -198,7 +198,22 @@ console.log('\n18-0 — SERVER END-TO-END VERIFICATION\n' + '='.repeat(64));
 
 // ---------------------------------------------------------------------------
 console.log('\nHAPPY PATH');
+/**
+ * Mark an account as having a real identity.
+ *
+ * The harness signs in anonymously, and 0011 keeps anonymous accounts off the
+ * board on purpose. Rather than drive a real OAuth round trip for every test
+ * account, this sets the flag the view actually reads. The trigger that
+ * maintains it is exercised for real in scripts/verify/linking.mjs.
+ */
+async function markSignedIn(who) {
+  if (!SERVICE) return;
+  const admin = createClient(API, SERVICE, { auth: { persistSession: false } });
+  await admin.from('profiles').update({ is_permanent: true }).eq('id', who.user.id);
+}
+
 const alice = await signIn('alice');
+await markSignedIn(alice);
 check('anonymous sign-in works', Boolean(alice.user?.id));
 
 const { data: profile } = await alice.sb.from('profiles').select('handle').eq('id', alice.user.id).maybeSingle();
@@ -543,6 +558,7 @@ check('you cannot report yourself', self.error !== null,
 // game and carol's only run was assisted, so neither qualifies as they are;
 // they earn standing here the same way a real player would.
 const standing = await Promise.all([bob, carol].map(async (who) => {
+  await markSignedIn(who);
   const g = await playRankedGame(who);
   await call('complete-game', who.token, { gameSessionId: g.sessionId, idempotencyKey: g.idempotencyKey });
   return who;
@@ -683,6 +699,58 @@ if (SERVICE) {
 const afterDelete = await call('spin', doomed.token, { gameSessionId: doomedGame.sessionId });
 check('their token stops working', afterDelete.status === 401 || afterDelete.status === 403,
   `status ${afterDelete.status}`);
+
+// ---------------------------------------------------------------------------
+console.log('\nWHO QUALIFIES FOR THE BOARD');
+
+if (SERVICE) {
+  const admin = createClient(API, SERVICE, { auth: { persistSession: false } });
+
+  // Ratings on screen means the best roster is the one that reads the biggest
+  // numbers, so those seasons are recorded and not ranked.
+  const sighted = await signIn('sighted');
+  await markSignedIn(sighted);
+  const rookieGame = await playRankedGame(sighted, { blind: false });
+  const rookieDone = await call('complete-game', sighted.token, {
+    gameSessionId: rookieGame.sessionId, idempotencyKey: rookieGame.idempotencyKey,
+  });
+  check('a Rookie season still scores', rookieDone.status === 200,
+    rookieDone.status === 200 ? `${rookieDone.body.result.finalRating}` : JSON.stringify(rookieDone.body));
+
+  const { data: rookieOnBoard } = await admin.from('leaderboard_rating')
+    .select('user_id').eq('user_id', sighted.user.id);
+  check('but a Rookie season does not reach the board',
+    (rookieOnBoard ?? []).length === 0, `${(rookieOnBoard ?? []).length} row(s)`);
+
+  // An anonymous account is free and unlimited, so a board of them ranks
+  // persistence at making accounts.
+  const drifter = await signIn('drifter');
+  const drifterGame = await playRankedGame(drifter);
+  await call('complete-game', drifter.token, {
+    gameSessionId: drifterGame.sessionId, idempotencyKey: drifterGame.idempotencyKey,
+  });
+  const { data: anonOnBoard } = await admin.from('leaderboard_rating')
+    .select('user_id').eq('user_id', drifter.user.id);
+  check('an anonymous account does not reach the board',
+    (anonOnBoard ?? []).length === 0, `${(anonOnBoard ?? []).length} row(s)`);
+
+  // ...and the promise that makes that acceptable: signing in later brings
+  // everything already played onto the board, rather than starting them over.
+  await markSignedIn(drifter);
+  const { data: afterSignIn } = await admin.from('leaderboard_rating')
+    .select('final_rating').eq('user_id', drifter.user.id);
+  check('signing in brings the seasons already played onto the board',
+    (afterSignIn ?? []).length === 1,
+    afterSignIn?.[0] ? `now ranked at ${afterSignIn[0].final_rating}` : 'still absent');
+
+  // The bug 0011 tripped over: the reserved-placeholder rule fired on every
+  // write to a profile, so moderating anyone who had not picked a name failed.
+  const unnamed = await signIn('unnamed');
+  const upheld = await admin.from('profiles')
+    .update({ handle_status: 'hidden' }).eq('id', unnamed.user.id).select();
+  check('a player who never chose a name can still be moderated',
+    upheld.error === null, upheld.error ? upheld.error.message.slice(0, 44) : 'status set');
+}
 
 // ---------------------------------------------------------------------------
 console.log('\nBROWSER ORIGINS');

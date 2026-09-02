@@ -87,7 +87,7 @@ export default function Home() {
     if (ranked) {
       setOpening(true);
       try {
-        const opened = await withTimeout(beginRanked(), 8000);
+        const opened = await withTimeout(beginRanked(mode === 'player_iq'), 8000);
         if (opened?.ok) {
           game.attachServerSession(opened.value.sessionId, opened.value.idempotencyKey);
           track('ranked_started', { mode });
@@ -214,7 +214,7 @@ export default function Home() {
                 {opening
                   ? 'Opening a ranked game…'
                   : ranked
-                    ? 'The server deals every spin and scores the roster. Needs a connection.'
+                    ? 'The server deals every spin and scores the roster. Only Player IQ seasons rank, and only once you sign in.'
                     : 'Off — this season stays on your device.'}
               </Text>
             </View>
@@ -236,6 +236,7 @@ export default function Home() {
           badge="Ratings on"
           copy="Every rating and stat line on screen. Good for learning what the model rewards before you go blind."
           cta="Play with ratings"
+          note={ranked ? 'Rookie seasons do not reach the leaderboard.' : undefined}
           onPress={() => start('rookie')}
         />
       </Reveal>
@@ -364,6 +365,7 @@ function ModeCard({
   copy,
   cta,
   hero,
+  note,
   onPress,
 }: {
   name: string;
@@ -371,13 +373,15 @@ function ModeCard({
   copy: string;
   cta: string;
   hero?: boolean;
+  /** Shown when this mode will not do what the current settings imply. */
+  note?: string;
   onPress: () => void;
 }) {
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${name}. ${copy}`}
+      accessibilityLabel={`${name}. ${copy}${note ? ` ${note}` : ''}`}
       style={({ pressed, hovered }: PressState) => [
         styles.mode,
         hero && styles.modeHero,
@@ -392,6 +396,7 @@ function ModeCard({
         </View>
       </View>
       <Text style={styles.modeCopy}>{copy}</Text>
+      {note ? <Text style={styles.modeNote}>{note}</Text> : null}
       <Text style={[styles.modeGo, !hero && styles.modeGoQuiet]}>{cta} →</Text>
     </Pressable>
   );
@@ -567,6 +572,12 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   modeBadgeTextHero: { color: color.redBright },
+  modeNote: {
+    fontFamily: font.label,
+    fontSize: 11,
+    letterSpacing: tracking.wide,
+    color: color.gold,
+  },
   modeCopy: { fontFamily: font.bodyRegular, fontSize: 14, color: color.textDim, lineHeight: 21 },
   modeGo: {
     fontFamily: font.label,

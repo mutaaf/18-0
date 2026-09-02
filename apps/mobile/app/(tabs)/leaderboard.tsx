@@ -190,7 +190,10 @@ export default function Leaderboard() {
             ) : rows.length === 0 ? (
               <View style={styles.notice}>
                 <Text style={styles.noticeTitle}>No seasons ranked yet</Text>
-                <Text style={styles.noticeCopy}>Be the first to post a record.</Text>
+                <Text style={styles.noticeCopy}>
+                  The board ranks Player IQ seasons from players with an account. Play blind,
+                  sign in, and be the first on it.
+                </Text>
               </View>
             ) : (
               <>
@@ -201,7 +204,9 @@ export default function Leaderboard() {
                   <View style={styles.standingEmpty}>
                     <Text style={styles.standingLabel}>Your place</Text>
                     <Text style={styles.standingEmptyCopy}>
-                      Nothing of yours is on this board yet. Finish a ranked season and it is.
+                      {me && !me.named
+                        ? 'Only Player IQ seasons rank, and only once you sign in. Everything you have already played counts the moment you do.'
+                        : 'Only Player IQ seasons rank, and only once you sign in. Ratings on screen makes it a reading test, not a football one.'}
                     </Text>
                   </View>
                 )}
