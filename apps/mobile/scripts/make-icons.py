@@ -54,6 +54,43 @@ def transparent(piece: Image.Image, size: int, pad: int) -> Image.Image:
     return canvas
 
 
+def wordmark(size: int, pad: float = 0.10) -> Image.Image:
+    """The name, fitted to the box, for sizes too small to carry the crest."""
+    from PIL import ImageDraw, ImageFont
+
+    fonts = ROOT.parent.parent / 'node_modules' / '@expo-google-fonts'
+    face = fonts / 'rajdhani' / '700Bold' / 'Rajdhani_700Bold.ttf'
+
+    scale = 10  # drawn large and downsampled, so the curves stay smooth
+    box = size * scale
+    canvas = Image.new('RGB', (box, box), VOID)
+    draw = ImageDraw.Draw(canvas)
+
+    # Binary search the point size rather than guessing one: the mark should
+    # touch the padding, and a guess either clips or floats.
+    avail = box * (1 - pad * 2)
+    low, high = 4, box
+    while low < high:
+        mid = (low + high + 1) // 2
+        bounds = draw.textbbox((0, 0), '18-0', font=ImageFont.truetype(str(face), mid))
+        if bounds[2] - bounds[0] <= avail and bounds[3] - bounds[1] <= avail:
+            low = mid
+        else:
+            high = mid - 1
+
+    font = ImageFont.truetype(str(face), low)
+    parts = (('18-', (242, 245, 250)), ('0', (255, 180, 0)))
+    width = sum(draw.textlength(text, font=font) for text, _ in parts)
+    bounds = draw.textbbox((0, 0), '18-0', font=font)
+    x = (box - width) / 2
+    y = (box - (bounds[3] - bounds[1])) / 2 - bounds[1]
+    for text, colour in parts:
+        draw.text((x, y), text, font=font, fill=colour)
+        x += draw.textlength(text, font=font)
+
+    return canvas.resize((size, size), Image.LANCZOS)
+
+
 def main() -> None:
     art = artwork()
 
@@ -77,7 +114,13 @@ def main() -> None:
     transparent(art, 1024, 180).save(ASSETS / 'splash-icon.png')
 
     # Browser tab.
-    on_void(art, 96, 4).save(ASSETS / 'favicon.png')
+    #
+    # NOT the crest. A favicon is rendered at 16 and 32 pixels, and at that size
+    # the crown, the stadium lights and the banner lettering turn to mush -- it
+    # read as a brown smudge in the tab. The wordmark has four shapes and
+    # survives the downsample, and the gold zero is the one detail that still
+    # reads when everything else has blurred.
+    wordmark(96).save(ASSETS / 'favicon.png')
 
     for name in ('icon.png', 'android-icon-foreground.png', 'android-icon-background.png',
                  'android-icon-monochrome.png', 'splash-icon.png', 'favicon.png'):
