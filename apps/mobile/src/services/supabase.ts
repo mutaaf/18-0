@@ -280,7 +280,11 @@ export async function claimHandle(handle: string): Promise<{ ok: boolean; error?
   const { error } = await supabase
     .from('profiles')
     .upsert(
-      { id: me.id, handle: handle.trim(), handle_set_at: new Date().toISOString() },
+      // `handle_set_at` is deliberately not sent. It is stamped by the database
+      // trigger, because a client-supplied timestamp is a client-controlled
+      // timestamp — and a rename cooldown measured from a value the renamer
+      // chose is not a cooldown. The column grant refuses it either way.
+      { id: me.id, handle: handle.trim() },
       { onConflict: 'id' },
     );
   if (error) {

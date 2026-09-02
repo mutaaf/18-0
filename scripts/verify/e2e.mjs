@@ -427,6 +427,40 @@ if (SERVICE) {
   check('upholding one hides the handle', hidden?.handle_status === 'hidden');
 }
 
+// The check this harness was missing. It proved a moderator *can* hide a
+// handle and never that the hidden player cannot simply undo it — which they
+// could, in production, with one PostgREST call.
+if (SERVICE) {
+  const admin = createClient(API, SERVICE, { auth: { persistSession: false } });
+  await admin.rpc('moderation_uphold', { p_user: targets.user.id });
+
+  const selfRestore = await targets.sb.from('profiles')
+    .update({ handle_status: 'ok' }).eq('id', targets.user.id).select();
+  const { data: afterRestore } = await admin.from('profiles')
+    .select('handle_status').eq('id', targets.user.id).maybeSingle();
+  check('a hidden player cannot restore themselves',
+    afterRestore?.handle_status === 'hidden',
+    `status ${afterRestore?.handle_status}${selfRestore.error ? ` (${selfRestore.error.code})` : ''}`);
+
+  // ...nor rename their way out of a decision a human made.
+  await targets.sb.from('profiles')
+    .update({ handle: `escaped_${crypto.randomUUID().slice(0, 8)}` }).eq('id', targets.user.id);
+  const { data: afterRename } = await admin.from('profiles')
+    .select('handle_status').eq('id', targets.user.id).maybeSingle();
+  check('renaming does not launder a moderator decision',
+    afterRename?.handle_status === 'hidden', `status ${afterRename?.handle_status}`);
+
+  const stamped = await targets.sb.from('profiles')
+    .update({ handle_set_at: '1999-01-01T00:00:00Z' }).eq('id', targets.user.id).select();
+  const { data: afterStamp } = await admin.from('profiles')
+    .select('handle_set_at').eq('id', targets.user.id).maybeSingle();
+  check('a player cannot backdate when they last renamed',
+    new Date(afterStamp?.handle_set_at ?? 0).getFullYear() > 2000,
+    stamped.error ? stamped.error.code : `${afterStamp?.handle_set_at}`);
+
+  await admin.rpc('moderation_dismiss', { p_user: targets.user.id });
+}
+
 const queuePeek = await alice.sb.from('ops_moderation_queue').select('reported_user_id').limit(1);
 check('a player cannot read the moderation queue',
   queuePeek.error !== null || (queuePeek.data ?? []).length === 0,
