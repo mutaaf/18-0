@@ -11,6 +11,8 @@ import { createClient } from '@supabase/supabase-js';
 
 const API = process.env.API_URL;
 const ANON = process.env.ANON_KEY;
+/** Optional. Unlocks the checks that inspect the trail from the inside. */
+const SERVICE = process.env.SERVICE_KEY;
 const FUNCTIONS = `${API}/functions/v1`;
 
 let passed = 0;
@@ -256,6 +258,130 @@ const hijack = await bob.sb.from('challenges')
   .eq('id', challenge.data?.id ?? crypto.randomUUID()).select();
 check('a challenge cannot be hijacked', hijack.error !== null || (hijack.data ?? []).length === 0,
   hijack.error ? hijack.error.code : `${(hijack.data ?? []).length} rows changed`);
+
+// ---------------------------------------------------------------------------
+console.log('\nAUDIT TRAIL');
+
+// The trail is service-role only. A signed-in player is still a client.
+const auditRead = await alice.sb.from('audit_events').select('id').limit(1);
+check('a player cannot read the audit trail',
+  auditRead.error !== null || (auditRead.data ?? []).length === 0,
+  auditRead.error ? auditRead.error.code : `${(auditRead.data ?? []).length} rows visible`);
+
+const auditWrite = await alice.sb.from('audit_events')
+  .insert({ request_id: crypto.randomUUID(), event: 'forged', outcome: 'ok' }).select();
+check('a player cannot write to the audit trail', auditWrite.error !== null,
+  auditWrite.error ? auditWrite.error.code : 'insert accepted');
+
+const opsRead = await alice.sb.from('ops_events_hourly').select('hour').limit(1);
+check('a player cannot read operational rollups',
+  opsRead.error !== null || (opsRead.data ?? []).length === 0,
+  opsRead.error ? opsRead.error.code : `${(opsRead.data ?? []).length} rows visible`);
+
+// Everything the server decided for Alice's game should be reconstructible.
+if (SERVICE) {
+  const admin = createClient(API, SERVICE, { auth: { persistSession: false } });
+  const { data: trail } = await admin.from('audit_events')
+    .select('event, outcome, subject_id, latency_ms, request_id')
+    .eq('subject_id', game.sessionId)
+    .order('id', { ascending: true });
+  const events = (trail ?? []).map((r) => r.event);
+  check('every spin was recorded',
+    events.filter((e) => e === 'spin_issued').length === SLOTS.length,
+    `${events.filter((e) => e === 'spin_issued').length} of ${SLOTS.length}`);
+  check('every selection was recorded',
+    events.filter((e) => e === 'selection_recorded').length === SLOTS.length,
+    `${events.filter((e) => e === 'selection_recorded').length} of ${SLOTS.length}`);
+  check('the completion was recorded', events.includes('game_completed'));
+  check('every audited event carries a request id',
+    (trail ?? []).every((r) => typeof r.request_id === 'string' && r.request_id.length === 36));
+  check('every audited event carries a latency',
+    (trail ?? []).every((r) => Number.isInteger(r.latency_ms) && r.latency_ms >= 0));
+
+  const rejections = await admin.from('audit_events')
+    .select('event, detail').eq('outcome', 'rejected').limit(200);
+  check('refusals are recorded, not just returned',
+    (rejections.data ?? []).length > 0,
+    `${(rejections.data ?? []).length} rejections on the trail`);
+
+  const tamper = await admin.from('audit_events').update({ outcome: 'ok' }).eq('outcome', 'rejected').select();
+  check('not even the service role can rewrite the trail', tamper.error !== null,
+    tamper.error ? tamper.error.message.slice(0, 48) : 'update accepted');
+
+  const erase = await admin.from('audit_events').delete().eq('event', 'spin_issued').select();
+  check('not even the service role can erase the trail', erase.error !== null,
+    erase.error ? erase.error.message.slice(0, 48) : 'delete accepted');
+} else {
+  console.log('  · skipped trail inspection (set SERVICE_KEY to include it)');
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nIDENTITY AND HANDLES');
+
+const claim = await alice.sb.from('profiles')
+  .upsert({ id: alice.user.id, handle: 'alice_verify' }, { onConflict: 'id' }).select();
+check('a player can claim a handle', claim.error === null,
+  claim.error ? claim.error.message : 'alice_verify');
+
+const badHandle = await bob.sb.from('profiles')
+  .upsert({ id: bob.user.id, handle: '  padded' }, { onConflict: 'id' }).select();
+check('a handle cannot be padded to fake sort order', badHandle.error !== null,
+  badHandle.error ? badHandle.error.code : 'accepted');
+
+const takenHandle = await bob.sb.from('profiles')
+  .upsert({ id: bob.user.id, handle: 'alice_verify' }, { onConflict: 'id' }).select();
+check('a handle cannot be taken twice', takenHandle.error !== null,
+  takenHandle.error ? takenHandle.error.code : 'accepted');
+
+const impersonate = await bob.sb.from('profiles')
+  .upsert({ id: alice.user.id, handle: 'not_alice' }, { onConflict: 'id' }).select();
+check('a player cannot write another player\'s profile',
+  impersonate.error !== null || (impersonate.data ?? []).length === 0,
+  impersonate.error ? impersonate.error.code : `${(impersonate.data ?? []).length} rows`);
+
+if (SERVICE) {
+  const admin = createClient(API, SERVICE, { auth: { persistSession: false } });
+  await admin.from('profiles').update({ handle_status: 'hidden' }).eq('id', alice.user.id);
+  const { data: hiddenBoard } = await alice.sb.from('leaderboard_rating').select('user_id');
+  check('a hidden handle is dropped from the board',
+    !(hiddenBoard ?? []).some((r) => r.user_id === alice.user.id));
+  await admin.from('profiles').update({ handle_status: 'ok' }).eq('id', alice.user.id);
+  const { data: restored } = await alice.sb.from('leaderboard_rating').select('user_id');
+  check('restoring it puts them back',
+    (restored ?? []).some((r) => r.user_id === alice.user.id));
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nACCOUNT DELETION');
+
+const doomed = await signIn('doomed');
+const doomedGame = await playRankedGame(doomed);
+await call('complete-game', doomed.token, {
+  gameSessionId: doomedGame.sessionId, idempotencyKey: doomedGame.idempotencyKey,
+});
+const deletion = await call('delete-account', doomed.token, {});
+check('an account can delete itself', deletion.status === 200,
+  deletion.status === 200 ? `${deletion.body.sessionsRemoved} session(s) removed` : JSON.stringify(deletion.body));
+
+if (SERVICE) {
+  const admin = createClient(API, SERVICE, { auth: { persistSession: false } });
+  const { count: leftovers } = await admin.from('game_sessions')
+    .select('id', { count: 'exact', head: true }).eq('user_id', doomed.user.id);
+  check('their games are gone', leftovers === 0, `${leftovers} left`);
+  const { data: orphanTrail } = await admin.from('audit_events')
+    .select('actor_id').eq('subject_id', doomedGame.sessionId);
+  check('the trail survives the account',
+    (orphanTrail ?? []).length > 0,
+    `${(orphanTrail ?? []).length} events kept`);
+  // The trail is append-only, so the id it recorded stays. What changes is that
+  // it now points at nothing: there is no account left to resolve it to.
+  const { data: resolved } = await admin.auth.admin.getUserById(doomed.user.id).catch(() => ({ data: null }));
+  check('the actor id no longer resolves to an account', !resolved?.user);
+}
+
+const afterDelete = await call('spin', doomed.token, { gameSessionId: doomedGame.sessionId });
+check('their token stops working', afterDelete.status === 401 || afterDelete.status === 403,
+  `status ${afterDelete.status}`);
 
 // ---------------------------------------------------------------------------
 console.log('\n' + '='.repeat(64));

@@ -10,6 +10,7 @@
  * Deploy: supabase functions deploy complete-game
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { audit, beginRequest, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
 import {
   DEFAULT_SCORING_CONFIG,
   ROSTER_SLOTS,
@@ -30,7 +31,10 @@ const CORS = {
   'access-control-allow-methods': 'POST, OPTIONS',
 };
 
-const json = (body: unknown, status = 200) =>
+/** Completions per minute per player. A game takes far longer than this allows. */
+const COMPLETIONS_PER_MINUTE = 12;
+
+const jsonWith = (extra: Record<string, string>) => (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json', ...CORS },
@@ -57,6 +61,9 @@ function toResponse(row: Record<string, unknown>) {
 }
 
 Deno.serve(async (req) => {
+  const ctx = beginRequest(req);
+  const json = jsonWith(traceHeaders(ctx));
+
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
@@ -98,11 +105,34 @@ Deno.serve(async (req) => {
     .select('*')
     .eq('id', body.gameSessionId)
     .maybeSingle();
-  if (sessionError) return json({ error: 'lookup_failed', detail: sessionError.message }, 500);
-  if (!session) return json({ error: 'unknown_session' }, 404);
-  if (session.user_id !== user.id) return json({ error: 'forbidden' }, 403);
+  const refuse = async (reason: string, status: number, extra: Record<string, unknown> = {}) => {
+    await audit(admin, ctx, {
+      event: 'completion_requested',
+      outcome: 'rejected',
+      actorId: user.id,
+      subjectType: 'game_session',
+      subjectId: body.gameSessionId,
+      detail: { reason, ...extra },
+    });
+    return json({ error: reason, ...extra }, status);
+  };
+
+  if (!await withinRateLimit(admin, ctx, user.id, 'complete', COMPLETIONS_PER_MINUTE)) {
+    return await refuse('rate_limited', 429);
+  }
+  if (sessionError) return await refuse('lookup_failed', 500);
+  if (!session) return await refuse('unknown_session', 404);
+  if (session.user_id !== user.id) return await refuse('forbidden', 403);
   if (session.status === 'completed') {
     // Idempotent replay rather than an error.
+    await audit(admin, ctx, {
+      event: 'completion_replayed',
+      outcome: 'ok',
+      actorId: user.id,
+      subjectType: 'game_session',
+      subjectId: session.id,
+      detail: { final_rating: session.final_rating },
+    });
     return json({ result: toResponse(session), replayed: true });
   }
 
@@ -112,10 +142,10 @@ Deno.serve(async (req) => {
     admin.from('game_selections').select('roster_slot, card_id, spin_sequence').eq('game_session_id', session.id),
   ]);
   if (spinError || selectionsError) {
-    return json({ error: 'lookup_failed', detail: (spinError ?? selectionsError)!.message }, 500);
+    return await refuse('lookup_failed', 500);
   }
   if (!stored || stored.length !== ROSTER_SLOTS.length) {
-    return json({ error: 'incomplete_roster', filled: stored?.length ?? 0 }, 400);
+    return await refuse('incomplete_roster', 400, { filled: stored?.length ?? 0 });
   }
 
   const selections = stored.map((s) => ({
@@ -124,7 +154,7 @@ Deno.serve(async (req) => {
     spinSequence: s.spin_sequence as number,
   }));
   if (new Set(selections.map((s) => s.slot)).size !== ROSTER_SLOTS.length) {
-    return json({ error: 'duplicate_slot' }, 400);
+    return await refuse('duplicate_slot', 400);
   }
 
   const spinBySequence = new Map((spins ?? []).map((s) => [s.sequence as number, s]));
@@ -133,10 +163,10 @@ Deno.serve(async (req) => {
     .from('season_cards')
     .select('id, entity_id, display_name, position, franchise_id, season_year, era_key, rating, archetypes, rating_model_version')
     .in('id', selections.map((s) => s.cardId));
-  if (cardError) return json({ error: 'lookup_failed', detail: cardError.message }, 500);
+  if (cardError) return await refuse('lookup_failed', 500);
   const byId = new Map((cards ?? []).map((c) => [c.id as string, c]));
   if (byId.size !== new Set(selections.map((s) => s.cardId)).size) {
-    return json({ error: 'unknown_card' }, 400);
+    return await refuse('unknown_card', 400);
   }
 
   const entityIds = new Set<string>();
@@ -146,23 +176,23 @@ Deno.serve(async (req) => {
   for (const selection of selections) {
     const card = byId.get(selection.cardId)!;
     if (SLOT_POSITION[selection.slot] !== card.position) {
-      return json({ error: 'position_mismatch', slot: selection.slot }, 400);
+      return await refuse('position_mismatch', 400, { slot: selection.slot });
     }
     if (entityIds.has(card.entity_id)) {
-      return json({ error: 'duplicate_player', slot: selection.slot }, 400);
+      return await refuse('duplicate_player', 400, { slot: selection.slot });
     }
     entityIds.add(card.entity_id);
 
     // Each spin yields exactly one selection, and the card must have been
     // legal for the spin the SERVER issued.
     if (usedSpins.has(selection.spinSequence)) {
-      return json({ error: 'spin_reused', slot: selection.slot }, 400);
+      return await refuse('spin_reused', 400, { slot: selection.slot });
     }
     usedSpins.add(selection.spinSequence);
 
     const spin = spinBySequence.get(selection.spinSequence);
     if (!spin || spin.franchise_id !== card.franchise_id || spin.era_key !== card.era_key) {
-      return json({ error: 'spin_mismatch', slot: selection.slot }, 400);
+      return await refuse('spin_mismatch', 400, { slot: selection.slot });
     }
 
     roster[selection.slot] = {
@@ -216,7 +246,10 @@ Deno.serve(async (req) => {
     .select()
     .maybeSingle();
 
-  if (saveError) return json({ error: 'save_failed', detail: saveError.message }, 500);
+  if (saveError) {
+    log('error', ctx, { event: 'completion_save_failed', reason: saveError.message });
+    return await refuse('save_failed', 500);
+  }
   if (!saved) {
     // Lost a race with a concurrent completion — return that one.
     const { data: prior } = await admin
@@ -224,6 +257,26 @@ Deno.serve(async (req) => {
     if (prior?.status === 'completed') return json({ result: toResponse(prior), replayed: true });
     return json({ error: 'save_failed' }, 500);
   }
+
+  // The one row that can reach a public leaderboard. It does not leave here
+  // without a line in the trail saying what it scored and why.
+  const recorded = await audit(admin, ctx, {
+    event: 'game_completed',
+    outcome: 'ok',
+    actorId: user.id,
+    subjectType: 'game_session',
+    subjectId: session.id,
+    detail: {
+      final_rating: saved.final_rating,
+      record: `${saved.record_wins}-${saved.record_losses}`,
+      ending_key: saved.ending_key,
+      tier: saved.tier,
+      assisted: saved.assisted,
+      rating_model_version: saved.rating_model_version,
+      roster_fingerprint: saved.roster_fingerprint,
+    },
+  });
+  if (!recorded) log('error', ctx, { event: 'completion_unaudited', session_id: session.id });
 
   return json({ result: toResponse(saved), replayed: false });
 });

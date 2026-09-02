@@ -170,3 +170,97 @@ export async function ensureSession(): Promise<boolean> {
   const { error } = await supabase.auth.signInAnonymously();
   return !error;
 }
+
+/**
+ * Who the server thinks you are.
+ *
+ * `anonymous` is the normal state: playing never asks for an account, so most
+ * players have an identity they never chose and never see. A handle is what
+ * turns that into a name on a public board, and nothing appears there until
+ * one is claimed.
+ */
+export interface Identity {
+  readonly userId: string;
+  readonly anonymous: boolean;
+  readonly handle: string | null;
+  readonly handleStatus: 'ok' | 'flagged' | 'hidden' | null;
+}
+
+export async function identity(): Promise<Identity | null> {
+  if (!supabase) return null;
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return null;
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('handle, handle_status')
+    .eq('id', auth.user.id)
+    .maybeSingle();
+  return {
+    userId: auth.user.id,
+    // Supabase marks a user anonymous with the `is_anonymous` claim.
+    anonymous: auth.user.is_anonymous === true,
+    handle: (profile?.handle as string | null) ?? null,
+    handleStatus: (profile?.handle_status as Identity['handleStatus']) ?? null,
+  };
+}
+
+/** What the database will accept, checked here so the error is a sentence. */
+export const HANDLE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,30}[A-Za-z0-9]$/;
+
+export function handleProblem(handle: string): string | null {
+  const trimmed = handle.trim();
+  if (trimmed.length < 2) return 'A name needs at least two characters.';
+  if (trimmed.length > 32) return 'A name can be at most 32 characters.';
+  if (!HANDLE_PATTERN.test(trimmed)) {
+    return 'Letters, numbers, spaces, and . _ - only, starting and ending with a letter or number.';
+  }
+  return null;
+}
+
+/**
+ * Claim a display name, creating the profile if this is the first time.
+ *
+ * Signs in anonymously first if needed — claiming a name is the moment a player
+ * asks to be visible, and it is the first moment an account is actually
+ * required for anything.
+ */
+export async function claimHandle(handle: string): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: 'backend_not_configured' };
+  const problem = handleProblem(handle);
+  if (problem) return { ok: false, error: problem };
+  if (!(await ensureSession())) return { ok: false, error: 'could not start a session' };
+
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { ok: false, error: 'unauthenticated' };
+
+  const { error } = await supabase
+    .from('profiles')
+    .upsert(
+      { id: auth.user.id, handle: handle.trim(), handle_set_at: new Date().toISOString() },
+      { onConflict: 'id' },
+    );
+  if (error) {
+    // 23505 is the unique violation on `handle`.
+    if (error.code === '23505') return { ok: false, error: 'That name is taken.' };
+    return { ok: false, error: error.message };
+  }
+  return { ok: true };
+}
+
+/**
+ * Delete the account and everything attached to it.
+ *
+ * Required to exist in-app by App Store Review Guideline 5.1.1(v). The server
+ * does the work; this only asks and then clears the local session so the app
+ * does not keep using a token for a user that no longer exists.
+ */
+export async function deleteAccount(): Promise<{ ok: boolean; error?: string }> {
+  if (!supabase) return { ok: false, error: 'backend_not_configured' };
+  const { data: auth } = await supabase.auth.getSession();
+  if (!auth.session) return { ok: false, error: 'unauthenticated' };
+
+  const { error } = await supabase.functions.invoke('delete-account', { body: {} });
+  if (error) return { ok: false, error: error.message };
+  await supabase.auth.signOut().catch(() => {});
+  return { ok: true };
+}

@@ -7,6 +7,7 @@
  * is no roster for a modified client to invent.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { audit, beginRequest, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
 
 const ROSTER_SLOTS = ['QB', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'DEF'] as const;
 type RosterSlot = (typeof ROSTER_SLOTS)[number];
@@ -20,13 +21,21 @@ const CORS = {
   'access-control-allow-headers': 'authorization, content-type',
   'access-control-allow-methods': 'POST, OPTIONS',
 };
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...CORS } });
+/** Picks per minute per player. Seven picks is a whole game. */
+const SELECTS_PER_MINUTE = 40;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+
+  const ctx = beginRequest(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 'content-type': 'application/json', ...CORS, ...traceHeaders(ctx) },
+    });
+
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
 
   const authHeader = req.headers.get('Authorization');
@@ -56,10 +65,25 @@ Deno.serve(async (req) => {
 
   const { data: session, error: sessionError } = await admin
     .from('game_sessions').select('id, user_id, status').eq('id', body.gameSessionId).maybeSingle();
-  if (sessionError) return json({ error: 'lookup_failed' }, 500);
-  if (!session) return json({ error: 'unknown_session' }, 404);
-  if (session.user_id !== user.id) return json({ error: 'forbidden' }, 403);
-  if (session.status !== 'in_progress') return json({ error: 'already_completed' }, 409);
+  const refuse = async (reason: string, status: number) => {
+    await audit(admin, ctx, {
+      event: 'selection_requested',
+      outcome: 'rejected',
+      actorId: user.id,
+      subjectType: 'game_session',
+      subjectId: body.gameSessionId,
+      detail: { reason, slot: body.slot, card_id: body.cardId },
+    });
+    return json({ error: reason }, status);
+  };
+
+  if (!await withinRateLimit(admin, ctx, user.id, 'select', SELECTS_PER_MINUTE)) {
+    return await refuse('rate_limited', 429);
+  }
+  if (sessionError) return await refuse('lookup_failed', 500);
+  if (!session) return await refuse('unknown_session', 404);
+  if (session.user_id !== user.id) return await refuse('forbidden', 403);
+  if (session.status !== 'in_progress') return await refuse('already_completed', 409);
 
   const [{ data: spins }, { data: selections }, { data: card }] = await Promise.all([
     admin.from('game_spins').select('sequence, franchise_id, era_key').eq('game_session_id', session.id),
@@ -67,20 +91,20 @@ Deno.serve(async (req) => {
     admin.from('season_cards').select('id, entity_id, position, franchise_id, era_key').eq('id', body.cardId).maybeSingle(),
   ]);
 
-  if (!card) return json({ error: 'unknown_card' }, 400);
-  if (SLOT_POSITION[slot] !== card.position) return json({ error: 'position_mismatch' }, 400);
-  if ((selections ?? []).some((s) => s.roster_slot === slot)) return json({ error: 'slot_filled' }, 409);
+  if (!card) return await refuse('unknown_card', 400);
+  if (SLOT_POSITION[slot] !== card.position) return await refuse('position_mismatch', 400);
+  if ((selections ?? []).some((s) => s.roster_slot === slot)) return await refuse('slot_filled', 409);
 
   // The most recent spin is the live one, and it yields exactly one pick.
   const latest = (spins ?? []).reduce<{ sequence: number; franchise_id: string; era_key: string } | null>(
     (best, s) => (!best || s.sequence > best.sequence ? s : best), null,
   );
-  if (!latest) return json({ error: 'spin_first' }, 409);
+  if (!latest) return await refuse('spin_first', 409);
   if ((selections ?? []).some((s) => s.spin_sequence === latest.sequence)) {
-    return json({ error: 'spin_already_used' }, 409);
+    return await refuse('spin_already_used', 409);
   }
   if (card.franchise_id !== latest.franchise_id || card.era_key !== latest.era_key) {
-    return json({ error: 'card_not_eligible_for_spin' }, 400);
+    return await refuse('card_not_eligible_for_spin', 400);
   }
 
   // A historical identity may hold only one slot (PRFAQ §42).
@@ -88,7 +112,7 @@ Deno.serve(async (req) => {
     const { data: used } = await admin
       .from('season_cards').select('entity_id').in('id', (selections ?? []).map((s) => s.card_id));
     if ((used ?? []).some((u) => u.entity_id === card.entity_id)) {
-      return json({ error: 'duplicate_player' }, 409);
+      return await refuse('duplicate_player', 409);
     }
   }
 
@@ -98,8 +122,27 @@ Deno.serve(async (req) => {
     card_id: card.id,
     spin_sequence: latest.sequence,
   });
-  if (insertError) return json({ error: 'select_failed', detail: insertError.message }, 500);
+  if (insertError) {
+    log('error', ctx, { event: 'selection_insert_failed', reason: insertError.message });
+    return await refuse('select_failed', 500);
+  }
 
   const filled = (selections ?? []).length + 1;
+
+  // A pick we cannot account for is a pick we should not have kept.
+  const recorded = await audit(admin, ctx, {
+    event: 'selection_recorded',
+    outcome: 'ok',
+    actorId: user.id,
+    subjectType: 'game_session',
+    subjectId: session.id,
+    detail: { slot, card_id: card.id, spin_sequence: latest.sequence, filled },
+  });
+  if (!recorded) {
+    await admin.from('game_selections').delete()
+      .eq('game_session_id', session.id).eq('roster_slot', slot);
+    return json({ error: 'audit_unavailable' }, 503);
+  }
+
   return json({ ok: true, slot, filled, complete: filled === ROSTER_SLOTS.length });
 });

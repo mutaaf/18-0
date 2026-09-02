@@ -154,9 +154,15 @@ three things:
    genuine near-perfect score from a roster it could never have been dealt.
 3. The score is **recomputed server-side** from the recorded roster.
 
+And every server decision is written to an **append-only audit trail** that not
+even the service role can rewrite — the triggers that enforce it do not care
+who you are. Refusals are recorded, not just returned, so a spike in rejections
+is visible rather than merely suffered.
+
 `scripts/verify/e2e.mjs` plays a full ranked game against a live instance and
-then tries to cheat it every way that matters — 22 checks, every forgery
-refused.
+then tries to cheat it every way that matters — **44 checks**: every forgery
+refused, every spin and pick on the trail, the trail immutable under the
+service role, and an account able to delete itself and take its games with it.
 
 ---
 
