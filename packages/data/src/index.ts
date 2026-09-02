@@ -4,6 +4,7 @@ import type { BootCard, Dataset, DatasetCard, DatasetComponent, DatasetFranchise
 
 export * from './schema.js';
 export * from './eras.js';
+export { headshotUrl } from './headshots.js';
 
 /**
  * The bundled historical dataset.

@@ -44,7 +44,17 @@ export default function CardDetail() {
   return (
     <Screen edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
+        {/* A bare router.back() strands anyone who arrived without history --
+            a shared link, a reload on the web, or a deep link into a card --
+            because there is nothing to go back to and the tap does nothing.
+            Falling through to the game is always somewhere. */}
+        <Pressable
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/play'))}
+          hitSlop={20}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          style={styles.closeHit}
+        >
           <Text style={styles.close}>✕</Text>
         </Pressable>
       </View>
@@ -142,6 +152,7 @@ export default function CardDetail() {
 
 const styles = StyleSheet.create({
   header: { alignItems: 'flex-end', paddingHorizontal: space.lg, paddingTop: space.sm },
+  closeHit: { padding: space.sm, marginRight: -space.sm },
   close: {
     fontFamily: font.body,
     fontSize: 18,
