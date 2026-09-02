@@ -19,6 +19,12 @@ supabase/.branches/
 # Concept art — kept locally, not published
 *.png
 !apps/mobile/assets/*.png
+# The brand artwork every launcher icon is generated from, and the images the
+# README needs. Without the first one, `scripts/make-icons.py` refers to a file
+# a fresh clone does not have.
+!apps/mobile/assets/brand/*.png
+!docs/media/*.png
+!docs/media/*.jpg
 
 # Local secrets, never committed
 .local/

@@ -1,21 +1,30 @@
 <div align="center">
 
-# 18-0
+<img src="apps/mobile/assets/brand/lockup.png" alt="18-0" width="440">
 
 **Spin history. Build seven. Chase perfection.**
 
 A pro football history game. Spin for a franchise and an era, take one player,
-fill seven slots, and receive a deterministic rating mapped to an 18-game record
-from 0-18 to 18-0.
+fill seven slots, and receive a deterministic rating mapped to an 18-game
+record — from 0-18 to 18-0.
 
 No possession simulation. No random losses. The same roster always earns the
-same record — so every choice is yours.
+same record, so every choice is yours.
 
-### [▶ Play it in your browser](https://mutaaf.github.io/18-0/)
+### [&#9654;&nbsp; Play it now, in your browser](https://mutaaf.github.io/18-0/)
 
 [![CI](https://github.com/mutaaf/18-0/actions/workflows/ci.yml/badge.svg)](https://github.com/mutaaf/18-0/actions/workflows/ci.yml)
 [![Deploy](https://github.com/mutaaf/18-0/actions/workflows/pages.yml/badge.svg)](https://github.com/mutaaf/18-0/actions/workflows/pages.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Tests](https://img.shields.io/badge/tests-125%20passing-3FD68C)
+![Server checks](https://img.shields.io/badge/server%20checks-56%20passing-3FD68C)
+![Platforms](https://img.shields.io/badge/iOS%20%C2%B7%20Android%20%C2%B7%20Web-one%20codebase-D50A0A)
+
+<br>
+
+<img src="docs/media/perfect.jpg" alt="A perfect 18-0 season" width="820">
+
+<sub><b>18-0.</b> It lands about once every 6,000 games.</sub>
 
 </div>
 
@@ -23,18 +32,88 @@ same record — so every choice is yours.
 
 ## The loop
 
-> **Spin** a franchise and an era → **take one player** → **fill seven slots** →
+> **Spin** a franchise and an era &rarr; **take one player** &rarr; **fill seven slots** &rarr;
 > **reveal** your season.
 
-Seven positions: QB, two running backs, two receivers, a tight end, and a team
-defense. Each spin gives you exactly one pick, and there are no takebacks. The
-tension is entirely in the question *"do I take this receiver now, or hold out
-for the tight end I still need?"*
+```mermaid
+flowchart LR
+    A["Spin<br/><small>one franchise, one era</small>"] --> B["Take one<br/><small>the rest are gone</small>"]
+    B --> C{"Seven<br/>filled?"}
+    C -- no --> A
+    C -- yes --> D["Rated<br/><small>0-18 ... 18-0</small>"]
+```
 
-### Perfection is gated, not lucky
+Seven positions: a quarterback, two running backs, two receivers, a tight end,
+and a team defense. Each spin gives you **exactly one pick**, and there are no
+takebacks. The whole game lives in one question — *do I take this receiver now,
+or hold out for the tight end I still need?*
 
-A high score is necessary but not sufficient. To finish 18-0 a roster must also
-have no weakness anywhere:
+<div align="center">
+<img src="docs/media/play.jpg" alt="Mid-game" width="760">
+</div>
+
+---
+
+## The ratings are real, and they argue for themselves
+
+Every card is a real season, rated against **its own era**. The model asks *how
+dominant was this season relative to what was possible at this position in this
+year* — not *who piled up the biggest totals* — so a 1999 receiver and a 2024
+receiver are directly comparable.
+
+Here is the model's own verdict on the best seasons in the data:
+
+| Position | Top-rated season | |
+|---|---|---|
+| **QB** | Peyton Manning · Indianapolis 2004 | `99.7` |
+| **RB** | Priest Holmes · Kansas City 2002 | `99.7` |
+| **WR** | Cooper Kupp · Los Angeles 2021 | `99.7` |
+| **TE** | Tony Gonzalez · Kansas City 2000 | `99.7` |
+| **DEF** | Baltimore 2006 | `99.7` |
+
+**Nobody picked those. They fell out of the model.** That is the entire
+credibility argument, and it makes itself in public on the first screen of the
+app — if the ratings were wrong, this is where anyone who watches football would
+see it.
+
+**2,994 rated seasons · 157 franchise-era combinations · 1999–2025**, built from
+[nflverse](https://nflverse.com).
+
+<details>
+<summary><b>How a season becomes a number</b></summary>
+
+<br>
+
+Each metric is z-scored against the same-position league environment for that
+exact era, then combined through position weight tables, then mapped through a
+monotonic calibration curve fitted on 250,000 simulated games.
+
+Three properties the model holds onto:
+
+- **Production is never punished.** A receiver with more yards *and* more
+  receptions can never rate below one with less of both. Getting this wrong is
+  what per-opportunity rates do, and it took three passes to fix — shrunk rates,
+  then value-above-expectation, then weighting production above efficiency.
+- **Positions are not siloed.** Running backs catch passes and receivers run the
+  ball, and both count.
+- **Unmeasurable means removed.** Seven components could not be populated from
+  the available data — awards, tight-end blocking, red-zone and third-down
+  defense among them. They were deleted rather than left in the model silently
+  scoring zero, so the published weight tables are the ones that actually run.
+
+[`docs/scoring-model.md`](docs/scoring-model.md) has the full method.
+[`docs/FINDINGS.md`](docs/FINDINGS.md) records what the simulation harness
+found, including the fact that the perfection gates *as originally specified*
+produced **zero** 18-0 seasons in 600,000 games.
+
+</details>
+
+---
+
+## Perfection is gated, not lucky
+
+A high score is necessary and not sufficient. To finish 18-0 a roster must have
+no weakness anywhere:
 
 | Gate | Requirement |
 |---|---|
@@ -43,85 +122,83 @@ have no weakness anywhere:
 | QB and defense | ≥ 96 — all-time elite |
 | At least four positions | ≥ 96 |
 
-Miss one and you get 17-1 with the blocker named:
+Miss one and you get 17-1, with the blocker named:
 
 > **PERFECTION DENIED** — RB2 needed a 93.0 minimum for 18-0 eligibility.
 
-Measured against the real dataset: **18-0 lands about once in 6,300 games, 17-1
+Measured against the real dataset: **18-0 lands about once in 6,000 games, 17-1
 about once in 49.**
-
----
-
-## The ratings are real
-
-Every card is a real NFL season, rated against **its own era**. The model asks
-*"how dominant was this season relative to what was possible at this position in
-this year"* — not *"who piled up the biggest totals"* — so a 1999 receiver and a
-2024 receiver are directly comparable.
-
-Each metric is z-scored against the same-position league environment for that
-exact season, then combined through the position weight tables. The model's own
-verdict on the best seasons in the data:
-
-| Position | Top-rated season |
-|---|---|
-| QB | Tom Brady, 2007 New England |
-| RB | Marshall Faulk, 2000 St. Louis |
-| WR | Cooper Kupp, 2021 Los Angeles |
-| TE | Rob Gronkowski, 2011 New England |
-| DEF | 2006 Baltimore |
-
-Nobody hand-picked those. They fell out of the model.
-
-**2,994 rated seasons · 157 franchise-era combinations · 1999–2025**, built from
-[nflverse](https://nflverse.com).
-
-### The eras
-
-| Era | Named for |
-|---|---|
-| **The Indoor Years** · 1999–2004 | St. Louis outscoring everyone, Baltimore's record defense answering |
-| **Chasing Perfect** · 2005–2009 | Manning against Brady, 16-0, and the one that got away |
-| **The Passing Boom** · 2010–2014 | 5,000-yard seasons, until Seattle's secondary answered |
-| **The Torch Pass** · 2015–2019 | 28-3, and a kid from Texas Tech taking the league |
-| **The Long Season** · 2020–2025 | Kansas City on top, and a seventeenth game |
 
 ---
 
 ## Play it
 
-**In a browser:** [mutaaf.github.io/18-0](https://mutaaf.github.io/18-0/) —
-deployed from `main` on every push.
+<div align="center">
+<img src="docs/media/landing.jpg" alt="18-0 on the web" width="820">
+</div>
 
-**On your phone**, which is where it belongs:
+<table>
+<tr>
+<td width="33%" valign="top">
+
+**Browser**
+
+[mutaaf.github.io/18-0](https://mutaaf.github.io/18-0/)
+
+Nothing to install. Deployed from `main` on every push.
+
+</td>
+<td width="33%" valign="top">
+
+**iPhone**
 
 ```bash
-pnpm install
-cd apps/mobile && npx expo start
+cd apps/mobile
+pnpm ios:device
 ```
 
-Scan the QR code with **Expo Go**. The haptics, the three-finger spin and the
-reveal all land properly on a device and none of them do in a browser.
+Signed with a personal Apple team — no paid membership.
 
-The desktop build is a different composition rather than a stretched phone: a
-left nav rail, and the lineup graphic beside the eligible list so a pick never
-costs a scroll.
+</td>
+<td width="33%" valign="top">
 
-### Modes
+**Android**
 
-**Player IQ** hides every rating and stat line — a name, a team and a year, and
+```bash
+cd apps/mobile
+pnpm android:device
+```
+
+Installs to a device or a running emulator.
+
+</td>
+</tr>
+</table>
+
+The haptics and the three-finger spin only land properly on a real device.
+
+<details>
+<summary><b>Modes, and the cheat that tells on you</b></summary>
+
+<br>
+
+**Player IQ** hides every rating and stat line — a name, a team, a year, and
 nothing else. You pick on what you actually know about football, and the numbers
-arrive with your record. **Rookie** shows everything, and is labelled as the
-beginner path.
+arrive with your record. The list is ordered by position and name, never by
+rating, because a rating-sorted list tells you the ratings even when they are
+hidden.
 
-### The three-finger spin
+**Rookie** shows everything, and is labelled as the beginner path.
 
-Hold three fingers while tapping Spin — or Shift-click on a pointer device — and
-the wheel lands on whichever franchise-era holds the best card still available
-for a slot you have not filled.
+**The three-finger spin.** Hold three fingers while tapping Spin — or
+Shift-click on a pointer device — and the wheel lands on whichever franchise-era
+holds the best card still available for a slot you have not filled.
 
-It is a cheat and the game says so: any run that uses it is flagged, cannot set
-a record, and is excluded from every leaderboard at the database level.
+It is a cheat and the game says so. Any run that uses it is flagged, cannot set
+a record, and is excluded from every leaderboard *at the database level* rather
+than by the client's good manners.
+
+</details>
 
 ---
 
@@ -133,16 +210,18 @@ packages/domain    The scoring model. Pure, versioned, no I/O — the client
                    code, so they cannot drift.
 packages/data      The historical dataset and the ingest that produces it.
 apps/mobile        Expo Router client: iOS, Android and web from one codebase.
-supabase           Schema, RLS, and the Edge Functions that own a ranked game.
+supabase           Schema, RLS, Edge Functions, and the audit trail.
 scripts/verify     End-to-end verification of the server's threat model.
 ```
 
 **The game is fully playable offline.** The dataset is bundled and the scoring is
 local, so a spin, an eligible list and a final rating never touch the network. No
-account is required to play, ever. The server exists only for cross-device
-history, leaderboards and challenges.
+account is required to play, ever.
 
-### The server owns a ranked game
+<details>
+<summary><b>Why a ranked game is played against the server</b></summary>
+
+<br>
 
 A modified client must not be able to post a score it did not earn, which takes
 three things:
@@ -154,40 +233,72 @@ three things:
    genuine near-perfect score from a roster it could never have been dealt.
 3. The score is **recomputed server-side** from the recorded roster.
 
-And every server decision is written to an **append-only audit trail** that not
-even the service role can rewrite — the triggers that enforce it do not care
-who you are. Refusals are recorded, not just returned, so a spike in rejections
-is visible rather than merely suffered.
+The roster is therefore scored twice, independently, by the same deterministic
+code. They must agree — and if they ever do not, the server's answer is the one
+that counts and the player is told.
+
+</details>
+
+<details>
+<summary><b>Every server decision is on an append-only trail</b></summary>
+
+<br>
+
+`audit_events` records every spin issued, every pick recorded, every completion
+scored, and every refusal — refusals are *recorded*, not merely returned, so a
+spike in rejections is visible rather than merely suffered.
+
+It cannot be updated or deleted from **by anyone, including the service role that
+writes it**. Row level security alone would not do that: the Edge Functions hold
+the service role and the service role bypasses RLS. A trigger does not care who
+you are.
+
+Identity is anonymous-first — playing never asks for an account — and account
+deletion exists from the same day accounts do.
+
+</details>
 
 `scripts/verify/e2e.mjs` plays a full ranked game against a live instance and
-then tries to cheat it every way that matters — **44 checks**: every forgery
-refused, every spin and pick on the trail, the trail immutable under the
-service role, and an account able to delete itself and take its games with it.
+then tries to cheat it every way that matters: **56 checks**, every forgery
+refused, every spin and pick on the trail, the trail immutable under the service
+role, and an account able to delete itself and take its games with it.
 
 ---
 
 ## Working on it
 
 ```bash
+pnpm install
 pnpm -r test                                    # 125 tests
 pnpm -r typecheck
 
-data/raw/fetch.sh                               # re-fetch nflverse CSVs
-pnpm --filter @18-0/data build:dataset          # rebuild the cards
-pnpm --filter @18-0/data analyze -- --write     # refit the calibration curve
-pnpm --filter @18-0/data tune                   # re-measure 18-0's rarity
-pnpm --filter @18-0/domain regen:fixtures       # move the seed fixtures with it
+cd apps/mobile && pnpm web                      # or: device / ios:device / android:device
+```
+
+<details>
+<summary><b>Rebuilding the dataset and the model</b></summary>
+
+<br>
+
+```bash
+data/raw/fetch.sh                                    # re-fetch nflverse CSVs
+pnpm --filter @18-0/data build:dataset               # rebuild the cards
+pnpm --filter @18-0/data analyze -- --write          # refit the calibration curve
+pnpm --filter @18-0/data tune                        # re-measure 18-0's rarity
+pnpm --filter @18-0/domain regen:fixtures            # move the seed fixtures with it
 ```
 
 Anything that changes a published score bumps `version` in
 `packages/domain/src/constants/config.ts`.
 
-Bringing the server up locally, and everything else operational, is in
-[`docs/RUNNING.md`](docs/RUNNING.md). The scoring model is documented in
-[`docs/scoring-model.md`](docs/scoring-model.md), and
-[`docs/FINDINGS.md`](docs/FINDINGS.md) records what the simulation harness found
-— including the fact that the perfection gates as originally specified produced
-**zero** 18-0 seasons in 600,000 games.
+Launcher icons are generated from `apps/mobile/assets/brand/lockup.png` by
+`apps/mobile/scripts/make-icons.py` — derived from the brand rather than being
+files that happen to sit in the right place.
+
+Bringing the server up, and everything else operational, is in
+[`docs/RUNNING.md`](docs/RUNNING.md).
+
+</details>
 
 ---
 
@@ -195,24 +306,18 @@ Bringing the server up locally, and everything else operational, is in
 
 **The dataset starts at 1999**, which is where nflverse starts.
 
-The pipeline for 1980–1998 is built and it runs — NFL.com's own season files
-for the statistics, nflverse rosters for the positions, two more named eras,
-201 franchise-era combinations instead of 157. It is switched off, because the
-only free source for those years turns out to be **49% complete** and the
-missing half includes Emmitt Smith and Joe Montana outright. That leaves 1990s
-Dallas with no qualifying running back and San Francisco with no tight end: a
-plausible-looking, quietly false version of NFL history, which is the one thing
-this game cannot ship.
+The pipeline for 1980–1998 is built and it runs — NFL.com's own season files for
+the statistics, nflverse rosters for the positions, two more named eras, 201
+franchise-era combinations instead of 157. It is switched off, because the only
+free source for those years turns out to be **49% complete** and the missing half
+includes Emmitt Smith and Joe Montana outright. That leaves 1990s Dallas with no
+qualifying running back and San Francisco with no tight end: a plausible-looking,
+quietly false version of history, which is the one thing this game cannot ship.
 
 `LEGACY_SEASONS=1 pnpm --filter @18-0/data build:dataset` builds them anyway.
-Turning them on for good needs a licensed source, not more code — the ingest
-takes a flat stats bag and does not care where the numbers come from. The
-measurements are in [`docs/FINDINGS.md`](docs/FINDINGS.md#7-the-19801998-ingest-and-why-those-eras-are-switched-off).
-
-**Seven rating components are not measurable** from the available data — awards,
-tight-end blocking, red-zone and third-down defense among them. They were
-removed rather than left in the model silently scoring zero, so the published
-weight tables are the ones that actually run.
+Turning them on for good needs a licensed source, not more code. The measurements
+are in
+[`docs/FINDINGS.md`](docs/FINDINGS.md#7-the-19801998-ingest-and-why-those-eras-are-switched-off).
 
 ---
 
@@ -225,3 +330,10 @@ identified by city — "Baltimore", not the club — because a city is a place a
 the statistics are facts, while the club name is a trademark. Team palettes are
 generated per franchise rather than copied. It is unaffiliated with, and not
 endorsed by, any league or club.
+
+<div align="center">
+<br>
+<a href="https://mutaaf.github.io/18-0/"><b>&#9654;&nbsp; Go chase it</b></a>
+<br><br>
+<sub>An honest 18-0 is roughly a 1-in-6,000 season. Good luck.</sub>
+</div>
