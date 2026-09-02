@@ -19,10 +19,22 @@ cd "$(dirname "$0")/.."
 }
 set -a; . ./.local/social.env; set +a
 
-for name in APPLE_SERVICES_ID APPLE_KEY_ID APPLE_KEY_FILE GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET; do
+# Apple is required; Google is optional, so the Apple flow can be turned on and
+# tested the moment the Services ID exists rather than waiting on a second
+# console. Run this again once Google is filled in.
+for name in APPLE_SERVICES_ID APPLE_KEY_ID APPLE_KEY_FILE; do
   [[ -n "${!name:-}" ]] || { echo "$name is empty in .local/social.env" >&2; exit 1; }
 done
 [[ -f "$APPLE_KEY_FILE" ]] || { echo "No key file at $APPLE_KEY_FILE" >&2; exit 1; }
+
+WITH_GOOGLE=0
+if [[ -n "${GOOGLE_CLIENT_ID:-}" && -n "${GOOGLE_CLIENT_SECRET:-}" ]]; then
+  WITH_GOOGLE=1
+else
+  echo "Google is not filled in; enabling Apple only. Guideline 4.8 is satisfied"
+  echo "either way, because Apple alone is allowed. Re-run to add Google."
+  echo
+fi
 
 REF=$(cat supabase/.temp/project-ref)
 
@@ -43,8 +55,9 @@ BODY=$(jq -n \
   --arg keyid "$APPLE_KEY_ID" \
   --rawfile key "$APPLE_KEY_FILE" \
   --arg bundle "$BUNDLE_ID" \
-  --arg gid "$GOOGLE_CLIENT_ID" \
-  --arg gsecret "$GOOGLE_CLIENT_SECRET" \
+  --arg gid "${GOOGLE_CLIENT_ID:-}" \
+  --arg gsecret "${GOOGLE_CLIENT_SECRET:-}" \
+  --arg withGoogle "$WITH_GOOGLE" \
   '{
     external_apple_enabled: true,
     external_apple_client_id: $services,
@@ -52,11 +65,13 @@ BODY=$(jq -n \
     # accepted too. The web flow this app uses presents the Services ID.
     external_apple_additional_client_ids: $bundle,
     external_apple_secret: ($team + "\n" + $keyid + "\n" + $key),
-    external_google_enabled: true,
-    external_google_client_id: $gid,
-    external_google_secret: $gsecret,
     security_manual_linking_enabled: true
-  }')
+  }
+  + (if $withGoogle == "1" then {
+      external_google_enabled: true,
+      external_google_client_id: $gid,
+      external_google_secret: $gsecret
+    } else {} end)')
 
 STATUS=$(curl -s -o /tmp/social-setup.out -w '%{http_code}' \
   -X PATCH "https://api.supabase.com/v1/projects/$REF/config/auth" \
@@ -90,16 +105,19 @@ show("google secret", c.get("external_google_secret"), secret=True)
 show("manual linking", c.get("security_manual_linking_enabled"))
 '
 # Only now that the providers are live is it safe to show the buttons.
+PROVIDERS=apple
+[[ "$WITH_GOOGLE" == "1" ]] && PROVIDERS=apple,google
+
 if grep -q '^EXPO_PUBLIC_AUTH_PROVIDERS=' apps/mobile/.env 2>/dev/null; then
-  sed -i '' 's/^EXPO_PUBLIC_AUTH_PROVIDERS=.*/EXPO_PUBLIC_AUTH_PROVIDERS=apple,google/' apps/mobile/.env
+  sed -i '' "s/^EXPO_PUBLIC_AUTH_PROVIDERS=.*/EXPO_PUBLIC_AUTH_PROVIDERS=$PROVIDERS/" apps/mobile/.env
 else
-  echo 'EXPO_PUBLIC_AUTH_PROVIDERS=apple,google' >> apps/mobile/.env
+  echo "EXPO_PUBLIC_AUTH_PROVIDERS=$PROVIDERS" >> apps/mobile/.env
 fi
 echo
-echo "apps/mobile/.env now offers apple,google."
+echo "apps/mobile/.env now offers $PROVIDERS."
 
 if command -v gh >/dev/null; then
-  gh variable set AUTH_PROVIDERS --body 'apple,google' >/dev/null 2>&1 \
+  gh variable set AUTH_PROVIDERS --body "$PROVIDERS" >/dev/null 2>&1 \
     && echo "Repository variable AUTH_PROVIDERS set; the next web deploy shows the buttons." \
     || echo "Could not set the AUTH_PROVIDERS repository variable. Run: gh variable set AUTH_PROVIDERS --body apple,google"
 fi
