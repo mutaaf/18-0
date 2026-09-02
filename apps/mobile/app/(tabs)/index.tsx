@@ -27,6 +27,21 @@ import {
   type PressState,
 } from '@/theme';
 
+/** Resolves to null rather than hanging, so a stalled request cannot trap a screen. */
+async function withTimeout<T>(work: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export default function Home() {
   const router = useRouter();
   const layout = useLayout();
@@ -63,16 +78,30 @@ export default function Home() {
 
     // The session is opened before the first spin, so a player learns that
     // ranked is unavailable now rather than seven picks from now.
+    //
+    // Wrapped, timed out, and unconditionally followed by the navigation. This
+    // used to be a bare `await` before `router.push`, so anything that threw or
+    // hung left the Play button doing nothing at all — which is exactly what
+    // happened on device, where `crypto.randomUUID` does not exist. Failing to
+    // open a ranked game must cost the leaderboard, never the game.
     if (ranked) {
       setOpening(true);
-      const opened = await beginRanked();
-      setOpening(false);
-      if (opened.ok) {
-        game.attachServerSession(opened.value.sessionId, opened.value.idempotencyKey);
-        track('ranked_started', { mode });
-      } else {
-        game.downgrade(opened.message);
-        track('ranked_downgraded', { reason: opened.message });
+      try {
+        const opened = await withTimeout(beginRanked(), 8000);
+        if (opened?.ok) {
+          game.attachServerSession(opened.value.sessionId, opened.value.idempotencyKey);
+          track('ranked_started', { mode });
+        } else {
+          const reason = opened?.message ?? 'The server did not answer in time.';
+          game.downgrade(reason);
+          track('ranked_downgraded', { reason });
+        }
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : 'Ranked play could not start.';
+        game.downgrade(reason);
+        track('ranked_downgraded', { reason });
+      } finally {
+        setOpening(false);
       }
     }
     router.push('/play');

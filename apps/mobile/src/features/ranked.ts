@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import type { RosterSlot } from '@18-0/domain';
 import { currentUser, ensureSession, isBackendConfigured, supabase } from '@/services/supabase';
+import { uuid } from '@/features/uuid';
 
 /**
  * A game played against the server.
@@ -86,7 +87,7 @@ export async function beginRanked(): Promise<RankedResult<{ sessionId: string; i
   const me = await currentUser();
   if (!me) return offline('Could not start a session.');
 
-  const idempotencyKey = crypto.randomUUID();
+  const idempotencyKey = uuid();
   const { data, error } = await supabase
     .from('game_sessions')
     .insert({ user_id: me.id, status: 'in_progress', idempotency_key: idempotencyKey })
