@@ -435,13 +435,50 @@ export default function Play() {
    * offset. This only intervenes inside the band, and leaves every other
    * resting place alone.
    */
+  /**
+   * True while a correction is in flight, so one can never trigger another.
+   *
+   * Without this the screen locks up on a phone. A programmatic scrollTo emits
+   * onMomentumScrollEnd when it lands, which calls this again — and if the
+   * target is not reachable, because there is not enough content below to
+   * scroll that far, the position never leaves the band and it corrects
+   * forever. The list stops accepting touches because it is always mid-scroll.
+   *
+   * The web path has the same shape: the debounce below re-arms on the scroll
+   * events the correction itself produces.
+   */
+  const settling = useRef(false);
+
+  /**
+   * How far this list can actually scroll.
+   *
+   * The collapsed position is only a position if there is content to reach it
+   * with. On a short list -- a filter down to two players, a tall phone --
+   * collapseTo is past the end, so correcting downwards asks for somewhere the
+   * scroll view cannot go and it stays in the band. When that is the case the
+   * only sane correction is back to the top.
+   */
+  const viewport = useRef(0);
+  const content = useRef(0);
+
   const settle = useCallback(
     (y: number) => {
+      if (settling.current) return;
       if (!collapsible || y <= collapseFrom || y >= collapseTo) return;
-      scrollRef.current?.scrollTo({
-        y: y < (collapseFrom + collapseTo) / 2 ? 0 : collapseTo,
-        animated: true,
-      });
+
+      const furthest = Math.max(0, content.current - viewport.current);
+      const canCollapse = furthest >= collapseTo;
+      const target = canCollapse && y >= (collapseFrom + collapseTo) / 2 ? collapseTo : 0;
+      if (target === y) return;
+
+      settling.current = true;
+      scrollRef.current?.scrollTo({ y: target, animated: true });
+      // Comfortably longer than the animation. If the scroll never arrives the
+      // worst case is one missed correction, rather than a screen that has
+      // stopped responding.
+      setTimeout(() => {
+        settling.current = false;
+      }, 500);
     },
     [collapsible, collapseFrom, collapseTo],
   );
@@ -883,6 +920,12 @@ export default function Play() {
         // Neither fires on the web; the listener above covers that.
         onScrollEndDrag={(e) => settle(e.nativeEvent.contentOffset.y)}
         onMomentumScrollEnd={(e) => settle(e.nativeEvent.contentOffset.y)}
+        onLayout={(e) => {
+          viewport.current = e.nativeEvent.layout.height;
+        }}
+        onContentSizeChange={(_w, h) => {
+          content.current = h;
+        }}
       >
         {spinPanel}
         {pickBar}
