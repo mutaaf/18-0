@@ -6,9 +6,26 @@ variable is deliberately not set anywhere yet, because a sign-in button that
 fails when tapped is worse than no sign-in button — and is the first thing App
 Review taps.
 
-**None of this has been exercised against a real Apple or Google project.** The
-flow is written to Supabase's documented behaviour; nobody has watched it work.
-Treat the first run as a test, not a deployment.
+**Both providers are configured and answering.** `/auth/v1/authorize?provider=apple`
+and `?provider=google` each redirect to the right consent page with the right
+client id. What has *not* been exercised is a real human completing a sign-in,
+and in particular the linking path that keeps an anonymous player's ranked
+history. That is the one test that matters; see the end of this file.
+
+## Two identifier traps, both live in this project
+
+**The team that owns the key is `Z73865R687`, not `95988FTS33`.** The second one
+is in `ios-device.sh` and is the free personal team used to sign local device
+builds. Apple signs the client secret with the team that owns the key, and using
+the wrong one fails as `invalid_client`, which says nothing about which of the
+two identifiers was wrong.
+
+**The bundle identifier does not match the registered App ID.** `app.config.js`
+says `com.eighteenzero.app`. The App ID registered under this team, and the one
+the Services ID points at, is `com.eighteenzerodcai.app`. Sign-in is unaffected,
+because the web flow presents the Services ID rather than the bundle. It will
+matter at submission, when the binary's bundle id has to match a registered App
+ID. Decide which one is real and make them agree before then.
 
 ## What the code already decides for you
 
@@ -47,11 +64,16 @@ account:
 
 1. **Identifiers → App IDs** — on the `com.eighteenzero.app` App ID, enable the
    **Sign In with Apple** capability.
-2. **Identifiers → Services IDs** — create one (for example
-   `com.eighteenzero.app.web`). This is the OAuth client id, and it is *not* the
-   same string as the App ID. Configure it with:
+2. **Identifiers → Services IDs** — `com.eighteenzerodcai.app.web` ("18-0 web")
+   exists and is configured. This is the OAuth client id, and it is *not* the
+   same string as the App ID:
    - Domain: `keqwdtnyotdovrtcswel.supabase.co`
    - Return URL: `https://keqwdtnyotdovrtcswel.supabase.co/auth/v1/callback`
+
+   Registering the URLs is two steps, and the first one on its own looks like it
+   worked: the domain and return URL are added to the *team*, and then have to be
+   selected from the picker to attach them to this Services ID. The row reads
+   "(2 Website URLs)" when it is actually done.
 3. **Keys** — create a key with **Sign In with Apple** enabled and download the
    `.p8`. It downloads once and cannot be retrieved again.
 4. In Supabase, the Apple provider wants the Services ID, the Team ID, the Key
@@ -64,16 +86,21 @@ calendar reminder.
 
 ## 3. Google
 
-In the [Google Cloud console](https://console.cloud.google.com/apis/credentials):
+Done. Project **18-0** (`eighteen-zero-game`), separate from CourtIQ because a
+Cloud project has one consent screen, and players signing into 18-0 would
+otherwise have seen "CourtIQ" on the permission dialog.
 
-1. Configure the OAuth consent screen. External, and it can stay in *Testing*
-   while you try this; it must be **published** before Play review.
-2. Create an **OAuth client ID → Web application**. Authorised redirect URI:
-   `https://keqwdtnyotdovrtcswel.supabase.co/auth/v1/callback`
-3. Paste the client id and secret into Supabase's Google provider.
-
-A Web client is the right kind even for the native app: the round trip goes
-through Supabase, which is a web origin, and not through Google's native SDK.
+- Consent screen: External, **In production**. An External app starts in
+  *Testing*, where only listed test users can sign in at all, so leaving it there
+  would have looked like a broken login for everyone else.
+- Branding carries the home page, the privacy policy at
+  `digitalcraftai.com/privacy`, and all three authorized domains. Publishing is
+  blocked until those are filled in.
+- OAuth client: **Web application**, redirect
+  `https://keqwdtnyotdovrtcswel.supabase.co/auth/v1/callback`. Web is the right
+  kind even for the native app, because the round trip goes through Supabase,
+  which is a web origin, rather than through Google's native SDK.
+- No sensitive scopes, so no Google verification is required.
 
 ## 4. Switch it on
 

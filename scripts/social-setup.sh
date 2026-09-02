@@ -45,7 +45,10 @@ case "$TOKEN" in
 esac
 [[ -n "$TOKEN" ]] || { echo "Not logged in to the Supabase CLI. Run: supabase login" >&2; exit 1; }
 
-BUNDLE_ID=$(grep -o "bundleIdentifier: '[^']*'" apps/mobile/app.config.js | cut -d\' -f2)
+# The App ID registered with Apple, which is not necessarily the bundle in
+# app.config.js. They currently differ, and using the unregistered one here
+# would put a client id Apple has never heard of into the config.
+BUNDLE_ID="${APPLE_BUNDLE_ID:-$(grep -o "bundleIdentifier: '[^']*'" apps/mobile/app.config.js | cut -d\' -f2)}"
 
 # jq builds the body so the key's newlines are encoded properly. Passing a PEM
 # through shell interpolation is how it silently arrives as one line.
