@@ -81,6 +81,56 @@ export function toRatedSeason(card: BootCard): RatedSeason {
 
 /** Team defences have no player name, so they are named for the season. */
 /**
+ * The same card, described without naming anybody.
+ *
+ * franchiseEraTagline() names the three highest-rated players in the pool,
+ * which is exactly the information Player IQ exists to withhold: printed on
+ * the spin card it hands over the answer, and since only blind seasons rank,
+ * it would have made the leaderboard a reading test after all.
+ *
+ * This says how the pool is *shaped* instead. Counts per position reveal how
+ * many receivers there are to choose between and nothing whatsoever about
+ * which of them is any good, so it is still specific to the franchise-era and
+ * still useful when deciding which slot to fill from this spin.
+ */
+const SHAPE_BY_BUCKET = new Map<string, string>();
+
+export function franchiseEraShape(franchiseId: string, era: EraKey): string {
+  const key = bucketKey(franchiseId, era);
+  const cached = SHAPE_BY_BUCKET.get(key);
+  if (cached !== undefined) return cached;
+
+  const cards = eligibleCards(franchiseId, era);
+  const counts = new Map<string, number>();
+  for (const card of cards) counts.set(card.position, (counts.get(card.position) ?? 0) + 1);
+
+  // A stable order, so a tie does not describe the same pool two ways on two
+  // spins of the same franchise-era.
+  const ranked = [...counts.entries()].sort(
+    (a, b) => b[1] - a[1] || POSITION_ORDER.indexOf(a[0]) - POSITION_ORDER.indexOf(b[0]),
+  );
+
+  const noun = cards.length === 1 ? 'season' : 'seasons';
+  const deepest = ranked[0];
+  const line = deepest
+    ? `${cards.length} ${noun} here, deepest at ${POSITION_WORD[deepest[0]] ?? deepest[0]}.`
+    : '';
+
+  SHAPE_BY_BUCKET.set(key, line);
+  return line;
+}
+
+const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE', 'DEF'];
+
+const POSITION_WORD: Record<string, string> = {
+  QB: 'quarterback',
+  RB: 'running back',
+  WR: 'receiver',
+  TE: 'tight end',
+  DEF: 'defense',
+};
+
+/**
  * One line about the franchise-era actually on the card.
  *
  * The spin card used to print the *era's* tagline, which is written about the
@@ -92,6 +142,10 @@ export function toRatedSeason(card: BootCard): RatedSeason {
  * highest-rated players in it, each counted once at their best season. That is
  * true by construction, specific to all 157 franchise-eras, and it names the
  * cards the player is about to be choosing between.
+ *
+ * **Never show this in Player IQ.** Naming the highest-rated players is the
+ * answer to the question that mode is asking, and only blind seasons rank.
+ * Use franchiseEraShape() there.
  */
 const TAGLINE_BY_BUCKET = new Map<string, string>();
 

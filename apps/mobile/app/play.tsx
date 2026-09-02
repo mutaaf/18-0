@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { POSITIONS, ROSTER_SLOTS, SLOT_POSITION, type EraKey, type Position, type RosterSlot } from '@18-0/domain';
-import { DATASET, displayName, eligibleCards, era as eraDef, franchise, franchiseEraTagline, type BootCard } from '@18-0/data';
+import { DATASET, displayName, eligibleCards, era as eraDef, franchise, franchiseEraShape, franchiseEraTagline, type BootCard } from '@18-0/data';
 import { Brand } from '@/components/Brand';
 import { Field } from '@/components/Field';
 import { SpinReel } from '@/components/SpinReel';
@@ -567,14 +567,24 @@ export default function Play() {
 
         {/* The flavour has to be about the franchise-era on the card, not the
             era in general: the era line introduced a Dallas spin by talking
-            about Kansas City. This names the best players in the pool this
-            spin actually draws from. Full width, so it is never cut mid-word. */}
+            about Kansas City.
+
+            In Player IQ it must also not name anybody. The names line is the
+            three highest-rated players in the pool, which is precisely what
+            that mode withholds — and since only blind seasons rank, printing it
+            here would have turned the leaderboard into a reading test. Blind
+            gets the pool's shape, which says how many receivers there are and
+            nothing about which one is good.
+
+            Full width, so it is never cut mid-word. */}
         <Text style={styles.heroTagline} numberOfLines={3}>
           {spinning
             ? ''
-            : shown
-              ? franchiseEraTagline(shown.franchiseId, shown.era) || eraDef(shown.era).tagline
-              : 'Spin for a franchise and an era.'}
+            : !shown
+              ? 'Spin for a franchise and an era.'
+              : blind
+                ? franchiseEraShape(shown.franchiseId, shown.era)
+                : franchiseEraTagline(shown.franchiseId, shown.era) || eraDef(shown.era).tagline}
         </Text>
       </Animated.View>
 
