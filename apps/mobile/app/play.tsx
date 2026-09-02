@@ -3,7 +3,6 @@ import {
   AccessibilityInfo,
   ActivityIndicator,
   Animated,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -420,101 +419,19 @@ export default function Play() {
   const heroOpacity = collapsible ? scrollY.interpolate({ ...collapseRange, outputRange: [1, 0.15] }) : 1;
 
   /**
-   * Never come to rest half-collapsed.
+   * There is no scroll correction here, deliberately.
    *
-   * Between collapseFrom and collapseTo the hero is fading out and the header
-   * line is fading in, so a scroll that stops in there leaves both half-drawn:
-   * a ghost of the team crest above a ghost of the same team's abbreviation,
-   * and the spin button sliced off by the sticky bar. It is the one band on
-   * this screen where nothing is fully readable, and it is exactly where a
-   * short flick tends to stop.
+   * Two attempts at snapping out of the half-collapsed band both locked the
+   * screen up on a phone. A programmatic scrollTo emits onMomentumScrollEnd
+   * when it lands, which re-entered the correction; guarding that still left
+   * it fighting the finger. Resting mid-collapse is untidy. A list that stops
+   * accepting touches is the game not working, and the second is not worth
+   * risking to fix the first.
    *
-   * snapToOffsets would be the obvious tool and is the wrong one: it snaps to
-   * the nearest listed offset everywhere, so once the player list is longer
-   * than the screen every scroll into it would be dragged back to the last
-   * offset. This only intervenes inside the band, and leaves every other
-   * resting place alone.
+   * The collapse itself is driven straight off the scroll position by the
+   * native driver, which is smooth precisely because nothing in JavaScript is
+   * involved once it starts.
    */
-  /**
-   * True while a correction is in flight, so one can never trigger another.
-   *
-   * Without this the screen locks up on a phone. A programmatic scrollTo emits
-   * onMomentumScrollEnd when it lands, which calls this again — and if the
-   * target is not reachable, because there is not enough content below to
-   * scroll that far, the position never leaves the band and it corrects
-   * forever. The list stops accepting touches because it is always mid-scroll.
-   *
-   * The web path has the same shape: the debounce below re-arms on the scroll
-   * events the correction itself produces.
-   */
-  const settling = useRef(false);
-
-  /**
-   * How far this list can actually scroll.
-   *
-   * The collapsed position is only a position if there is content to reach it
-   * with. On a short list -- a filter down to two players, a tall phone --
-   * collapseTo is past the end, so correcting downwards asks for somewhere the
-   * scroll view cannot go and it stays in the band. When that is the case the
-   * only sane correction is back to the top.
-   */
-  const viewport = useRef(0);
-  const content = useRef(0);
-
-  const settle = useCallback(
-    (y: number) => {
-      if (settling.current) return;
-      if (!collapsible || y <= collapseFrom || y >= collapseTo) return;
-
-      const furthest = Math.max(0, content.current - viewport.current);
-      const canCollapse = furthest >= collapseTo;
-      const target = canCollapse && y >= (collapseFrom + collapseTo) / 2 ? collapseTo : 0;
-      if (target === y) return;
-
-      settling.current = true;
-      scrollRef.current?.scrollTo({ y: target, animated: true });
-      // Comfortably longer than the animation. If the scroll never arrives the
-      // worst case is one missed correction, rather than a screen that has
-      // stopped responding.
-      setTimeout(() => {
-        settling.current = false;
-      }, 500);
-    },
-    [collapsible, collapseFrom, collapseTo],
-  );
-
-  /**
-   * The same thing, for the web, where the events above do not exist.
-   *
-   * A browser has no notion of a drag ending or of momentum finishing, so
-   * react-native-web never calls onScrollEndDrag or onMomentumScrollEnd — it
-   * accepts the props and nothing ever invokes them. Waiting for the scroll
-   * position to stop changing is the only signal available, and the web build
-   * is where this was noticed in the first place.
-   */
-  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (settleTimer.current) clearTimeout(settleTimer.current);
-  }, []);
-
-  const onScroll = useMemo(
-    () =>
-      Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-        useNativeDriver: true,
-        ...(Platform.OS === 'web'
-          ? {
-              listener: (event: { nativeEvent: { contentOffset: { y: number } } }) => {
-                const y = event.nativeEvent.contentOffset.y;
-                if (settleTimer.current) clearTimeout(settleTimer.current);
-                // Long enough to not fight a still-moving flick, short enough
-                // that the correction reads as part of the same gesture.
-                settleTimer.current = setTimeout(() => settle(y), 140);
-              },
-            }
-          : {}),
-      }),
-    [scrollY, settle],
-  );
 
   // --- pieces, composed differently per breakpoint -------------------------
 
@@ -914,18 +831,9 @@ export default function Play() {
         keyboardShouldPersistTaps="handled"
         stickyHeaderIndices={canPick ? [1] : undefined}
         scrollEventThrottle={16}
-        onScroll={onScroll}
-        // Both, because a drag released with no velocity never produces a
-        // momentum event and would otherwise stop wherever it was let go.
-        // Neither fires on the web; the listener above covers that.
-        onScrollEndDrag={(e) => settle(e.nativeEvent.contentOffset.y)}
-        onMomentumScrollEnd={(e) => settle(e.nativeEvent.contentOffset.y)}
-        onLayout={(e) => {
-          viewport.current = e.nativeEvent.layout.height;
-        }}
-        onContentSizeChange={(_w, h) => {
-          content.current = h;
-        }}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+          useNativeDriver: true,
+        })}
       >
         {spinPanel}
         {pickBar}

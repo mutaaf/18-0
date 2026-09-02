@@ -62,6 +62,16 @@ export interface SignInOutcome {
   readonly ok: boolean;
   /** True when the player closed the sheet themselves. Not worth an error message. */
   readonly cancelled?: boolean;
+  /**
+   * The provider is already attached to a different account.
+   *
+   * Ordinary, not exceptional: it happens to anyone who signs in on a second
+   * device, because the anonymous account there is not the one that owns the
+   * identity. Linking is correctly refused, and the useful next step is to sign
+   * in to the account that does own it, which `signInWith(p, { switch: true })`
+   * does.
+   */
+  readonly alreadyLinked?: boolean;
   readonly error?: string;
 }
 
@@ -74,15 +84,25 @@ export interface SignInOutcome {
  * else, so the whole round trip is one awaited call and a caller can simply
  * refresh when it returns.
  */
-export async function signInWith(provider: SocialProvider): Promise<SignInOutcome> {
+export async function signInWith(
+  provider: SocialProvider,
+  { switchAccount = false }: { switchAccount?: boolean } = {},
+): Promise<SignInOutcome> {
   if (!supabase) return { ok: false, error: 'backend_not_configured' };
   if (!socialProviders.includes(provider)) return { ok: false, error: 'provider_not_configured' };
 
   const redirectTo = Platform.OS === 'web' ? webRedirect() : Linking.createURL('auth-callback');
 
+  // Declared out here so the catch below can explain the failure in the same
+  // terms as the returns inside.
+  let anonymous = false;
+
   try {
     const { data: auth } = await supabase.auth.getSession();
-    const anonymous = auth.session?.user.is_anonymous === true;
+    // switchAccount means the player has been told the identity belongs to
+    // another account and asked to be taken to it, so linking is not what they
+    // want any more.
+    anonymous = !switchAccount && auth.session?.user.is_anonymous === true;
 
     // Linking preserves the account id and everything hanging off it. Signing
     // in fresh is only right when there is nothing to preserve.
@@ -96,7 +116,7 @@ export async function signInWith(provider: SocialProvider): Promise<SignInOutcom
           options: { redirectTo, skipBrowserRedirect: Platform.OS !== 'web' },
         });
 
-    if (start.error) return { ok: false, error: explain(start.error.message, anonymous) };
+    if (start.error) return outcome(start.error.message, anonymous);
 
     // On web the call above navigates away and nothing after this runs.
     if (Platform.OS === 'web') return { ok: true };
@@ -116,10 +136,13 @@ export async function signInWith(provider: SocialProvider): Promise<SignInOutcom
     }
 
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) return { ok: false, error: explain(error.message, anonymous) };
+    if (error) return outcome(error.message, anonymous);
     return { ok: true };
   } catch (cause) {
-    return { ok: false, error: cause instanceof Error ? cause.message : 'Sign-in failed.' };
+    // exchangeCodeForSession throws rather than returning for some failures,
+    // and the raw text went straight to the screen: a player saw "Identity is
+    // already linked to another user" with nothing to do about it.
+    return outcome(cause instanceof Error ? cause.message : 'Sign-in failed.', anonymous);
   }
 }
 
@@ -143,6 +166,20 @@ function webRedirect(): string {
   return `${origin}${pathname}`;
 }
 
+const ALREADY_LINKED = /already .*(linked|registered|exists)|identity_already_exists/i;
+
+/** Turn a provider or Supabase message into something the panel can act on. */
+function outcome(message: string, anonymous: boolean): SignInOutcome {
+  if (ALREADY_LINKED.test(message)) {
+    return {
+      ok: false,
+      alreadyLinked: true,
+      error: 'That account is already signed in somewhere else.',
+    };
+  }
+  return { ok: false, error: explain(message, anonymous) };
+}
+
 function explain(message: string, anonymous: boolean): string {
   // Manual linking is off by default on a Supabase project, and the failure it
   // produces names an internal API rather than the setting.
@@ -151,12 +188,6 @@ function explain(message: string, anonymous: boolean): string {
   }
   if (/provider is not enabled/i.test(message)) {
     return 'That sign-in method is not switched on yet.';
-  }
-  // An already-claimed identity is the one genuinely interesting case: the
-  // provider belongs to another account, so linking it would silently merge two
-  // leaderboard histories or throw one away.
-  if (/already (been )?(registered|linked|exists)|identity_already_exists/i.test(message)) {
-    return 'That account is already signed in on another profile.';
   }
   return message;
 }

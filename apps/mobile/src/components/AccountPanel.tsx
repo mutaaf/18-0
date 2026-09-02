@@ -53,6 +53,8 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [linked, setLinked] = useState<readonly SocialProvider[]>([]);
+  /** Set when a provider turns out to belong to a different account. */
+  const [elsewhere, setElsewhere] = useState<SocialProvider | null>(null);
 
   const refresh = useCallback(async () => {
     if (!isBackendConfigured) return;
@@ -90,22 +92,26 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
     }
   };
 
-  const connect = async (provider: SocialProvider) => {
+  const connect = async (provider: SocialProvider, switchAccount = false) => {
     setBusy(true);
     setNote(null);
-    const result = await signInWith(provider);
+    setElsewhere(null);
+    const result = await signInWith(provider, { switchAccount });
     setBusy(false);
     // Closing the sheet is a decision, not a failure. Saying "sign-in did not
     // complete" to somebody who just changed their mind is noise.
     if (result.cancelled) return;
     if (result.ok) {
-      track('signed_in', { provider });
+      track('signed_in', { provider, switched: switchAccount });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       await refresh();
-    } else {
-      setNote(result.error ?? 'Could not sign in.');
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+      return;
     }
+    // Not a dead end. This is what happens on a second device, and the useful
+    // answer is to go to the account that owns the identity.
+    if (result.alreadyLinked) setElsewhere(provider);
+    setNote(result.error ?? 'Could not sign in.');
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
   };
 
   const remove = async () => {
@@ -239,6 +245,29 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
         <Text style={styles.note} accessibilityLiveRegion="polite">
           {note}
         </Text>
+      ) : null}
+
+      {elsewhere ? (
+        <>
+          <Text style={styles.copy}>
+            Your {providerLabel(elsewhere)} account already has seasons on it. Signing in takes
+            you to that one. Anything played on this device stays here.
+          </Text>
+          <Pressable
+            onPress={() => connect(elsewhere, true)}
+            disabled={busy}
+            accessibilityRole="button"
+            accessibilityLabel={`Sign in to the existing ${providerLabel(elsewhere)} account`}
+            style={({ hovered, pressed }: PressState) => [
+              styles.claimButton,
+              hovered && { backgroundColor: color.redBright },
+              pressed && { opacity: 0.85 },
+              busy && styles.claimButtonMuted,
+            ]}
+          >
+            <Text style={styles.claimLabel}>Use that account</Text>
+          </Pressable>
+        </>
       ) : null}
 
       {/* Not gated on having an account. Signing in is how a season reaches
