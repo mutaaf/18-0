@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { POSITIONS, ROSTER_SLOTS, SLOT_POSITION, type EraKey, type Position, type RosterSlot } from '@18-0/domain';
-import { DATASET, displayName, eligibleCards, era as eraDef, franchise, franchiseEraShape, franchiseEraTagline, type BootCard } from '@18-0/data';
+import { DATASET, displayName, eligibleCards, era as eraDef, franchise, franchiseEraShape, franchiseEraStory, franchiseEraTagline, type BootCard } from '@18-0/data';
 import { Brand } from '@/components/Brand';
 import { Field } from '@/components/Field';
 import { SpinReel } from '@/components/SpinReel';
@@ -582,9 +582,12 @@ export default function Play() {
             ? ''
             : !shown
               ? 'Spin for a franchise and an era.'
-              : blind
-                ? franchiseEraShape(shown.franchiseId, shown.era)
-                : franchiseEraTagline(shown.franchiseId, shown.era) || eraDef(shown.era).tagline}
+              : // A researched line wins in both modes: it names no player, so
+                // it gives nothing away that a fan does not already know.
+                franchiseEraStory(shown.franchiseId, shown.era) ||
+                (blind
+                  ? franchiseEraShape(shown.franchiseId, shown.era)
+                  : franchiseEraTagline(shown.franchiseId, shown.era) || eraDef(shown.era).tagline)}
         </Text>
       </Animated.View>
 

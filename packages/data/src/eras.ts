@@ -108,3 +108,57 @@ export function eraName(key: EraKey): string {
 export function eraLabel(key: EraKey): string {
   return BY_KEY.get(key)?.label ?? key;
 }
+
+/**
+ * What a franchise-era is actually remembered for.
+ *
+ * The spin card needs a line about the card you were dealt. The two generated
+ * options are both compromises: the highest-rated players in the pool is the
+ * game's own answer key and cannot be shown in Player IQ, and the pool's shape
+ * is true but dry. A real one beats both.
+ *
+ * Three rules for anything added here.
+ *
+ * 1. **No player names.** "Burrow and Chase" is the same leak as the generated
+ *    line wearing a different hat: those are the two highest-rated Bengals
+ *    cards of the era. Unit nicknames are fine — a fan knowing the Legion of
+ *    Boom was a secondary is football knowledge, which is the thing Player IQ
+ *    is asking for, not a readout of this game's ratings.
+ * 2. **Checked, not remembered.** Every line below was verified against a
+ *    source rather than written from memory. `docs/FINDINGS.md` says the same
+ *    thing about stats, for the same reason.
+ * 3. **It must fit the era bucket.** The Greatest Show on Turf ran 1999-2001,
+ *    which sits inside 1999-2004. A nickname straddling two buckets belongs in
+ *    neither.
+ *
+ * Coverage is deliberately partial: 157 franchise-eras exist and most have no
+ * story worth telling. Anything absent falls back to the generated line, so
+ * this table can grow one verified entry at a time.
+ */
+export const FRANCHISE_ERA_STORY: Readonly<Record<string, string>> = {
+  // Rams 1999-2001: record scoring, two Super Bowl trips, one title.
+  'lar:1999_2004': 'The Greatest Show on Turf.',
+  // 165 points allowed in 2000, still the 16-game record, then Super Bowl XXXV.
+  'bal:1999_2004': 'Gave up 165 points in 2000. Nobody has beaten that.',
+  // The Tampa 2, and a 48-21 win over Oakland in Super Bowl XXXVII.
+  'tb:1999_2004': 'The Tampa 2, and Super Bowl XXXVII.',
+  // 16-0 in the 2007 regular season; 589 points stood as the record until 2013.
+  'ne:2005_2009': 'Went 16-0 in 2007, and scored more than anyone ever had.',
+  // Super Bowl XLIV, after the 2009 season.
+  'no:2005_2009': 'Who Dat, and a first Super Bowl.',
+  // 606 points in 2013, the NFL record.
+  'den:2010_2014': 'Scored 606 points in 2013. Still the record.',
+  'sea:2010_2014': 'The Legion of Boom.',
+  'den:2015_2019': 'The No Fly Zone.',
+  // The Philly Special, Super Bowl LII, the franchise's first title.
+  'phi:2015_2019': 'The Philly Special, and a first title at last.',
+  // First run in 2021, and never really stopped.
+  'phi:2020_2025': 'The Tush Push.',
+  // 10-7, the AFC North, and Super Bowl LVI after the 2021 season.
+  'cin:2020_2025': 'Worst to the Super Bowl in two years.',
+};
+
+/** The remembered line for a franchise-era, or empty when there is not one. */
+export function franchiseEraStory(franchiseId: string, era: string): string {
+  return FRANCHISE_ERA_STORY[`${franchiseId}:${era}`] ?? '';
+}
