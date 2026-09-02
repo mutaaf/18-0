@@ -56,6 +56,9 @@ module.exports = {
     plugins: [
       'expo-router',
       'expo-font',
+      // Required for the OAuth round trip: it registers the activity Android
+      // needs to hand the redirect back to the app instead of a browser tab.
+      'expo-web-browser',
       [
         'expo-splash-screen',
         {

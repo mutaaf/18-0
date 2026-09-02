@@ -25,6 +25,10 @@ supabase/.branches/
 !apps/mobile/assets/brand/*.png
 !docs/media/*.png
 !docs/media/*.jpg
+# The link preview card. It is served, not built, so a clone that does not have
+# it deploys a page whose og:image 404s — which renders as a broken frame rather
+# than falling back to no image at all.
+!apps/mobile/public/*.png
 
 # Local secrets, never committed
 .local/

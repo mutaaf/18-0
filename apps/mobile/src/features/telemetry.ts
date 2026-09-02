@@ -37,6 +37,7 @@ export type EventName =
   | 'ranked_started'
   | 'ranked_downgraded'
   | 'score_disagreement'
+  | 'signed_in'
   | 'handle_claimed'
   | 'account_deleted';
 

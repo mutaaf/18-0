@@ -3,6 +3,14 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import * as Haptics from 'expo-haptics';
 import { track } from '@/features/telemetry';
 import {
+  linkedProviders,
+  providerLabel,
+  signInWith,
+  socialProviders,
+  socialSignInAvailable,
+  type SocialProvider,
+} from '@/services/auth';
+import {
   canRenameNow,
   claimHandle,
   deleteAccount,
@@ -30,11 +38,13 @@ export function AccountPanel() {
   const [note, setNote] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [linked, setLinked] = useState<readonly SocialProvider[]>([]);
 
   const refresh = useCallback(async () => {
     if (!isBackendConfigured) return;
     setLoading(true);
     setMe(await identity().catch(() => null));
+    if (socialSignInAvailable) setLinked(await linkedProviders().catch(() => []));
     setLoading(false);
   }, []);
 
@@ -62,6 +72,24 @@ export function AccountPanel() {
       await refresh();
     } else {
       setNote(result.error ?? 'That did not work.');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+    }
+  };
+
+  const connect = async (provider: SocialProvider) => {
+    setBusy(true);
+    setNote(null);
+    const result = await signInWith(provider);
+    setBusy(false);
+    // Closing the sheet is a decision, not a failure. Saying "sign-in did not
+    // complete" to somebody who just changed their mind is noise.
+    if (result.cancelled) return;
+    if (result.ok) {
+      track('signed_in', { provider });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      await refresh();
+    } else {
+      setNote(result.error ?? 'Could not sign in.');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
     }
   };
@@ -191,6 +219,45 @@ export function AccountPanel() {
         </Text>
       ) : null}
 
+      {me && socialSignInAvailable ? (
+        <View style={styles.signIn}>
+          {linked.length > 0 ? (
+            <Text style={styles.copy}>
+              Signed in with {linked.map(providerLabel).join(' and ')}. Your name and your
+              seasons come back on any device.
+            </Text>
+          ) : (
+            <>
+              <Text style={styles.copy}>
+                Your seasons live on this device and this device only. Sign in and they
+                follow you — nothing you have already played is lost.
+              </Text>
+              <View style={styles.providerRow}>
+                {socialProviders.map((provider) => (
+                  <Pressable
+                    key={provider}
+                    onPress={() => connect(provider)}
+                    disabled={busy}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Continue with ${providerLabel(provider)}`}
+                    style={({ hovered, pressed }: PressState) => [
+                      styles.provider,
+                      hovered && styles.providerHover,
+                      pressed && { opacity: 0.85 },
+                      busy && { opacity: 0.6 },
+                    ]}
+                  >
+                    <Text style={styles.providerLabel}>
+                      Continue with {providerLabel(provider)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </>
+          )}
+        </View>
+      ) : null}
+
       {me ? (
         <View style={styles.dangerZone}>
           {confirmingDelete ? (
@@ -298,6 +365,26 @@ const styles = StyleSheet.create({
   note: { fontFamily: font.bodyRegular, fontSize: 12, color: color.gold },
   subtleLink: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textDim, textDecorationLine: 'underline' },
   cooldown: { fontFamily: font.bodyRegular, fontSize: 12, lineHeight: 18, color: color.textFaint },
+
+  signIn: { marginTop: space.sm, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: color.line, gap: space.sm },
+  providerRow: { gap: space.sm },
+  provider: {
+    height: 46,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: color.line,
+    backgroundColor: '#0F1420',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  providerHover: { borderColor: color.gold },
+  providerLabel: {
+    fontFamily: font.label,
+    fontSize: 14,
+    letterSpacing: tracking.wide,
+    color: color.text,
+    textTransform: 'uppercase',
+  },
 
   dangerZone: { marginTop: space.sm, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: color.line, gap: space.sm },
   dangerLink: { alignSelf: 'flex-start', paddingVertical: 4 },
