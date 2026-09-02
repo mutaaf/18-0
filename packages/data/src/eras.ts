@@ -1,4 +1,5 @@
 import type { EraKey } from '@18-0/domain';
+import { FRANCHISE_ERA_RECORD } from './franchise-era-records.js';
 
 /**
  * The era table.
@@ -158,7 +159,15 @@ export const FRANCHISE_ERA_STORY: Readonly<Record<string, string>> = {
   'cin:2020_2025': 'Worst to the Super Bowl in two years.',
 };
 
-/** The remembered line for a franchise-era, or empty when there is not one. */
+/**
+ * The line for a franchise-era.
+ *
+ * The hand-written table wins where it has an entry, because "The Legion of
+ * Boom" beats a win-loss record. Everything else falls through to the computed
+ * one, so all 157 have something true to say and nothing has to fall back to
+ * naming players.
+ */
 export function franchiseEraStory(franchiseId: string, era: string): string {
-  return FRANCHISE_ERA_STORY[`${franchiseId}:${era}`] ?? '';
+  const key = `${franchiseId}:${era}`;
+  return FRANCHISE_ERA_STORY[key] ?? FRANCHISE_ERA_RECORD[key] ?? '';
 }
