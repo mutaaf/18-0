@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import type { RosterSlot } from '@18-0/domain';
-import { ensureSession, isBackendConfigured, supabase } from '@/services/supabase';
+import { currentUser, ensureSession, isBackendConfigured, supabase } from '@/services/supabase';
 
 /**
  * A game played against the server.
@@ -83,13 +83,13 @@ export async function beginRanked(): Promise<RankedResult<{ sessionId: string; i
   if (!isBackendConfigured || !supabase) return offline('Ranked play is not configured.');
   if (!(await ensureSession())) return offline('Could not start a session.');
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return offline('Could not start a session.');
+  const me = await currentUser();
+  if (!me) return offline('Could not start a session.');
 
   const idempotencyKey = crypto.randomUUID();
   const { data, error } = await supabase
     .from('game_sessions')
-    .insert({ user_id: auth.user.id, status: 'in_progress', idempotency_key: idempotencyKey })
+    .insert({ user_id: me.id, status: 'in_progress', idempotency_key: idempotencyKey })
     .select('id')
     .single();
   if (error || !data) return offline('Could not open a ranked game.');

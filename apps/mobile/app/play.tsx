@@ -161,9 +161,7 @@ export default function Play() {
       // choose its own franchise-era could choose the seven holding the best
       // cards in the dataset.
       if (game.ranked && game.serverSessionId) {
-        setAwaitingServer(true);
         const issued = await rankedSpin(game.serverSessionId, assist);
-        setAwaitingServer(false);
         if (issued.ok) {
           const spun = {
             sequence: issued.value.sequence,
@@ -203,48 +201,55 @@ export default function Play() {
       return result;
     };
 
-    // The result is decided first and the reel travels toward it, rather than
-    // the animation deciding the outcome. Cheaper, and it means Reduce Motion
-    // shows the same spin without the theatre.
-    const result = await land();
-    if (!result || reduceMotion) return;
-
     const decoys = Array.from({ length: REEL_LENGTH }, () => {
       const combo = DATASET.combos[Math.floor(Math.random() * DATASET.combos.length)]!;
       return combo;
     });
-    setReel({
-      teams: [...decoys.map((c) => franchise(c.franchiseId).abbr), franchise(result.franchiseId).abbr],
-      eras: [...decoys.map((c) => eraDef(c.era).label), eraDef(result.era).label],
-    });
-    setSpinning(true);
-    if (reelTimer.current) clearTimeout(reelTimer.current);
-    reelTimer.current = setTimeout(() => {
+
+    /**
+     * The reel starts before the answer exists.
+     *
+     * The placeholder is a question mark rather than an ellipsis because the
+     * display face has no glyph for one and rendered three tofu boxes.
+     *
+     * A ranked spin has to ask the server, and waiting for it before starting
+     * the theatre put a spinner on the button for every spin — a stall you
+     * could feel. The reel is over a second of travel that has to happen
+     * anyway, so it starts immediately on decoys with a placeholder in the
+     * final slot, and that slot is filled in when the answer lands. The list
+     * keeps its length, so the animation is never restarted and never
+     * stutters: the wheel was always going to end up somewhere, and now it
+     * finds out on the way.
+     */
+    const showReel = (landed: { franchiseId: string; era: EraKey } | null) =>
+      setReel({
+        teams: [...decoys.map((c) => franchise(c.franchiseId).abbr), landed ? franchise(landed.franchiseId).abbr : '?'],
+        eras: [...decoys.map((c) => eraDef(c.era).label), landed ? eraDef(landed.era).label : '?'],
+      });
+
+    if (!reduceMotion) {
+      showReel(null);
+      setSpinning(true);
+      if (reelTimer.current) clearTimeout(reelTimer.current);
+      reelTimer.current = setTimeout(() => {
+        setSpinning(false);
+        setReel(null);
+      }, REEL_DURATION + 120);
+    }
+
+    const result = await land();
+    if (!result) {
+      // Nothing landed. Stop the theatre rather than leaving it turning.
+      if (reelTimer.current) clearTimeout(reelTimer.current);
       setSpinning(false);
       setReel(null);
-    }, REEL_DURATION + 120);
+      return;
+    }
+    if (!reduceMotion) showReel(result);
   }, [awaitingServer, complete, game, reduceMotion, spinning]);
 
   const assign = useCallback(
     async (card: BootCard, slot: RosterSlot) => {
-      // The server is asked first: if it will not record the pick, the pick did
-      // not happen, and the local roster must not drift away from the one that
-      // will be scored.
-      if (game.ranked && game.serverSessionId) {
-        setAwaitingServer(true);
-        const recorded = await rankedSelect(game.serverSessionId, slot, card.id);
-        setAwaitingServer(false);
-        if (!recorded.ok) {
-          if (recorded.kind === 'refused') {
-            setNotice(recorded.message);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-            return;
-          }
-          game.downgrade(recorded.message);
-          setNotice(`${recorded.message} This season will not be ranked.`);
-        }
-      }
-
       const outcome = game.select(card, slot);
       if (!outcome.ok) {
         track('selection_rejected', { slot, reason: outcome.message });
@@ -267,6 +272,31 @@ export default function Play() {
       setTargetSlot(null);
       setPositionFilter('ALL');
       setLastPick({ card, slot });
+
+      /**
+       * The pick lands instantly and the server is told behind it.
+       *
+       * Waiting for the round trip put a spinner between tapping a player and
+       * seeing them on the field, on every one of seven picks. The client and
+       * the server enforce the same rules from the same code, so a refusal
+       * here means something is genuinely wrong rather than merely
+       * disallowed — and in that case the pick is taken back off the field
+       * rather than left to disagree with the roster that gets scored.
+       */
+      if (game.ranked && game.serverSessionId) {
+        void rankedSelect(game.serverSessionId, slot, card.id).then((recorded) => {
+          if (recorded.ok) return;
+          if (recorded.kind === 'refused') {
+            game.removeSelection(slot);
+            setLastPick(null);
+            setNotice(recorded.message);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+            return;
+          }
+          game.downgrade(recorded.message);
+          setNotice(`${recorded.message} This season will not be ranked.`);
+        });
+      }
     },
     [game],
   );

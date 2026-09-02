@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { cached, invalidateIdentity } from '@/features/cache';
 
 /**
  * The optional server.
@@ -25,6 +26,22 @@ export const supabase: SupabaseClient | null = isBackendConfigured
       },
     })
   : null;
+
+/**
+ * The signed-in user, from the session already in memory.
+ *
+ * `auth.getUser()` asks the server who you are on every call, which is a
+ * network round trip to learn something the session token already says. The
+ * only thing that buys is revocation checking, and nothing here is a security
+ * decision — the server re-derives the caller from the token on every request
+ * that matters, and RLS does not trust this value at all.
+ */
+export async function currentUser(): Promise<{ id: string; anonymous: boolean } | null> {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user;
+  return user ? { id: user.id, anonymous: user.is_anonymous === true } : null;
+}
 
 export interface LeaderboardRow {
   readonly gameSessionId: string;
@@ -52,6 +69,23 @@ function since(period: LeaderboardPeriod): string | null {
 export async function fetchLeaderboard(
   period: LeaderboardPeriod,
   limit = 50,
+  onFresh?: (rows: LeaderboardRow[]) => void,
+): Promise<LeaderboardRow[]> {
+  if (!supabase) return [];
+  // A board that is thirty seconds out of date is a board. An empty panel
+  // while the network answers is not, and that is what every tab switch used
+  // to show.
+  const read = await cached<LeaderboardRow[]>(
+    `leaderboard:${period}:${limit}`,
+    () => loadLeaderboard(period, limit),
+    { ttl: 30_000, ...(onFresh ? { onFresh } : {}) },
+  );
+  return read.value ?? [];
+}
+
+async function loadLeaderboard(
+  period: LeaderboardPeriod,
+  limit: number,
 ): Promise<LeaderboardRow[]> {
   if (!supabase) return [];
   let query = supabase
@@ -94,8 +128,8 @@ export interface ChallengeRow {
 
 export async function fetchMyChallenges(): Promise<ChallengeRow[]> {
   if (!supabase) return [];
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return [];
+  const me = await currentUser();
+  if (!me) return [];
 
   // `creator_user_id` references public.profiles, so the embed hint is the
   // profiles constraint — hinting the auth.users one resolves to nothing and
@@ -103,7 +137,7 @@ export async function fetchMyChallenges(): Promise<ChallengeRow[]> {
   const { data, error } = await supabase
     .from('challenges')
     .select('id, share_token, status, created_at, creator_game_session_id, game_sessions!challenges_creator_game_session_id_fkey(final_rating, record_wins, record_losses), profiles!challenges_creator_user_id_fkey(handle)')
-    .or(`creator_user_id.eq.${auth.user.id},opponent_user_id.eq.${auth.user.id}`)
+    .or(`creator_user_id.eq.${me.id},opponent_user_id.eq.${me.id}`)
     .order('created_at', { ascending: false })
     .limit(50);
   if (error) throw new Error(error.message);
@@ -127,11 +161,11 @@ export async function fetchMyChallenges(): Promise<ChallengeRow[]> {
 
 export async function createChallenge(gameSessionId: string): Promise<ChallengeRow | null> {
   if (!supabase) return null;
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return null;
+  const me = await currentUser();
+  if (!me) return null;
   const { data, error } = await supabase
     .from('challenges')
-    .insert({ creator_user_id: auth.user.id, creator_game_session_id: gameSessionId })
+    .insert({ creator_user_id: me.id, creator_game_session_id: gameSessionId })
     .select('id, share_token, status, created_at')
     .single();
   if (error || !data) return null;
@@ -189,22 +223,29 @@ export interface Identity {
   readonly handleStatus: 'ok' | 'flagged' | 'hidden' | null;
 }
 
-export async function identity(): Promise<Identity | null> {
+export async function identity(onFresh?: (value: Identity | null) => void): Promise<Identity | null> {
   if (!supabase) return null;
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return null;
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('handle, handle_status')
-    .eq('id', auth.user.id)
-    .maybeSingle();
-  return {
-    userId: auth.user.id,
-    // Supabase marks a user anonymous with the `is_anonymous` claim.
-    anonymous: auth.user.is_anonymous === true,
-    handle: (profile?.handle as string | null) ?? null,
-    handleStatus: (profile?.handle_status as Identity['handleStatus']) ?? null,
-  };
+  const me = await currentUser();
+  if (!me) return null;
+
+  const read = await cached<Identity | null>(
+    `identity:${me.id}`,
+    async () => {
+      const { data: profile } = await supabase!
+        .from('profiles')
+        .select('handle, handle_status')
+        .eq('id', me.id)
+        .maybeSingle();
+      return {
+        userId: me.id,
+        anonymous: me.anonymous,
+        handle: (profile?.handle as string | null) ?? null,
+        handleStatus: (profile?.handle_status as Identity['handleStatus']) ?? null,
+      };
+    },
+    { ttl: 5 * 60_000, ...(onFresh ? { onFresh } : {}) },
+  );
+  return read.value;
 }
 
 /** What the database will accept, checked here so the error is a sentence. */
@@ -233,13 +274,13 @@ export async function claimHandle(handle: string): Promise<{ ok: boolean; error?
   if (problem) return { ok: false, error: problem };
   if (!(await ensureSession())) return { ok: false, error: 'could not start a session' };
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return { ok: false, error: 'unauthenticated' };
+  const me = await currentUser();
+  if (!me) return { ok: false, error: 'unauthenticated' };
 
   const { error } = await supabase
     .from('profiles')
     .upsert(
-      { id: auth.user.id, handle: handle.trim(), handle_set_at: new Date().toISOString() },
+      { id: me.id, handle: handle.trim(), handle_set_at: new Date().toISOString() },
       { onConflict: 'id' },
     );
   if (error) {
@@ -248,6 +289,7 @@ export async function claimHandle(handle: string): Promise<{ ok: boolean; error?
     const policy = explainHandleRejection(error.message);
     return { ok: false, error: policy ?? error.message };
   }
+  invalidateIdentity();
   return { ok: true };
 }
 
@@ -266,6 +308,7 @@ export async function deleteAccount(): Promise<{ ok: boolean; error?: string }> 
   const { error } = await supabase.functions.invoke('delete-account', { body: {} });
   if (error) return { ok: false, error: error.message };
   await supabase.auth.signOut().catch(() => {});
+  invalidateIdentity();
   return { ok: true };
 }
 
@@ -295,13 +338,13 @@ export async function reportHandle(
   if (!supabase) return { ok: false, error: 'backend_not_configured' };
   if (!(await ensureSession())) return { ok: false, error: 'Could not start a session.' };
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) return { ok: false, error: 'unauthenticated' };
-  if (auth.user.id === reportedUserId) return { ok: false, error: 'That is you.' };
+  const me = await currentUser();
+  if (!me) return { ok: false, error: 'unauthenticated' };
+  if (me.id === reportedUserId) return { ok: false, error: 'That is you.' };
 
   const { error } = await supabase.from('handle_reports').insert({
     reported_user_id: reportedUserId,
-    reporter_user_id: auth.user.id,
+    reporter_user_id: me.id,
     reported_handle: reportedHandle,
     reason,
   });
