@@ -240,7 +240,11 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
         </Text>
       ) : null}
 
-      {me && socialSignInAvailable ? (
+      {/* Not gated on having an account. Signing in is how a season reaches
+          the board at all now, and requiring a ranked game first meant the
+          card said "this device only" with nothing on screen to change it.
+          With no session to preserve, signInWith() simply creates one. */}
+      {socialSignInAvailable ? (
         <View style={styles.signIn}>
           {linked.length > 0 ? (
             <Text style={styles.copy}>
