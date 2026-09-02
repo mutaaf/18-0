@@ -230,6 +230,29 @@ const mine = (board ?? []).find((r) => r.game_session_id === game.sessionId);
 check('the completed game appears on the leaderboard', Boolean(mine),
   mine ? `${mine.handle} ${mine.record_wins}-${mine.record_losses} @ ${mine.final_rating}` : 'not listed');
 
+// One player, one row. The board used to keep a row per distinct roster, so a
+// single good afternoon could take the whole top ten and push everyone else off
+// the first screen.
+const second = await playRankedGame(alice);
+const secondResult = await call('complete-game', alice.token, {
+  gameSessionId: second.sessionId, idempotencyKey: second.idempotencyKey,
+});
+const { data: afterTwo } = await alice.sb
+  .from('leaderboard_rating')
+  .select('final_rating').eq('user_id', alice.user.id);
+check('a second season does not take a second slot',
+  (afterTwo ?? []).length === 1, `${(afterTwo ?? []).length} row(s) for one player`);
+
+// And the row it keeps is the better one, not the newer one. Both ratings come
+// from the server's own responses rather than from the board being tested.
+const bestPlayed = Math.max(
+  Number(completion.body.result.finalRating),
+  Number(secondResult.body?.result?.finalRating ?? 0),
+);
+const shownRating = Number(afterTwo?.[0]?.final_rating ?? 0);
+check('the row it keeps is their best', Math.abs(shownRating - bestPlayed) < 1e-3,
+  `board ${shownRating}, best played ${bestPlayed.toFixed(4)}`);
+
 // ---------------------------------------------------------------------------
 console.log('\nFORGERY ATTEMPTS (all must be refused)');
 

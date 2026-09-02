@@ -1,260 +1,40 @@
 <!DOCTYPE html>
 <!--
-  Served at https://mutaaf.github.io/18-0/privacy.html — a stable URL, because
-  both app stores ask for one that resolves before review and keeps resolving
-  after. It is a plain file in public/ rather than a route in the app so that a
-  reviewer, a scraper, or somebody with JavaScript off can still read it.
+  The policy moved to the publisher's own domain.
 
-  Everything below is a claim about what the code does. If the code changes,
-  this is wrong until it is changed too.
+  This stub stays because the old address may already be linked or indexed, and
+  a privacy policy that 404s is worse than one that takes an extra hop. The
+  meta refresh does the work with no JavaScript, so it also redirects a store
+  reviewer's crawler; the link is there for anything that ignores it.
 -->
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Privacy — 18-0</title>
-    <meta name="description" content="What 18-0 collects, why, and how to remove it." />
-    <meta name="theme-color" content="#06080F" />
-    <meta name="robots" content="index, follow" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Montserrat:wght@400;600&display=swap"
-      rel="stylesheet"
-    />
+    <title>Privacy | 18-0</title>
+    <meta http-equiv="refresh" content="0; url=https://digitalcraftai.com/privacy" />
+    <link rel="canonical" href="https://digitalcraftai.com/privacy" />
+    <meta name="robots" content="noindex, follow" />
     <style>
-      :root {
-        color-scheme: dark;
-        --void: #06080f;
-        --panel: #0a0e17;
-        --line: #1c2434;
-        --text: #f2f5fa;
-        --dim: #9aa4b8;
-        --faint: #7c8699;
-        --gold: #ffb400;
-        --red: #d50a0a;
-      }
-      * { box-sizing: border-box; }
+      :root { color-scheme: dark; }
       body {
         margin: 0;
-        background: var(--void);
-        color: var(--text);
-        font-family: Montserrat, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        font-size: 16px;
-        line-height: 1.7;
-        -webkit-font-smoothing: antialiased;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #06080f;
+        color: #9aa4b8;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        text-align: center;
+        padding: 24px;
       }
-      .bar { height: 4px; background: var(--red); }
-      main { max-width: 720px; margin: 0 auto; padding: 56px 24px 96px; }
-      .eyebrow {
-        font-family: Rajdhani, sans-serif;
-        font-weight: 600;
-        font-size: 13px;
-        letter-spacing: 0.22em;
-        text-transform: uppercase;
-        color: var(--gold);
-        margin: 0 0 8px;
-      }
-      h1 {
-        font-family: Rajdhani, sans-serif;
-        font-weight: 700;
-        font-size: clamp(38px, 8vw, 58px);
-        line-height: 1;
-        margin: 0 0 12px;
-        letter-spacing: -0.01em;
-      }
-      .updated { color: var(--faint); font-size: 14px; margin: 0 0 44px; }
-      h2 {
-        font-family: Rajdhani, sans-serif;
-        font-weight: 700;
-        font-size: 26px;
-        letter-spacing: 0.01em;
-        margin: 44px 0 10px;
-        padding-top: 24px;
-        border-top: 1px solid var(--line);
-      }
-      p { margin: 0 0 16px; color: var(--dim); }
-      strong { color: var(--text); font-weight: 600; }
-      ul { margin: 0 0 16px; padding-left: 20px; color: var(--dim); }
-      li { margin-bottom: 10px; }
-      li::marker { color: var(--gold); }
-      .lede { color: var(--text); font-size: 18px; }
-      .panel {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 20px 24px;
-        margin: 0 0 16px;
-      }
-      .panel p:last-child { margin-bottom: 0; }
-      a { color: var(--gold); }
-      footer {
-        margin-top: 56px;
-        padding-top: 24px;
-        border-top: 1px solid var(--line);
-        color: var(--faint);
-        font-size: 14px;
-      }
-      code {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 0.9em;
-        color: var(--text);
-        background: #121826;
-        padding: 1px 6px;
-        border-radius: 4px;
-      }
+      a { color: #ffb400; }
     </style>
   </head>
   <body>
-    <div class="bar"></div>
-    <main>
-      <p class="eyebrow">18-0</p>
-      <h1>Privacy</h1>
-      <p class="updated">Last updated 2 September 2026</p>
-
-      <p class="lede">
-        18-0 is a football game. It does not want your identity, and it is built so that
-        it does not need one.
-      </p>
-      <p>
-        There are no ads, no advertising identifiers, no third-party analytics, no
-        tracking across other apps or websites, and nothing is sold or shared with data
-        brokers. This page describes everything the game actually stores.
-      </p>
-
-      <h2>Playing without an account</h2>
-      <p>
-        You can play without signing in or giving us anything. Casual games are held on
-        your device and never sent anywhere.
-      </p>
-
-      <h2>What is stored when you play ranked</h2>
-      <p>
-        Ranked play puts a score on a shared leaderboard, so it needs something to
-        attach that score to. The game creates an <strong>anonymous account</strong>
-        automatically: a random identifier, with no email address, no password, and no
-        name attached to it unless you choose one.
-      </p>
-      <p>Stored on the server:</p>
-      <ul>
-        <li>
-          <strong>An account identifier.</strong> A random value. It is not derived from
-          your device, your phone number, or anything about you.
-        </li>
-        <li>
-          <strong>A display name, if you set one.</strong> You choose it, it is visible
-          to everyone on the leaderboard, and it can be changed once a month. Until you
-          set one you are given a generated placeholder.
-        </li>
-        <li>
-          <strong>Your ranked games.</strong> The roster you built, the rating and record
-          it earned, and when it was played.
-        </li>
-        <li>
-          <strong>Reports you file</strong> about another player's display name, so the
-          same name is not reported twice by the same person.
-        </li>
-        <li>
-          <strong>A record of server requests.</strong> Each request the game makes to
-          the server is logged with a request identifier, the account that made it, what
-          was asked for, whether it was allowed or refused, how long it took, and which
-          kind of client sent it. This is how abuse and forged scores are detected, and
-          how a disputed leaderboard entry can be checked. It contains no message
-          content and nothing about you beyond the account identifier.
-        </li>
-      </ul>
-
-      <h2>What is never collected</h2>
-      <ul>
-        <li>Email addresses and passwords, unless you sign in with one deliberately.</li>
-        <li>Contacts, photos, microphone, camera, or health data.</li>
-        <li>Precise or coarse location.</li>
-        <li>Advertising identifiers (IDFA, AAID) — no ad network is present.</li>
-        <li>Behaviour on other apps or websites.</li>
-      </ul>
-      <div class="panel">
-        <p>
-          <strong>Gameplay statistics stay on your device.</strong> The game keeps a
-          local record of how a session went — spins taken, time spent, which positions
-          stall people — so the game can be tuned. It is held in memory on the device and
-          is not transmitted anywhere. There is no analytics service connected to this
-          app.
-        </p>
-      </div>
-
-      <h2>Where it is kept</h2>
-      <p>
-        On <a href="https://supabase.com/privacy" rel="noopener">Supabase</a>, in a
-        database hosted in <strong>Northern California, United States</strong>. If you
-        are outside the United States, playing ranked means that data is stored there.
-      </p>
-      <p>
-        The web version is served by <strong>GitHub Pages</strong>, which receives the
-        ordinary request information any web server does, including your IP address.
-        That is GitHub's handling, described in their
-        <a href="https://docs.github.com/site-policy/privacy-policies/github-privacy-statement" rel="noopener">privacy statement</a>.
-      </p>
-
-      <h2>Deleting it</h2>
-      <p>
-        <strong>Delete my account</strong> is in the game, on the leaderboard screen. It
-        does not require contacting anyone. It permanently removes your account, your
-        display name, and every ranked game attached to it. Your leaderboard entries
-        disappear with them.
-      </p>
-      <div class="panel">
-        <p>
-          One thing survives, and it is worth being plain about. The record of server
-          requests described above is <strong>append-only</strong> — nothing, including
-          the operators of this game, can edit or delete a row once it is written. That
-          is deliberate: a log that could be quietly rewritten could not be used to
-          settle a dispute about a score.
-        </p>
-        <p>
-          What remains in it is the random account identifier and what that account
-          asked the server to do. After deletion that identifier no longer corresponds
-          to any account, any name, or any game. It is retained because an integrity
-          record that can be erased by the person it records is not an integrity record.
-        </p>
-      </div>
-
-      <h2>Children</h2>
-      <p>
-        18-0 is not directed at children under 13 and does not knowingly collect anything
-        from them. There is no way for one player to send another a message, and the only
-        thing a player can publish is a display name, which is filtered on entry and can
-        be reported by anyone.
-      </p>
-
-      <h2>Your rights</h2>
-      <p>
-        Depending on where you live, you may have the right to access, correct, or delete
-        what is held about you, and to object to its processing. Deletion is built into
-        the game and is immediate. For anything else, use the contact address below.
-      </p>
-      <p>
-        Because accounts are anonymous by design, we usually cannot connect a request to
-        an account without the account identifier — which you can find in the game.
-        Asking for it is not an attempt to collect more about you; it is the only link
-        that exists.
-      </p>
-
-      <h2>Changes</h2>
-      <p>
-        If this changes, the date at the top changes with it, and the history of this
-        page is public in the project's repository.
-      </p>
-
-      <h2>Contact</h2>
-      <p>
-        <!-- REQUIRED BEFORE STORE SUBMISSION: both Apple and Google reject a policy
-             whose contact route does not work. Replace with a real, monitored address. -->
-        <strong>[contact address — to be filled in before submission]</strong>
-      </p>
-
-      <footer>
-        <a href="./">← Back to the game</a>
-      </footer>
-    </main>
+    <p>
+      The privacy policy for 18-0 now lives at<br />
+      <a href="https://digitalcraftai.com/privacy">digitalcraftai.com/privacy</a>
+    </p>
   </body>
 </html>

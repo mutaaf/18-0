@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
-import { APP_URL } from '@/features/links';
+import { PRIVACY_URL } from '@/features/links';
 import { track } from '@/features/telemetry';
 import {
   linkedProviders,
@@ -305,7 +305,7 @@ export function AccountPanel() {
           the page that says what leaving your name on the board actually
           costs, so it belongs next to the thing that asks for it. */}
       <Pressable
-        onPress={() => void Linking.openURL(`${APP_URL}/privacy.html`)}
+        onPress={() => void Linking.openURL(PRIVACY_URL)}
         accessibilityRole="link"
         accessibilityLabel="Read the privacy policy"
         style={styles.dangerLink}
