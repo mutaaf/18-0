@@ -2,7 +2,7 @@ import { forwardRef, type ComponentProps } from 'react';
 import { StyleSheet, Text as RNText, View } from 'react-native';
 import Svg, { Defs, Line, LinearGradient, Rect, Stop } from 'react-native-svg';
 import type { GameResult, RosterSlot } from '@18-0/domain';
-import { APP_URL } from '@/features/share';
+import { APP_URL_LABEL } from '@/features/share';
 import { color, font, positionColor, radius, space, tabular, tierColor, tracking } from '@/theme';
 
 /**
@@ -111,7 +111,7 @@ export const ShareCard = forwardRef<View, {
 });
 
 /** Read as a URL without the scheme noise, the way a broadcast lower-third would. */
-const PLAY_AT = `PLAY AT ${APP_URL.replace(/^https?:\/\//, '').replace(/\/$/, '').toUpperCase()}`;
+const PLAY_AT = `PLAY AT ${APP_URL_LABEL.toUpperCase()}`;
 
 export const SHARE_CARD_SIZE = { width: 540, height: 675 };
 

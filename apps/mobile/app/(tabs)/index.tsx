@@ -7,6 +7,7 @@ import { ROSTER_SLOTS } from '@18-0/domain';
 import { DATASET } from '@18-0/data';
 import { Brand } from '@/components/Brand';
 import { Crown } from '@/components/Crown';
+import { Hall } from '@/components/Hall';
 import { Screen } from '@/components/Screen';
 import { LeaderboardStrip } from '@/components/LeaderboardStrip';
 import { track } from '@/features/telemetry';
@@ -74,7 +75,23 @@ export default function Home() {
           Every spin hands you one franchise and one era. Take a player, fill a slot, and live with
           it. Seven picks decide your season — no simulation, no luck after the whistle.
         </Text>
+        <View style={styles.proof}>
+          <Text style={styles.proofValue}>
+            {DATASET.cards.length.toLocaleString()}
+            <Text style={styles.proofLabel}> rated seasons</Text>
+          </Text>
+          <View style={styles.proofDot} />
+          <Text style={styles.proofValue}>
+            {DATASET.combos.length}
+            <Text style={styles.proofLabel}> franchise-eras</Text>
+          </Text>
+          <View style={styles.proofDot} />
+          <Text style={styles.proofValue}>
+            {DATASET.coverage.firstSeason}–{DATASET.coverage.lastSeason}
+          </Text>
+        </View>
       </Reveal>
+
 
       {inProgress ? (
         <Reveal delay={80} style={styles.resume}>
@@ -177,11 +194,7 @@ export default function Home() {
 
       <Reveal delay={300} style={styles.footer}>
         <Text style={styles.footerLabel}>Bundled history</Text>
-        <Text style={styles.footerValue}>
-          {DATASET.coverage.firstSeason}–{DATASET.coverage.lastSeason} ·{' '}
-          {DATASET.cards.length.toLocaleString()} rated seasons · {DATASET.combos.length}{' '}
-          franchise-era combinations
-        </Text>
+        <Text style={styles.footerValue}>Plays offline. Scores locally. Deterministic.</Text>
         <Text style={styles.footerNote}>
           Every rating is computed against its own era and stored on this device. No account, no
           connection required.
@@ -191,17 +204,66 @@ export default function Home() {
   );
 
   return (
-    <Screen maxWidth={layout.wide ? 780 : undefined}>
+    <Screen maxWidth={layout.wide ? layout.maxWidth : undefined}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {layout.wide ? null : (
           <View style={styles.header}>
             <Brand size={36} subtitle="Est. 2026" />
           </View>
         )}
-        {hero}
-        {aside}
+        {/* A desktop window gets both halves side by side. Stacked, the landing
+            was a phone-width column in the middle of a very large dark screen —
+            which is the first thing anyone sees of this game. */}
+        {layout.roomy ? (
+          <>
+            <View style={styles.split}>
+              <View style={styles.splitMain}>{hero}</View>
+              <View style={styles.splitSide}>{aside}</View>
+            </View>
+            <Reveal delay={110}>
+              <Hall />
+            </Reveal>
+          </>
+        ) : (
+          <>
+            {hero}
+            <Reveal delay={110}>
+              <Hall />
+            </Reveal>
+            {aside}
+          </>
+        )}
+
+        <Reveal delay={160} style={[styles.steps, layout.wide && styles.stepsWide]}>
+          <Step
+            index="01"
+            title="Spin"
+            copy="One franchise, one era. You do not choose it and you cannot reroll it."
+          />
+          <Step
+            index="02"
+            title="Take one"
+            copy="Exactly one player from that spin. The rest of that roster is gone forever."
+          />
+          <Step
+            index="03"
+            title="Live with it"
+            copy="Seven picks, then a rating and a record. Same roster, same season, every time."
+          />
+        </Reveal>
       </ScrollView>
     </Screen>
+  );
+}
+
+/** The loop in three beats, for anyone who has not played it yet. */
+function Step({ index, title, copy }: { index: string; title: string; copy: string }) {
+  return (
+    <View style={styles.step}>
+      <Text style={styles.stepIndex}>{index}</Text>
+      <Text style={styles.stepTitle}>{title}</Text>
+      <Text style={styles.stepCopy}>{copy}</Text>
+    </View>
   );
 }
 
@@ -257,6 +319,36 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: 140, gap: space.xxl },
   header: { paddingBottom: space.sm },
   split: { flexDirection: 'row', gap: space.xxl, alignItems: 'flex-start', width: '100%' },
+  splitMain: { flex: 1.45, minWidth: 0 },
+  splitSide: { flex: 1, minWidth: 0, maxWidth: 440 },
+
+  steps: { gap: space.md },
+  stepsWide: { flexDirection: 'row' },
+  step: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+    padding: space.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: color.line,
+    backgroundColor: '#0A0E1799',
+  },
+  stepIndex: {
+    fontFamily: font.display,
+    fontSize: 13,
+    color: color.red,
+    letterSpacing: tracking.wide,
+    ...tabular,
+  },
+  stepTitle: { fontFamily: font.heading, fontSize: 21, color: color.text, includeFontPadding: false },
+  stepCopy: { fontFamily: font.bodyRegular, fontSize: 13, lineHeight: 19, color: color.textFaint },
+
+  proof: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space.sm, marginTop: space.md },
+  proofValue: { fontFamily: font.bodyBold, fontSize: 13, color: color.silver, ...tabular },
+  proofLabel: { fontFamily: font.bodyRegular, color: color.textFaint },
+  proofDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: color.line },
+
   heroColumn: { gap: space.xl, width: '100%' },
   aside: { gap: space.lg, width: '100%' },
 

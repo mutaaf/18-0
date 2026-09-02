@@ -13,12 +13,39 @@ import type { ShareRosterRow } from '@/components/ShareCard';
  * exported image itself. A share that lands somewhere with no way back to the
  * game is just a screenshot.
  */
-export const APP_URL = 'https://mutaaf.github.io/18-0/';
+export const APP_URL = 'https://mutaaf.github.io/18-0';
 
-/** The same link with the roster in it, so a share can be opened as a rematch. */
-export function challengeUrl(roster: readonly ShareRosterRow[]): string {
-  const seed = roster.map((r) => `${r.abbr}${String(r.year).slice(2)}`).join('-');
-  return `${APP_URL}?vs=${encodeURIComponent(seed)}`;
+/** How the link reads when it is set as type rather than followed. */
+export const APP_URL_LABEL = APP_URL.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+
+/**
+ * Where a share points.
+ *
+ * It used to append `?vs=BAL06-KC02-…`, which nothing on the other end reads —
+ * a parameter that looks like a rematch link and is really just noise on the
+ * end of a URL. Every share goes to the canonical page until the server can
+ * actually resolve a roster from a token.
+ */
+export function challengeUrl(_roster: readonly ShareRosterRow[]): string {
+  return APP_URL;
+}
+
+/**
+ * A filename someone can find again in their downloads.
+ *
+ * `18-0-18-0.png` was the old output: the app's name and the record, with
+ * nothing to say which is which and nothing about the season itself.
+ */
+export function shareFileName(result: GameResult): string {
+  const slug = (value: string) =>
+    value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+  const ending = slug(result.ending.label);
+  return `18-0-season-${result.record.wins}-${result.record.losses}${ending ? `-${ending}` : ''}.png`;
 }
 
 /** The plain-text share, and the fallback when an image cannot be produced. */
@@ -91,7 +118,7 @@ async function shareOnWeb(
   url: string,
 ): Promise<'image' | 'text'> {
   const dataUri = await captureRef(cardRef, { format: 'png', quality: 1, result: 'data-uri' });
-  const name = `18-0-${result.record.wins}-${result.record.losses}.png`;
+  const name = shareFileName(result);
 
   const nav = globalThis.navigator as
     | (Navigator & { canShare?: (data: unknown) => boolean; share?: (data: unknown) => Promise<void> })
