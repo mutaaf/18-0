@@ -8,6 +8,7 @@
  * rebuilding 2,994 ratings to pick up next year's fixtures would be a very
  * long way round.
  */
+import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -115,7 +116,7 @@ function main(): void {
 
   const schedule = {
     version: '1.0.0',
-    generatedAt: new Date().toISOString(),
+    fingerprint: createHash('sha256').update(JSON.stringify(gamedays)).digest('hex'),
     source: 'nflverse-data (schedules/games.csv)',
     gamedays,
   };

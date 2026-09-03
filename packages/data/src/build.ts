@@ -30,6 +30,7 @@ import { ERA_TABLE, eraForYear } from './eras.js';
 import { loadLegacySeasons } from './legacy.js';
 import { loadHydratedSeasons } from './seasons.js';
 import { writeLedger } from './ledger.js';
+import { datasetFingerprint } from './fingerprint.js';
 import type { Dataset, DatasetCard, DatasetComponent, StatLine } from './schema.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -888,7 +889,8 @@ function main(): void {
     // 1.1.0 restored the 2003-2008 receivers that `recorded` was written for.
     version: '1.2.0',
     ratingModelVersion: '1.2.0',
-    generatedAt: new Date().toISOString(),
+    // Filled in below, once there is content to hash.
+    fingerprint: '',
     source:
       'nflverse-data (stats_player_reg, stats_team_week, schedules) 1999+, ' +
       'licensed season tables 1980-1998; regular season only',
@@ -908,6 +910,10 @@ function main(): void {
     cards: finalCards,
   };
 
+  // Canonical and sorted, so it depends on the data rather than on the order
+  // this function happened to build it in. See `fingerprint.ts`.
+  const stamped = { ...dataset, fingerprint: datasetFingerprint(dataset.eras, combos, finalCards) };
+
   const componentIndex: Record<string, { c: DatasetCard['components']; u: readonly string[] }> = {};
   for (const card of finalCards) {
     componentIndex[card.id] = { c: card.components, u: card.unavailable };
@@ -915,7 +921,7 @@ function main(): void {
   writeFileSync(OUT_COMPONENTS, JSON.stringify(componentIndex));
 
   const boot = {
-    ...dataset,
+    ...stamped,
     cards: finalCards.map(({ components, unavailable, ...rest }) => rest),
   };
   writeFileSync(OUT, JSON.stringify(boot));
@@ -923,7 +929,7 @@ function main(): void {
   // The public ledger is written from the same objects, in the same run. A
   // page that argues for these ratings has to be built by whatever produced
   // them, or it becomes a confident description of a dataset that moved on.
-  const ledger = writeLedger(dataset, finalCards, RAW);
+  const ledger = writeLedger(stamped, finalCards, RAW);
 
   const bytes = readFileSync(OUT).length;
   const componentBytes = readFileSync(OUT_COMPONENTS).length;

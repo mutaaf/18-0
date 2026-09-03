@@ -54,7 +54,8 @@ export interface Gameday {
 
 export interface Schedule {
   readonly version: string;
-  readonly generatedAt: string;
+  /** SHA-256 of the gamedays, for the same reason the dataset carries one. */
+  readonly fingerprint: string;
   readonly source: string;
   readonly gamedays: readonly Gameday[];
 }

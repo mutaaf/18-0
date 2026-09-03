@@ -136,7 +136,7 @@ export function writeLedger(
   }));
 
   const payload = {
-    generatedAt: dataset.generatedAt,
+    fingerprint: dataset.fingerprint,
     version: dataset.version,
     model: dataset.ratingModelVersion,
     coverage: dataset.coverage,

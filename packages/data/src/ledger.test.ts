@@ -3,6 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { DATASET } from './index.js';
+import { datasetFingerprint } from './fingerprint.js';
 
 /**
  * The ledger is a public page that argues these ratings are real, which makes
@@ -25,7 +26,7 @@ const payload = (() => {
   const match = page.match(/const D = (\{.*?\});\n/s);
   if (!match) throw new Error('ledger.html carries no payload');
   return JSON.parse(match[1]!) as {
-    version: string; model: string; combos: number;
+    fingerprint: string; version: string; model: string; combos: number;
     coverage: { firstSeason: number; lastSeason: number };
     eras: { k: string; p: boolean }[];
     cards: unknown[]; provenance: unknown[];
@@ -71,6 +72,11 @@ describe('the ledger agrees with the dataset it claims to describe', () => {
     expect(payload.combos).toBe(DATASET.combos.length);
   });
 
+  it('publishes the dataset\'s own fingerprint', () => {
+    expect(payload.fingerprint).toBe(DATASET.fingerprint);
+    expect(payload.fingerprint).toMatch(/^[0-9a-f]{64}$/);
+  });
+
   it('does not hardcode an era as live', () => {
     // The state chip is read from the era. A literal would make the proof page
     // the one place that hides an era still filling up.
@@ -100,5 +106,48 @@ describe('the ledger is reachable by URL and by nothing else', () => {
     const hrefs = [...page.matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
     const offsite = hrefs.filter((h) => !h.startsWith('https://fonts.'));
     expect(offsite).toEqual([]);
+  });
+});
+
+/**
+ * The fingerprint replaced a wall-clock stamp so that a build is reproducible:
+ * same inputs, same bytes, and a diff that means a rating actually moved. If it
+ * ever stops being derived from the content it is worse than the timestamp was,
+ * because it looks like a guarantee.
+ */
+describe('the fingerprint is derived from the cards, not stamped on', () => {
+  const live = () => DATASET.cards.map((c) => ({
+    id: c.id, position: c.position, franchiseId: c.franchiseId,
+    era: c.era, year: c.year, rating: c.rating,
+  }));
+
+  it('is what the shipped dataset carries', () => {
+    expect(datasetFingerprint(DATASET.eras, DATASET.combos, live())).toBe(DATASET.fingerprint);
+  });
+
+  it('is stable across calls', () => {
+    expect(datasetFingerprint(DATASET.eras, DATASET.combos, live()))
+      .toBe(datasetFingerprint(DATASET.eras, DATASET.combos, live()));
+  });
+
+  it('does not depend on the order cards arrive in', () => {
+    const shuffled = [...live()].reverse();
+    expect(datasetFingerprint(DATASET.eras, DATASET.combos, shuffled)).toBe(DATASET.fingerprint);
+  });
+
+  it('moves when a single rating moves', () => {
+    const nudged = live();
+    nudged[0] = { ...nudged[0]!, rating: nudged[0]!.rating + 0.01 };
+    expect(datasetFingerprint(DATASET.eras, DATASET.combos, nudged)).not.toBe(DATASET.fingerprint);
+  });
+
+  it('moves when a card disappears', () => {
+    expect(datasetFingerprint(DATASET.eras, DATASET.combos, live().slice(1)))
+      .not.toBe(DATASET.fingerprint);
+  });
+
+  it('is not a timestamp', () => {
+    expect(DATASET.fingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect((DATASET as unknown as { generatedAt?: string }).generatedAt).toBeUndefined();
   });
 });

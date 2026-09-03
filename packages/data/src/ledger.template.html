@@ -187,7 +187,7 @@
 
 <header class="top">
   <div class="wrap">
-    <p class="slug"><b>18-0</b> <span>Season ledger</span> <span id="stamp"></span></p>
+    <p class="slug"><b>18-0</b> <span>Season ledger</span> <span id="stamp"></span><span>sha256 <span id="fp" class="mono"></span></span></p>
     <h1>The season ledger</h1>
     <p class="stand">
       Every rated season, the file it was built from, and — for any card you click —
@@ -429,7 +429,12 @@ const nameOf = (c) => posOf(c[3]) === 'DEF'
   ? `${c[1]} ${D.franchises[c[2]].nm} Defense`
   : c[0];
 
-$('stamp').textContent = `dataset ${D.version} · model ${D.model} · ${D.coverage.firstSeason}–${D.coverage.lastSeason}`;
+$('stamp').textContent =
+  `dataset ${D.version} · model ${D.model} · ${D.coverage.firstSeason}–${D.coverage.lastSeason}`;
+// The digest of the cards this page describes. Published so a rebuild can be
+// checked against it: same inputs, same fingerprint, same page.
+$('fp').textContent = D.fingerprint.slice(0, 16);
+$('fp').title = D.fingerprint;
 const hydrated = D.provenance.reduce((a, p) => a + p.players, 0);
 $('kpis').innerHTML = [
   ['Rated cards', fmt(D.cards.length), 'one per player per franchise-era'],

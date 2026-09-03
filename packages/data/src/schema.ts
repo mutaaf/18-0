@@ -100,7 +100,16 @@ export interface DatasetCombo {
 export interface Dataset {
   readonly version: string;
   readonly ratingModelVersion: string;
-  readonly generatedAt: string;
+  /**
+   * SHA-256 of the dataset's own content -- eras, franchises, combos, cards.
+   *
+   * This used to be a wall-clock `generatedAt`, which nothing read and which
+   * made a 1.5 MB file differ on every build even when not one rating had
+   * moved. A digest is the same size, is worth more (the ledger publishes it,
+   * so a rebuild can be checked against the page), and makes the build
+   * reproducible: same inputs, same bytes.
+   */
+  readonly fingerprint: string;
   readonly source: string;
   readonly coverage: { readonly firstSeason: number; readonly lastSeason: number };
   readonly eras: readonly DatasetEra[];
