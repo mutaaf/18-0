@@ -15,7 +15,7 @@ for the two most recent subsystems.
 
 | | |
 |---|---|
-| Live site | <https://mutaaf.github.io/18-0/> (deploys from `main`) |
+| Live site | <https://18-0.co> (Vercel, deploys from `main`); mirror at <https://mutaaf.github.io/18-0/> |
 | Supabase | project `keqwdtnyotdovrtcswel`, credentials in `.local/` (gitignored) |
 | PostHog | US Cloud, project **402075** ("Default project"), token `phc_wwVMwmj7…` |
 | Flags | `gameday` (865091), `gameday_cta` (865098) |
