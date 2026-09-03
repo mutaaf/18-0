@@ -92,6 +92,13 @@ const CANDIDATES: Candidate[] = [
   { label: 'score 98.5 / 94 / 96', score: 98.5, universal: 94, qbDef: 96, eliteRating: 96, eliteCount: 4 },
   { label: 'score 98.5 / 93 / 97', score: 98.5, universal: 93, qbDef: 97, eliteRating: 97, eliteCount: 4 },
   { label: 'score 98.6 / 93 / 96 (5 elite)', score: 98.6, universal: 93, qbDef: 96, eliteRating: 96, eliteCount: 5 },
+  // Added when the 1980s and 1990s came in and every pool got deeper: the
+  // configs above straddle the published 1-in-6,000 without landing near it.
+  { label: 'score 98.75 / 94 / 96', score: 98.75, universal: 94, qbDef: 96, eliteRating: 96, eliteCount: 4 },
+  { label: 'score 98.9 / 94 / 96', score: 98.9, universal: 94, qbDef: 96, eliteRating: 96, eliteCount: 4 },
+  { label: 'score 99.0 / 94 / 96', score: 99.0, universal: 94, qbDef: 96, eliteRating: 96, eliteCount: 4 },
+  { label: 'score 98.75 / 94 / 96 (5 elite)', score: 98.75, universal: 94, qbDef: 96, eliteRating: 96, eliteCount: 5 },
+  { label: 'score 98.5 / 94 / 96 (5 elite)', score: 98.5, universal: 94, qbDef: 96, eliteRating: 96, eliteCount: 5 },
 ];
 
 const passes = (sample: Sample, c: Candidate): boolean => {

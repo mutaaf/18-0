@@ -252,40 +252,55 @@ const RECORD_BANDS: readonly RecordBand[] = [
   { minRating: 92.5, endingKey: 'CHAMPIONSHIP_CALIBER' },
   { minRating: 94.5, endingKey: 'DYNASTY' },
   { minRating: 96.5, endingKey: 'HEARTBREAK' },
-  { minRating: 98.5, endingKey: 'PERFECT' },
+  { minRating: 99, endingKey: 'PERFECT' },
 ];
 
 /**
  * Perfection gates (PRFAQ §21). Score alone is necessary, not sufficient.
  *
  * The values differ from the ones written in §21 (99.25 / 96 everywhere / 98 at
- * QB and DEF). Measured against the real 2000-2025 dataset those produced
- * **zero** 18-0 seasons in 600,000 simulated games: 138 rosters cleared the
- * score and not one could also field seven slots at 96+, because most
- * franchise-decades never produced an all-time-elite season at every position.
+ * QB and DEF). Measured against the real dataset those produced **zero** 18-0
+ * seasons in 600,000 simulated games: rosters cleared the score and not one
+ * could also field seven slots at 96+, because most franchise-eras never
+ * produced an all-time-elite season at every position.
  *
  * These floors were fitted instead of guessed (`pnpm --filter @18-0/data tune`)
- * and land 18-0 near 1 in 10,000 games against 17-1 at 1 in 50. They still read
- * cleanly against the §9 scale:
+ * and they still read cleanly against the §9 scale:
  *
- *   93 = First-Team All-Pro caliber  -> no slot is an obvious weakness
+ *   94 = First-Team All-Pro caliber  -> no slot is an obvious weakness
  *   96 = all-time elite              -> QB and defence must be all-time elite,
  *                                       and four positions in total
  *
- * Refitted again when the era table moved from three decades to five periods:
- * smaller franchise-era buckets offer fewer elite cards per spin, which made
- * the previous floors a 1-in-200,000 event. These land it at 1 in ~12,000.
+ * **Refitted three times, and the reason is always the same: the pool got
+ * deeper.** Three decades became five periods, which shrank each bucket and
+ * made 18-0 a 1-in-200,000 event. Then the rating model started falling back
+ * to the metric a season has rather than dropping the component, which took
+ * the dataset from 2,994 cards to 3,279 and 18-0 to 1 in 3,243. Then 1980-1998
+ * came in: 4,872 cards across 218 franchise-eras, and 1 in 1,690.
+ *
+ * A gate that drifts by a factor of four is a published claim that has quietly
+ * become false -- the README, the home screen and the stats screen all say 18-0
+ * lands about once every 6,000 games. So the calibration curve was refitted
+ * against the new dataset (`pnpm --filter @18-0/data analyze -- --write`),
+ * which put 17-1 back at 1 in 52 on its own, and these floors were tuned on top
+ * of it over 400,000 games:
+ *
+ *   18-0  1 in 5,797     (claimed: about 1 in 6,000)
+ *   17-1  1 in 51        (claimed: about 1 in 49)
+ *
+ * Anything that moves either number moves a sentence on the front page. Retune
+ * both together, or change the copy.
  */
 const PERFECTION: PerfectionConfig = {
-  minFinalRating: 98.5,
+  minFinalRating: 99,
   slotMinimums: { QB: 96, DEF: 96 },
-  universalSlotMinimum: 93,
+  universalSlotMinimum: 94,
   eliteCount: { minRating: 96, minCount: 4 },
   deniedEndingKey: 'HEARTBREAK',
 };
 
 export const SCORING_CONFIG_V1: ScoringConfig = {
-  version: '1.2.0',
+  version: '1.3.0',
   rosterWeights: ROSTER_WEIGHTS,
   weakLink: WEAK_LINK,
   eliteDepth: ELITE_DEPTH,
@@ -299,7 +314,7 @@ export const DEFAULT_SCORING_CONFIG = SCORING_CONFIG_V1;
 export const RATING_MODEL_VERSION = SCORING_CONFIG_V1.version;
 
 const REGISTRY: Readonly<Record<string, ScoringConfig>> = {
-  '1.2.0': SCORING_CONFIG_V1,
+  '1.3.0': SCORING_CONFIG_V1,
 };
 
 /** Historical results must be re-readable under the model that produced them. */

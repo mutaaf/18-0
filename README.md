@@ -117,17 +117,19 @@ no weakness anywhere:
 
 | Gate | Requirement |
 |---|---|
-| Score | ≥ 98.5 |
-| Every slot | ≥ 93 — First-Team All-Pro caliber |
+| Score | ≥ 99 |
+| Every slot | ≥ 94 — First-Team All-Pro caliber |
 | QB and defense | ≥ 96 — all-time elite |
 | At least four positions | ≥ 96 |
 
 Miss one and you get 17-1, with the blocker named:
 
-> **PERFECTION DENIED** — RB2 needed a 93.0 minimum for 18-0 eligibility.
+> **PERFECTION DENIED** — RB2 needed a 94.0 minimum for 18-0 eligibility.
 
-Measured against the real dataset: **18-0 lands about once in 6,000 games, 17-1
-about once in 49.**
+Measured against the real dataset over 400,000 games: **18-0 lands about once in
+6,000, 17-1 about once in 49.** Those two numbers are a promise the gates have to
+keep — every time the dataset grows, the curve is refitted and the floors are
+tuned again so they stay true.
 
 ---
 

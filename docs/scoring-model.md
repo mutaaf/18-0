@@ -1,4 +1,4 @@
-# Scoring model — v1.0.0
+# Scoring model — v1.3.0
 
 Everything here lives in `packages/domain`. It is pure: no clock, no
 randomness, no I/O. The client preview and the server-authoritative result run
@@ -43,7 +43,37 @@ them; regenerate, and bump the model version when you do.
 PRFAQ §20's table has gaps (`61–62.9`, then `63–64.9`). Bands are stored as
 inclusive floors and the highest floor at or below the rating wins, which
 closes the gaps deterministically and reproduces every boundary the spec calls
-out: `96.499 → 16-2`, `96.500 → 17-1`, `99.249 → 17-1`, `99.250 → 18-0`.
+out: `96.499 → 16-2`, `96.500 → 17-1`, `98.999 → 17-1`, `99.000 → 18-0`. The
+perfect band's floor and `perfection.minFinalRating` are deliberately the same
+number: a rating inside the 18-0 band that cannot clear the score gate would be
+an 18-0 that is always denied, which reads as a bug.
+
+## Retuning is not optional when the dataset grows
+
+The gates are fitted to a distribution, so every time the card pool changes they
+stop meaning what they meant. Between them, five eras becoming seven and the
+rating model's metric fallback took the dataset from 2,994 cards to 4,872 and
+18-0 from 1 in 12,000 to 1 in 1,690 — against a README, a home screen and a
+stats screen that all say *about once every 6,000 games*.
+
+The fix is both halves, in order:
+
+```bash
+pnpm --filter @18-0/data analyze -- --games=150000 --write   # refit the curve
+pnpm --filter @18-0/data tune -- --games=400000              # then pick floors
+pnpm --filter @18-0/domain regen:fixtures                    # move the fixtures
+```
+
+The curve is what governs 17-1 (a band boundary); the gates govern 18-0. Tuning
+only the gates leaves the near-miss twice as common as the copy claims.
+
+**The two harnesses disagree by about 1.4x, consistently.** On the shipped
+config over 400,000 games each, `tune` reports 18-0 at 1 in 5,797 and `analyze`
+at 1 in 8,333; they agree closely on 17-1 (1 in 51 against 1 in 50). The gap is
+systematic rather than noise -- it shows up at every gate setting -- and comes
+from the two harnesses drawing play differently. Neither is wrong; they bracket
+the answer. This is written down so the next person to notice does not spend an
+afternoon "fixing" a number that is behaving exactly as it always has.
 
 ## The gates are a narrative device, not the difficulty
 
@@ -52,7 +82,7 @@ what makes 18-0 rare: 3.6% of seven-spin draws can satisfy all seven gates,
 but only 0.26% can also clear 99.25. The gates' real job is the one PRFAQ §21
 describes — turning a near-miss into an explanation:
 
-> **PERFECTION DENIED** — RB2 needed a 96.0 minimum for 18-0 eligibility.
+> **PERFECTION DENIED** — RB2 needed a 94.0 minimum for 18-0 eligibility.
 
 ## Calibration knobs, in order of leverage
 
