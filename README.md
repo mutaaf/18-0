@@ -11,7 +11,7 @@ record — from 0-18 to 18-0.
 No possession simulation. No random losses. The same roster always earns the
 same record, so every choice is yours.
 
-### [&#9654;&nbsp; Play it now, in your browser](https://mutaaf.github.io/18-0/)
+### [&#9654;&nbsp; Play it now, in your browser](https://18-0.co)
 
 [![CI](https://github.com/mutaaf/18-0/actions/workflows/ci.yml/badge.svg)](https://github.com/mutaaf/18-0/actions/workflows/ci.yml)
 [![Deploy](https://github.com/mutaaf/18-0/actions/workflows/pages.yml/badge.svg)](https://github.com/mutaaf/18-0/actions/workflows/pages.yml)
@@ -150,9 +150,11 @@ tuned again so they stay true.
 
 **Browser**
 
-[mutaaf.github.io/18-0](https://mutaaf.github.io/18-0/)
+[18-0.co](https://18-0.co)
 
-Nothing to install. Deployed from `main` on every push.
+Nothing to install. Deployed from `main` on every push, to Vercel and to a
+GitHub Pages mirror at [mutaaf.github.io/18-0](https://mutaaf.github.io/18-0/)
+that names `18-0.co` as its canonical address.
 
 </td>
 <td width="33%" valign="top">
@@ -356,7 +358,7 @@ endorsed by, any league or club.
 
 <div align="center">
 <br>
-<a href="https://mutaaf.github.io/18-0/"><b>&#9654;&nbsp; Go chase it</b></a>
+<a href="https://18-0.co"><b>&#9654;&nbsp; Go chase it</b></a>
 <br><br>
 <sub>An honest 18-0 is roughly a 1-in-6,000 season. Good luck.</sub>
 </div>

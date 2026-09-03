@@ -17,8 +17,8 @@ handful of things that live in a console only a human can sign into.
 | URL scheme | `eighteenzero` |
 | Publisher | DigitalCraft AI |
 | Support / privacy contact | mutaaf@digitalcraftai.com |
-| Privacy policy | https://digitalcraftai.com/privacy |
-| Marketing URL | https://mutaaf.github.io/18-0 |
+| Privacy policy | https://18-0.co/privacy |
+| Marketing URL | https://18-0.co |
 
 The bundle identifier was `com.eighteenzero.app` until 3 September 2026. That
 value was never registered under this team and would have failed at submission.

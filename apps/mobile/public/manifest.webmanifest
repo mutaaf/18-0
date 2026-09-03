@@ -1,15 +1,18 @@
 {
-  "id": "/18-0/",
   "name": "18-0 — Build the perfect roster",
   "short_name": "18-0",
   "description": "Seven spins, sixty years of pro football, one shot at an undefeated season. Build a roster from the greatest seasons ever played and see how far it gets.",
-  "start_url": "/18-0/",
-  "scope": "/18-0/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#06080F",
   "theme_color": "#06080F",
-  "categories": ["games", "sports", "entertainment"],
+  "categories": [
+    "games",
+    "sports",
+    "entertainment"
+  ],
   "lang": "en",
   "dir": "ltr",
   "icons": [

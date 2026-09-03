@@ -80,6 +80,7 @@ Full pattern, and why PostHog rather than LaunchDarkly:
 | [`docs/gameday.md`](docs/gameday.md) | The gameday mode, and the tiers of what a live event may change |
 | [`docs/feature-flags.md`](docs/feature-flags.md) | Flags and experiments |
 | [`docs/RUNNING.md`](docs/RUNNING.md) | Running it, deploying it, regenerating the model |
+| [`docs/hosting.md`](docs/hosting.md) | The domain, the two deployments, and everything outside git that holds the address |
 | `PRFAQ.md` | The original specification. Section numbers are cited throughout the code |
 
 ## Before saying it works
