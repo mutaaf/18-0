@@ -235,7 +235,7 @@ set -a; . .local/hosted.env; set +a
 node scripts/verify/e2e.mjs                         # every check must pass
 ```
 
-Anonymous sign-ins are enabled and `site_url` points at the live demo. Both are
+Anonymous sign-ins are enabled and `site_url` points at `https://18-0.co`. Both are
 project settings rather than repository state, so they do not come back from a
 `supabase db push` — if the project is ever recreated, set them again:
 
@@ -243,7 +243,7 @@ project settings rather than repository state, so they do not come back from a
 curl -X PATCH "https://api.supabase.com/v1/projects/<ref>/config/auth" \
   -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
   -H 'content-type: application/json' \
-  -d '{"external_anonymous_users_enabled": true, "site_url": "https://mutaaf.github.io/18-0"}'
+  -d '{"external_anonymous_users_enabled": true, "site_url": "https://18-0.co"}'
 ```
 
 ### Watching it

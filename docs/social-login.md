@@ -56,8 +56,11 @@ build stays on the old build.
 - **Manual linking is on.** Without it `linkIdentity` fails and the error names
   an internal API rather than the setting.
 - **Redirect URLs are set**: `eighteenzero://auth-callback` (the native deep
-  link, scheme from `app.config.js`), the deployed web build, and localhost for
-  web development.
+  link, scheme from `app.config.js`), `https://18-0.co/**`, the GitHub Pages
+  mirror at `https://mutaaf.github.io/18-0/**`, and localhost for web
+  development. The web flow redirects back to the exact page it started from,
+  so a deployment whose origin is not on that list fails *after* the player has
+  already consented — which reads as the provider rejecting them.
 - **Anonymous sign-ins are capped at 1000/hour/IP** rather than the default 30,
   which mobile carrier NAT would have hit on its own.
 
@@ -100,8 +103,8 @@ otherwise have seen "CourtIQ" on the permission dialog.
 - Consent screen: External, **In production**. An External app starts in
   *Testing*, where only listed test users can sign in at all, so leaving it there
   would have looked like a broken login for everyone else.
-- Branding carries the home page, the privacy policy at
-  `digitalcraftai.com/privacy`, and all three authorized domains. Publishing is
+- Branding carries the home page at `18-0.co`, the privacy policy at
+  `18-0.co/privacy`, and the authorized domains. Publishing is
   blocked until those are filled in.
 - OAuth client: **Web application**, redirect
   `https://keqwdtnyotdovrtcswel.supabase.co/auth/v1/callback`. Web is the right

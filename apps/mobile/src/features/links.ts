@@ -7,7 +7,16 @@
  * export.
  */
 
-export const APP_URL = 'https://mutaaf.github.io/18-0';
+/**
+ * The game's own domain, and the canonical address for every share and tag.
+ *
+ * The build is also mirrored on GitHub Pages at `mutaaf.github.io/18-0`, which
+ * is where it lived first. That copy declares this URL as its canonical one, so
+ * the two deployments are one page to a search engine and one link in a chat.
+ * Anything written here is what a scraper reads; see `public/index.html`, which
+ * carries the same strings for the served HTML.
+ */
+export const APP_URL = 'https://18-0.co';
 
 /** How the link reads when it is shown as text rather than followed. */
 export const APP_URL_LABEL = APP_URL.replace(/^https?:\/\//, '').replace(/\/+$/, '');
@@ -28,17 +37,21 @@ export const APP_DESCRIPTION =
 export const OG_IMAGE = `${APP_URL}/og.png`;
 
 /**
- * The privacy policy, on the publisher's own domain.
+ * The privacy policy, at the game's own address.
  *
- * It lives at digitalcraftai.com rather than beside the game because the game
- * is published by DigitalCraft AI and this is the address given to Apple and
- * Google at review. A policy on a project subpath of a github.io account reads
- * as a hobby page, and moving it later means a store metadata change.
+ * It is served as static HTML from `public/privacy.html` rather than linked out
+ * to the publisher's site, for a reason worth recording: the publisher's page
+ * renders its text in JavaScript. A store reviewer's crawler, and Google's
+ * OAuth consent-screen checker, fetch the URL without running any — so what
+ * they saw at the old address was a marketing shell with no policy in it.
  *
  * It describes the analytics the game actually sends, which is checked against
  * the code rather than written from a template -- including the claim that
  * deleting an account deletes the analytics with it, which the delete-account
  * function keeps. Changing what is sent means changing that page in the same
  * pass. See docs/analytics.md.
+ *
+ * Registered with Apple, Google Play and the Google OAuth consent screen. It
+ * cannot move again without editing all three.
  */
-export const PRIVACY_URL = 'https://digitalcraftai.com/privacy';
+export const PRIVACY_URL = `${APP_URL}/privacy`;

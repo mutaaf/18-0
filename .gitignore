@@ -46,3 +46,4 @@ supabase/.branches/
 # native project can silently disagree; regenerating them takes one command.
 apps/mobile/ios/
 apps/mobile/android/
+.vercel

@@ -105,5 +105,49 @@ check('the service worker was exported', Boolean(worker));
 // require one, and offline play needs it to do anything at all.
 check('it handles fetch', Boolean(worker && /addEventListener\(\s*['"]fetch['"]/.test(worker)));
 
+// ---------------------------------------------------------------------------
+console.log('\nONE CANONICAL ADDRESS');
+
+// The build ships to two places: the domain root on Vercel and the /18-0/
+// subpath on GitHub Pages. Both must name the domain as canonical, or the two
+// copies compete as duplicates and a share of the mirror reads as a different
+// site. This is checked rather than remembered because the Pages build is the
+// one nobody looks at.
+const CANONICAL = 'https://18-0.co';
+
+const canonical = /<link[^>]*rel=["']canonical["'][^>]*href=["']([^"']*)["']/i.exec(html)?.[1] ?? null;
+check('canonical names the domain', canonical?.replace(/\/+$/, '') === CANONICAL, `${canonical}`);
+check('og:url agrees with it', contentOf('property', 'og:url')?.replace(/\/+$/, '') === CANONICAL,
+  `${contentOf('property', 'og:url')}`);
+check('og:image is served from it', Boolean(image?.startsWith(`${CANONICAL}/`)), `${image}`);
+
+// A start_url or scope written as an absolute path is right on exactly one of
+// the two deployments; on the other, the installed app opens on a 404. Relative
+// values resolve against wherever the manifest was served from.
+if (manifestRaw) {
+  const manifest = JSON.parse(manifestRaw);
+  check('the manifest does not hard-code a base path',
+    String(manifest.start_url).startsWith('.') && String(manifest.scope).startsWith('.'),
+    `${manifest.start_url} in ${manifest.scope}`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nPRIVACY POLICY');
+
+// This URL is registered with Apple, Google Play and the Google OAuth consent
+// screen, and every one of those fetches it without running JavaScript. The
+// previous address rendered its text in a script, so all three were served a
+// page with no policy in it and nothing ever said so.
+const policy = await readFile(join(dist, 'privacy.html'), 'utf8').catch(() => null);
+check('the policy was exported', Boolean(policy));
+if (policy) {
+  check('it needs no JavaScript to read', !/<script/i.test(policy));
+  const words = policy.replace(/<[^>]*>/g, ' ').split(/\s+/).filter(Boolean).length;
+  check('it actually contains a policy', words > 400, `${words} words`);
+  for (const term of ['PostHog', 'Supabase', 'Delete my account', 'append-only']) {
+    check(`it still describes ${term}`, policy.includes(term));
+  }
+}
+
 console.log(failed === 0 ? '\nShareable and installable.\n' : `\n${failed} problem(s).\n`);
 process.exit(failed === 0 ? 0 : 1);
