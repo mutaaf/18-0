@@ -67,6 +67,13 @@ self.addEventListener('fetch', (event) => {
   // be actively broken.
   if (url.pathname.includes('/auth/') || url.search.includes('code=')) return;
 
+  // The ledger is a standalone page that happens to sit on this origin -- it is
+  // not a route of the app and nothing in the app links to it. The navigation
+  // branch below caches whatever it fetches as the app shell, so letting this
+  // through would leave the ledger sitting under the shell key and hand it back
+  // as the game on the next offline load.
+  if (url.pathname.endsWith('/ledger.html')) return;
+
   // The shell: network first, so a deploy lands on the next load. The cache is
   // the fallback for a plane, not the source of truth.
   if (request.mode === 'navigate') {
