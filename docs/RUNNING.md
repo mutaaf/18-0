@@ -34,6 +34,20 @@ around it mid-game.
 **Rookie** shows everything. It is the beginner mode: useful for learning what
 the model rewards before playing blind.
 
+**Gameday** exists only while the league is playing. It opens three hours before
+the first kickoff of a real NFL gameday and closes six hours after the last, the
+wheel narrows to the franchises actually on the field that day, and the season
+ranks on a board belonging to that date and no other -- not the rating boards,
+not points, because a wheel of two to twenty-six franchises is a different game.
+Stat lines are shown and ratings are not, so a one-day board is a fair contest
+without a second axis on top of the visibility one.
+
+The calendar is generated from nflverse's schedule file and bundled, so the
+panel on the home screen knows when the lights come on with no connection at
+all. The board needs the server; the mode does not. `docs/gameday.md` has the
+design, and `features/flags` carries the switch that turns the whole thing off
+without an App Store review.
+
 Blind seasons are counted separately in My Stats.
 
 ## Filling a position
@@ -61,13 +75,22 @@ Supabase only adds cross-device history, leaderboards and challenges.
 ```bash
 supabase start
 supabase db push                                   # schema + RLS
-psql "$DATABASE_URL" -f supabase/seed/0001_dataset.sql   # 6,209 cards
+psql "$DATABASE_URL" -f supabase/seed/0001_dataset.sql   # cards + gameday calendar
 pnpm --filter @18-0/domain build:edge              # bundle scoring for Deno
-supabase functions deploy complete-game
+supabase functions deploy spin select complete-game
 ```
 
 Then set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in
 `apps/mobile/.env` (see `.env.example`).
+
+**The seed is safe to run against a database people have played on.** It used to
+open with a `truncate ... cascade`, which is right exactly once, on an empty
+database: `game_selections` references `season_cards` and `game_spins`
+references `franchises` and `eras`, so that cascade deletes every pick and every
+spin anybody has ever made. Nothing is truncated now. Everything upserts, and a
+card the rebuilt dataset no longer contains is *retired* rather than removed --
+the row stays so the season played with it still resolves, and the spin and
+select endpoints refuse it so it is never dealt again (migration 0020).
 
 ### Verifying it
 
@@ -97,7 +120,28 @@ pnpm -r test
 ```
 
 Anything that changes a published score should bump `version` in
-`packages/domain/src/constants/config.ts`.
+`packages/domain/src/constants/config.ts` -- and when the card pool grows, the
+curve and the gates both need refitting or the "once every 6,000 games" on the
+front page quietly stops being true. `analyze` first, then `tune`: the curve
+governs 17-1, the gates govern 18-0. See `docs/scoring-model.md`.
+
+## Adding next season's gamedays
+
+The schedule moves every year and history does not, so it has its own build:
+
+```bash
+data/raw/fetch.sh                                    # refreshes games.csv too
+pnpm --filter @18-0/data build:schedule              # rebuild the calendar
+pnpm --silent --filter @18-0/data seed:sql > supabase/seed/0001_dataset.sql
+psql "$DATABASE_URL" -f supabase/seed/0001_dataset.sql
+pnpm -r test
+```
+
+`SCHEDULE_FIRST_SEASON` decides how far back the bundled calendar reaches
+(default 2025); the server keeps every gameday it has ever been given, because
+seasons carry a `gameday_key` and a rebuilt calendar must never orphan one. The
+build refuses to write two overlapping windows, because `gamedayAt()` returns on
+the first window it reaches.
 
 
 ---
