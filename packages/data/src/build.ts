@@ -837,12 +837,24 @@ function main(): void {
   const teams = parseCsv(join(RAW, 'teams.csv'));
   const franchiseIds = [...new Set(finalCards.map((c) => c.franchiseId))].sort();
   const franchises = franchiseIds.map((id, index) => {
-    const abbr = Object.entries(TEAM_TO_FRANCHISE).find(([, v]) => v === id)?.[0] ?? id.toUpperCase();
     const row = teams.find((t) => TEAM_TO_FRANCHISE[t.team_abbr ?? ''] === id) ?? {};
     const [color, color2] = franchiseColors(index);
     return {
       id,
-      abbr: row.team_abbr ?? abbr,
+      /**
+       * The lineage id, uppercased, rather than whatever the source calls it.
+       *
+       * Two franchises play in Los Angeles and the spin card names cities, not
+       * clubs, so both read "Los Angeles" and the abbreviation is the only
+       * thing telling them apart. nflverse abbreviates the Rams as plain `LA`,
+       * which against `LAC` reads as though one of them is missing a letter --
+       * and on its own tells a player nothing about which Los Angeles team
+       * they were dealt.
+       *
+       * `lar` is the only franchise where the two disagree; every other
+       * abbreviation here is unchanged.
+       */
+      abbr: id.toUpperCase(),
       // Cities, not clubs. See `cityOf`.
       name: cityOf(row.team_name, row.team_nick) ?? id,
       nick: cityOf(row.team_name, row.team_nick) ?? id,
