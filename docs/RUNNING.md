@@ -21,15 +21,24 @@ cd apps/mobile
 npx expo start --web
 ```
 
-The desktop layout is a different composition, not a scaled phone — left nav
-rail, two-column gameplay, hover states.
+The desktop layout is a different composition, not a scaled phone — two-column
+gameplay, hover states, and navigation in a dock that floats at the bottom and
+magnifies under the pointer. It used to be a 208-pixel rail down the left,
+which took a fifth of a laptop screen away from the thing the app is for.
 
 ## Modes
 
-**Player IQ** hides every rating and stat line — name, position, franchise and
+**GM Mode** hides every rating and stat line — name, position, franchise and
 season only. You pick on what you actually know about football, and the numbers
 arrive with your record. The detail screen is blanked too, so there is no way
-around it mid-game.
+around it mid-game. (It is stored as `player_iq`, which was its name until the
+label changed; renaming the key would invalidate every ranked row on the server
+and every saved season on every device to change a word that appears in one
+file.)
+
+**Scout** shows the stat line and withholds the grade. You read 69 receptions
+for 1,313 yards and 17 touchdowns and decide what that is worth. It is the mode
+between the other two, and the one most people actually want.
 
 **Rookie** shows everything. It is the beginner mode: useful for learning what
 the model rewards before playing blind.
@@ -48,7 +57,11 @@ all. The board needs the server; the mode does not. `docs/gameday.md` has the
 design, and `features/flags` carries the switch that turns the whole thing off
 without an App Store review.
 
-Blind seasons are counted separately in My Stats.
+Each mode ranks on its own board, and Rookie ranks on none of them: with the
+numbers on screen, the best roster is the one that reads them. Every finished
+season counts towards points, Rookie included — that board measures how much
+you have played, not how well one roster scored blind. Blind seasons are
+counted separately in My Stats.
 
 ## Filling a position
 
@@ -67,6 +80,11 @@ Any run that uses it is flagged **assisted**: it saves and shows its result but
 cannot set a best rating, a best record, or a perfect-season count, and the
 database keeps it off every leaderboard.
 
+In a challenge and on a gameday it is not flagged, it is refused — the server
+returns `assist_not_allowed_in_challenge` or `assist_not_allowed_in_gameday`.
+Both are contests against other people, and a rigged wheel is not something to
+record as a win on one.
+
 ## Bringing the server online (optional)
 
 The game is complete without it — the dataset is bundled and scoring is local.
@@ -75,10 +93,15 @@ Supabase only adds cross-device history, leaderboards and challenges.
 ```bash
 supabase start
 supabase db push                                   # schema + RLS
-psql "$DATABASE_URL" -f supabase/seed/0001_dataset.sql   # cards + gameday calendar
 pnpm --filter @18-0/domain build:edge              # bundle scoring for Deno
-supabase functions deploy spin select complete-game
+
+# The local database, on the port config.toml moves it to.
+psql postgresql://postgres:postgres@127.0.0.1:54422/postgres \
+  -f supabase/seed/0001_dataset.sql                # cards + gameday calendar
 ```
+
+Edge Functions are served rather than deployed against a local stack — see
+**Verifying it** below.
 
 Then set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in
 `apps/mobile/.env` (see `.env.example`).
@@ -103,7 +126,13 @@ node scripts/verify/e2e.mjs
 Plays a full ranked game and then tries to cheat it every way the threat model
 cares about — forging a completed session, tampering with a result, completing
 someone else's game, spinning into it, picking without a spin, taking a card
-from outside the issued franchise-era. 22 checks, all of which must pass.
+from outside the issued franchise-era, declaring its own gameday, rigging a
+gameday spin — and then checks the moderation and operator boundaries and that
+an account can delete itself.
+
+Every check must pass. The harness prints its own total at the end (119 on a
+normal run); this document deliberately does not repeat the number, because it
+has been wrong here twice.
 
 If the default ports collide with another local Supabase stack, the ports in
 `supabase/config.toml` are already moved to the 544xx range.
@@ -113,11 +142,22 @@ If the default ports collide with another local Supabase stack, the ports in
 ```bash
 data/raw/fetch.sh                                    # re-fetch nflverse CSVs
 pnpm --filter @18-0/data build:dataset               # rebuild the bundled cards
+
+# Two generated tables are keyed on the cards and go stale the moment the card
+# list moves. Both have tests that fail when they do, which is how you find out.
+python3 scripts/build-era-stories.py data/raw/games.csv   # franchise-era-records.ts
+python3 scripts/build-headshots.py /tmp/rosters /tmp/players.csv   # headshots.ts
+
 pnpm --filter @18-0/data analyze -- --write          # refit the calibration curve
 pnpm --filter @18-0/data tune                        # re-measure the 18-0 gates
 pnpm --filter @18-0/domain regen:fixtures            # move the seed fixtures with it
+pnpm --silent --filter @18-0/data seed:sql > supabase/seed/0001_dataset.sql
+pnpm --filter @18-0/domain build:edge                # the server scores with this
 pnpm -r test
 ```
+
+`build-headshots.py` needs nflverse's season rosters and `players.csv`; its
+docstring has the two `curl` loops that fetch them.
 
 Anything that changes a published score should bump `version` in
 `packages/domain/src/constants/config.ts` -- and when the card pool grows, the
@@ -133,9 +173,11 @@ The schedule moves every year and history does not, so it has its own build:
 data/raw/fetch.sh                                    # refreshes games.csv too
 pnpm --filter @18-0/data build:schedule              # rebuild the calendar
 pnpm --silent --filter @18-0/data seed:sql > supabase/seed/0001_dataset.sql
-psql "$DATABASE_URL" -f supabase/seed/0001_dataset.sql
 pnpm -r test
 ```
+
+Then load it wherever it needs to go — the local command is under **Bringing
+the server online**, the hosted one under **The hosted project**.
 
 `SCHEDULE_FIRST_SEASON` decides how far back the bundled calendar reaches
 (default 2025); the server keeps every gameday it has ever been given, because
@@ -159,12 +201,20 @@ prints the keys again; the database password can only be reset from the
 dashboard.
 
 ```bash
-supabase db push                                    # apply migrations
-psql "$DATABASE_URL" -f supabase/seed/0001_dataset.sql
+set -a; . .local/supabase-db-password.env; set +a
+supabase db push --yes                              # apply migrations
+
+# The pooler connection the CLI already knows about, and the password it does
+# not put in it. Re-running the seed is safe: it upserts, and retires rather
+# than deletes.
+PGPASSWORD="$SUPABASE_DB_PASSWORD" \
+  psql "$(cat supabase/.temp/pooler-url)" -f supabase/seed/0001_dataset.sql
+
+pnpm --filter @18-0/domain build:edge               # the functions carry this
 supabase functions deploy spin select complete-game delete-account
 
 set -a; . .local/hosted.env; set +a
-node scripts/verify/e2e.mjs                         # 44 checks
+node scripts/verify/e2e.mjs                         # every check must pass
 ```
 
 Anonymous sign-ins are enabled and `site_url` points at the live demo. Both are

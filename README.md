@@ -16,8 +16,8 @@ same record, so every choice is yours.
 [![CI](https://github.com/mutaaf/18-0/actions/workflows/ci.yml/badge.svg)](https://github.com/mutaaf/18-0/actions/workflows/ci.yml)
 [![Deploy](https://github.com/mutaaf/18-0/actions/workflows/pages.yml/badge.svg)](https://github.com/mutaaf/18-0/actions/workflows/pages.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Tests](https://img.shields.io/badge/tests-125%20passing-3FD68C)
-![Server checks](https://img.shields.io/badge/server%20checks-56%20passing-3FD68C)
+![Tests](https://img.shields.io/badge/tests-171%20passing-3FD68C)
+![Server checks](https://img.shields.io/badge/server%20checks-119%20passing-3FD68C)
 ![Platforms](https://img.shields.io/badge/iOS%20%C2%B7%20Android%20%C2%B7%20Web-one%20codebase-D50A0A)
 
 <br>
@@ -68,8 +68,13 @@ Here is the model's own verdict on the best seasons in the data:
 | **QB** | Peyton Manning · Indianapolis 2004 | `99.7` |
 | **RB** | Priest Holmes · Kansas City 2002 | `99.7` |
 | **WR** | Cooper Kupp · Los Angeles 2021 | `99.7` |
-| **TE** | Tony Gonzalez · Kansas City 2000 | `99.7` |
+| **TE** | Todd Christensen · Las Vegas 1983 | `99.7` |
 | **DEF** | Baltimore 2006 | `99.7` |
+
+Franchises are named for the city they play in now, because a lineage is one
+continuous history here and a club name is a trademark — so a pre-relocation
+season carries the franchise's current city rather than the one it played in
+that year.
 
 **Nobody picked those. They fell out of the model.** That is the entire
 credibility argument, and it makes itself in public on the first screen of the
@@ -270,7 +275,7 @@ deletion exists from the same day accounts do.
 </details>
 
 `scripts/verify/e2e.mjs` plays a full ranked game against a live instance and
-then tries to cheat it every way that matters: **56 checks**, every forgery
+then tries to cheat it every way that matters: **119 checks**, every forgery
 refused, every spin and pick on the trail, the trail immutable under the service
 role, and an account able to delete itself and take its games with it.
 
@@ -280,7 +285,7 @@ role, and an account able to delete itself and take its games with it.
 
 ```bash
 pnpm install
-pnpm -r test                                    # 125 tests
+pnpm -r test                                    # 171 tests
 pnpm -r typecheck
 
 cd apps/mobile && pnpm web                      # or: device / ios:device / android:device
