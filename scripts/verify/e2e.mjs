@@ -332,14 +332,31 @@ check('a pick with no spin issued is refused',
   `${forgedPick.status} ${forgedPick.body.error ?? ''}`);
 
 // Spin once, then try to take a card from a different franchise-era.
+//
+// The card has to be chosen *after* the spin and checked against it. This
+// previously took the best card for the slot and assumed it was elsewhere,
+// which is true most of the time and false exactly when the spin lands on a
+// franchise-era that happens to hold one -- Indianapolis 1999-2004 has Manning
+// and Harrison in it. The pick was then legitimately eligible, the server
+// correctly allowed it, and the check reported a forgery hole that was not
+// there. A test that fails on the roll of a die teaches you to ignore it.
 const bobSpun = await call('spin', bob.token, { gameSessionId: bobGame.sessionId });
-const wrongBucket = dream.find((d) => {
-  const c = best.find((x) => x.id === d.cardId);
-  return c && SLOT_POSITION[d.slot] === c.position;
-});
-const offSpin = await call('select', bob.token, {
-  gameSessionId: bobGame.sessionId, slot: wrongBucket.slot, cardId: wrongBucket.cardId,
-});
+const issued = bobSpun.body.spin;
+
+const { data: elsewhere } = await bob.sb
+  .from('season_cards')
+  .select('id, position')
+  .not('franchise_id', 'eq', issued.franchiseId)
+  .eq('position', 'QB')
+  .limit(1);
+const wrongBucket = elsewhere?.[0]
+  ? { slot: 'QB', cardId: elsewhere[0].id }
+  : null;
+const offSpin = wrongBucket
+  ? await call('select', bob.token, {
+      gameSessionId: bobGame.sessionId, slot: wrongBucket.slot, cardId: wrongBucket.cardId,
+    })
+  : { status: 0, body: { error: 'no card outside the spun franchise' } };
 check('a card outside the issued franchise-era is refused',
   offSpin.status === 400 && offSpin.body.error === 'card_not_eligible_for_spin',
   `${offSpin.status} ${offSpin.body.error ?? ''} (spin was ${bobSpun.body.spin?.franchiseId}/${bobSpun.body.spin?.era})`);
@@ -742,6 +759,30 @@ if (SERVICE) {
   check('signing in brings the seasons already played onto the board',
     (afterSignIn ?? []).length === 1,
     afterSignIn?.[0] ? `now ranked at ${afterSignIn[0].final_rating}` : 'still absent');
+
+  /**
+   * Signing in on a device with no session creates the account outright, with
+   * is_anonymous already false and no UPDATE to react to. 0011's trigger only
+   * watched for the flip, so every player who signed in on a fresh phone got a
+   * profile marked as not permanent and never reached the board -- while the
+   * app showed them signed in and everything looking fine.
+   */
+  const fresh = `verify-${crypto.randomUUID()}@example.invalid`;
+  const { data: made, error: makeErr } = await admin.auth.admin.createUser({
+    email: fresh,
+    password: crypto.randomUUID(),
+    email_confirm: true,
+  });
+  check('an account created by signing in is permanent from the start',
+    !makeErr && Boolean(made?.user), makeErr ? makeErr.message.slice(0, 40) : 'created');
+
+  if (made?.user) {
+    created.push(made.user.id);
+    const { data: profile } = await admin.from('profiles')
+      .select('is_permanent').eq('id', made.user.id).maybeSingle();
+    check('...and its profile says so, without any update',
+      profile?.is_permanent === true, `is_permanent=${profile?.is_permanent}`);
+  }
 
   // The bug 0011 tripped over: the reserved-placeholder rule fired on every
   // write to a profile, so moderating anyone who had not picked a name failed.
