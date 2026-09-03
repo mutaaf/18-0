@@ -152,11 +152,82 @@ export async function identifyPlayer(person: {
   });
 }
 
-/** Properties every event carries, so any of them can be grouped on. */
+/**
+ * Which variants this player is in, if any.
+ *
+ * Installed by the flag runtime rather than imported from it, for the reason
+ * `setSink` exists: this module owns the identity and the wire, and knowing
+ * what a flag *means* is somebody else's job. It also keeps the dependency
+ * pointing one way -- flags read analytics, never the reverse.
+ */
+let flagProperties: (() => Record<string, string | number | boolean>) | null = null;
+
+export function setFlagProperties(
+  provider: (() => Record<string, string | number | boolean>) | null,
+): void {
+  flagProperties = provider;
+}
+
+/**
+ * Properties every event carries, so any of them can be grouped on.
+ *
+ * `$feature/<key>` is PostHog's own convention, and putting it here is what
+ * makes every funnel in the product -- spins, picks, completions, retention --
+ * breakable down by experiment variant without instrumenting anything twice.
+ */
 const base = (): Record<string, unknown> => ({
   platform: Platform.OS,
   app: '18-0',
+  ...(flagProperties?.() ?? {}),
 });
+
+/**
+ * Ask PostHog which flags this player has.
+ *
+ * `/decide` is the same free-tier product as the events above -- flags and
+ * experiments are included, so controlling a feature costs nothing new and
+ * needs no second vendor. One POST per launch, over plain fetch for the same
+ * reason capture is: the React Native SDK is a native dependency, and changing
+ * an analytics vendor should not mean rebuilding the iOS app.
+ *
+ * Returns null on anything at all going wrong -- no key, no network, a shape
+ * that is not what was expected. Null means "nobody said otherwise", and the
+ * caller then ships the registry's fallbacks, which is what the app was built
+ * and tested with.
+ */
+export async function fetchRemoteFlags(): Promise<Record<string, unknown> | null> {
+  if (!KEY) return null;
+  try {
+    const res = await fetch(`${HOST}/decide/?v=3`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        api_key: KEY,
+        distinct_id: identified ?? (await deviceId()),
+        // Assignment is PostHog's, and it is sticky on this id: two launches
+        // of the same install land in the same variant, which is the whole
+        // requirement of an experiment.
+        person_properties: { platform: Platform.OS, app: '18-0' },
+      }),
+    });
+    if (!res.ok) return null;
+    const body = (await res.json()) as {
+      featureFlags?: Record<string, unknown>;
+      flags?: Record<string, { enabled?: boolean; variant?: string | null }>;
+    };
+    if (body.featureFlags && typeof body.featureFlags === 'object') return body.featureFlags;
+    // The newer response shape, flattened to the same map. Handled because a
+    // project can be moved onto it without the app being rebuilt.
+    if (body.flags && typeof body.flags === 'object') {
+      return Object.fromEntries(
+        Object.entries(body.flags).map(([key, state]) => [key, state?.variant ?? state?.enabled ?? false]),
+      );
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Installs the sink. Safe to call unconditionally: with no key it does nothing

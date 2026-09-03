@@ -6,8 +6,9 @@ import { RankedSwitch } from '@/components/RankedSwitch';
 import Svg, { Path } from 'react-native-svg';
 import { Reveal } from '@/components/Reveal';
 import { ROSTER_SLOTS } from '@18-0/domain';
-import { DATASET } from '@18-0/data';
+import { DATASET, gamedayAt, type Gameday } from '@18-0/data';
 import { Brand } from '@/components/Brand';
+import { GamedayHero } from '@/components/GamedayHero';
 import { Crown } from '@/components/Crown';
 import { Hall } from '@/components/Hall';
 import { Screen } from '@/components/Screen';
@@ -15,7 +16,8 @@ import { LeaderboardStrip } from '@/components/LeaderboardStrip';
 import { Panel } from '@/components/Panel';
 import { track } from '@/features/telemetry';
 import { beginRanked } from '@/features/ranked';
-import { isBackendConfigured } from '@/services/supabase';
+import { flag } from '@/features/flags';
+import { fetchGamedaySummary, isBackendConfigured, type GamedaySummary } from '@/services/supabase';
 import { useGameStore, type GameMode } from '@/state/game';
 import { computeStats, useHistoryStore } from '@/state/history';
 import { MODE_LABEL } from '@/state/game';
@@ -63,9 +65,24 @@ export default function Home() {
    */
   const [ranked, setRanked] = useState(false);
   const [opening, setOpening] = useState(false);
+  /** How today's board is doing, when there is one and a server to ask. */
+  const [gameday, setGameday] = useState<GamedaySummary | null>(null);
+  const [gamedayNote, setGamedayNote] = useState<string | null>(null);
 
   useEffect(() => {
     track('app_opened', { games: games.length });
+  }, []);
+
+  // Asked once, and only when there is a gameday to ask about. The panel draws
+  // itself from the bundled calendar either way, so a failure here costs a
+  // line of copy rather than the whole marquee.
+  useEffect(() => {
+    // The kill switch as well as the calendar: a mode that is switched off
+    // should cost nothing, including a request nobody will see the answer to.
+    if (!isBackendConfigured || !flag('gameday') || !gamedayAt()) return;
+    void fetchGamedaySummary(null)
+      .then(setGameday)
+      .catch(() => setGameday(null));
   }, []);
 
   /**
@@ -112,6 +129,47 @@ export default function Home() {
     router.push('/play');
   };
 
+  /**
+   * Into the gameday.
+   *
+   * Always tries to play it against the server, whatever the ranked switch
+   * says: a gameday is a shared board and a board needs the server to issue
+   * the spins. If the server cannot be reached the game still starts -- the
+   * calendar is bundled, so the restricted wheel works offline -- and the
+   * panel says plainly that the season will not reach the board, which is
+   * better than refusing to let somebody play at all.
+   */
+  const startGameday = async (day: Gameday) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
+    setGamedayNote(null);
+    track('play_started', { mode: 'gameday', ranked: isBackendConfigured, gameday: day.key });
+    game.startGame('gameday', { ranked: isBackendConfigured });
+
+    if (isBackendConfigured) {
+      setOpening(true);
+      try {
+        const opened = await withTimeout(beginRanked('gameday'), 8000);
+        if (opened?.ok) {
+          game.attachServerSession(opened.value.sessionId, opened.value.idempotencyKey);
+          track('gameday_started', { gameday: day.key });
+        } else {
+          const reason = opened?.message ?? 'The server did not answer in time.';
+          game.downgrade(reason);
+          setGamedayNote(`${reason} This season stays on this device.`);
+          track('ranked_downgraded', { reason, mode: 'gameday' });
+        }
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : 'Gameday could not start.';
+        game.downgrade(reason);
+        setGamedayNote(`${reason} This season stays on this device.`);
+        track('ranked_downgraded', { reason, mode: 'gameday' });
+      } finally {
+        setOpening(false);
+      }
+    }
+    router.push('/play');
+  };
+
   const resume = () => {
     track('game_resumed', { filled: game.selections.length, mode: game.mode });
     router.push('/play');
@@ -134,6 +192,18 @@ export default function Home() {
         </Text>
       </Reveal>
 
+
+      {/* The marquee, above everything it competes with. It removes itself
+          when the next gameday is more than a week out, so the front page is
+          not counting down to September in March. */}
+      <Reveal delay={60}>
+        <GamedayHero
+          summary={gameday}
+          busy={opening}
+          note={gamedayNote}
+          onEnter={startGameday}
+        />
+      </Reveal>
 
       {inProgress ? (
         <Reveal delay={80} style={styles.resume}>

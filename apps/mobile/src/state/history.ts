@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { GameResult, RosterSlot } from '@18-0/domain';
+import type { GameMode } from '@/state/game';
 
 /**
  * Completed games and the profile stats derived from them (PRFAQ §22.5, §22.6).
@@ -16,7 +17,15 @@ export interface HistoryEntry {
   /** True when the three-finger spin was used. Kept out of every record. */
   readonly assisted?: boolean;
   /** Which mode this season was built in. */
-  readonly mode?: 'rookie' | 'scout' | 'player_iq';
+  readonly mode?: GameMode;
+  /**
+   * The gameday it was played on, for a Gameday season.
+   *
+   * Kept locally as well as on the server so a season's own history says which
+   * day it belonged to -- the board for that date will still be there, and a
+   * row that cannot name its day cannot point at it.
+   */
+  readonly gamedayKey?: string;
   readonly roster: readonly {
     readonly slot: RosterSlot;
     readonly cardId: string;

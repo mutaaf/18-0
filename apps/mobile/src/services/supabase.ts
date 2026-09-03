@@ -212,6 +212,80 @@ export async function fetchPoints(
   return read.value ?? [];
 }
 
+/**
+ * One gameday's board.
+ *
+ * `key` null asks the server for whichever gameday is open right now, which is
+ * deliberately its clock and not the device's: the calendar is bundled and the
+ * two agree, but the row that lands on a board is stamped server-side and the
+ * board should be read the same way it was written.
+ *
+ * A finished day is still readable by key. A board that disappeared at
+ * midnight would be a board nobody could be shown they had won.
+ */
+export async function fetchGamedayBoard(
+  key: string | null,
+  limit = 50,
+  onFresh?: (rows: LeaderboardRow[]) => void,
+): Promise<LeaderboardRow[]> {
+  if (!supabase) return [];
+  const read = await cached<LeaderboardRow[]>(
+    `gameday:${key ?? 'live'}:${limit}`,
+    async () => {
+      const { data, error } = await supabase!
+        .rpc('leaderboard_gameday', { p_key: key })
+        .select('game_session_id, user_id, handle, final_rating, record_wins, record_losses, ending_key, tier, completed_at')
+        .order('final_rating', { ascending: false })
+        .order('completed_at', { ascending: true })
+        .limit(limit);
+      if (error) throw new Error(error.message);
+      const rows = (Array.isArray(data) ? data : data ? [data] : []) as Record<string, unknown>[];
+      return rows.map((r) => ({
+        gameSessionId: r.game_session_id as string,
+        userId: r.user_id as string,
+        handle: (r.handle as string) ?? 'player',
+        finalRating: Number(r.final_rating),
+        wins: r.record_wins as number,
+        losses: r.record_losses as number,
+        endingKey: r.ending_key as string,
+        tier: r.tier as string,
+        completedAt: r.completed_at as string,
+      }));
+    },
+    // Shorter than the other boards on purpose: a one-day board is the one
+    // people refresh while they are still playing on it.
+    { ttl: 15_000, ...(onFresh ? { onFresh } : {}) },
+  );
+  return read.value ?? [];
+}
+
+export interface GamedaySummary {
+  readonly players: number;
+  readonly seasons: number;
+  readonly bestRating: number | null;
+}
+
+/** How busy a gameday has been, for a board that is still filling up. */
+export async function fetchGamedaySummary(key: string | null): Promise<GamedaySummary> {
+  const empty: GamedaySummary = { players: 0, seasons: 0, bestRating: null };
+  if (!supabase) return empty;
+  const read = await cached<GamedaySummary>(
+    `gameday-summary:${key ?? 'live'}`,
+    async () => {
+      const { data, error } = await supabase!.rpc('gameday_summary', { p_key: key });
+      if (error) throw new Error(error.message);
+      const row = (Array.isArray(data) ? data[0] : data) as Record<string, unknown> | undefined;
+      return {
+        players: Number(row?.players ?? 0),
+        seasons: Number(row?.seasons ?? 0),
+        bestRating: row?.best_rating == null ? null : Number(row.best_rating),
+      };
+    },
+    { ttl: 15_000 },
+  );
+  return read.value ?? empty;
+}
+
 export interface RosterPick {
   readonly slot: string;
   readonly cardId: string;

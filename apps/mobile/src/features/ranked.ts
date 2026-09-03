@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
-import type { RosterSlot } from '@18-0/domain';
+import { DEFAULT_SCORING_CONFIG, type RosterSlot } from '@18-0/domain';
+import { DATASET } from '@18-0/data';
 import { currentUser, ensureSession, isBackendConfigured, supabase } from '@/services/supabase';
 import { uuid } from '@/features/uuid';
 import type { GameMode } from '@/state/game';
@@ -39,6 +40,8 @@ const REASONS: Record<string, string> = {
   position_mismatch: 'That player cannot play there.',
   audit_unavailable: 'The server could not record that. Nothing was saved.',
   no_playable_spin: 'No franchise-era can fill an open slot.',
+  assist_not_allowed_in_gameday: 'The rigged spin is not allowed on a gameday.',
+  assist_not_allowed_in_challenge: 'The rigged spin is not allowed in a challenge.',
 };
 
 const refused = (reason: string): RankedResult<never> => ({
@@ -117,9 +120,18 @@ export async function beginRanked(
     .select('id')
     .single();
   if (error || !data) {
-    // The insert policy refuses a session pointed at a challenge that is
-    // closed, expired, or your own, so this is the one place that failure can
-    // surface and it deserves its own sentence.
+    // Three different refusals arrive here as one failed insert, and they need
+    // three different sentences. The gameday one is a race a player can
+    // genuinely lose: the window closed between the screen being drawn and the
+    // button being pressed, and "could not open a ranked game" would read as a
+    // network problem when nothing is wrong with the network at all.
+    if (mode === 'gameday') {
+      return offline(
+        /no gameday is open/i.test(error?.message ?? '')
+          ? 'That gameday has closed.'
+          : 'Could not open a gameday game.',
+      );
+    }
     return offline(challengeId ? 'That challenge is no longer open.' : 'Could not open a ranked game.');
   }
   return { ok: true, value: { sessionId: data.id as string, idempotencyKey } };
@@ -161,6 +173,22 @@ export interface ServerScore {
 }
 
 /**
+ * Whether both sides were running the same model.
+ *
+ * The client previews from a dataset baked into the app and the server scores
+ * from rows in Postgres, and an app release and a reseed cannot land at the
+ * same instant. So there is always a window where the preview and the result
+ * come from different inputs -- and a player seeing two different numbers with
+ * no explanation is the worst possible way to learn that. The server reports
+ * it; `result.tsx` says so on screen.
+ */
+export interface VersionAgreement {
+  readonly agreed: boolean;
+  readonly scoring: { readonly client: string | null; readonly server: string };
+  readonly ratings: { readonly client: string | null; readonly server: string };
+}
+
+/**
  * Asks the server to score the roster it recorded.
  *
  * Deliberately sends no roster and no rating — there is nothing here for a
@@ -169,11 +197,19 @@ export interface ServerScore {
 export async function rankedComplete(
   sessionId: string,
   idempotencyKey: string,
-): Promise<RankedResult<ServerScore>> {
-  const result = await invoke<{ result: ServerScore }>('complete-game', {
-    gameSessionId: sessionId,
-    idempotencyKey,
-  });
+): Promise<RankedResult<ServerScore & { versions?: VersionAgreement }>> {
+  const result = await invoke<{ result: ServerScore; versions?: VersionAgreement }>(
+    'complete-game',
+    {
+      gameSessionId: sessionId,
+      idempotencyKey,
+      // Advisory and never trusted -- the server compares them with its own and
+      // records the answer. Sent so a mismatch is detected rather than lived
+      // with silently.
+      modelVersion: DEFAULT_SCORING_CONFIG.version,
+      datasetModelVersion: DATASET.ratingModelVersion,
+    },
+  );
   if (!result.ok) return result;
-  return { ok: true, value: result.value.result };
+  return { ok: true, value: { ...result.value.result, versions: result.value.versions } };
 }

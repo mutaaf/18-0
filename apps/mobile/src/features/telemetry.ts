@@ -40,9 +40,21 @@ export type EventName =
   | 'challenge_accepted'
   | 'ranked_downgraded'
   | 'score_disagreement'
+  // Gameday. `version_mismatch` is the server telling us the two sides are on
+  // different models -- the cause `score_disagreement` could previously only
+  // report the symptom of.
+  | 'gameday_started'
+  | 'version_mismatch'
   | 'signed_in'
   | 'handle_claimed'
-  | 'account_deleted';
+  | 'account_deleted'
+  /**
+   * Feature flags. The `$`-prefixed name is not a typo and not ours: PostHog
+   * computes an experiment's exposure from an event called exactly this, with
+   * exactly these two properties, so a variant that is resolved but never
+   * reported is a variant with no denominator. See `features/flags`.
+   */
+  | '$feature_flag_called';
 
 export interface TelemetryEvent {
   readonly name: EventName;

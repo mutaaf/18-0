@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
 
   const { data: session, error: sessionError } = await admin
     .from('game_sessions')
-    .select('id, user_id, status, assisted, challenge_id')
+    .select('id, user_id, status, assisted, challenge_id, gameday_key')
     .eq('id', body.gameSessionId)
     .maybeSingle();
   if (sessionError) return json({ error: 'lookup_failed' }, 500);
@@ -173,6 +173,30 @@ Deno.serve(async (req) => {
     });
   }
 
+  // A gameday run is dealt from the franchises actually playing that day. The
+  // key was stamped by the server when the session opened, so this reads a
+  // fact rather than a claim -- and the pool is read here rather than trusted
+  // from the client for the reason every spin is issued here at all.
+  let gamedayFranchises: string[] | null = null;
+  if (session.gameday_key) {
+    // The three-finger spin is a solo indulgence. A one-day board is a
+    // contest, and a rigged wheel is not something to record as a win on one.
+    if (body.assist === true) return await refuse('assist_not_allowed_in_gameday', 409);
+
+    const { data: playing, error: playingError } = await admin
+      .from('gameday_franchises')
+      .select('franchise_id')
+      .eq('gameday_key', session.gameday_key);
+    if (playingError) {
+      log('error', ctx, { event: 'gameday_pool_lookup_failed', reason: playingError.message });
+      return await refuse('lookup_failed', 500);
+    }
+    gamedayFranchises = (playing ?? []).map((row) => row.franchise_id as string);
+    // The calendar is generated only from fixtures whose franchises the dataset
+    // can field, so an empty pool means the row was written by something else.
+    if (gamedayFranchises.length === 0) return await refuse('no_playable_spin', 409);
+  }
+
   const openPositions = [...new Set(
     ROSTER_SLOTS.filter((slot) => !filled.has(slot)).map((slot) => SLOT_POSITION[slot]),
   )];
@@ -192,8 +216,13 @@ Deno.serve(async (req) => {
     .from('season_cards')
     .select('franchise_id, era_key, rating')
     .in('position', openPositions)
+    // A retired card is one a rebuilt dataset no longer contains. Its row stays
+    // so the seasons played with it still resolve, but the wheel must never
+    // deal it again -- the client's bundle has never heard of it (0020).
+    .is('retired_at', null)
     .order('rating', { ascending: false });
   if (usedEntities.length > 0) query = query.not('entity_id', 'in', `(${usedEntities.join(',')})`);
+  if (gamedayFranchises) query = query.in('franchise_id', gamedayFranchises);
 
   const { data: candidates, error: candidateError } = await query.limit(4000);
   if (candidateError) {
@@ -242,7 +271,13 @@ Deno.serve(async (req) => {
     actorId: user.id,
     subjectType: 'game_session',
     subjectId: session.id,
-    detail: { sequence, franchise_id: chosen.franchise_id, era_key: chosen.era_key, assisted: assist },
+    detail: {
+      sequence,
+      franchise_id: chosen.franchise_id,
+      era_key: chosen.era_key,
+      assisted: assist,
+      ...(session.gameday_key ? { gameday_key: session.gameday_key } : {}),
+    },
   });
   if (!recorded) {
     await admin.from('game_spins').delete()

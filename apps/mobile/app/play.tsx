@@ -355,6 +355,19 @@ export default function Play() {
       const scored = await rankedComplete(game.serverSessionId, game.serverIdempotencyKey);
       setAwaitingServer(false);
       if (scored.ok) {
+        // A model disagreement explains a drift, so it is worth saying which
+        // it was: "the numbers differ" is alarming, "your app is a version
+        // behind the server" is actionable.
+        if (scored.value.versions && !scored.value.versions.agreed) {
+          track('version_mismatch', {
+            client: scored.value.versions.scoring.client ?? 'unknown',
+            server: scored.value.versions.scoring.server,
+          });
+          game.downgrade(
+            `This app is scoring with model ${scored.value.versions.scoring.client ?? '?'} and the ` +
+              `server with ${scored.value.versions.scoring.server}. The server's number is the one on the board.`,
+          );
+        }
         const drift = Math.abs(scored.value.finalRating - result.finalRating);
         if (drift > 0.01) {
           track('score_disagreement', { drift: drift.toFixed(3) });
@@ -377,6 +390,7 @@ export default function Play() {
       result,
       assisted: game.assisted,
       mode: game.mode,
+      ...(game.gamedayKey ? { gamedayKey: game.gamedayKey } : {}),
       roster: game.selections.map((s) => {
         const card = lookupCard(s.cardId)!;
         return {

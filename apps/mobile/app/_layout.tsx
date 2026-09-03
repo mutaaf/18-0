@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import { startAnalytics } from '@/features/analytics';
+import { startFlags } from '@/features/flags';
 import { Rajdhani_600SemiBold, Rajdhani_700Bold } from '@expo-google-fonts/rajdhani';
 import {
   Montserrat_400Regular,
@@ -35,6 +36,9 @@ export default function RootLayout() {
   // which is the state the repository ships in.
   useEffect(() => {
     startAnalytics();
+    // Flags resolve to their shipped fallbacks until this lands, and stay
+    // there if it never does. Nothing waits for it.
+    void startFlags();
   }, []);
 
   // A challenge arrives as `?c=<token>` on the site's own address rather than

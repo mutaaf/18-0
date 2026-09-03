@@ -16,6 +16,14 @@ import { color, elevate, font, radius, space, tracking, type PressState } from '
  * button pointing at whichever one you still owe. The tick is the whole idea —
  * seeing one condition already met is what makes the other feel worth doing.
  */
+/** What each board is actually asking of you, in one line. */
+const GATE_COPY: Record<GameMode, string> = {
+  player_iq: 'Nothing but a name and a year. No ratings, no stats.',
+  scout: 'Stat lines on, ratings off. Read the numbers and judge.',
+  gameday: 'Only while the league is playing, and only that day’s franchises.',
+  rookie: 'Every rating on screen. It teaches the model; it does not rank.',
+};
+
 export function RankGate({
   /** Signed in with a real account, not a device-only anonymous one. */
   named,
@@ -37,10 +45,7 @@ export function RankGate({
           key: 'blind',
           icon: <BlindIcon />,
           title: `Play ${MODE_LABEL[mode]}`,
-          copy:
-            mode === 'scout'
-              ? 'Stat lines on, ratings off. Read the numbers and judge.'
-              : 'Nothing but a name and a year. No ratings, no stats.',
+          copy: GATE_COPY[mode],
           done: false,
         }]
       : []),

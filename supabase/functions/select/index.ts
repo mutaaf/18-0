@@ -84,10 +84,15 @@ Deno.serve(async (req) => {
   const [{ data: spins }, { data: selections }, { data: card }] = await Promise.all([
     admin.from('game_spins').select('sequence, franchise_id, era_key').eq('game_session_id', session.id),
     admin.from('game_selections').select('roster_slot, card_id, spin_sequence').eq('game_session_id', session.id),
-    admin.from('season_cards').select('id, entity_id, position, franchise_id, era_key').eq('id', body.cardId).maybeSingle(),
+    admin.from('season_cards').select('id, entity_id, position, franchise_id, era_key, retired_at').eq('id', body.cardId).maybeSingle(),
   ]);
 
   if (!card) return await refuse('unknown_card', 400);
+  // The spin filters retired cards out of the wheel, but a client names the
+  // card it wants and could name a retired one from the franchise-era it was
+  // legitimately dealt. Refused here too, or the roster would hold a card the
+  // client's own bundle cannot render (0020).
+  if (card.retired_at !== null) return await refuse('card_retired', 400);
   if (SLOT_POSITION[slot] !== card.position) return await refuse('position_mismatch', 400);
   if ((selections ?? []).some((s) => s.roster_slot === slot)) return await refuse('slot_filled', 409);
 

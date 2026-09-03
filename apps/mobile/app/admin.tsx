@@ -7,6 +7,14 @@ import { Screen } from '@/components/Screen';
 import { OperatorConsole } from '@/components/OperatorConsole';
 import { amOperator } from '@/services/operator';
 import { recentEvents, summarise } from '@/features/telemetry';
+import {
+  clearOverrides,
+  flagDefinition,
+  setOverride,
+  useAllFlags,
+  useFlagStatus,
+  type FlagKey,
+} from '@/features/flags';
 import { useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
 import { useOverrideStore } from '@/state/overrides';
@@ -116,6 +124,8 @@ export default function Admin() {
         </View>
 
         {operator ? <OperatorConsole /> : null}
+
+        <FlagsSection />
 
         <View style={styles.warn}>
           <Text style={styles.warnText}>
@@ -227,6 +237,94 @@ export default function Admin() {
         </Section>
       </ScrollView>
     </Screen>
+  );
+}
+
+/**
+ * Feature flags, and where each value came from.
+ *
+ * The point of showing the *source* is that "why am I seeing this" is the
+ * question a flag system exists to make answerable and usually does not.
+ * Fallback means the code decided, remote means PostHog decided, override
+ * means this device is being made to lie -- which is exactly what you want
+ * when a player is describing a variant you cannot reproduce.
+ *
+ * Tapping a flag cycles it through its allowed values and then back to
+ * whatever the server says. Cycling is deliberately the only control: a free
+ * text field would let somebody set a variant that does not exist, and the
+ * runtime would then discard it silently and look broken.
+ */
+function FlagsSection() {
+  const flags = useAllFlags();
+  const status = useFlagStatus();
+  const forced = flags.filter((f) => f.source === 'override').length;
+
+  return (
+    <Section title="Feature flags">
+      <Text style={styles.help}>
+        {status.ready
+          ? status.fetchedAt
+            ? 'Evaluated once at launch, from PostHog.'
+            : status.cached
+              ? 'Evaluated from the last cached answer — PostHog was not reachable.'
+              : 'No remote answer. Every flag is on the value the build ships with.'
+          : 'Evaluating…'}
+        {forced > 0 ? ` ${forced} overridden on this device.` : ''}
+      </Text>
+      {flags.map((resolved) => {
+        const definition = flagDefinition(resolved.key as FlagKey);
+        const allowed: (boolean | string)[] =
+          definition.kind === 'toggle' ? [true, false] : [...(definition.variants ?? [])];
+        /**
+         * One step along from whatever is showing now, and off the end of the
+         * list clears the override.
+         *
+         * From the *current* value rather than from the head of the list: a
+         * toggle sitting on its fallback of `true` was otherwise overridden to
+         * `true` by the first tap, which changed the source chip and nothing
+         * else and read as a broken button.
+         */
+        const next = () => {
+          const index = allowed.findIndex((v) => v === resolved.value);
+          void setOverride(resolved.key as FlagKey, allowed[index + 1] ?? null);
+        };
+        return (
+          <Pressable
+            key={resolved.key}
+            onPress={next}
+            accessibilityRole="button"
+            accessibilityLabel={`${resolved.key} is ${String(resolved.value)} from ${resolved.source}. Change it on this device.`}
+            style={({ hovered }: PressState) => [styles.flagRow, hovered && { opacity: 0.85 }]}
+          >
+            <View style={styles.flagMain}>
+              <Text style={styles.flagKey}>{resolved.key}</Text>
+              <Text style={styles.flagSummary}>{definition.summary}</Text>
+              <Text style={styles.flagMeta}>
+                {definition.kind} · {definition.owner} · remove by {definition.removeBy}
+                {definition.metric ? ` · metric ${definition.metric}` : ''}
+              </Text>
+            </View>
+            <View style={styles.flagValueBox}>
+              <Text style={styles.flagValue}>{String(resolved.value)}</Text>
+              <Text
+                style={[
+                  styles.flagSource,
+                  resolved.source === 'override' && { color: color.ignitionBright },
+                  resolved.source === 'remote' && { color: color.ice },
+                ]}
+              >
+                {resolved.source}
+              </Text>
+            </View>
+          </Pressable>
+        );
+      })}
+      <ActionRow
+        label="Stop overriding flags on this device"
+        action="Reset"
+        onPress={() => void clearOverrides()}
+      />
+    </Section>
   );
 }
 
@@ -388,6 +486,28 @@ const styles = StyleSheet.create({
     marginBottom: space.xs,
   },
   help: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textFaint, lineHeight: 17 },
+
+  flagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingVertical: space.sm,
+    borderTopWidth: 1,
+    borderTopColor: color.line,
+  },
+  flagMain: { flex: 1, gap: 2 },
+  flagKey: { fontFamily: font.label, fontSize: 13, color: color.text },
+  flagSummary: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textDim, lineHeight: 16 },
+  flagMeta: { fontFamily: font.bodyRegular, fontSize: 10, color: color.textFaint },
+  flagValueBox: { alignItems: 'flex-end', minWidth: 84 },
+  flagValue: { fontFamily: font.display, fontSize: 15, color: color.text },
+  flagSource: {
+    fontFamily: font.label,
+    fontSize: 9,
+    letterSpacing: tracking.wide,
+    textTransform: 'uppercase',
+    color: color.textFaint,
+  },
 
   metric: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6 },
   metricLabel: { fontFamily: font.bodyRegular, fontSize: 13, color: color.textDim, flex: 1 },

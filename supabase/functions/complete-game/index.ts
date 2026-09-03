@@ -23,6 +23,45 @@ import {
 interface CompleteRequest {
   gameSessionId: string;
   idempotencyKey: string;
+  /**
+   * What the client believes it is running. Advisory, never trusted: it is
+   * compared, recorded, and reported back -- see `versionCheck`.
+   */
+  modelVersion?: string;
+  datasetModelVersion?: string;
+}
+
+/**
+ * Do the two sides agree about which model they are running?
+ *
+ * The client previews a score from a dataset bundled into the app; the server
+ * scores from rows in Postgres. Shipping an app release and reseeding the
+ * database are two separate acts and cannot be simultaneous, so there is
+ * always a window where a player's preview and their result were produced by
+ * different inputs -- and until now nothing in the system noticed, which is
+ * the worst version of that: a player sees one number, the board shows
+ * another, and neither side can say why.
+ *
+ * Reported, not refused. The server's answer already wins, and refusing every
+ * completion during a rollout would take the game down to protect a rounding
+ * difference. What matters is that the disagreement is visible: on the trail
+ * for whoever is deploying, and on screen for whoever is playing.
+ */
+function versionCheck(
+  claimed: Pick<CompleteRequest, 'modelVersion' | 'datasetModelVersion'>,
+  serverModel: string,
+  cardModels: readonly string[],
+) {
+  const cardModel = [...new Set(cardModels)].sort().join(',');
+  const model = claimed.modelVersion ?? null;
+  const dataset = claimed.datasetModelVersion ?? null;
+  const agreed =
+    (model === null || model === serverModel) && (dataset === null || dataset === cardModel);
+  return {
+    agreed,
+    scoring: { client: model, server: serverModel },
+    ratings: { client: dataset, server: cardModel },
+  };
 }
 
 
@@ -214,6 +253,25 @@ Deno.serve(async (req) => {
 
   const result = scoreRoster(roster as CompletedRoster, DEFAULT_SCORING_CONFIG);
 
+  const versions = versionCheck(
+    body,
+    DEFAULT_SCORING_CONFIG.version,
+    (cards ?? []).map((c) => c.rating_model_version as string),
+  );
+  if (!versions.agreed) {
+    // Its own event, so a rollout that has left half the players on an older
+    // bundle shows up as a spike rather than as scattered confusion.
+    await audit(admin, ctx, {
+      event: 'version_mismatch',
+      outcome: 'ok',
+      actorId: user.id,
+      subjectType: 'game_session',
+      subjectId: session.id,
+      detail: versions,
+    });
+    log('warn', ctx, { event: 'version_mismatch', session_id: session.id, ...versions });
+  }
+
   // Identifies the roster, so the same seven cards hold only one leaderboard place.
   const fingerprint = [...selections.map((s) => s.cardId)].sort().join('|');
 
@@ -276,5 +334,5 @@ Deno.serve(async (req) => {
   });
   if (!recorded) log('error', ctx, { event: 'completion_unaudited', session_id: session.id });
 
-  return json({ result: toResponse(saved), replayed: false });
+  return json({ result: toResponse(saved), replayed: false, versions });
 });

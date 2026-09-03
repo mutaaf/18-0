@@ -14,14 +14,24 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { displayName, franchise } from '@18-0/data';
+import {
+  GAMEDAYS,
+  displayName,
+  franchise,
+  gamedayAt,
+  gamedayDate,
+  gamedayLabel,
+  type Gameday,
+} from '@18-0/data';
 import { lookupCard } from '@/state/game';
 import { Screen } from '@/components/Screen';
 import { ReportButton } from '@/components/ReportButton';
 import { Avatar } from '@/components/Avatar';
 import { RankGate } from '@/components/RankGate';
+import { useFlag } from '@/features/flags';
 import { track } from '@/features/telemetry';
 import {
+  fetchGamedayBoard,
   fetchLeaderboard,
   fetchPoints,
   fetchRoster,
@@ -81,7 +91,25 @@ const PERIODS: { key: LeaderboardPeriod; label: string }[] = [
  * which is the whole reason for having both rather than one blended number
  * nobody can reason about.
  */
-type Board = 'rating' | 'scout' | 'points';
+type Board = 'rating' | 'scout' | 'points' | 'gameday';
+
+/**
+ * Which gameday the Gameday tab is showing.
+ *
+ * Live if the league is playing. Otherwise the most recent day that has
+ * closed, because a board that vanishes at midnight is a board nobody can be
+ * shown they won -- bounded to a week so the tab is not still offering
+ * February's Super Bowl in June.
+ */
+function boardGameday(now = Date.now()): Gameday | null {
+  const live = gamedayAt(new Date(now));
+  if (live) return live;
+  for (let i = GAMEDAYS.length - 1; i >= 0; i--) {
+    const closed = Date.parse(GAMEDAYS[i]!.closesAt);
+    if (closed <= now) return now - closed <= 7 * 86_400_000 ? GAMEDAYS[i]! : null;
+  }
+  return null;
+}
 
 /**
  * Three boards, because they answer three questions.
@@ -98,6 +126,27 @@ const BOARDS: { key: Board; label: string; blurb: string }[] = [
   { key: 'points', label: 'Points', blurb: 'Every season added up' },
 ];
 
+/**
+ * The fourth tab exists only when there is a day to show.
+ *
+ * It is deliberately not a permanent fixture: an empty Gameday tab in July
+ * would advertise a mode nobody can play, and the panel on the home screen
+ * already explains when the lights come back on.
+ */
+const gamedayTab = (day: Gameday): { key: Board; label: string; blurb: string } => ({
+  key: 'gameday',
+  label: 'Gameday',
+  blurb: gamedayAt() ? 'Live now' : 'Last time out',
+});
+
+/** Which mode a board asks you to play, for the two-step gate. */
+const GATE_MODE: Record<Board, 'player_iq' | 'scout' | 'gameday'> = {
+  rating: 'player_iq',
+  scout: 'scout',
+  points: 'player_iq',
+  gameday: 'gameday',
+};
+
 const points = new Intl.NumberFormat();
 
 const SLOT_ORDER = ['QB', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'DEF'];
@@ -108,7 +157,24 @@ const accentFor = (row: LeaderboardRow) =>
 
 export default function Leaderboard() {
   const layout = useLayout();
-  const [board, setBoard] = useState<Board>('rating');
+  const [chosen, setBoard] = useState<Board>('rating');
+  // Resolved once per mount: it decides whether the tab exists at all, and a
+  // tab that appeared and disappeared under the finger would be worse than one
+  // that waits for the next visit to this screen.
+  const [day] = useState<Gameday | null>(() => boardGameday());
+  // The same switch that hides the marquee hides the board, or turning Gameday
+  // off would leave a tab pointing at a mode nobody can play. Read
+  // unconditionally and combined afterwards: a hook behind a `&&` is a hook
+  // that is sometimes not called.
+  const gamedayEnabled = useFlag('gameday');
+  const gamedayOffered = day !== null && gamedayEnabled;
+  const boards = useMemo(
+    () => (day && gamedayOffered ? [...BOARDS, gamedayTab(day)] : BOARDS),
+    [day, gamedayOffered],
+  );
+  // Derived rather than stored, so a flag flipping mid-session cannot strand
+  // somebody on a board that is no longer there.
+  const board: Board = chosen === 'gameday' && !gamedayOffered ? 'rating' : chosen;
   const [period, setPeriod] = useState<LeaderboardPeriod>('all_time');
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [scores, setScores] = useState<PointsRow[]>([]);
@@ -128,6 +194,18 @@ export default function Leaderboard() {
     setLoading(true);
     setFailed(false);
     try {
+      // A gameday board is already a window -- the day is the period -- so it
+      // ignores the period chips entirely and asks the server for one date.
+      if (b === 'gameday') {
+        const key = gamedayAt() ? null : (day?.key ?? null);
+        setRows(
+          await fetchGamedayBoard(key, 50, (fresh) => {
+            if (current.current === p) setRows(fresh);
+          }),
+        );
+        setLoading(false);
+        return;
+      }
       // The cached board paints immediately and the fresh one replaces it when
       // it lands. Without the second half a board cached from an earlier
       // session keeps showing names that have since been deleted, and stays
@@ -154,7 +232,7 @@ export default function Leaderboard() {
       setRows([]);
     }
     setLoading(false);
-  }, []);
+  }, [day]);
 
   // Switching board refetches: Scout and GM Mode are different views, and the
   // one already on screen is not an approximation of the other.
@@ -184,7 +262,11 @@ export default function Leaderboard() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.title}>Leaderboards</Text>
-          <Text style={styles.subtitle}>Highest 18-0 rating</Text>
+          <Text style={styles.subtitle}>
+            {board === 'gameday' && day
+              ? `${gamedayDate(day)} · ${gamedayLabel(day)}`
+              : 'Highest 18-0 rating'}
+          </Text>
         </View>
 
         {!isBackendConfigured ? (
@@ -199,7 +281,7 @@ export default function Leaderboard() {
             {/* Which question the board is answering. Above the period chips
                 because it changes what the numbers mean, not just their range. */}
             <View style={styles.boards}>
-              {BOARDS.map((b) => (
+              {boards.map((b) => (
                 <Pressable
                   key={b.key}
                   onPress={() => setBoard(b.key)}
@@ -222,8 +304,10 @@ export default function Leaderboard() {
               ))}
             </View>
 
-            <View style={styles.tabs}>
-              {PERIODS.map((p) => (
+            {/* The gameday board is one date. Offering "This Month" over it
+                would be offering a window inside a window. */}
+            <View style={[styles.tabs, board === 'gameday' && styles.tabsHidden]}>
+              {(board === 'gameday' ? [] : PERIODS).map((p) => (
                 <Pressable
                   key={p.key}
                   onPress={() => setPeriod(p.key)}
@@ -263,9 +347,13 @@ export default function Leaderboard() {
               <View style={styles.gate}>
                 <RankGate
                   named={me?.named === true}
-                  mode={board === 'scout' ? 'scout' : 'player_iq'}
+                  mode={GATE_MODE[board]}
                   requireBlind={board !== 'points'}
-                  heading="Be the first on the board"
+                  heading={
+                    board === 'gameday' && day && !gamedayAt()
+                      ? 'Nobody played that gameday'
+                      : 'Be the first on the board'
+                  }
                 />
               </View>
             ) : (
@@ -280,7 +368,7 @@ export default function Leaderboard() {
                 ) : (
                   <RankGate
                     named={me?.named === true}
-                    mode={board === 'scout' ? 'scout' : 'player_iq'}
+                    mode={GATE_MODE[board]}
                     heading="Your place is empty"
                   />
                 )}
@@ -704,6 +792,9 @@ const styles = StyleSheet.create({
   },
 
   tabs: { flexDirection: 'row', gap: space.xs, paddingHorizontal: space.lg, paddingBottom: space.md },
+  // Collapsed rather than unmounted, so switching boards does not make the
+  // whole list jump up and down under the finger.
+  tabsHidden: { height: 0, opacity: 0, paddingBottom: 0, overflow: 'hidden' },
   tab: {
     paddingHorizontal: space.md,
     minHeight: 44,

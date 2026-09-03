@@ -9,7 +9,7 @@
     "android": "expo run:android",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "echo \"no mobile tests yet\" && exit 0",
+    "test": "vitest run",
     "device": "expo start --port 8082 --lan",
     "device:clear": "expo start --port 8082 --lan --clear",
     "ios:device": "bash scripts/ios-device.sh",
@@ -52,6 +52,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "^2.1.8"
   }
 }
