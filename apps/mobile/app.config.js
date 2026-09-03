@@ -70,6 +70,13 @@ module.exports = {
       ],
     ],
 
+    // EAS needs to know which project a build belongs to, and it cannot write
+    // this itself: `eas init` edits app.json, and this config is a function of
+    // the environment so it has to be a .js file. Without it every build
+    // command stops and asks to create a *second* project.
+    owner: 'mutaaf',
+    extra: { eas: { projectId: 'ea84b387-544b-46ac-a0e1-0e0f9a5ea492' } },
+
     experiments: { typedRoutes: true, ...(baseUrl ? { baseUrl } : {}) },
   },
 };
