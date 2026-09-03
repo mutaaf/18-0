@@ -76,7 +76,7 @@ def main() -> None:
 
     # The label, set the way the app sets labels: small, uppercase, tracked out.
     label = font('rajdhani', '600SemiBold', 22)
-    tracked = ' '.join('MUTAAF.GITHUB.IO/18-0')
+    tracked = ' '.join('18-0.CO')
     draw.text((x, 452), tracked, font=label, fill=GOLD)
 
     out = ROOT / 'public' / 'og.png'

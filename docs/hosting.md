@@ -60,6 +60,16 @@ Changing the domain means changing all of these, and none of them is in git:
   `eighteenzero://auth-callback`, the Pages mirror and localhost. The web flow
   redirects back to the exact page it started from, so an origin missing from
   that list fails *after* consent.
+- **Supabase → Edge Functions → Secrets: `ALLOWED_ORIGIN`.** A comma-separated
+  list, read once in `functions/_shared/observability.ts`. This is the setting
+  that breaks the *game* rather than just sign-in, and it breaks it silently:
+  the domain moved while this still named only `mutaaf.github.io`, so every
+  `spin`, `select`, `complete-game` and `delete-account` call from `18-0.co`
+  was refused by the browser as a CORS mismatch while the leaderboard kept
+  working — leaderboard reads go through PostgREST, which has its own policy.
+  Current value: `https://18-0.co,https://mutaaf.github.io,http://localhost:8082`.
+  `scripts/verify/e2e.mjs` now asserts all three, so a domain that falls off
+  this list fails the harness instead of just failing players.
 - **Google Cloud → Auth Platform → Branding** (project `eighteen-zero-game`).
   Home page, privacy policy link, and `18-0.co` in Authorized domains.
 - **App Store Connect and Play Console.** Marketing URL and privacy policy URL;

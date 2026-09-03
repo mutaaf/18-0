@@ -1171,10 +1171,20 @@ const preflight = async (origin) => {
   return res.headers.get('access-control-allow-origin');
 };
 
-const shipped = 'https://mutaaf.github.io';
+// Both deployments have to be on the allow list, and the canonical one is the
+// one that will be forgotten: the game moved to 18-0.co while the Pages build
+// stayed up, and for a while the function secret still named only the mirror.
+// Every ranked call from the real domain was refused by the browser, and
+// nothing here noticed, because this only ever asked about the mirror.
+const canonical = 'https://18-0.co';
+const mirror = 'https://mutaaf.github.io';
 const dev = 'http://localhost:8082';
 
-for (const [label, origin] of [['the published site', shipped], ['local web development', dev]]) {
+for (const [label, origin] of [
+  ['the canonical domain', canonical],
+  ['the Pages mirror', mirror],
+  ['local web development', dev],
+]) {
   const allowed = await preflight(origin);
   check(`${label} is allowed through`, allowed === origin, `${allowed}`);
 }
