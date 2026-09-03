@@ -19,15 +19,18 @@ import { lookupCard } from '@/state/game';
 import { Screen } from '@/components/Screen';
 import { AccountPanel } from '@/components/AccountPanel';
 import { ReportButton } from '@/components/ReportButton';
+import { Avatar } from '@/components/Avatar';
 import { track } from '@/features/telemetry';
 import {
   fetchLeaderboard,
+  fetchPoints,
   fetchRoster,
   identity,
   isBackendConfigured,
   type Identity,
   type LeaderboardPeriod,
   type LeaderboardRow,
+  type PointsRow,
   type RosterPick,
 } from '@/services/supabase';
 import {
@@ -69,6 +72,24 @@ const PERIODS: { key: LeaderboardPeriod; label: string }[] = [
   { key: 'week', label: 'This Week' },
 ];
 
+/**
+ * Two boards, asking different questions.
+ *
+ * Rating is a ceiling: the best roster you have ever built, blind. Points is
+ * accumulation: every season you have finished, Rookie included. They are meant
+ * to disagree -- somebody near the top of one can be nowhere on the other --
+ * which is the whole reason for having both rather than one blended number
+ * nobody can reason about.
+ */
+type Board = 'rating' | 'points';
+
+const BOARDS: { key: Board; label: string; blurb: string }[] = [
+  { key: 'rating', label: 'Player IQ', blurb: 'Best blind season' },
+  { key: 'points', label: 'Points', blurb: 'Every season added up' },
+];
+
+const points = new Intl.NumberFormat();
+
 const SLOT_ORDER = ['QB', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'DEF'];
 const positionOf = (slot: string) => slot.replace(/\d+$/, '');
 
@@ -77,8 +98,10 @@ const accentFor = (row: LeaderboardRow) =>
 
 export default function Leaderboard() {
   const layout = useLayout();
+  const [board, setBoard] = useState<Board>('rating');
   const [period, setPeriod] = useState<LeaderboardPeriod>('all_time');
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
+  const [scores, setScores] = useState<PointsRow[]>([]);
   const [me, setMe] = useState<Identity | null>(null);
   const [loading, setLoading] = useState(isBackendConfigured);
   const [failed, setFailed] = useState(false);
@@ -102,6 +125,11 @@ export default function Leaderboard() {
       setRows(
         await fetchLeaderboard(p, 50, (fresh) => {
           if (current.current === p) setRows(fresh);
+        }),
+      );
+      setScores(
+        await fetchPoints(p, 50, (fresh) => {
+          if (current.current === p) setScores(fresh);
         }),
       );
     } catch {
@@ -151,6 +179,32 @@ export default function Leaderboard() {
           </View>
         ) : (
           <>
+            {/* Which question the board is answering. Above the period chips
+                because it changes what the numbers mean, not just their range. */}
+            <View style={styles.boards}>
+              {BOARDS.map((b) => (
+                <Pressable
+                  key={b.key}
+                  onPress={() => setBoard(b.key)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: board === b.key }}
+                  accessibilityLabel={`${b.label}. ${b.blurb}.`}
+                  style={({ hovered }: PressState) => [
+                    styles.boardTab,
+                    hovered && { borderColor: color.line },
+                    board === b.key && styles.boardTabOn,
+                  ]}
+                >
+                  <Text style={[styles.boardLabel, board === b.key && { color: '#fff' }]}>
+                    {b.label}
+                  </Text>
+                  <Text style={[styles.boardBlurb, board === b.key && { color: '#FFFFFFCC' }]}>
+                    {b.blurb}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
             <View style={styles.tabs}>
               {PERIODS.map((p) => (
                 <Pressable
@@ -198,6 +252,10 @@ export default function Leaderboard() {
               </View>
             ) : (
               <>
+                {board === 'points' ? (
+                  <PointsBoard rows={scores} meId={me?.userId} wide={layout.wide} />
+                ) : (
+                  <>
                 <Podium rows={rows.slice(0, 3)} wide={layout.wide} />
                 {mine ? (
                   <YourStanding {...mine} />
@@ -228,6 +286,8 @@ export default function Leaderboard() {
                     />
                   ))}
                 </View>
+                  </>
+                )}
               </>
             )}
 
@@ -473,6 +533,103 @@ function Entry({
   );
 }
 
+/**
+ * The points board.
+ *
+ * Same shape as the rating board so switching between them does not feel like
+ * changing screens, but the top three are given avatars and medals rather than
+ * cards: points are a running total, and a total wants a face next to it more
+ * than it wants a tier badge.
+ */
+function PointsBoard({
+  rows,
+  meId,
+  wide,
+}: {
+  rows: PointsRow[];
+  meId?: string;
+  wide: boolean;
+}) {
+  if (rows.length === 0) {
+    return (
+      <View style={styles.notice}>
+        <Text style={styles.noticeTitle}>No points yet</Text>
+        <Text style={styles.noticeCopy}>
+          Every season you finish adds to this, Rookie included. Sign in and play one.
+        </Text>
+      </View>
+    );
+  }
+
+  const top = rows.slice(0, 3);
+  const rest = rows.slice(3);
+
+  return (
+    <>
+      <View style={[styles.rostrum, wide && { paddingHorizontal: space.xxl }]}>
+        {/* Second, first, third: the arrangement a podium actually has, which
+            is worth the reorder because the shape alone then says who won. */}
+        {[top[1], top[0], top[2]].map((row, i) =>
+          row ? (
+            <RostrumStep
+              key={row.userId}
+              row={row}
+              place={i === 1 ? 1 : i === 0 ? 2 : 3}
+              isMe={row.userId === meId}
+            />
+          ) : (
+            <View key={`empty-${i}`} style={styles.step} />
+          ),
+        )}
+      </View>
+
+      {rest.length > 0 ? <Text style={styles.sectionLabel}>The rest of the field</Text> : null}
+      <View style={styles.list}>
+        {rest.map((row, i) => (
+          <View
+            key={row.userId}
+            style={[styles.pointsRow, row.userId === meId && styles.entryMine]}
+            accessible
+            accessibilityLabel={`Rank ${i + 4}. ${row.handle}. ${points.format(row.points)} points from ${row.seasons} seasons.`}
+          >
+            <Text style={styles.rank}>{i + 4}</Text>
+            <Avatar handle={row.handle} size={34} />
+            <View style={styles.pointsMain}>
+              <Text style={styles.handle} numberOfLines={1}>
+                {row.handle}
+              </Text>
+              <Text style={styles.pointsMeta}>
+                {row.seasons} {row.seasons === 1 ? 'season' : 'seasons'}
+              </Text>
+            </View>
+            <Text style={styles.pointsValue}>{points.format(row.points)}</Text>
+          </View>
+        ))}
+      </View>
+    </>
+  );
+}
+
+const MEDAL = ['🥇', '🥈', '🥉'];
+
+function RostrumStep({ row, place, isMe }: { row: PointsRow; place: number; isMe: boolean }) {
+  const lead = place === 1;
+  return (
+    <View style={[styles.step, lead && styles.stepLead]}>
+      <Text style={styles.medal}>{MEDAL[place - 1]}</Text>
+      <Avatar handle={row.handle} size={lead ? 76 : 58} />
+      <Text style={[styles.stepName, lead && styles.stepNameLead]} numberOfLines={1}>
+        {row.handle}
+        {isMe ? ' ·' : ''}
+      </Text>
+      <Text style={[styles.stepPoints, lead && styles.stepPointsLead]}>
+        {points.format(row.points)}
+        <Text style={styles.stepPointsUnit}> pts</Text>
+      </Text>
+    </View>
+  );
+}
+
 /** One player from somebody else's seven, resolved out of the bundled dataset. */
 function RosterLine({ pick }: { pick: RosterPick }) {
   const router = useRouter();
@@ -551,6 +708,68 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: '#D50A0A26', borderColor: color.red },
   tabLabel: { fontFamily: font.label, fontSize: 12, letterSpacing: tracking.wide, color: color.textDim },
   loading: { paddingVertical: space.xxxl },
+
+  boards: { flexDirection: 'row', gap: space.sm, paddingHorizontal: space.lg, paddingBottom: space.md },
+  boardTab: {
+    flex: 1,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: color.line,
+    paddingVertical: space.sm,
+    paddingHorizontal: space.md,
+    gap: 1,
+  },
+  boardTabOn: { backgroundColor: color.red, borderColor: color.red },
+  boardLabel: {
+    fontFamily: font.heading,
+    fontSize: 15,
+    color: color.textDim,
+  },
+  boardBlurb: { fontFamily: font.bodyRegular, fontSize: 10, color: color.textFaint },
+
+  // --- points ---------------------------------------------------------------
+  rostrum: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+    paddingTop: space.sm,
+    paddingBottom: space.lg,
+  },
+  step: { flex: 1, alignItems: 'center', gap: 4, minWidth: 0 },
+  stepLead: { paddingBottom: space.md },
+  medal: { fontSize: 18 },
+  stepName: { fontFamily: font.heading, fontSize: 13, color: color.text, maxWidth: '100%' },
+  stepNameLead: { fontSize: 16 },
+  stepPoints: {
+    fontFamily: font.display,
+    fontSize: 15,
+    color: '#3FD68C',
+    ...tabular,
+    includeFontPadding: false,
+  },
+  stepPointsLead: { fontSize: 20 },
+  stepPointsUnit: { fontSize: 10, color: '#3FD68CAA' },
+  pointsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingVertical: 10,
+    paddingHorizontal: space.md,
+    borderRadius: radius.md,
+    backgroundColor: '#FFFFFF05',
+    minHeight: 56,
+  },
+  pointsMain: { flex: 1, minWidth: 0, gap: 1 },
+  pointsMeta: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint },
+  pointsValue: {
+    fontFamily: font.display,
+    fontSize: 17,
+    color: '#3FD68C',
+    ...tabular,
+    includeFontPadding: false,
+  },
 
   // --- podium ---------------------------------------------------------------
   podium: { paddingHorizontal: space.lg, gap: space.sm, paddingBottom: space.md },

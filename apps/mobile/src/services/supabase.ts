@@ -153,6 +153,54 @@ async function loadLeaderboard(
   }));
 }
 
+export interface PointsRow {
+  readonly userId: string;
+  readonly handle: string;
+  readonly points: number;
+  readonly seasons: number;
+  readonly bestRating: number | null;
+}
+
+/**
+ * The points board: everything you have finished, added up.
+ *
+ * A different question from the rating board, and deliberately a different
+ * answer. This one counts Rookie seasons, because it measures how much has been
+ * played rather than how well one roster scored blind.
+ */
+export async function fetchPoints(
+  period: LeaderboardPeriod,
+  limit = 50,
+  onFresh?: (rows: PointsRow[]) => void,
+): Promise<PointsRow[]> {
+  if (!supabase) return [];
+  const read = await cached<PointsRow[]>(
+    `points:${period}:${limit}`,
+    async () => {
+      const from = since(period);
+      const query = from
+        ? supabase!.rpc('leaderboard_points_since', { since: from })
+        : supabase!.from('leaderboard_points').select('user_id, handle, points, seasons, best_rating');
+      const { data, error } = await query;
+      if (error) throw error;
+      const rows = (Array.isArray(data) ? data : [data]) as Record<string, unknown>[];
+      return rows
+        .map((r) => ({
+          userId: r.user_id as string,
+          handle: r.handle as string,
+          points: Number(r.points ?? 0),
+          seasons: Number(r.seasons ?? 0),
+          bestRating: r.best_rating === null ? null : Number(r.best_rating),
+        }))
+        // The view groups rather than orders, so the ranking is applied here.
+        .sort((a, b) => b.points - a.points)
+        .slice(0, limit);
+    },
+    { ttl: 30_000, ...(onFresh ? { onFresh } : {}) },
+  );
+  return read.value ?? [];
+}
+
 export interface RosterPick {
   readonly slot: string;
   readonly cardId: string;
