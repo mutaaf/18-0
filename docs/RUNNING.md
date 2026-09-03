@@ -165,6 +165,24 @@ curve and the gates both need refitting or the "once every 6,000 games" on the
 front page quietly stops being true. `analyze` first, then `tune`: the curve
 governs 17-1, the gates govern 18-0. See `docs/scoring-model.md`.
 
+## Correcting a stat line without shipping an app
+
+Everything a card shows is bundled, so a display mistake would otherwise wait
+for an app release — and two of them did, in one afternoon: pre-1999 defences
+showing `— SACK`, and running backs showing yards under a label that read as a
+count. Both were right in the repository within the hour and neither could
+reach a phone.
+
+So `build:dataset` also writes `apps/mobile/public/stat-lines.json` and a
+77-byte manifest beside it, and a build whose own revision is behind adopts the
+published lines at boot. Rebuild, push, and phones pick it up on their next
+launch; the web build gets it from the same deploy.
+
+It carries labels and values only, matched to cards the bundle already has, so
+it can correct what a card *says* and never what it is worth. `/admin` shows
+which revision this build shipped with, which one it applied, and how many
+cards differ. Nothing waits for it and nothing fails without it.
+
 ## Adding next season's gamedays
 
 The schedule moves every year and history does not, so it has its own build:

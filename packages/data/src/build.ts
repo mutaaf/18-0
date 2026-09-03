@@ -29,6 +29,7 @@ import { TEAM_TO_FRANCHISE } from './teams.js';
 import { ERA_TABLE, eraForYear } from './eras.js';
 import { loadHydratedSeasons } from './seasons.js';
 import { writeLedger } from './ledger.js';
+import { statLinesRevision, writeStatLines } from './stat-lines.js';
 import { datasetFingerprint } from './fingerprint.js';
 import type { Dataset, DatasetCard, DatasetComponent, StatLine } from './schema.js';
 
@@ -864,6 +865,9 @@ function main(): void {
     ratingModelVersion: '1.2.0',
     // Filled in below, once there is content to hash.
     fingerprint: '',
+    // Both are placeholders: they are digests of this very object, so they are
+    // filled in below once there is something to digest.
+    statLinesRevision: '',
     source:
       'nflverse-data (stats_player_reg, stats_team_week, schedules) 1999+, ' +
       'licensed season tables 1980-1998; regular season only',
@@ -885,7 +889,13 @@ function main(): void {
 
   // Canonical and sorted, so it depends on the data rather than on the order
   // this function happened to build it in. See `fingerprint.ts`.
-  const stamped = { ...dataset, fingerprint: datasetFingerprint(dataset.eras, combos, finalCards) };
+  const stamped = {
+    ...dataset,
+    fingerprint: datasetFingerprint(dataset.eras, combos, finalCards),
+    // Computed before anything is written, so the bundle and the published
+    // table cannot disagree about which revision they are.
+    statLinesRevision: statLinesRevision(finalCards),
+  };
 
   const componentIndex: Record<string, { c: DatasetCard['components']; u: readonly string[] }> = {};
   for (const card of finalCards) {
@@ -904,6 +914,10 @@ function main(): void {
   // them, or it becomes a confident description of a dataset that moved on.
   const ledger = writeLedger(stamped, finalCards, RAW);
 
+  // Published in the same run for the same reason, and for one more: a display
+  // fix should not have to wait for an app release. See `stat-lines.ts`.
+  const published = writeStatLines(stamped.statLinesRevision, stamped.version, finalCards);
+
   const bytes = readFileSync(OUT).length;
   const componentBytes = readFileSync(OUT_COMPONENTS).length;
   console.log(`  ${combos.length} valid franchise-era combos across ${eraKeys.length} eras`);
@@ -912,6 +926,10 @@ function main(): void {
   console.log(
     `  wrote ${ledger.path} (${(ledger.bytes / 1024 / 1024).toFixed(2)} MB, ` +
       `${ledger.cards.toLocaleString()} cards, served by URL only)`,
+  );
+  console.log(
+    `  wrote ${published.path} (${(published.bytes / 1024).toFixed(0)} KB, ` +
+      `${published.cards.toLocaleString()} cards, fetched only by a stale build)`,
   );
 }
 

@@ -110,6 +110,14 @@ export interface Dataset {
    * reproducible: same inputs, same bytes.
    */
   readonly fingerprint: string;
+  /**
+   * Which published stat-line table this bundle was built with.
+   *
+   * Compared against `stat-lines-manifest.json` at boot: display text can be
+   * corrected without an app release, and this is how a build knows it is
+   * behind. See `stat-lines.ts`.
+   */
+  readonly statLinesRevision: string;
   readonly source: string;
   readonly coverage: { readonly firstSeason: number; readonly lastSeason: number };
   readonly eras: readonly DatasetEra[];

@@ -74,6 +74,15 @@ self.addEventListener('fetch', (event) => {
   // as the game on the next offline load.
   if (url.pathname.endsWith('/ledger.html')) return;
 
+  // The published stat lines are the one thing on this origin that is meant to
+  // change under a fixed name. Everything else here is content-hashed, which is
+  // what makes the cache-first branch below safe -- these two would be cached on
+  // first fetch and served for ever, and a build would never learn that its
+  // display text had been corrected. Left to the network and its own HTTP
+  // caching. See `features/stat-lines`.
+  if (url.pathname.endsWith('/stat-lines.json')) return;
+  if (url.pathname.endsWith('/stat-lines-manifest.json')) return;
+
   // The shell: network first, so a deploy lands on the next load. The cache is
   // the fallback for a plane, not the source of truth.
   if (request.mode === 'navigate') {

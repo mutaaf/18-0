@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Reveal } from './Reveal';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { franchise, type BootCard } from '@18-0/data';
+import { useCardStats } from '@/features/stat-lines';
 import { showsRating, showsStats, type GameMode } from '@/state/game';
 import { color, font, positionColor, radius, space, tabular, tracking, type PressState } from '@/theme';
 
@@ -42,6 +43,7 @@ export const PlayerCard = memo(function PlayerCard({
 }) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
+  const stats = useCardStats(card);
   const team = franchise(card.franchiseId);
   const accent = positionColor[card.position];
   const teamColor = team.color || '#3A3F4B';
@@ -97,7 +99,7 @@ export const PlayerCard = memo(function PlayerCard({
               <Text style={styles.team}>{team.abbr}</Text>
               <Text style={styles.year}>{card.year}</Text>
               {showsStats(mode)
-                ? card.stats.slice(0, 3).map((stat) => (
+                ? stats.slice(0, 3).map((stat) => (
                     <Text key={stat.label} style={styles.stat}>
                       <Text style={styles.statValue}>{stat.value}</Text>
                       <Text style={styles.statLabel}> {stat.label}</Text>

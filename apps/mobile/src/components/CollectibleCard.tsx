@@ -5,6 +5,7 @@ import { Image } from 'expo-image';
 import { displayName, era as eraDef, franchise, headshotUrl, type BootCard } from '@18-0/data';
 import { color, elevate, font, positionColor, radius, space, tabular, tracking } from '@/theme';
 import { useCardTilt } from './useCardTilt';
+import { useCardStats } from '@/features/stat-lines';
 
 /**
  * The card as an object, rather than a heading with facts under it.
@@ -27,6 +28,7 @@ export function CollectibleCard({
   /** Player IQ: no rating on the face, same as everywhere else. */
   blind: boolean;
 }) {
+  const stats = useCardStats(card);
   const team = franchise(card.franchiseId);
   const accent = positionColor[card.position];
   const teamColor = team.color || color.navy;
@@ -190,7 +192,7 @@ export function CollectibleCard({
               </View>
             )}
             <View style={styles.chips}>
-              {card.stats.slice(0, 2).map((stat) => (
+              {stats.slice(0, 2).map((stat) => (
                 <View key={stat.label} style={styles.chip}>
                   <Text style={styles.chipValue}>{stat.value}</Text>
                   <Text style={styles.chipLabel}>{stat.label}</Text>
@@ -204,7 +206,7 @@ export function CollectibleCard({
         <Animated.View style={[styles.face, styles.back, { opacity: backOpacity }]}>
           <Text style={styles.backLabel}>{card.year} season</Text>
           <View style={styles.backStats}>
-            {card.stats.map((stat) => (
+            {stats.map((stat) => (
               <View key={stat.label} style={styles.backRow}>
                 <Text style={styles.backRowLabel}>{stat.label}</Text>
                 <Text style={styles.backRowValue}>{stat.value}</Text>

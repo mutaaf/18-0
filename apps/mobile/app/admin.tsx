@@ -15,6 +15,7 @@ import {
   useFlagStatus,
   type FlagKey,
 } from '@/features/flags';
+import { useStatLineStatus } from '@/features/stat-lines';
 import { useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
 import { useOverrideStore } from '@/state/overrides';
@@ -126,6 +127,8 @@ export default function Admin() {
         {operator ? <OperatorConsole /> : null}
 
         <FlagsSection />
+
+        <StatLinesSection />
 
         <View style={styles.warn}>
           <Text style={styles.warnText}>
@@ -324,6 +327,33 @@ function FlagsSection() {
         action="Reset"
         onPress={() => void clearOverrides()}
       />
+    </Section>
+  );
+}
+
+/**
+ * Whether this build's stat lines are the published ones.
+ *
+ * Display text is the one thing the app can correct without a release, so it is
+ * also the one thing that can differ between two devices running what looks
+ * like the same version. This says which revision the bundle shipped with,
+ * which one the site is serving, and how many cards are being shown
+ * differently as a result.
+ */
+function StatLinesSection() {
+  const { checked, revision, corrected, bundled } = useStatLineStatus();
+  return (
+    <Section title="Stat lines">
+      <Text style={styles.help}>
+        {!checked
+          ? 'Checking the published table…'
+          : revision === null
+            ? 'This build is current. Nothing is being corrected.'
+            : `This build is behind. ${corrected} ${corrected === 1 ? 'card is' : 'cards are'} showing the published line instead of the bundled one.`}
+      </Text>
+      <Metric label="Bundled revision" value={bundled.slice(0, 12)} />
+      <Metric label="Applied revision" value={revision ? revision.slice(0, 12) : '—'} />
+      <Metric label="Cards corrected" value={String(corrected)} />
     </Section>
   );
 }

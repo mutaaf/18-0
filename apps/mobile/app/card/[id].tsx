@@ -10,6 +10,7 @@ import {
   type CardExplanation,
 } from '@18-0/data';
 import { Screen } from '@/components/Screen';
+import { useCardStats } from '@/features/stat-lines';
 import { showsRating, showsStats, useGameStore } from '@/state/game';
 import { CollectibleCard } from '@/components/CollectibleCard';
 import { DECORATIVE, color, font, positionColor, radius, space, tabular, tracking } from '@/theme';
@@ -25,6 +26,7 @@ export default function CardDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const card = id ? cardById(decodeURIComponent(id)) : undefined;
+  const stats = useCardStats(card);
   // The detail screen must not be a way around the mode you chose. It withholds
   // exactly what the mode withholds and no more, which is what makes it safe to
   // open from anywhere: Scout gets the stat line it was promised, GM Mode gets
@@ -103,7 +105,7 @@ export default function CardDetail() {
 
         {hideStats ? null : (
         <View style={styles.statStrip}>
-          {card.stats.slice(0, 4).map((stat) => (
+          {stats.slice(0, 4).map((stat) => (
             <View key={stat.label} style={styles.statCell}>
               <Text style={styles.statValue}>{stat.value}</Text>
               <Text style={styles.statLabel}>{stat.label}</Text>

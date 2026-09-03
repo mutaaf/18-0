@@ -42,8 +42,10 @@ Full pattern, and why PostHog rather than LaunchDarkly:
 ## Conventions that are load-bearing
 
 - **Generated files are generated.** `packages/data/generated/*.json`,
-  `supabase/seed/0001_dataset.sql`, `supabase/functions/_shared/domain.ts` and
-  `constants/calibration.generated.ts` are build outputs. Change the builder,
+  `supabase/seed/0001_dataset.sql`, `supabase/functions/_shared/domain.ts`,
+  `constants/calibration.generated.ts` and everything the dataset build writes
+  into `apps/mobile/public/` (`ledger.html`, `stat-lines.json`,
+  `stat-lines-manifest.json`) are build outputs. Change the builder,
   re-run it, commit the result. Never hand-edit them.
 - **Migrations are append-only and restate what they replace.** When replacing
   a view, read the version being replaced rather than the one you remember:
