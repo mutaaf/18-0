@@ -32,7 +32,7 @@ insert into public.franchises (id, abbreviation, display_name, nickname, confere
   ('jax', 'JAX', 'Jacksonville', 'Jacksonville', 'AFC', '#29d638'),
   ('kc', 'KC', 'Kansas City', 'Kansas City', 'AFC', '#7a48cb'),
   ('lac', 'LAC', 'Los Angeles', 'Los Angeles', 'AFC', '#c59026'),
-  ('lar', 'LA', 'Los Angeles', 'Los Angeles', 'NFC', '#38c7c1'),
+  ('lar', 'LAR', 'Los Angeles', 'Los Angeles', 'NFC', '#38c7c1'),
   ('lv', 'LV', 'Las Vegas', 'Las Vegas', 'AFC', '#d93ab1'),
   ('mia', 'MIA', 'Miami', 'Miami', 'AFC', '#6fb734'),
   ('min', 'MIN', 'Minnesota', 'Minnesota', 'NFC', '#2945d6'),

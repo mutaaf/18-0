@@ -190,7 +190,12 @@ export function loadHydratedSeasons(rawDir: string): HydrationReport {
         // Matches the id the modern defense loader mints, so the collapse key
         // and the card id read the same across every era.
         playerId: `def-${d.franchiseId}-${year}`,
-        name: d.franchiseId,
+        // Empty, like the modern loader's, because a defence has nobody to
+        // name. `displayName()` builds "1991 Philadelphia Defense" from the
+        // year and the franchise, and anything that reads `name` directly gets
+        // a blank it can fall back from. Set to the franchise id, every
+        // hydrated defence rendered as `phi` on the front page.
+        name: '',
         position: 'DEF',
         franchiseId: d.franchiseId,
         year,
