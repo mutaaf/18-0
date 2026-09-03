@@ -16,15 +16,9 @@ import {
 } from '@/features/install';
 import { useHistoryStore } from '@/state/history';
 import { DOCK_HEIGHT } from './Dock';
+import { phoneBarHeight } from './NavBar';
 import { color, elevate, font, radius, space, tracking, useLayout, type PressState } from '@/theme';
 
-/**
- * Roughly the phone tab bar: a 48-point row, the padding that lets the raised
- * Play disc break its top edge, and whatever the home indicator needs. The bar
- * sits above it rather than over it -- an install prompt covering the way out
- * of the screen is the definition of an obstruction.
- */
-const PHONE_BAR = 84;
 
 /**
  * Getting the game onto a home screen, and getting the seasons there with it.
@@ -109,7 +103,9 @@ export function InstallBar() {
     <View
       style={[
         styles.stage,
-        { bottom: layout.wide ? DOCK_HEIGHT : PHONE_BAR + insets.bottom },
+        // Asked, not guessed: the prompt sits on the bar rather than over
+        // it, so it has to agree with the bar about where the bar ends.
+        { bottom: layout.wide ? DOCK_HEIGHT : phoneBarHeight(insets.bottom) },
       ]}
       pointerEvents="box-none"
     >

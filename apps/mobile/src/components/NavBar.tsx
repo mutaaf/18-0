@@ -70,6 +70,24 @@ export interface NavBarProps {
   };
 }
 
+/**
+ * The phone bar's height, before the safe area.
+ *
+ * A 48-point row of tabs plus the padding that lets the raised Play disc break
+ * the top edge. Exported because anything that sits *on* the bar needs the same
+ * number, and two components guessing it separately is how they end up 20
+ * points apart on a phone with a home indicator.
+ */
+export const PHONE_BAR_BASE = space.lg + 48;
+
+/** Clear of the home indicator, and never tighter than the bar's own rhythm. */
+const barPadding = (insetBottom: number) => Math.max(insetBottom, space.md);
+
+/** What the bar occupies once the home indicator is accounted for. */
+export function phoneBarHeight(insetBottom: number): number {
+  return PHONE_BAR_BASE + barPadding(insetBottom);
+}
+
 export function NavBar({ state, navigation }: NavBarProps) {
   const layout = useLayout();
   const insets = useSafeAreaInsets();
@@ -103,7 +121,7 @@ export function NavBar({ state, navigation }: NavBarProps) {
   }
 
   return (
-    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, space.md) }]}>
+    <View style={[styles.bar, { paddingBottom: barPadding(insets.bottom) }]}>
       {routes.map(({ route, index }) => {
         const active = state.index === index;
         const isPlay = route.name === 'index';

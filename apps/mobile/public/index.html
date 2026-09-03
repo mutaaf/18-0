@@ -97,6 +97,16 @@
          https://necolas.github.io/react-native-web/docs/setup/#root-element -->
     <style id="expo-reset">
       html, body { height: 100%; }
+      /* An installed iOS app resolves `height: 100%` against a containing block
+         that stops short of the home indicator, so the app ends above the
+         bottom of the screen and the page shows through underneath the tab bar
+         -- which then reads as a bar that will not sit on the edge. `dvh` is
+         the visual viewport, which is the thing we actually meant. Guarded, so
+         a browser without it keeps the behaviour it already had, where 100%
+         is already right. */
+      @supports (height: 100dvh) {
+        html, body { height: 100dvh; }
+      }
       /* Body scrolling is disabled so the app's own ScrollViews own the gesture. */
       body { overflow: hidden; overscroll-behavior: none; }
       #root { display: flex; height: 100%; flex: 1; }
