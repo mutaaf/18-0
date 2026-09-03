@@ -348,7 +348,11 @@ Hydrating them from a licensed source is
 
 ## Licence
 
-MIT. Statistics from [nflverse](https://nflverse.com) under CC BY 4.0.
+MIT. Statistics 1999–2025 from [nflverse](https://nflverse.com) under CC BY 4.0;
+1980–1998 from [Pro-Football-Reference](https://www.pro-football-reference.com)
+under licence. No source file is redistributed — what ships is a rating computed
+from them and a short stat line. Every input and what happens to it is recorded
+in [`docs/licensing.md`](docs/licensing.md).
 
 **This project uses no club names, marks, logos or colours.** Franchises are
 identified by city — "Baltimore", not the club — because a city is a place and

@@ -3,7 +3,7 @@
 Open work, with enough context to pick it up cold. Each item says what it is,
 why it matters, what has already been decided, and how to know when it is done.
 
-Last reviewed **2026-09-03**. This repository moves quickly — before acting on
+Last reviewed **2026-09-03**. Items 4 and 8 are done. This repository moves quickly — before acting on
 an item, check the "still true?" line, because several things listed here in the
 past were fixed by the time anybody read them.
 
@@ -98,10 +98,12 @@ falsifying them until somebody measured. The last drift was a factor of four.
 CI runs `pnpm --filter @18-0/data tune` on every push, but it **prints and never
 asserts**, so a green build says nothing about whether the front page is true.
 
-**Do:** assert a band in that job — fail if 18-0 falls outside roughly 1 in
-4,000–9,000, which is wide enough for the ~1.4× spread between the two harnesses
-(`tune` and `analyze` disagree systematically; see `docs/scoring-model.md`) and
-tight enough to catch a real drift.
+**Done.** `tune --assert` measures the shipped gates — read from
+`DEFAULT_SCORING_CONFIG`, not matched by label — and fails outside 1 in
+4,000–9,000 for 18-0 and 1 in 33–83 for 17-1. CI runs it at 400,000 games,
+which matters: the same config reads 1 in 4,444 at 120,000 and 1 in 6,154 at
+400,000, so a band fitted to one does not fit the other. The sample is seeded,
+so it cannot flake.
 
 **Note:** retuning is two steps in order — `analyze --write` refits the curve
 (which governs 17-1), then `tune` picks the gates (which govern 18-0). Bump the
@@ -144,7 +146,9 @@ defence card has run without a photo since the first build, so the fallback is
 proven in production. Making `headshotUrl()` return null is a one-line change.
 
 **Decide before the binary is public.** Options: remove them; licence a source;
-or replace them with something generated that is ours.
+or replace them with something generated that is ours. Recorded alongside every
+other third-party input in [`licensing.md`](licensing.md), which is now the page
+to read before answering this one.
 
 ## 7. The two store forms
 
@@ -176,10 +180,12 @@ Fixed with `npx expo prebuild -p android --clean`, which is the right answer
 every time: these directories are generated, so regenerating is free and editing
 is not.
 
-**Do:** add a check that reads `applicationId` from `android/app/build.gradle`
-and `PRODUCT_BUNDLE_IDENTIFIER` from the Xcode project and fails when either
-disagrees with `app.config.js`. This is exactly the class of thing the
-repository already enforces in the build rather than in prose.
+**Done.** `pnpm verify:native` compares both against `app.config.js` and
+checks *every* iOS build configuration rather than the first found, since a
+target left behind on the old identifier is the exact shape of the bug. It was
+confirmed against `android/` put back on the old package id. CI cannot run it —
+CI has never prebuilt — so it is a step in `submission.md`, on the machine the
+release is cut on, which is the only machine where it can be wrong.
 
 ## 9. Three agents share one working tree
 
