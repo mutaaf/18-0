@@ -68,7 +68,30 @@
     <meta name="twitter:image" content="https://mutaaf.github.io/18-0/og.png" />
     <meta name="twitter:image:alt" content="18-0: build the perfect roster" />
 
+    <!-- Installable. Chrome needs a manifest AND a service worker with a fetch
+         handler before it will offer to install at all; iOS reads none of the
+         manifest and needs its own four tags. Both sets are here because the
+         game is meant to end up on a home screen, not in a tab. -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <!-- black-translucent so the field runs under the status bar, matching
+         viewport-fit=cover above. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="18-0" />
+    <meta name="application-name" content="18-0" />
+
+    <script>
+      // Registered after load so it never competes with the bundle for the
+      // first paint, and wrapped because a browser without service workers
+      // must still get a working game.
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('sw.js').catch(function () {});
+        });
+      }
+    </script>
 
     <!-- The react-native-web reset. Removing any of this breaks scrolling:
          https://necolas.github.io/react-native-web/docs/setup/#root-element -->
