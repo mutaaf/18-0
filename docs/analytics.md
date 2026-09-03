@@ -45,37 +45,64 @@ a game whose whole loop is already instrumented event by event.
 It hangs off the `setSink` hook that `features/telemetry.ts` has always had, so
 every existing `track()` call is already wired. No call sites changed.
 
-## Turning it on
+## Configuration
 
-```bash
-# apps/mobile/.env  — and as repo secrets for the Pages build
-EXPO_PUBLIC_POSTHOG_KEY=phc_...
-EXPO_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com   # or us., default is us.
-```
+Live. PostHog project `402075`, **US Cloud** — the account was already on the
+US region, and region is fixed per account, so the EU host is not an option
+without a second account.
 
-**With no key set, no sink is installed and no request is ever made.** That is
-the state this repository ships in, and it is why turning this on is a
-deliberate act rather than a side effect of deploying.
+| Where | Name | Value |
+| --- | --- | --- |
+| `apps/mobile/.env` (untracked) | `EXPO_PUBLIC_POSTHOG_KEY` | `phc_…` project token |
+| | `EXPO_PUBLIC_POSTHOG_HOST` | `https://us.i.posthog.com` |
+| GitHub repo **variables** | `POSTHOG_KEY`, `POSTHOG_HOST` | same, for the Pages build |
+| Supabase **secrets** | `POSTHOG_PERSONAL_API_KEY` | `phx_…`, scoped `person:write` on this project only |
+| | `POSTHOG_PROJECT_ID`, `POSTHOG_HOST` | for the deletion call |
 
-Prefer the EU host if there is any chance of EU players — it keeps the data in
-the EU and makes the GDPR position much simpler.
+The project token is a repository *variable*, not a secret: PostHog's own
+settings page calls it "write-only, safe to use in public apps" — it can send
+events and read nothing back. The **personal** key is a real secret, lives only
+in Supabase secrets, and is scoped to `person:write` on this one project so the
+worst it can do is delete analytics people.
 
-## What must change before the key goes in
+With no `EXPO_PUBLIC_POSTHOG_KEY`, no sink is installed and no request is made.
 
-Adding the key sends player data to a third party. Three things have to happen
-first, and none of them are code:
+## Deletion
 
-1. **`digitalcraftai.com/privacy` has to say so.** It currently states,
-   accurately, that the game carries no analytics. Name PostHog as a processor,
-   say what is collected (gameplay events, a device-generated id, a chosen
-   handle, coarse rating bands), why (product improvement), where it is stored
-   (US or EU, per the host above), and how to ask for deletion.
-2. **App Store privacy disclosures.** The nutrition label needs *Usage Data →
-   Analytics* and *Identifiers → Analytics*, linked to the user. This is
-   first-party analytics and not cross-app tracking, so it does not by itself
-   require an ATT prompt — but do not add any advertising SDK alongside it
-   without revisiting that, because combining the two does.
-3. **Google Play Data safety form.** Same declaration, separate form.
+`delete-account` calls PostHog's `persons/bulk_delete/` with the account id in
+the same request that deletes the account. The client aliases the anonymous
+device id onto the account id at identify time, so deleting one takes the
+anonymous history with it.
+
+It never fails the deletion: by the time it runs the account is already gone,
+and refusing would leave the player believing it had not worked. The outcome —
+`ok`, `not_configured`, `http_403`, whatever it was — goes on the audit trail
+under `account_deleted`, where a failure can be seen and retried.
+
+## Rules and regs — done, and still to do
+
+**Done:**
+
+- `digitalcraftai.com/privacy` rewritten. It previously said, in three places,
+  that the game runs no analytics. It now names PostHog as a processor, says
+  what is sent and what never is, says the data sits in the US, and states that
+  deleting an account deletes the analytics too — which is true because the
+  function above makes it true.
+- The same page's "Delete my account" instructions said *the leaderboard
+  screen*. That moved to the Account tab; a policy that sends someone to the
+  wrong screen to exercise a right is a broken policy.
+
+**Still to do, and neither can be done from here:**
+
+1. **App Store privacy disclosures** (App Store Connect → App Privacy). Declare
+   *Usage Data → Product Interaction → Analytics* and *Identifiers → User ID →
+   Analytics*, both **linked to the user**, **not used for tracking**. It is
+   first-party analytics, so no ATT prompt is required — but adding any
+   advertising SDK later changes that answer, because combining the two is
+   what makes it tracking.
+2. **Google Play Data safety form.** Same declaration, separate form: App
+   activity → App interactions, and Device or other IDs. Collected, not shared,
+   and say deletion is available in-app.
 
 ## What is deliberately never sent
 

@@ -43,6 +43,13 @@ jobs:
           # sign-in buttons at all. A button that fails when tapped is worse
           # than no button, and is the first thing App Review taps.
           EXPO_PUBLIC_AUTH_PROVIDERS: ${{ vars.AUTH_PROVIDERS }}
+          # PostHog's project token, which their own settings page describes as
+          # "write-only, safe to use in public apps" — it can send events and
+          # read nothing back. A repository variable rather than a secret for
+          # exactly that reason, and because an empty value is meaningful: with
+          # no token the app installs no analytics sink and makes no request.
+          EXPO_PUBLIC_POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
+          EXPO_PUBLIC_POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
         run: npx expo export --platform web --output-dir ../../dist
       - name: The link preview must survive the build
         # A share of this game is a URL in somebody's chat. The tags that make

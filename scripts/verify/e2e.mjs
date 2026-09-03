@@ -154,7 +154,7 @@ const SLOT_POSITION = { QB: 'QB', RB1: 'RB', RB2: 'RB', WR1: 'WR', WR2: 'WR', TE
 /** Plays a full ranked game: create session, spin 7 times, pick each time. */
 async function playRankedGame(
   { sb, user, token },
-  { assist = false, blind = true, challengeId = null } = {},
+  { assist = false, blind = true, challengeId = null, mode = null } = {},
 ) {
   const idempotencyKey = crypto.randomUUID();
   const { data: session, error } = await sb
@@ -163,7 +163,9 @@ async function playRankedGame(
       user_id: user.id,
       status: 'in_progress',
       idempotency_key: idempotencyKey,
-      blind,
+      // `mode` wins where it is given: the trigger derives `blind` from it, and
+      // a gameday session cannot be described by `blind` at all.
+      ...(mode ? { mode } : { blind }),
       challenge_id: challengeId,
     })
     .select('id')
@@ -867,18 +869,28 @@ if (SERVICE) {
     `${(trail.data ?? []).length} refusals`);
 
   // Voiding takes a season off the board without destroying it.
-  const beforeVoid = await alice.sb.from('leaderboard_rating').select('game_session_id').eq('game_session_id', game.sessionId);
-  await carol.sb.rpc('admin_void_season', { p_session: game.sessionId, p_reason: 'harness' });
-  const afterVoid = await alice.sb.from('leaderboard_rating').select('game_session_id').eq('game_session_id', game.sessionId);
-  check('voiding a season takes it off the board',
-    (beforeVoid.data ?? []).length === 1 && (afterVoid.data ?? []).length === 0,
-    `${(beforeVoid.data ?? []).length} → ${(afterVoid.data ?? []).length}`);
+  //
+  // The row to void is read from the board rather than assumed to be alice's
+  // first game: the board keeps one row per player and it is their *best*, and
+  // she plays several. Asserting on the first one passed only while it happened
+  // to also be the best, which is a test that fails on a good roll.
+  const onBoard = await alice.sb.from('leaderboard_rating')
+    .select('game_session_id').eq('user_id', alice.user.id).maybeSingle();
+  const ranked = onBoard.data?.game_session_id;
+  check('alice has a season on the board to void', Boolean(ranked), ranked ?? 'none');
 
-  const survives = await alice.sb.from('game_sessions').select('id, voided_at').eq('id', game.sessionId).maybeSingle();
+  await carol.sb.rpc('admin_void_season', { p_session: ranked, p_reason: 'harness' });
+  const afterVoid = await alice.sb.from('leaderboard_rating')
+    .select('game_session_id').eq('game_session_id', ranked);
+  check('voiding a season takes it off the board', (afterVoid.data ?? []).length === 0,
+    `${(afterVoid.data ?? []).length} rows after`);
+
+  const survives = await alice.sb.from('game_sessions').select('id, voided_at').eq('id', ranked).maybeSingle();
   check('but does not destroy it', Boolean(survives.data?.voided_at), survives.data?.voided_at ?? 'no row');
 
-  await carol.sb.rpc('admin_restore_season', { p_session: game.sessionId });
-  const restored = await alice.sb.from('leaderboard_rating').select('game_session_id').eq('game_session_id', game.sessionId);
+  await carol.sb.rpc('admin_restore_season', { p_session: ranked });
+  const restored = await alice.sb.from('leaderboard_rating')
+    .select('game_session_id').eq('game_session_id', ranked);
   check('and it can be put back', (restored.data ?? []).length === 1, `${(restored.data ?? []).length} rows`);
 
   const selfDelete = await carol.sb.rpc('admin_delete_player', { p_user: carol.user.id });
@@ -969,6 +981,152 @@ if (SERVICE) {
     .update({ handle_status: 'hidden' }).eq('id', unnamed.user.id).select();
   check('a player who never chose a name can still be moderated',
     upheld.error === null, upheld.error ? upheld.error.message.slice(0, 44) : 'status set');
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nGAMEDAY');
+
+/**
+ * Gameday needs a gameday, and there is one on about 120 days a year.
+ *
+ * So the harness makes one: a synthetic window open right now, over franchises
+ * it picks out of the real calendar's own reference tables. That is the whole
+ * reason these checks need the service role -- everything they then assert is
+ * done as an ordinary client, which is the point.
+ *
+ * The synthetic key is prefixed rather than dated so it can never collide with
+ * a real gameday, and it is deleted at the end of the block.
+ */
+if (!SERVICE) {
+  console.log('  · skipped (needs SERVICE_KEY to open a gameday window)');
+} else {
+  const admin = createClient(API, SERVICE, { auth: { persistSession: false } });
+
+  // Whether a real gameday happens to be open decides one check below, so it
+  // is read before anything is inserted.
+  const { data: already } = await admin.rpc('current_gameday');
+  const realDayOpen = Boolean(Array.isArray(already) ? already[0]?.key : already?.key);
+
+  const stranger = await signIn('gameday-closed');
+  if (!realDayOpen) {
+    const tooEarly = await stranger.sb
+      .from('game_sessions')
+      .insert({
+        user_id: stranger.user.id,
+        status: 'in_progress',
+        idempotency_key: crypto.randomUUID(),
+        mode: 'gameday',
+      })
+      .select('id');
+    check('a gameday session cannot open when no gameday is', tooEarly.error !== null,
+      tooEarly.error ? tooEarly.error.message.slice(0, 48) : 'IT OPENED');
+  } else {
+    console.log('  · a real gameday is open, so the closed-window check is not asserted');
+  }
+
+  const key = `verify-${crypto.randomUUID().slice(0, 8)}`;
+  const { data: pool } = await admin
+    .from('franchise_eras')
+    .select('franchise_id')
+    .order('franchise_id')
+    .limit(200);
+  // Four franchises, so the seven slots are fillable from the day's wheel.
+  const franchises = [...new Set((pool ?? []).map((r) => r.franchise_id))].slice(0, 4);
+
+  const opened = await admin.from('gamedays').insert({
+    key,
+    season: 2099,
+    week: 1,
+    game_type: 'REG',
+    weekday: 'Sunday',
+    opens_at: new Date(Date.now() - 60_000).toISOString(),
+    closes_at: new Date(Date.now() + 3_600_000).toISOString(),
+  });
+  await admin
+    .from('gameday_franchises')
+    .insert(franchises.map((franchise_id) => ({ gameday_key: key, franchise_id })));
+  check('a gameday can be opened', opened.error === null && franchises.length === 4,
+    opened.error ? opened.error.message.slice(0, 48) : `${franchises.length} franchises`);
+
+  const carol = await signIn('gameday');
+  await markSignedIn(carol);
+
+  // A client naming its own gameday would be a client entering a board that
+  // has already settled. There is no insert grant on the column at all.
+  const forgedDay = await carol.sb
+    .from('game_sessions')
+    .insert({
+      user_id: carol.user.id,
+      status: 'in_progress',
+      idempotency_key: crypto.randomUUID(),
+      mode: 'gameday',
+      gameday_key: key,
+    })
+    .select('id');
+  check('a client cannot declare its own gameday', forgedDay.error !== null,
+    forgedDay.error ? forgedDay.error.message.slice(0, 48) : 'IT WAS ACCEPTED');
+
+  const dayGame = await playRankedGame(carol, { mode: 'gameday' });
+  const { data: stamped } = await carol.sb
+    .from('game_sessions')
+    .select('gameday_key, mode, blind')
+    .eq('id', dayGame.sessionId)
+    .maybeSingle();
+  check('the server stamps the gameday from its own clock', stamped?.gameday_key === key,
+    String(stamped?.gameday_key));
+  check('a gameday season is not blind', stamped?.mode === 'gameday' && stamped?.blind === false,
+    `${stamped?.mode} / blind=${stamped?.blind}`);
+
+  const strayed = dayGame.spins.filter((s) => !franchises.includes(s.franchiseId));
+  check('every spin came from a franchise playing that day', strayed.length === 0,
+    strayed.length ? strayed.map((s) => s.franchiseId).join(',') : `${dayGame.spins.length} spins`);
+
+  const dayResult = await call('complete-game', carol.token, {
+    gameSessionId: dayGame.sessionId,
+    idempotencyKey: dayGame.idempotencyKey,
+  });
+  check('a gameday season is scored like any other', dayResult.status === 200,
+    String(dayResult.body.result?.finalRating));
+
+  const { data: dayBoard } = await carol.sb.rpc('leaderboard_gameday', { p_key: key });
+  const onDayBoard = (Array.isArray(dayBoard) ? dayBoard : []).some((r) => r.user_id === carol.user.id);
+  check('it lands on that gameday\'s board', onDayBoard);
+
+  // The whole reason gameday is its own mode: a two-to-twenty-six franchise
+  // wheel is a different game, and it must not be ranked with the rest.
+  const { data: ratingBoard } = await carol.sb.from('leaderboard_rating').select('user_id');
+  const { data: pointsBoard } = await carol.sb.from('leaderboard_points').select('user_id');
+  check('and on no other board',
+    !(ratingBoard ?? []).some((r) => r.user_id === carol.user.id) &&
+      !(pointsBoard ?? []).some((r) => r.user_id === carol.user.id));
+
+  // The three-finger spin is a solo indulgence, and a one-day board is not one.
+  const dave = await signIn('gameday-assist');
+  const { data: assistSession } = await dave.sb
+    .from('game_sessions')
+    .insert({
+      user_id: dave.user.id,
+      status: 'in_progress',
+      idempotency_key: crypto.randomUUID(),
+      mode: 'gameday',
+    })
+    .select('id')
+    .single();
+  const rigged = await call('spin', dave.token, { gameSessionId: assistSession.id, assist: true });
+  check('a rigged spin is refused on a gameday',
+    rigged.status === 409 && rigged.body.error === 'assist_not_allowed_in_gameday',
+    `${rigged.status} ${rigged.body.error}`);
+
+  // Deleting the day leaves the seasons pointing at a key that is gone, which
+  // is deliberate: `gameday_key` carries no foreign key precisely so that a
+  // rebuilt calendar can never take real seasons with it.
+  await admin.from('gamedays').delete().eq('key', key);
+  const { data: orphaned } = await admin
+    .from('game_sessions')
+    .select('id')
+    .eq('id', dayGame.sessionId)
+    .maybeSingle();
+  check('a season survives its gameday being deleted', Boolean(orphaned?.id));
 }
 
 // ---------------------------------------------------------------------------

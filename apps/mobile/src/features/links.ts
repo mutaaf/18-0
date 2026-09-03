@@ -35,9 +35,10 @@ export const OG_IMAGE = `${APP_URL}/og.png`;
  * Google at review. A policy on a project subpath of a github.io account reads
  * as a hobby page, and moving it later means a store metadata change.
  *
- * It currently states that the game carries no analytics, which is true while
- * EXPO_PUBLIC_POSTHOG_KEY is unset. Setting that key makes the policy wrong
- * until it is updated -- see docs/analytics.md for what has to change, and in
- * which two store forms.
+ * It describes the analytics the game actually sends, which is checked against
+ * the code rather than written from a template -- including the claim that
+ * deleting an account deletes the analytics with it, which the delete-account
+ * function keeps. Changing what is sent means changing that page in the same
+ * pass. See docs/analytics.md.
  */
 export const PRIVACY_URL = 'https://digitalcraftai.com/privacy';

@@ -71,16 +71,60 @@ Deno.serve(async (req) => {
     return json({ error: 'delete_failed' }, 500);
   }
 
+  // The analytics processor holds a copy of the gameplay events under this
+  // same id, and the privacy policy says deleting the account deletes those
+  // too. A promise in a policy that the code does not keep is the worst kind
+  // of bug, so it is kept here, in the same request.
+  const analytics = await forgetInAnalytics(user.id);
+
   await audit(admin, ctx, {
     event: 'account_deleted',
     outcome: 'ok',
     subjectType: 'account_digest',
     subjectId: subject,
-    detail: { sessions_removed: sessions ?? 0, had_handle: Boolean(profile?.handle) },
+    detail: {
+      sessions_removed: sessions ?? 0,
+      had_handle: Boolean(profile?.handle),
+      analytics_deleted: analytics,
+    },
   });
 
   return json({ ok: true, sessionsRemoved: sessions ?? 0 });
 });
+
+/**
+ * Asks PostHog to delete everything held under this account id.
+ *
+ * `bulk_delete` takes the distinct ids we actually send, which after sign-in
+ * is the Supabase user id -- the client aliases the device id onto it at
+ * identify time, so deleting this one takes the anonymous history with it.
+ *
+ * Returns what happened rather than throwing. An analytics processor being
+ * unreachable must not fail an account deletion: the account is already gone
+ * by the time this runs, and refusing the request would leave the player
+ * believing it had not worked. The outcome goes on the audit trail instead,
+ * where a failure can be seen and retried.
+ *
+ * `not_configured` is the honest answer when no key is set, which is the state
+ * the repository ships in.
+ */
+async function forgetInAnalytics(userId: string): Promise<string> {
+  const key = Deno.env.get('POSTHOG_PERSONAL_API_KEY');
+  const project = Deno.env.get('POSTHOG_PROJECT_ID');
+  const host = (Deno.env.get('POSTHOG_HOST') ?? 'https://us.posthog.com').replace(/\/+$/, '');
+  if (!key || !project) return 'not_configured';
+
+  try {
+    const response = await fetch(`${host}/api/projects/${project}/persons/bulk_delete/`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ distinct_ids: [userId] }),
+    });
+    return response.ok ? 'ok' : `http_${response.status}`;
+  } catch (problem) {
+    return `failed:${problem instanceof Error ? problem.message : 'unknown'}`;
+  }
+}
 
 async function sha256(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
