@@ -408,10 +408,25 @@ function statLines(season: RawSeason): StatLine[] {
         { label: 'INT', value: fmt(s.passing_interceptions) },
         { label: 'CMP%', value: s.completions !== undefined && s.attempts ? `${((s.completions / s.attempts) * 100).toFixed(1)}` : '—' },
       ];
+    /**
+     * Carries, yards, touchdowns, catches -- the order a box score writes them.
+     *
+     * It used to lead with yards under the label `RUSH`, which reads as a count
+     * of something, and put `YPC` second. Only the first three stats reach the
+     * eligible list, so a back's carries appeared nowhere in the game at all
+     * and its yards were labelled ambiguously: `698 RUSH` for Bo Jackson's 1990
+     * is 698 *yards* on 125 carries, and nothing on screen said which.
+     *
+     * Yards per carry is gone rather than demoted. It is the division of the
+     * two numbers now sitting next to each other, and this is the line Scout
+     * mode asks people to judge from -- the counting stats are the judgement.
+     * It also puts running backs in the same shape as receivers, which are
+     * `REC / YDS / TD`.
+     */
     case 'RB':
       return [
-        { label: 'RUSH', value: fmt(s.rushing_yards) },
-        { label: 'YPC', value: s.rushing_yards !== undefined && s.carries ? (s.rushing_yards / s.carries).toFixed(1) : '—' },
+        { label: 'CAR', value: fmt(s.carries) },
+        { label: 'YDS', value: fmt(s.rushing_yards) },
         { label: 'TD', value: fmt((s.rushing_tds ?? 0) + (s.receiving_tds ?? 0)) },
         { label: 'REC', value: fmt(s.receptions) },
       ];
