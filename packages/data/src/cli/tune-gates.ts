@@ -129,3 +129,97 @@ for (const candidate of CANDIDATES) {
   );
 }
 console.log('');
+
+// ---------------------------------------------------------------------------
+// The shipped gates, and whether the front page is still true
+// ---------------------------------------------------------------------------
+
+/**
+ * The config the app actually ships, read from the config rather than matched
+ * by label against the candidate list above. A candidate whose numbers happen
+ * to equal the shipped ones is a coincidence that stops being true the moment
+ * somebody retunes.
+ */
+const shipped: Candidate = {
+  label: 'SHIPPED',
+  score: config.perfection.minFinalRating,
+  universal: config.perfection.universalSlotMinimum,
+  qbDef: Math.max(
+    config.perfection.slotMinimums.QB ?? 0,
+    config.perfection.slotMinimums.DEF ?? 0,
+  ),
+  eliteRating: config.perfection.eliteCount.minRating,
+  eliteCount: config.perfection.eliteCount.minCount,
+};
+
+/** Where 17-1 begins, taken from the record bands rather than restated. */
+const heartbreakFloor = config.recordBands
+  .filter((b) => b.endingKey === 'HEARTBREAK')
+  .map((b) => b.minRating)[0] ?? 96.5;
+
+const perfectCount = samples.filter((s) => passes(s, shipped)).length;
+const heartbreakCount = samples.filter(
+  (s) => s.final >= heartbreakFloor && !passes(s, shipped),
+).length;
+const perfectOneIn = perfectCount ? Math.round(GAMES / perfectCount) : Infinity;
+const heartbreakOneIn = heartbreakCount ? Math.round(GAMES / heartbreakCount) : Infinity;
+
+console.log(`SHIPPED GATES  (model ${config.version})\n`);
+console.log(
+  `  score ${shipped.score} / ${shipped.universal} / ${shipped.qbDef}` +
+    `, ${shipped.eliteCount} at ${shipped.eliteRating}+`,
+);
+console.log(`  18-0   ${perfectCount} of ${GAMES.toLocaleString()}   1 in ${perfectOneIn.toLocaleString()}`);
+console.log(`  17-1   ${heartbreakCount} of ${GAMES.toLocaleString()}   1 in ${heartbreakOneIn.toLocaleString()}`);
+console.log('');
+
+/**
+ * The published claim, asserted rather than printed.
+ *
+ * The README, the home screen and the stats screen all say 18-0 lands about
+ * once every 6,000 games and 17-1 about once every 49. Those are a function of
+ * the card pool, and the pool has grown twice in a month -- each time silently
+ * falsifying them until somebody happened to measure. The last drift was a
+ * factor of four.
+ *
+ * The sample is seeded, so this is a fixed number for a given dataset rather
+ * than something that can flake. The bands are wide enough to survive the
+ * ~1.4x spread between this harness and `analyze` (see docs/scoring-model.md)
+ * and the coarseness of a smaller `--games`, and tight enough that a real
+ * drift cannot hide: at 400,000 games the shipped gates read 1 in 5,797.
+ *
+ * Retuning is two steps in order -- `analyze --write` refits the curve, which
+ * governs 17-1, then `tune` picks the gates, which govern 18-0 -- and then the
+ * copy has to move with them, or this fails again for the right reason.
+ */
+const BANDS = {
+  perfect: { min: 4_000, max: 9_000, claim: 'about once every 6,000 games' },
+  heartbreak: { min: 33, max: 83, claim: 'about once every 49' },
+};
+
+if (args.has('assert')) {
+  const failures: string[] = [];
+  if (perfectOneIn < BANDS.perfect.min || perfectOneIn > BANDS.perfect.max) {
+    failures.push(
+      `18-0 is 1 in ${perfectOneIn.toLocaleString()}, outside ` +
+        `${BANDS.perfect.min.toLocaleString()}-${BANDS.perfect.max.toLocaleString()}. ` +
+        `The app says ${BANDS.perfect.claim}.`,
+    );
+  }
+  if (heartbreakOneIn < BANDS.heartbreak.min || heartbreakOneIn > BANDS.heartbreak.max) {
+    failures.push(
+      `17-1 is 1 in ${heartbreakOneIn.toLocaleString()}, outside ` +
+        `${BANDS.heartbreak.min}-${BANDS.heartbreak.max}. The app says ${BANDS.heartbreak.claim}.`,
+    );
+  }
+  if (failures.length > 0) {
+    console.error('RARITY OUT OF BAND\n');
+    for (const f of failures) console.error(`  ${f}`);
+    console.error(
+      '\n  Either retune the gates and the calibration curve, or change the copy.\n' +
+        '  Both live together: README.md, the home screen and the stats screen.\n',
+    );
+    process.exit(1);
+  }
+  console.log('  Published rarity holds.\n');
+}

@@ -203,14 +203,25 @@ node scripts/verify/e2e.mjs     # against the live project
 Then check the two things a build can lose without failing:
 
 ```bash
-pnpm verify:web    # exports the web build, then checks it
+pnpm verify:web       # exports the web build, then checks it
+pnpm verify:native    # the native projects still know who this app is
 ```
 
-That one exports and then reads the *output* — the share preview tags and the
+The first exports and then reads the *output* — the share preview tags and the
 manifest, icons and service worker that make it installable. All of those can
 stop shipping without anything failing, which is why they are checked against
 what was built rather than against the source. CI runs the same check on every
 deploy.
+
+The second compares the bundle identifier and application id in `ios/` and
+`android/` against `app.config.js`. Those directories are prebuild output and
+gitignored, and neither `expo run:ios` nor `expo run:android` regenerates one
+that already exists — so a change in the config reaches them only if somebody
+re-runs prebuild. That has already cost a build: the identifier moved, `ios/`
+was hand-edited to match and `android/` was not, and a Play upload cut from
+that tree would have carried a package registered nowhere. CI cannot run this
+one, because CI has never prebuilt; it is a step for the machine the release is
+cut on, which is the only machine where it can be wrong.
 
 ## Still open
 

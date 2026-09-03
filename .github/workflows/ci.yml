@@ -34,4 +34,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: 18-0 must stay rare, and 17-1 must stay reachable
-        run: pnpm --filter @18-0/data tune -- --games=120000
+        # Asserted, not printed. The rates are a function of the card pool, and
+        # the pool has grown twice in a month -- each time silently falsifying
+        # the front page until somebody happened to measure. The sample is
+        # seeded, so this is a fixed number for a given dataset rather than
+        # something that can flake; 400,000 games takes about twenty seconds and
+        # reads close enough to the published figure to be worth asserting on.
+        run: pnpm --filter @18-0/data tune -- --games=400000 --assert

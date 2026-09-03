@@ -8,7 +8,8 @@
     "typecheck": "pnpm -r typecheck",
     "sim": "pnpm --filter @18-0/domain sim",
     "calibrate": "pnpm --filter @18-0/domain calibrate",
-    "verify:web": "cd apps/mobile && EXPO_BASE_URL=/18-0 npx expo export --platform web --output-dir ../../dist && cd ../.. && node scripts/verify/web-head.mjs dist"
+    "verify:web": "cd apps/mobile && EXPO_BASE_URL=/18-0 npx expo export --platform web --output-dir ../../dist && cd ../.. && node scripts/verify/web-head.mjs dist",
+    "verify:native": "node scripts/verify/native-ids.mjs"
   },
   "packageManager": "pnpm@10.27.0",
   "pnpm": {
