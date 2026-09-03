@@ -36,7 +36,33 @@ export type GameStatus = 'idle' | 'ready_to_spin' | 'spun' | 'complete';
  * and season only. You pick on what you actually know about football, and the
  * numbers are revealed with the result.
  */
-export type GameMode = 'rookie' | 'player_iq';
+export type GameMode = 'rookie' | 'scout' | 'player_iq';
+
+/**
+ * What a mode lets you see about a card before you pick it.
+ *
+ * Three states, so the old `blind` boolean is no longer enough anywhere. These
+ * two predicates are the only place the ladder is written down: Rookie shows
+ * everything, Scout shows the stat line and withholds the grade, Player IQ
+ * withholds both.
+ */
+export const showsRating = (mode: GameMode): boolean => mode === 'rookie';
+export const showsStats = (mode: GameMode): boolean => mode !== 'player_iq';
+
+/**
+ * What each mode is called on screen.
+ *
+ * The stored key stays `player_iq` while the label is GM Mode. The key is
+ * written into every ranked row on the server, into the mode check on
+ * game_sessions, and into the local history on every device that has already
+ * played -- renaming it would invalidate all three to change a word that only
+ * ever appears here.
+ */
+export const MODE_LABEL: Record<GameMode, string> = {
+  rookie: 'Rookie',
+  scout: 'Scout',
+  player_iq: 'GM Mode',
+};
 
 interface StoredSelection {
   readonly slot: RosterSlot;

@@ -1,9 +1,11 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { DEFAULT_SCORING_CONFIG, ROSTER_SLOTS, type RosterSlot } from '@18-0/domain';
 import { DATASET } from '@18-0/data';
 import { Screen } from '@/components/Screen';
+import { OperatorConsole } from '@/components/OperatorConsole';
+import { amOperator } from '@/services/operator';
 import { recentEvents, summarise } from '@/features/telemetry';
 import { useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
@@ -13,15 +15,21 @@ import { color, font, radius, space, tabular, tracking, useLayout, type PressSta
 /**
  * Operator console.
  *
- * Honest scope: this runs on the client, so it can never be a security boundary
- * — anyone with the bundle can read the gate. It is a local tuning and
- * diagnostics tool. Weight changes apply to this device's preview scoring only
- * and are labelled as such; the published model is a build-time artifact
- * (`packages/domain/src/constants/config.ts`) and ranked results are scored by
- * the server, which ignores everything set here.
+ * Two things behind one door, gated differently on purpose.
  *
- * Reachable at /admin. Gated by EXPO_PUBLIC_ADMIN_PIN; with no PIN configured
- * it opens in development only.
+ * The live section is server-side and is the real thing: it reads through
+ * definer-rights functions that check an operator list in the database, so an
+ * account either is an operator or it is not, and nothing in this bundle can
+ * change that answer. It opens on that check alone -- no PIN -- because the
+ * PIN never protected it and a device without one would otherwise be locked
+ * out of the only view of what is actually happening.
+ *
+ * The tuning tools below it are local and cannot be a security boundary:
+ * anyone with the bundle can read the gate. They change this device's preview
+ * scoring and nothing else -- the published model is a build-time artifact
+ * (`packages/domain/src/constants/config.ts`) and ranked results are scored by
+ * the server, which ignores every weight set here. So they keep the PIN, which
+ * is the right amount of protection for a setting that affects one phone.
  */
 const PIN = process.env.EXPO_PUBLIC_ADMIN_PIN;
 
@@ -31,6 +39,13 @@ export default function Admin() {
   const [entered, setEntered] = useState('');
   const [unlocked, setUnlocked] = useState(__DEV__ && !PIN);
   const [pending, setPending] = useState<string | null>(null);
+
+  // Asked once, answered by the server, and used only to decide what to draw.
+  // Every function the console then calls checks it again on its own side.
+  const [operator, setOperator] = useState(false);
+  useEffect(() => {
+    void amOperator().then(setOperator).catch(() => setOperator(false));
+  }, []);
 
   const overrides = useOverrideStore();
   const history = useHistoryStore();
@@ -42,7 +57,7 @@ export default function Admin() {
     [unlocked, pending, history.games.length],
   );
 
-  if (!unlocked) {
+  if (!unlocked && !operator) {
     return (
       <Screen>
         <View style={styles.lock}>
@@ -100,12 +115,14 @@ export default function Admin() {
           </Pressable>
         </View>
 
+        {operator ? <OperatorConsole /> : null}
+
         <View style={styles.warn}>
           <Text style={styles.warnText}>
-            Local preview only. This console ships inside the app, so it is a tuning tool rather than
-            a security boundary. Weight changes affect this device's preview score and nothing else —
-            the published model is compiled into the build, and ranked results are scored by the
-            server, which ignores everything here.
+            Everything below this line is local preview only. It ships inside the app, so it is a
+            tuning tool rather than a security boundary. Weight changes affect this device's preview
+            score and nothing else — the published model is compiled into the build, and ranked
+            results are scored by the server, which ignores everything here.
           </Text>
         </View>
 
@@ -179,7 +196,7 @@ export default function Admin() {
           <Metric label="Saved games" value={String(history.games.length)} />
           <Metric label="Assisted runs" value={String(history.games.filter((g) => g.assisted).length)} />
           <Metric
-            label="Player IQ runs"
+            label="GM Mode runs"
             value={String(history.games.filter((g) => g.mode === 'player_iq').length)}
           />
           <ActionRow

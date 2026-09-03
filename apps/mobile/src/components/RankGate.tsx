@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { MODE_LABEL, type GameMode } from '@/state/game';
 import { color, elevate, font, radius, space, tracking, type PressState } from '@/theme';
 
 /**
@@ -20,10 +21,13 @@ export function RankGate({
   named,
   /** The points board takes any season, so it only asks for the account. */
   requireBlind = true,
+  /** Which mode this board ranks, so the step names the right one. */
+  mode = 'player_iq',
   heading,
 }: {
   named: boolean;
   requireBlind?: boolean;
+  mode?: GameMode;
   heading?: string;
 }) {
   const steps = [
@@ -32,8 +36,11 @@ export function RankGate({
       ? [{
           key: 'blind',
           icon: <BlindIcon />,
-          title: 'Play Player IQ',
-          copy: 'Ratings hidden. On-screen ratings make it a reading test.',
+          title: `Play ${MODE_LABEL[mode]}`,
+          copy:
+            mode === 'scout'
+              ? 'Stat lines on, ratings off. Read the numbers and judge.'
+              : 'Nothing but a name and a year. No ratings, no stats.',
           done: false,
         }]
       : []),
@@ -71,7 +78,7 @@ export function RankGate({
       <Pressable
         onPress={() => router.push(next?.key === 'account' ? '/(tabs)/account' : '/(tabs)')}
         accessibilityRole="button"
-        accessibilityLabel={next?.key === 'account' ? 'Sign in' : 'Start a Player IQ season'}
+        accessibilityLabel={next?.key === 'account' ? 'Sign in' : `Start a ${MODE_LABEL[mode]} season`}
         style={({ hovered, pressed }: PressState) => [
           styles.cta,
           hovered && { backgroundColor: color.redBright },
@@ -79,7 +86,7 @@ export function RankGate({
         ]}
       >
         <Text style={styles.ctaLabel}>
-          {next?.key === 'account' ? 'Sign in' : 'Start a Player IQ season'}
+          {next?.key === 'account' ? 'Sign in' : `Start a ${MODE_LABEL[mode]} season`}
         </Text>
         <ArrowIcon />
       </Pressable>

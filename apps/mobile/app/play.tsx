@@ -20,7 +20,7 @@ import { Field } from '@/components/Field';
 import { SpinReel } from '@/components/SpinReel';
 import { PlayerCard } from '@/components/PlayerCard';
 import { Screen } from '@/components/Screen';
-import { lookupCard, slotsForCard, useGameStore } from '@/state/game';
+import { MODE_LABEL, lookupCard, showsRating, slotsForCard, useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
 import { ratingBucket, track } from '@/features/telemetry';
 import { rankedComplete, rankedSelect, rankedSpin } from '@/features/ranked';
@@ -84,7 +84,8 @@ export default function Play() {
   // UI-thread work Reanimated cannot protect the frame rate from.
   const canPick = game.status === 'spun' && !complete && !spinning;
   /** Player IQ mode: no ratings, no stats, no detail screen to peek at. */
-  const blind = game.mode === 'player_iq';
+  const mode = game.mode;
+  const blind = !showsRating(mode);
 
   const filled = useMemo(
     () =>
@@ -121,16 +122,18 @@ export default function Play() {
       if (!needle) return true;
       return displayName(card).toLowerCase().includes(needle) || String(card.year).includes(needle);
     });
-    if (!blind) return matched;
+    if (showsRating(mode)) return matched;
     // A rating-sorted list tells you the ratings even when they are hidden, so
-    // Player IQ orders by position then name — no ranking information at all.
+    // every mode that withholds the grade orders by position then name — no
+    // ranking information at all. Scout gives you the stat line to judge from;
+    // it does not give you the order the model would have put them in.
     return [...matched].sort(
       (a, b) =>
         a.position.localeCompare(b.position) ||
         displayName(a).localeCompare(displayName(b)) ||
         a.year - b.year,
     );
-  }, [eligible, positionFilter, query, blind]);
+  }, [eligible, positionFilter, query, mode]);
 
   const selected = selectedId ? eligible.find((c) => c.id === selectedId) ?? null : null;
   const targetSlots = selected ? slotsForCard(selected, game.selections) : [];
@@ -450,7 +453,7 @@ export default function Play() {
         franchiseAbbrs={abbrs}
         highlight={targetSlots}
         target={targetSlot}
-        blind={blind}
+        blind={!showsRating(mode)}
         onSlotPress={canPick ? pressSlot : undefined}
       />
 
@@ -740,7 +743,7 @@ export default function Play() {
               name={displayName(card)}
               selected={selectedId === card.id}
               disabled={slots.length === 0}
-              blind={blind}
+              mode={mode}
               onPress={() => {
                 if (targetSlot && slots.includes(targetSlot)) assign(card, targetSlot);
                 else if (slots.length === 1) assign(card, slots[0]!);
@@ -785,11 +788,11 @@ export default function Play() {
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Brand size={layout.wide ? 26 : 22} />
-          {blind ? (
+          {mode === 'rookie' ? null : (
             <View style={styles.modeChip}>
-              <Text style={styles.modeChipText}>Player IQ</Text>
+              <Text style={styles.modeChipText}>{MODE_LABEL[mode]}</Text>
             </View>
-          ) : null}
+          )}
         </View>
         <View style={styles.headerRight}>
           <View style={styles.headerSwap}>

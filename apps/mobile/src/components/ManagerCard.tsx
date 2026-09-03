@@ -125,7 +125,7 @@ export function ManagerCard({
           <Stat label="Seasons" value={stats.played} />
           <Stat label="Perfect" value={stats.perfectSeasons} tint={stats.perfectSeasons > 0 ? color.gold : undefined} />
           <Stat label="Heartbreak" value={stats.heartbreaks} />
-          <Stat label="Player IQ" value={stats.playerIqGames} />
+          <Stat label="GM Mode" value={stats.playerIqGames} />
         </View>
 
         <View style={styles.foot}>

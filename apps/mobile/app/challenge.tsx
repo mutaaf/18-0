@@ -63,15 +63,15 @@ export default function Challenge() {
     // The session opens before the local game is touched. Starting one first
     // would clear a season already in progress, and a challenge that turns out
     // to be closed would have cost you seven picks for nothing.
-    const opened = await beginRanked(true, invite.id);
+    const opened = await beginRanked('player_iq', invite.id);
     if (!opened.ok) {
       setOpening(false);
       setError(opened.message);
       void load();
       return;
     }
-    // Blind, always. A challenge played with ratings on screen is a reading
-    // test, and the two sides would not be answering the same question.
+    // GM Mode, always. A challenge played with anything on screen is a
+    // different question from the one the other side answered.
     game.startGame('player_iq', { ranked: true });
     game.attachServerSession(opened.value.sessionId, opened.value.idempotencyKey);
     track('challenge_accepted', { challenge: invite.id });

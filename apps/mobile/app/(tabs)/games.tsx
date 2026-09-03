@@ -5,6 +5,7 @@ import { franchise } from '@18-0/data';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
 import { useHistoryStore, type HistoryEntry } from '@/state/history';
+import { MODE_LABEL } from '@/state/game';
 import { color, font, positionColor, radius, space, tabular, tierColor, tracking, useLayout, type PressState } from '@/theme';
 
 export default function Games() {
@@ -92,7 +93,7 @@ function GameCard({
             <Text style={[styles.ending, { color: accent }]}>{result.ending.label.toUpperCase()}</Text>
             <Text style={styles.cardDate}>
               {date.toLocaleDateString()} · Tier {result.ending.tier}
-              {game.mode === 'player_iq' ? ' · Player IQ' : ''}
+              {game.mode ? ` · ${MODE_LABEL[game.mode]}` : ''}
               {game.assisted ? ' · Assisted' : ''}
             </Text>
           </View>

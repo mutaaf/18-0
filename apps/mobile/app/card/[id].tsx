@@ -9,7 +9,7 @@ import {
   unavailableComponents,
 } from '@18-0/data';
 import { Screen } from '@/components/Screen';
-import { useGameStore } from '@/state/game';
+import { showsRating, showsStats, useGameStore } from '@/state/game';
 import { CollectibleCard } from '@/components/CollectibleCard';
 import { DECORATIVE, color, font, positionColor, radius, space, tabular, tracking } from '@/theme';
 
@@ -22,9 +22,14 @@ export default function CardDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const card = id ? cardById(decodeURIComponent(id)) : undefined;
-  // Player IQ hides the numbers everywhere, including here — otherwise the
-  // detail screen is just a way around the mode.
-  const blind = useGameStore((s) => s.mode === 'player_iq' && s.status !== 'complete');
+  // The detail screen must not be a way around the mode you chose. It withholds
+  // exactly what the mode withholds and no more, which is what makes it safe to
+  // open from anywhere: Scout gets the stat line it was promised, GM Mode gets
+  // a name and a year, and both get everything once the season is scored.
+  const mode = useGameStore((s) => s.mode);
+  const playing = useGameStore((s) => s.status !== 'complete');
+  const blind = playing && !showsRating(mode);
+  const hideStats = playing && !showsStats(mode);
 
   if (!card) {
     return (
@@ -69,12 +74,14 @@ export default function CardDetail() {
           </Text>
           {blind ? (
             <Text style={styles.blindNote}>
-              Ratings are hidden in Player IQ mode. They arrive with your result.
+              {hideStats
+                ? 'Ratings and stats are hidden in GM Mode. They arrive with your result.'
+                : 'Ratings are hidden in Scout. The stat line is the whole brief.'}
             </Text>
           ) : null}
         </View>
 
-        {blind ? null : (
+        {hideStats ? null : (
         <View style={styles.statStrip}>
           {card.stats.slice(0, 4).map((stat) => (
             <View key={stat.label} style={styles.statCell}>

@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { RankedSwitch } from '@/components/RankedSwitch';
+import Svg, { Path } from 'react-native-svg';
 import { Reveal } from '@/components/Reveal';
 import { ROSTER_SLOTS } from '@18-0/domain';
 import { DATASET } from '@18-0/data';
@@ -17,6 +18,7 @@ import { beginRanked } from '@/features/ranked';
 import { isBackendConfigured } from '@/services/supabase';
 import { useGameStore, type GameMode } from '@/state/game';
 import { computeStats, useHistoryStore } from '@/state/history';
+import { MODE_LABEL } from '@/state/game';
 import {
   color,
   elevate,
@@ -90,7 +92,7 @@ export default function Home() {
     if (ranked) {
       setOpening(true);
       try {
-        const opened = await withTimeout(beginRanked(mode === 'player_iq'), 8000);
+        const opened = await withTimeout(beginRanked(mode), 8000);
         if (opened?.ok) {
           game.attachServerSession(opened.value.sessionId, opened.value.idempotencyKey);
           track('ranked_started', { mode });
@@ -148,7 +150,7 @@ export default function Home() {
               <Text style={styles.resumeTitle}>Resume your game</Text>
               <Text style={styles.resumeMeta}>
                 {game.selections.length} of {ROSTER_SLOTS.length} filled ·{' '}
-                {game.mode === 'player_iq' ? 'Player IQ' : 'Rookie'}
+                {MODE_LABEL[game.mode]}
               </Text>
             </View>
             <Pressable
@@ -186,18 +188,22 @@ export default function Home() {
 
       <Reveal delay={140} style={styles.modes}>
         <ModeCard
-          name="Player IQ"
+          name={MODE_LABEL.player_iq}
           badge="Blind"
           copy="A name, a team, a year. Pick on what you know."
-          cta="Play blind"
           hero
           onPress={() => start('player_iq')}
         />
         <ModeCard
-          name="Rookie"
+          name={MODE_LABEL.scout}
+          badge="Stats only"
+          copy="The stat line, no rating. Read the numbers and judge."
+          onPress={() => start('scout')}
+        />
+        <ModeCard
+          name={MODE_LABEL.rookie}
           badge="Ratings on"
           copy="Every rating on screen. Learn what the model rewards."
-          cta="Play with ratings"
           note={ranked ? 'Does not reach the board.' : undefined}
           onPress={() => start('rookie')}
         />
@@ -366,11 +372,22 @@ function Step({ index, title, copy }: { index: string; title: string; copy: stri
   );
 }
 
+/**
+ * One mode, as a single control.
+ *
+ * The old card put the name and its badge in one row, which overflowed the
+ * card's own border the moment a name was long -- and it ended in a text link
+ * that looked like a caption rather than the way into the game. Three modes
+ * would have made both worse.
+ *
+ * So the badge sits above the name where nothing can push it out, the whole
+ * row is the button, and the arrow is a filled disc: it reads as somewhere to
+ * press from across a room, which is what the front page of a game needs.
+ */
 function ModeCard({
   name,
   badge,
   copy,
-  cta,
   hero,
   note,
   onPress,
@@ -378,7 +395,6 @@ function ModeCard({
   name: string;
   badge: string;
   copy: string;
-  cta: string;
   hero?: boolean;
   /** Shown when this mode will not do what the current settings imply. */
   note?: string;
@@ -388,7 +404,7 @@ function ModeCard({
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${name}. ${copy}${note ? ` ${note}` : ''}`}
+      accessibilityLabel={`Play ${name}. ${copy}${note ? ` ${note}` : ''}`}
       style={({ pressed, hovered }: PressState) => [
         styles.mode,
         hero && styles.modeHero,
@@ -396,15 +412,27 @@ function ModeCard({
         pressed && { opacity: 0.88 },
       ]}
     >
-      <View style={styles.modeHead}>
-        <Text style={[styles.modeName, !hero && styles.modeNameQuiet]}>{name}</Text>
-        <View style={[styles.modeBadge, hero && styles.modeBadgeHero]}>
-          <Text style={[styles.modeBadgeText, hero && styles.modeBadgeTextHero]}>{badge}</Text>
-        </View>
+      <View style={styles.modeBody}>
+        <Text style={[styles.modeBadgeText, hero && styles.modeBadgeTextHero]}>{badge}</Text>
+        <Text style={[styles.modeName, !hero && styles.modeNameQuiet]} numberOfLines={1}>
+          {name}
+        </Text>
+        <Text style={styles.modeCopy} numberOfLines={2}>
+          {copy}
+        </Text>
+        {note ? <Text style={styles.modeNote}>{note}</Text> : null}
       </View>
-      <Text style={styles.modeCopy}>{copy}</Text>
-      {note ? <Text style={styles.modeNote}>{note}</Text> : null}
-      <Text style={[styles.modeGo, !hero && styles.modeGoQuiet]}>{cta} →</Text>
+      <View style={[styles.modeGo, hero && styles.modeGoHero]}>
+        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M5 12h13 M13 6l6 6-6 6"
+            stroke={hero ? '#FFFFFF' : color.redBright}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </Svg>
+      </View>
     </Pressable>
   );
 }
@@ -525,18 +553,17 @@ const styles = StyleSheet.create({
   discardLabel: { fontFamily: font.body, fontSize: 13, color: color.textFaint },
   lift: { transform: [{ translateY: -1 }] },
 
-  modes: { flexDirection: 'row', gap: space.sm, alignItems: 'stretch' },
+  modes: { gap: space.sm },
   mode: {
-    // Half the row each, so both modes are on screen together.
-    flex: 1,
-    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
     borderWidth: 1,
     borderColor: color.line,
     borderRadius: radius.md,
-    padding: space.lg,
-    gap: space.sm,
+    paddingVertical: space.md,
+    paddingHorizontal: space.lg,
     backgroundColor: '#FFFFFF05',
-    justifyContent: 'space-between',
   },
   modeHero: {
     borderColor: color.red,
@@ -546,7 +573,26 @@ const styles = StyleSheet.create({
     ...elevate(7),
   },
   modeHeroHover: { shadowOpacity: 0.55, transform: [{ translateY: -2 }] },
-  modeHead: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  modeBody: { flex: 1, minWidth: 0, gap: 1 },
+  /** The arrow is a target, not a decoration: 44 points, filled on the hero. */
+  modeGo: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: `${color.red}59`,
+    backgroundColor: `${color.red}1F`,
+  },
+  modeGoHero: {
+    borderColor: color.redBright,
+    backgroundColor: color.red,
+    shadowColor: color.red,
+    shadowOpacity: 0.6,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 4 },
+  },
   modeName: {
     fontFamily: font.display,
     fontSize: 30,
@@ -555,14 +601,6 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   modeNameQuiet: { fontSize: 25, color: color.silver },
-  modeBadge: {
-    borderWidth: 1,
-    borderColor: color.line,
-    borderRadius: radius.pill,
-    paddingHorizontal: space.md,
-    paddingVertical: 2,
-  },
-  modeBadgeHero: { borderColor: '#FF2B2B99' },
   modeBadgeText: {
     fontFamily: font.label,
     fontSize: 11,
@@ -577,14 +615,7 @@ const styles = StyleSheet.create({
     letterSpacing: tracking.wide,
     color: color.gold,
   },
-  modeCopy: { fontFamily: font.bodyRegular, fontSize: 14, color: color.textDim, lineHeight: 21 },
-  modeGo: {
-    fontFamily: font.label,
-    fontSize: 14,
-    letterSpacing: tracking.wide,
-    color: color.redBright,
-  },
-  modeGoQuiet: { color: color.textFaint },
+  modeCopy: { fontFamily: font.bodyRegular, fontSize: 13, color: color.textDim, lineHeight: 19 },
 
   statRow: { flexDirection: 'row', gap: space.sm },
   stat: { flex: 1 },

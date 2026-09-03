@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Reveal } from './Reveal';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { franchise, type BootCard } from '@18-0/data';
+import { showsRating, showsStats, type GameMode } from '@/state/game';
 import { color, font, positionColor, radius, space, tabular, tracking, type PressState } from '@/theme';
 
 /**
@@ -24,7 +25,7 @@ export const PlayerCard = memo(function PlayerCard({
   index,
   selected,
   disabled,
-  blind,
+  mode,
   onPress,
   onDetails,
 }: {
@@ -34,7 +35,8 @@ export const PlayerCard = memo(function PlayerCard({
   selected: boolean;
   disabled: boolean;
   /** Player IQ: no rating, no stats, and no detail screen to peek at. */
-  blind?: boolean;
+  /** Decides whether this row shows a rating, a stat line, or neither. */
+  mode: GameMode;
   onPress: () => void;
   onDetails: () => void;
 }) {
@@ -74,7 +76,7 @@ export const PlayerCard = memo(function PlayerCard({
           accessibilityRole="button"
           accessibilityState={{ selected, disabled }}
           accessibilityLabel={`${name}. ${card.position}. ${card.year} ${team.name}.${
-            blind ? '' : ` Rating ${card.rating.toFixed(1)}.`
+            showsRating(mode) ? ` Rating ${card.rating.toFixed(1)}.` : ''
           }${disabled ? ' Already on your roster.' : ''}`}
           onPress={disabled ? undefined : onPress}
           onHoverIn={() => setHovered(true)}
@@ -94,30 +96,32 @@ export const PlayerCard = memo(function PlayerCard({
             <View style={styles.metaRow}>
               <Text style={styles.team}>{team.abbr}</Text>
               <Text style={styles.year}>{card.year}</Text>
-              {blind
-                ? null
-                : card.stats.slice(0, 3).map((stat) => (
+              {showsStats(mode)
+                ? card.stats.slice(0, 3).map((stat) => (
                     <Text key={stat.label} style={styles.stat}>
                       <Text style={styles.statValue}>{stat.value}</Text>
                       <Text style={styles.statLabel}> {stat.label}</Text>
                     </Text>
-                  ))}
+                  ))
+                : null}
             </View>
           </View>
 
-          {blind ? (
-            <View style={styles.hidden}>
-              <Text style={styles.hiddenGlyph}>?</Text>
-            </View>
-          ) : (
+          {showsRating(mode) ? (
             <View style={styles.ratingSeat}>
               <Text style={[styles.rating, ratingTone(card.rating)]}>{card.rating.toFixed(1)}</Text>
+            </View>
+          ) : (
+            <View style={styles.hidden}>
+              <Text style={styles.hiddenGlyph}>?</Text>
             </View>
           )}
         </Pressable>
 
-        {blind ? null : (
-          <Pressable
+        {/* Available in every mode. The screen it opens withholds exactly what
+            the mode withholds, so this is a way to see the card, not a way
+            around the rules of the game you chose. */}
+        <Pressable
             onPress={onDetails}
             accessibilityRole="button"
             accessibilityLabel={`Details for ${name}`}
@@ -130,8 +134,7 @@ export const PlayerCard = memo(function PlayerCard({
             <View style={styles.infoRing}>
               <Text style={styles.infoGlyph}>i</Text>
             </View>
-          </Pressable>
-        )}
+        </Pressable>
       </View>
     </Reveal>
   );

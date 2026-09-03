@@ -66,7 +66,7 @@ export default function Stats() {
         </View>
 
         <View style={styles.chase}>
-          <Text style={styles.chaseTitle}>Player IQ</Text>
+          <Text style={styles.chaseTitle}>GM Mode</Text>
           <View style={styles.chaseRow}>
             <ChaseStat label="Blind seasons" value={stats.playerIqGames} />
             <ChaseStat

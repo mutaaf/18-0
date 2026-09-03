@@ -86,7 +86,7 @@ export function RankedSwitch({
           {busy
             ? 'Opening a ranked game…'
             : on
-              ? 'The server deals every spin and scores the roster. Player IQ seasons rank once you sign in.'
+              ? 'The server deals every spin and scores the roster. GM Mode and Scout seasons rank once you sign in.'
               : 'This season stays on your device. Tap to put it on the board.'}
         </Text>
       </View>

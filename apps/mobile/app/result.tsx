@@ -334,7 +334,7 @@ export default function Result() {
         <Reveal delay={340} style={styles.badgeRow}>
           {game.mode === 'player_iq' ? (
             <View style={[styles.badge, styles.badgeBlind]}>
-              <Text style={styles.badgeBlindText}>Built blind · Player IQ</Text>
+              <Text style={styles.badgeBlindText}>Built blind · GM Mode</Text>
             </View>
           ) : null}
           {game.assisted ? (

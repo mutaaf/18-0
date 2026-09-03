@@ -81,10 +81,20 @@ const PERIODS: { key: LeaderboardPeriod; label: string }[] = [
  * which is the whole reason for having both rather than one blended number
  * nobody can reason about.
  */
-type Board = 'rating' | 'points';
+type Board = 'rating' | 'scout' | 'points';
 
+/**
+ * Three boards, because they answer three questions.
+ *
+ * GM Mode and Scout are deliberately separate rather than blended: a stat line
+ * is a real advantage, and ranking the two together would quietly rank two
+ * different games and make the harder one look worse. Rookie ranks on neither
+ * -- a rating on screen turns the pick into a reading test -- but every season
+ * counts towards points.
+ */
 const BOARDS: { key: Board; label: string; blurb: string }[] = [
-  { key: 'rating', label: 'Player IQ', blurb: 'Best blind season' },
+  { key: 'rating', label: 'GM Mode', blurb: 'Best blind season' },
+  { key: 'scout', label: 'Scout', blurb: 'Best on stats alone' },
   { key: 'points', label: 'Points', blurb: 'Every season added up' },
 ];
 
@@ -113,7 +123,7 @@ export default function Leaderboard() {
     current.current = period;
   }, [period]);
 
-  const load = useCallback(async (p: LeaderboardPeriod) => {
+  const load = useCallback(async (p: LeaderboardPeriod, b: Board) => {
     if (!isBackendConfigured) return;
     setLoading(true);
     setFailed(false);
@@ -123,9 +133,14 @@ export default function Leaderboard() {
       // session keeps showing names that have since been deleted, and stays
       // wrong until the entry expires.
       setRows(
-        await fetchLeaderboard(p, 50, (fresh) => {
-          if (current.current === p) setRows(fresh);
-        }),
+        await fetchLeaderboard(
+          p,
+          50,
+          (fresh) => {
+            if (current.current === p) setRows(fresh);
+          },
+          b === 'scout' ? 'scout' : 'player_iq',
+        ),
       );
       setScores(
         await fetchPoints(p, 50, (fresh) => {
@@ -141,9 +156,11 @@ export default function Leaderboard() {
     setLoading(false);
   }, []);
 
+  // Switching board refetches: Scout and GM Mode are different views, and the
+  // one already on screen is not an approximation of the other.
   useEffect(() => {
-    void load(period);
-  }, [period, load]);
+    void load(period, board);
+  }, [period, board, load]);
 
   useEffect(() => {
     void identity()
@@ -234,7 +251,7 @@ export default function Leaderboard() {
                 <Text style={styles.noticeTitle}>Couldn't reach the rankings</Text>
                 <Text style={styles.noticeCopy}>Your seasons are safe on this device.</Text>
                 <Pressable
-                  onPress={() => void load(period)}
+                  onPress={() => void load(period, board)}
                   accessibilityRole="button"
                   accessibilityLabel="Retry loading the leaderboard"
                   style={styles.retry}
@@ -242,9 +259,14 @@ export default function Leaderboard() {
                   <Text style={styles.retryLabel}>Retry</Text>
                 </Pressable>
               </View>
-            ) : rows.length === 0 ? (
+            ) : (board === 'points' ? scores.length === 0 : rows.length === 0) ? (
               <View style={styles.gate}>
-                <RankGate named={me?.named === true} heading="Be the first on the board" />
+                <RankGate
+                  named={me?.named === true}
+                  mode={board === 'scout' ? 'scout' : 'player_iq'}
+                  requireBlind={board !== 'points'}
+                  heading="Be the first on the board"
+                />
               </View>
             ) : (
               <>
@@ -256,7 +278,11 @@ export default function Leaderboard() {
                 {mine ? (
                   <YourStanding {...mine} />
                 ) : (
-                  <RankGate named={me?.named === true} heading="Your place is empty" />
+                  <RankGate
+                    named={me?.named === true}
+                    mode={board === 'scout' ? 'scout' : 'player_iq'}
+                    heading="Your place is empty"
+                  />
                 )}
 
                 {rows.length > 3 ? (

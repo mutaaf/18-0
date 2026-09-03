@@ -89,18 +89,27 @@ function since(period: LeaderboardPeriod): string | null {
 }
 
 /** Highest rating, best first. Ties break on the earlier completion (PRFAQ §22.7). */
+/** Which of the two rating boards: GM Mode seasons, or Scout seasons. */
+export type RatingBoard = 'player_iq' | 'scout';
+
+const BOARD_SOURCE: Record<RatingBoard, { view: string; since: string }> = {
+  player_iq: { view: 'leaderboard_rating', since: 'leaderboard_rating_since' },
+  scout: { view: 'leaderboard_scout', since: 'leaderboard_scout_since' },
+};
+
 export async function fetchLeaderboard(
   period: LeaderboardPeriod,
   limit = 50,
   onFresh?: (rows: LeaderboardRow[]) => void,
+  board: RatingBoard = 'player_iq',
 ): Promise<LeaderboardRow[]> {
   if (!supabase) return [];
   // A board that is thirty seconds out of date is a board. An empty panel
   // while the network answers is not, and that is what every tab switch used
   // to show.
   const read = await cached<LeaderboardRow[]>(
-    `leaderboard:${period}:${limit}`,
-    () => loadLeaderboard(period, limit),
+    `leaderboard:${board}:${period}:${limit}`,
+    () => loadLeaderboard(period, limit, board),
     { ttl: 30_000, ...(onFresh ? { onFresh } : {}) },
   );
   return read.value ?? [];
@@ -109,9 +118,11 @@ export async function fetchLeaderboard(
 async function loadLeaderboard(
   period: LeaderboardPeriod,
   limit: number,
+  board: RatingBoard,
 ): Promise<LeaderboardRow[]> {
   if (!supabase) return [];
   const from = since(period);
+  const source = BOARD_SOURCE[board];
 
   // A windowed board must filter BEFORE deduplicating by roster, which is why
   // `leaderboard_rating_since` exists. Filtering the already-deduplicated view
@@ -120,13 +131,13 @@ async function loadLeaderboard(
   // the window then removed it. They vanished from the board entirely.
   const query = from
     ? supabase
-        .rpc('leaderboard_rating_since', { since: from })
+        .rpc(source.since, { since: from })
         .select('game_session_id, user_id, handle, final_rating, record_wins, record_losses, ending_key, tier, completed_at')
         .order('final_rating', { ascending: false })
         .order('completed_at', { ascending: true })
         .limit(limit)
     : supabase
-        .from('leaderboard_rating')
+        .from(source.view)
         .select('game_session_id, user_id, handle, final_rating, record_wins, record_losses, ending_key, tier, completed_at')
         .order('final_rating', { ascending: false })
         .order('completed_at', { ascending: true })

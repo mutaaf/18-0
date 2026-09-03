@@ -806,6 +806,96 @@ check('their token stops working', afterDelete.status === 401 || afterDelete.sta
   `status ${afterDelete.status}`);
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+console.log('\nOPERATOR CONSOLE');
+
+// The console is the one place in this system that can delete somebody else's
+// account, so the negative case matters more than the positive one: a signed-in
+// player who is not on the operator list must get nothing from every function,
+// including the ones that only read.
+const notOperator = await Promise.all([
+  bob.sb.rpc('is_admin'),
+  bob.sb.rpc('admin_overview'),
+  bob.sb.rpc('admin_players', { p_limit: 10, p_search: null }),
+  bob.sb.rpc('admin_events', { p_limit: 10, p_only_failures: false }),
+]);
+check('a player is not an operator', notOperator[0].data === false, String(notOperator[0].data));
+check('a player reading the overview gets nothing',
+  (notOperator[1].data ?? []).length === 0, `${(notOperator[1].data ?? []).length} rows`);
+check('a player cannot list every account',
+  (notOperator[2].data ?? []).length === 0, `${(notOperator[2].data ?? []).length} rows`);
+check('a player cannot read the trail through the console',
+  (notOperator[3].data ?? []).length === 0, `${(notOperator[3].data ?? []).length} rows`);
+
+const refusedWrites = await Promise.all([
+  bob.sb.rpc('admin_set_handle_status', { p_user: alice.user.id, p_status: 'hidden' }),
+  bob.sb.rpc('admin_void_season', { p_session: game.sessionId, p_reason: 'nope' }),
+  bob.sb.rpc('admin_delete_player', { p_user: alice.user.id, p_reason: 'nope' }),
+]);
+check('a player cannot hide somebody else\'s handle', refusedWrites[0].error !== null,
+  refusedWrites[0].error?.code ?? 'allowed');
+check('a player cannot void a season', refusedWrites[1].error !== null,
+  refusedWrites[1].error?.code ?? 'allowed');
+check('a player cannot delete an account', refusedWrites[2].error !== null,
+  refusedWrites[2].error?.code ?? 'allowed');
+
+const stillThere = await alice.sb.from('profiles').select('handle_status').eq('id', alice.user.id).maybeSingle();
+check('and none of that touched the account it aimed at', stillThere.data?.handle_status === 'ok',
+  stillThere.data?.handle_status ?? 'gone');
+
+const adminList = await bob.sb.from('admins').select('user_id');
+check('the operator list itself is invisible',
+  adminList.error !== null || (adminList.data ?? []).length === 0,
+  adminList.error ? adminList.error.code : `${(adminList.data ?? []).length} rows`);
+
+// The positive case, on a throwaway account rather than a real operator's.
+if (SERVICE) {
+  const asRoot = createClient(API, SERVICE, { auth: { persistSession: false } });
+  await asRoot.from('admins').insert({ user_id: carol.user.id, note: 'harness' });
+
+  const overview = await carol.sb.rpc('admin_overview');
+  const seen = Array.isArray(overview.data) ? overview.data[0] : overview.data;
+  check('an operator sees the overview', overview.error === null && Number(seen?.players) > 0,
+    overview.error?.message ?? `${seen?.players} players`);
+
+  const roster = await carol.sb.rpc('admin_players', { p_limit: 50, p_search: null });
+  check('an operator sees every player', (roster.data ?? []).length > 0,
+    `${(roster.data ?? []).length} rows`);
+
+  const trail = await carol.sb.rpc('admin_events', { p_limit: 20, p_only_failures: true });
+  check('an operator sees refusals on the trail', (trail.data ?? []).length > 0,
+    `${(trail.data ?? []).length} refusals`);
+
+  // Voiding takes a season off the board without destroying it.
+  const beforeVoid = await alice.sb.from('leaderboard_rating').select('game_session_id').eq('game_session_id', game.sessionId);
+  await carol.sb.rpc('admin_void_season', { p_session: game.sessionId, p_reason: 'harness' });
+  const afterVoid = await alice.sb.from('leaderboard_rating').select('game_session_id').eq('game_session_id', game.sessionId);
+  check('voiding a season takes it off the board',
+    (beforeVoid.data ?? []).length === 1 && (afterVoid.data ?? []).length === 0,
+    `${(beforeVoid.data ?? []).length} → ${(afterVoid.data ?? []).length}`);
+
+  const survives = await alice.sb.from('game_sessions').select('id, voided_at').eq('id', game.sessionId).maybeSingle();
+  check('but does not destroy it', Boolean(survives.data?.voided_at), survives.data?.voided_at ?? 'no row');
+
+  await carol.sb.rpc('admin_restore_season', { p_session: game.sessionId });
+  const restored = await alice.sb.from('leaderboard_rating').select('game_session_id').eq('game_session_id', game.sessionId);
+  check('and it can be put back', (restored.data ?? []).length === 1, `${(restored.data ?? []).length} rows`);
+
+  const selfDelete = await carol.sb.rpc('admin_delete_player', { p_user: carol.user.id });
+  check('an operator cannot delete themselves from the console', selfDelete.error !== null,
+    selfDelete.error?.code ?? 'allowed');
+
+  const trailHasIt = await asRoot.from('audit_events').select('event')
+    .in('event', ['admin_void_season', 'admin_restore_season']).limit(2);
+  check('every operator action is on the trail', (trailHasIt.data ?? []).length === 2,
+    `${(trailHasIt.data ?? []).length} of 2`);
+
+  await asRoot.from('admins').delete().eq('user_id', carol.user.id);
+  const revoked = await carol.sb.rpc('is_admin');
+  check('and the list can be revoked', revoked.data === false, String(revoked.data));
+}
+
+// ---------------------------------------------------------------------------
 console.log('\nWHO QUALIFIES FOR THE BOARD');
 
 if (SERVICE) {

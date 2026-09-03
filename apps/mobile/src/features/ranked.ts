@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import type { RosterSlot } from '@18-0/domain';
 import { currentUser, ensureSession, isBackendConfigured, supabase } from '@/services/supabase';
 import { uuid } from '@/features/uuid';
+import type { GameMode } from '@/state/game';
 
 /**
  * A game played against the server.
@@ -82,13 +83,13 @@ async function readError(error: unknown): Promise<string | null> {
 /**
  * Opens a ranked session, signing in anonymously if this is the first one.
  *
- * `blind` is declared here, before the first spin, and cannot be changed
- * afterwards: there is no update grant on game_sessions. Only blind seasons
- * reach the leaderboard, so a player cannot decide a run was Player IQ once
- * they have seen what it scored.
+ * The mode is declared here, before the first spin, and cannot be changed
+ * afterwards: there is no update grant on game_sessions. Each mode ranks on
+ * its own board, so a player cannot decide a run was GM Mode once they have
+ * seen what it scored with the ratings on screen.
  */
 export async function beginRanked(
-  blind: boolean,
+  mode: GameMode,
   /**
    * The challenge this season answers, if it answers one. Declared at insert
    * time so the server can replay the creator's wheel from the first spin and
@@ -110,7 +111,7 @@ export async function beginRanked(
       user_id: me.id,
       status: 'in_progress',
       idempotency_key: idempotencyKey,
-      blind,
+      mode,
       challenge_id: challengeId ?? null,
     })
     .select('id')

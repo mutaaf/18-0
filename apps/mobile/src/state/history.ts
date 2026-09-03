@@ -16,7 +16,7 @@ export interface HistoryEntry {
   /** True when the three-finger spin was used. Kept out of every record. */
   readonly assisted?: boolean;
   /** Which mode this season was built in. */
-  readonly mode?: 'rookie' | 'player_iq';
+  readonly mode?: 'rookie' | 'scout' | 'player_iq';
   readonly roster: readonly {
     readonly slot: RosterSlot;
     readonly cardId: string;
