@@ -24,8 +24,11 @@ import {
   type PlayerCalibration,
   type SeasonStats,
 } from '@18-0/domain';
+import { parseCsv } from './csv.js';
+import { TEAM_TO_FRANCHISE } from './teams.js';
 import { ERA_TABLE, eraForYear } from './eras.js';
 import { loadLegacySeasons } from './legacy.js';
+import { loadHydratedSeasons } from './seasons.js';
 import type { Dataset, DatasetCard, DatasetComponent, StatLine } from './schema.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -39,40 +42,8 @@ const OUT = resolve(HERE, '../generated/dataset.json');
 const OUT_COMPONENTS = resolve(HERE, '../generated/card-components.json');
 
 // ---------------------------------------------------------------------------
-// CSV
+// Reading the CSVs (the parser itself is shared, in `csv.ts`)
 // ---------------------------------------------------------------------------
-
-function parseCsv(path: string): Record<string, string>[] {
-  const text = readFileSync(path, 'utf8');
-  const rows: Record<string, string>[] = [];
-  let header: string[] | null = null;
-  let field = '';
-  let record: string[] = [];
-  let inQuotes = false;
-
-  const pushField = () => { record.push(field); field = ''; };
-  const pushRecord = () => {
-    pushField();
-    if (record.length === 1 && record[0] === '') { record = []; return; }
-    if (!header) header = record;
-    else rows.push(Object.fromEntries(header.map((h, i) => [h, record[i] ?? ''])));
-    record = [];
-  };
-
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i]!;
-    if (inQuotes) {
-      if (ch === '"') {
-        if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false;
-      } else field += ch;
-    } else if (ch === '"') inQuotes = true;
-    else if (ch === ',') pushField();
-    else if (ch === '\n') pushRecord();
-    else if (ch !== '\r') field += ch;
-  }
-  if (field !== '' || record.length > 0) pushRecord();
-  return rows;
-}
 
 const num = (v: string | undefined): number | undefined => {
   if (v === undefined || v === '' || v === 'NA') return undefined;
@@ -80,19 +51,35 @@ const num = (v: string | undefined): number | undefined => {
   return Number.isFinite(parsed) ? parsed : undefined;
 };
 
+/**
+ * A count the source writes as `0` when it means "not recorded".
+ *
+ * PRFAQ §10 is enforced *inside* the model — a missing metric is missing, never
+ * zero — and this is that same rule at the boundary where the CSV arrives. A
+ * source that encodes absence as zero defeats the model's own check, because
+ * `0 !== undefined`.
+ *
+ * The case this exists for: nflverse's 2003-2008 player files carry `targets`
+ * as 0 for essentially every receiver, and leave `target_share` and `wopr`
+ * empty, while `receptions` and `receiving_yards` are fully populated. Zero
+ * targets and 90 catches is not a claim about football, it is a gap in the
+ * file. Left as 0 it satisfies `targets !== undefined`, so the WR and TE
+ * qualification floors take their targets branch, demand 40 and 30, and reject
+ * every receiver in the league. Six seasons — 2003 through 2008 — shipped with
+ * no receiver cards at all, and the receptions fallback written for exactly
+ * this situation never fired.
+ *
+ * `corroborator` is the column that proves the zero is wrong: a receiver with
+ * receptions was thrown at, whatever the targets column says.
+ */
+const recorded = (
+  value: number | undefined,
+  corroborator: number | undefined,
+): number | undefined => (value === 0 && (corroborator ?? 0) > 0 ? undefined : value);
+
 // ---------------------------------------------------------------------------
 // Franchises and eras
 // ---------------------------------------------------------------------------
-
-/** nflverse already collapses relocations onto the current franchise code. */
-const TEAM_TO_FRANCHISE: Readonly<Record<string, string>> = {
-  ARI: 'ari', ATL: 'atl', BAL: 'bal', BUF: 'buf', CAR: 'car', CHI: 'chi', CIN: 'cin',
-  CLE: 'cle', DAL: 'dal', DEN: 'den', DET: 'det', GB: 'gb', HOU: 'hou', IND: 'ind',
-  JAX: 'jax', KC: 'kc', LA: 'lar', LAR: 'lar', STL: 'lar', LAC: 'lac', SD: 'lac',
-  LV: 'lv', OAK: 'lv', MIA: 'mia', MIN: 'min', NE: 'ne', NO: 'no', NYG: 'nyg',
-  NYJ: 'nyj', PHI: 'phi', PIT: 'pit', SEA: 'sea', SF: 'sf', TB: 'tb', TEN: 'ten',
-  WAS: 'was',
-};
 
 const POSITION_MAP: Readonly<Record<string, Position>> = {
   QB: 'QB', RB: 'RB', FB: 'RB', HB: 'RB', WR: 'WR', TE: 'TE',
@@ -154,7 +141,7 @@ function loadPlayerSeasons(): RawSeason[] {
         rushing_fumbles_lost: num(r.rushing_fumbles_lost),
         rushing_20: num(r.rushing_20),
         receptions: num(r.receptions),
-        targets: num(r.targets),
+        targets: recorded(num(r.targets), num(r.receptions)),
         receiving_yards: num(r.receiving_yards),
         receiving_tds: num(r.receiving_tds),
         receiving_epa: num(r.receiving_epa),
@@ -517,7 +504,37 @@ function main(): void {
     display: s.stats as Record<string, number | undefined>,
   }));
 
-  const all = [...players, ...defenses, ...legacy];
+  /**
+   * Hydrated seasons: the pre-1999 path that is meant to survive.
+   *
+   * `HYDRATE=1` reads `data/raw/seasons/*.json` — one file per year, in the
+   * canonical shape `seasons.ts` documents. Unlike `LEGACY_SEASONS`, which is
+   * welded to one mirror's column names, this takes whatever source you have a
+   * licence to read and lets the era fill in a season at a time.
+   *
+   * Off by default for the same reason as the legacy path, plus one more: an
+   * era part-way through hydration is exactly the "plausible-looking, quietly
+   * false version of history" this project refused to ship. It is playable
+   * locally and it is fenced off from everything else — see `provisional` in
+   * `eras.ts` and the guard in `cli/seed-sql.ts`.
+   */
+  const hydrateEnabled = process.env.HYDRATE === '1';
+  const hydration = hydrateEnabled
+    ? loadHydratedSeasons(RAW)
+    : { seasons: [], years: [], sources: [], rejected: [] };
+  const hydrated = hydration.seasons.map((s) => ({
+    playerId: s.playerId,
+    name: s.name,
+    position: s.position,
+    franchiseId: s.franchiseId,
+    year: s.year,
+    stats: s.stats,
+    display: s.stats as Record<string, number | undefined>,
+  }));
+  /** Games played that year, for the qualification floors (PRFAQ §12). */
+  const hydratedGames = new Map(hydration.seasons.map((s) => [s.year, s.seasonGames]));
+
+  const all = [...players, ...defenses, ...legacy, ...hydrated];
   console.log(
     `  loaded ${players.length.toLocaleString()} player-seasons and ${defenses.length} defensive seasons from nflverse (1999+)`,
   );
@@ -526,6 +543,16 @@ function main(): void {
       ? `  loaded ${legacy.length.toLocaleString()} seasons from NFL.com (1980-1998)`
       : '  1980-1998 not built: source is 49% complete (LEGACY_SEASONS=1 to override)',
   );
+  if (hydrateEnabled) {
+    console.log(
+      hydration.years.length
+        ? `  hydrated ${hydrated.length.toLocaleString()} seasons from ${hydration.years.length} ` +
+            `year file(s): ${hydration.years.join(', ')}`
+        : `  HYDRATE=1 but no season files in ${join(RAW, 'seasons')}`,
+    );
+    for (const source of hydration.sources) console.log(`    source: ${source}`);
+    for (const why of hydration.rejected) console.log(`    !! rejected ${why}`);
+  }
   if (incompleteSeasons.length > 0) {
     console.log(`  ${incompleteSeasons.length} defensive season(s) with incomplete weekly data:`);
     for (const note of incompleteSeasons.slice(0, 6)) console.log(`    ${note}`);
@@ -566,9 +593,11 @@ function main(): void {
 
     // Qualification stays per-season: a 17-game year has a proportionally
     // higher floor than a 16-game one (PRFAQ §12).
-    const qualified = seasons.filter((s) =>
-      model.qualifies(s.stats, s.year >= 2021 ? 17 : 16),
-    );
+    // A hydrated file states its own season length, because the floors scale
+    // by it: 1982 played nine games and its receivers cannot be held to a
+    // sixteen-game bar.
+    const gamesIn = (year: number) => hydratedGames.get(year) ?? (year >= 2021 ? 17 : 16);
+    const qualified = seasons.filter((s) => model.qualifies(s.stats, gamesIn(s.year)));
     skipped += seasons.length - qualified.length;
     if (qualified.length < 8) continue;
 
@@ -704,11 +733,65 @@ function main(): void {
     seasonsPerEra.set(card.era, set);
   }
   const coveredEras = new Set<EraKey>();
+  /** Provisional eras that were built, so later steps can say so. */
+  const hydratingEras = new Set<EraKey>();
   for (const definition of ERA_TABLE) {
     const years = seasonsPerEra.get(definition.key)?.size ?? 0;
     const span = definition.endYear - definition.startYear + 1;
+
+    // A provisional era is exempt from the coverage floor — being incomplete is
+    // its whole state — but it still has to have something in it, and it is
+    // marked so nothing downstream mistakes it for a finished era.
+    if (definition.provisional) {
+      if (years === 0) continue;
+      coveredEras.add(definition.key);
+      hydratingEras.add(definition.key);
+      console.log(
+        `  ~~ ${definition.key} is PROVISIONAL: ${years}/${span} seasons hydrated ` +
+          `— local play only, refused by seed:sql`,
+      );
+      continue;
+    }
+
     if (years / span >= MIN_ERA_COVERAGE) coveredEras.add(definition.key);
     else console.log(`  dropping ${definition.key}: ${years}/${span} seasons covered`);
+  }
+
+  /**
+   * The same coverage test, per position.
+   *
+   * An era clears the check above on its aggregate season count, which one
+   * healthy position can carry alone. That is how six seasons of missing
+   * receivers shipped unnoticed: 2003-2008 contributed quarterbacks, backs and
+   * defenses as usual, so "The Indoor Years" and "Chasing Perfect" both looked
+   * fully covered while every receiver in them came from 1999-2002 and 2009
+   * respectively.
+   *
+   * If an era must span most of its years to be offered, so must each position
+   * inside it. Reported rather than enforced, because the legacy eras will
+   * legitimately trip it while a source is still being found — but reported
+   * loudly, since the failure it catches is invisible in the output.
+   */
+  for (const definition of ERA_TABLE) {
+    if (!coveredEras.has(definition.key)) continue;
+    // A provisional era is thin by construction and already said so above.
+    if (hydratingEras.has(definition.key)) continue;
+    const span = definition.endYear - definition.startYear + 1;
+    const thin: string[] = [];
+    for (const position of ['QB', 'RB', 'WR', 'TE', 'DEF'] as Position[]) {
+      const seasons = new Set(
+        cards.filter((c) => c.era === definition.key && c.position === position).map((c) => c.year),
+      );
+      if (seasons.size / span < MIN_ERA_COVERAGE) {
+        thin.push(`${position} ${seasons.size}/${span}`);
+      }
+    }
+    if (thin.length) {
+      console.log(
+        `  !! ${definition.key} is thin by position: ${thin.join(', ')} seasons represented ` +
+          `— a source gap, not a football fact. See \`recorded\` in this file.`,
+      );
+    }
   }
 
   // Only offer eras we can actually populate at every position.
@@ -770,8 +853,12 @@ function main(): void {
   const eraKeys = [...new Set(finalCards.map((c) => c.era))].sort();
 
   const dataset: Dataset = {
-    version: '1.0.0',
-    ratingModelVersion: '1.0.0',
+    // 1.1.0 restores the 2003-2008 receivers that `recorded` was written for.
+    // Card ratings move with them: those seasons rejoin their eras'
+    // normalization pools, so every WR and TE rating in "The Indoor Years" and
+    // "Chasing Perfect" is now measured against a fuller league.
+    version: '1.1.0',
+    ratingModelVersion: '1.1.0',
     generatedAt: new Date().toISOString(),
     source: 'nflverse-data (stats_player_reg, stats_team_week, schedules), regular season only',
     coverage: { firstSeason: Math.min(...years), lastSeason: Math.max(...years) },
@@ -782,6 +869,8 @@ function main(): void {
       startYear: e.startYear,
       endYear: e.endYear,
       tagline: e.tagline,
+      // Only ever present when true, so a shipped dataset carries no flag.
+      ...(hydratingEras.has(e.key) ? { provisional: true as const } : {}),
     })),
     franchises,
     combos,

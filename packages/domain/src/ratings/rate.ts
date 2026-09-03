@@ -32,24 +32,35 @@ export function rateSeason(
   const unavailable: string[] = [];
 
   for (const component of model.components) {
+    /**
+     * A percentile component ranks the player against the league instead of
+     * z-scoring. When its metric has no distribution the component still has
+     * its `metrics` list to fall back through — the receiver's peak-dominance
+     * component ranks `wopr`, which needs air yards, and names share of team
+     * receiving yards as the older-data substitute. Returning straight to
+     * `unavailable` here made that substitute unreachable, so a season with no
+     * air-yards data lost the component outright rather than measuring the
+     * same idea from what it did have.
+     */
     if (component.percentileOf) {
       const distribution = context.get(component.percentileOf);
       const value = values.get(component.percentileOf) ?? null;
-      if (!distribution || value === null) {
-        unavailable.push(component.key);
+      if (distribution && value !== null) {
+        scored.push({
+          key: component.key,
+          label: component.label,
+          weight: component.weight,
+          score: scoreFromPercentile(percentileRank(value, distribution), distribution.count),
+          z: null,
+          metricUsed: component.percentileOf,
+          value,
+          fellBack: false,
+        });
         continue;
       }
-      scored.push({
-        key: component.key,
-        label: component.label,
-        weight: component.weight,
-        score: scoreFromPercentile(percentileRank(value, distribution), distribution.count),
-        z: null,
-        metricUsed: component.percentileOf,
-        value,
-        fellBack: false,
-      });
-      continue;
+      // No distribution to rank against. Falls through to the metric
+      // hierarchy below, which is empty for most percentile components and so
+      // lands on `unavailable` exactly as it did before.
     }
 
     let matched = false;

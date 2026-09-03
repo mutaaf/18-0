@@ -26,6 +26,17 @@ export interface EraDefinition {
   readonly endYear: number;
   /** One line on what defined it. */
   readonly tagline: string;
+  /**
+   * Hydrating, and not finished.
+   *
+   * A provisional era is built from season files that arrive one year at a
+   * time (see `seasons.ts`), so it is genuinely incomplete rather than merely
+   * sparse. It is excluded from the default build, exempt from the coverage
+   * floor when it is built, and refused by the seed generator — the whole
+   * point is to be able to play a half-built era locally without any path by
+   * which it reaches a player.
+   */
+  readonly provisional?: boolean;
 }
 
 export const ERA_TABLE: readonly EraDefinition[] = [
@@ -36,6 +47,7 @@ export const ERA_TABLE: readonly EraDefinition[] = [
     startYear: 1980,
     endYear: 1989,
     tagline: "Montana's dynasty, and the most feared defence ever fielded",
+    provisional: true,
   },
   {
     key: '1990_1998',
@@ -44,6 +56,7 @@ export const ERA_TABLE: readonly EraDefinition[] = [
     startYear: 1990,
     endYear: 1998,
     tagline: "Dallas's three, Buffalo's four straight heartbreaks, Sanders in full flight",
+    provisional: true,
   },
   {
     key: '1999_2004',

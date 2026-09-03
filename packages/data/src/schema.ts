@@ -39,6 +39,11 @@ export interface DatasetEra {
   readonly startYear: number;
   readonly endYear: number;
   readonly tagline: string;
+  /**
+   * Present and true only on an era still being hydrated. Its absence is the
+   * normal case, so a shipped dataset carries no such flag at all.
+   */
+  readonly provisional?: boolean;
 }
 
 /** A headline stat shown on a player card, already formatted for display. */
