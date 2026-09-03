@@ -150,9 +150,20 @@ Not a substitute for trying it, but the things that will be wrong:
 
 ## Before submission
 
-- The privacy policy at `apps/mobile/public/privacy.html` still has a
-  placeholder contact address, and describes an app that collects no email
-  address. Signing in with a provider changes that: Apple and Google return an
-  email (Apple's may be a private relay address). **The policy needs updating to
-  say so** before any build with sign-in enabled goes to review.
-- App Store Connect's App Privacy answers need the same change.
+**The privacy policy is done — do not redo it.** `apps/mobile/public/privacy.html`
+carries the real contact address (mutaaf@digitalcraftai.com) and a *Signing in*
+section that says the provider hands us the email address on the account, that
+Apple's private relay is supported, and that the email is never sent to
+analytics. It was last updated 3 September 2026, which is the same pass that
+fixed the contact address.
+
+What is still open is the store form, and only once sign-in is actually
+switched on:
+
+- **App Store Connect App Privacy** currently declares Usage Data and
+  Identifiers only ([`submission.md`](submission.md)). Turning
+  `EXPO_PUBLIC_AUTH_PROVIDERS` on adds a third type: **Contact Info → Email
+  Address**, linked to the user, purpose **App Functionality**, *not* used for
+  tracking. Google Play's Data safety form wants the same row under **Personal
+  info → Email address**. Update the table in `submission.md` in the same pass,
+  so the two do not drift.

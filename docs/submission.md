@@ -54,6 +54,67 @@ display name, no ads, no in-app purchases. Display names are moderated —
 reportable, and hideable from the console — which is what the questionnaire is
 asking about when it asks about user-generated content.
 
+**Google Play short description** (80 characters allowed; this is 71):
+
+> Seven spins, sixty years of football, one shot at an undefeated season.
+
+**App Store promotional text** (170 characters allowed; this is 156). This is
+the one line that can be changed without submitting a build, so it is where a
+running thing gets said:
+
+> Each spin hands you one franchise and one era. Seven picks decide a season, rated against the era it was played in. 18-0 lands about once every 6,000 games.
+
+**Release notes / What's New, 0.1.0:**
+
+> First release. Seven spins, seven picks, one season. Three ways to play —
+> Rookie, Scout and GM Mode — plus a gameday board that opens while the league
+> is on the field, and ranked seasons scored on the server. No account, no ads,
+> and the whole game plays offline.
+
+**Copyright**, for App Store Connect — year and holder, no symbol:
+`2026 DigitalCraft AI`
+
+## App Store — Review notes
+
+Paste this into App Review Information. There is nothing for a reviewer to log
+into, and saying so up front is the point of it.
+
+If the build going up still has sign-in switched off — `EXPO_PUBLIC_AUTH_PROVIDERS`
+unset, see [`social-login.md`](social-login.md) — drop the two sign-in
+paragraphs. A reviewer should not be sent looking for buttons that are not
+there, and with no third-party sign-in offered, 4.8 does not apply.
+
+> **No demo account is needed.** The app signs you in anonymously on first
+> launch, with no prompt and no sign-up screen. Every mode is playable
+> immediately, ranked seasons included, and none of it asks for an account.
+>
+> **Signing in is optional.** The account panel offers Sign in with Apple and
+> Google, and nothing in the game is gated behind either. What it buys is
+> history: the provider is *linked* to the anonymous account already in use, so
+> the seasons already played carry over rather than being replaced, and they
+> survive losing the device. It is also what puts a ranked season on the public
+> board: anonymous accounts are free and unlimited, so the board lists only
+> seasons attached to a signed-in one. Playing is never affected either way.
+>
+> **Guideline 4.8.** Sign in with Apple is offered wherever Google is, and this
+> is enforced in code rather than left to configuration: if the provider list
+> names Google without Apple, iOS shows no sign-in buttons at all.
+>
+> **Guideline 5.1.1(v).** Account deletion is in the app. Tap the avatar disc
+> in the top-right corner of any screen to open Account; "Delete my account" is
+> at the bottom of that screen. It needs no sign-in, no email and no contact
+> with support. It removes the account, the display name, every ranked season
+> attached to it, and the analytics for that account.
+>
+> **Guideline 1.2.** The only user-generated content is a display name shown on
+> the leaderboard. Names are checked against a denylist by the database when
+> they are set, so a blocked name is refused rather than published and reviewed
+> later. Every leaderboard row carries a report control, and a reported name can
+> be hidden from the board.
+>
+> No ads, no in-app purchases, no gambling, no messaging between players. The
+> game works with no network connection; only the leaderboard needs one.
+
 ## App Store — App Privacy
 
 Two types collected, both **linked to the user**, both **not used for tracking**.
@@ -85,6 +146,40 @@ Same declaration, different form.
 - **Device or other IDs**: collected, not shared, purpose = Analytics
 - **Data is encrypted in transit**: yes
 - **Users can request data deletion**: yes, in-app — Account screen
+
+## Google Play — Content rating (IARC)
+
+The questionnaire is a list of yes/no answers about categories of content. Every
+content question is a **no**; the only yes is user-generated content, which is a
+display name and nothing else. The expected outcome is Everyone / PEGI 3, with
+the user-generated-content follow-ups answered rather than avoided.
+
+- **Violence** (realistic, fantasy, blood, depictions of injury): no. The game
+  is spinning cards and picking players; nothing is depicted.
+- **Sexuality, nudity, crude humour, language**: no.
+- **Controlled substances** (drugs, alcohol, tobacco): no.
+- **Gambling**: no. Nothing is wagered, nothing is bought, there is no simulated
+  casino play and no in-app currency of any kind.
+- **Miscellaneous** (horror, fear, discrimination): no.
+- **Users can interact**: **no** — no chat, no messaging, no comments, and no
+  way for one player to send another a message of any kind. Players see each
+  other's display names on a leaderboard and nothing else. A challenge is a
+  share link that carries a display name, a score and the same seven wheels; it
+  is passed outside the app and has no message attached to it. If a form asks
+  separately whether users can *share content* with each other, that link is the
+  yes, and that is all it is.
+- **Shares location**: no.
+- **Digital purchases**: no.
+- **User-generated content**: **yes** — a display name, shown on the
+  leaderboard. Say so, and say what moderates it: names are checked against a
+  denylist when they are set and refused if they match, every leaderboard row
+  can be reported, and a reported name can be hidden from the board. That is a
+  moderation system, a reporting mechanism and a published policy, which is what
+  the follow-up questions ask for.
+
+Answering "users can interact" yes because there is a shared leaderboard is the
+common way this form gets over-rated. It asks about communication between
+players, and there is none to declare.
 
 ## Sign in with Apple
 
