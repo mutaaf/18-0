@@ -9,8 +9,53 @@
  * The client plays offline from the JSON; the database needs the same rows so
  * the server can score authoritatively without trusting anything the client
  * sends (PRFAQ §36).
+ *
+ * ---------------------------------------------------------------------------
+ * This file is safe to run against a database people have played on.
+ * ---------------------------------------------------------------------------
+ *
+ * It did not used to be. It opened with
+ *
+ *   truncate table season_cards, franchise_eras, franchises, eras cascade;
+ *
+ * which is right exactly once, on an empty database. `game_selections.card_id`
+ * references `season_cards` and `game_spins` references `franchises` and
+ * `eras`, so that CASCADE deletes every pick and every spin anybody has ever
+ * made -- the leaderboard, the challenges, and the evidence behind them. It
+ * survived review because on a fresh instance the result looks identical.
+ *
+ * So nothing is truncated. Reference rows are upserted, stale franchise-eras
+ * are deleted (nothing references them), and a card the dataset no longer
+ * contains is *retired* rather than removed: the row stays so a season played
+ * with it still resolves, and the spin and select endpoints refuse it so it is
+ * never dealt again. See migration 0020.
  */
-import { DATASET, ERA_TABLE, displayName } from '../index.js';
+import { DATASET, ERA_TABLE, GAMEDAYS, displayName } from '../index.js';
+
+/**
+ * A provisional era never reaches the server.
+ *
+ * `HYDRATE=1` builds the pre-1999 eras from however many season files are on
+ * disk, so a two-seasons-of-ten era is a normal local state. That is fine in a
+ * dev build, where it is casual play against a bundled JSON. It is not fine in
+ * the database: `season_cards` is what the server scores a *ranked* game
+ * against, so seeding a half-hydrated era would put incomplete history onto the
+ * leaderboard, and `rating_model_version` would not even flag it.
+ *
+ * Refusing here rather than warning, because the failure is silent afterwards.
+ * Rebuild without `HYDRATE=1` to get a seedable dataset.
+ */
+const provisional = DATASET.eras.filter((e) => e.provisional);
+if (provisional.length > 0) {
+  const names = provisional.map((e) => `${e.key} (${e.label})`).join(', ');
+  console.error(
+    `refusing to emit seed SQL: the dataset contains provisional era(s) ${names}.\n` +
+      'These are hydrating and must not be seeded — the server scores ranked games\n' +
+      'from season_cards. Rebuild without HYDRATE=1:\n\n' +
+      '  pnpm --filter @18-0/data build:dataset\n',
+  );
+  process.exit(1);
+}
 
 const quote = (v: string) => `'${v.replace(/'/g, "''")}'`;
 const array = (values: readonly string[]) =>
@@ -21,15 +66,19 @@ const out: string[] = [
   `-- Dataset ${DATASET.version} · model ${DATASET.ratingModelVersion} · ${DATASET.cards.length} cards`,
   'begin;',
   '',
-  'truncate table public.season_cards, public.franchise_eras, public.franchises, public.eras cascade;',
-  '',
 ];
 
+// Eras and franchises are never deleted: `game_spins` points at both, and a
+// spin issued three months ago has to keep resolving to the franchise-era it
+// was.
 out.push('insert into public.eras (key, label, start_year, end_year, sort_order) values');
 out.push(
   ERA_TABLE.filter((e) => DATASET.eras.some((d) => d.key === e.key))
     .map((e, i) => `  (${quote(e.key)}, ${quote(e.label)}, ${e.startYear}, ${e.endYear}, ${i})`)
-    .join(',\n') + ';',
+    .join(',\n') +
+    '\non conflict (key) do update set\n' +
+    '  label = excluded.label, start_year = excluded.start_year,\n' +
+    '  end_year = excluded.end_year, sort_order = excluded.sort_order;',
 );
 out.push('');
 
@@ -40,7 +89,11 @@ out.push(
       (f) =>
         `  (${quote(f.id)}, ${quote(f.abbr)}, ${quote(f.name)}, ${quote(f.nick)}, ${quote(f.conference)}, ${quote(f.color)})`,
     )
-    .join(',\n') + ';',
+    .join(',\n') +
+    '\non conflict (id) do update set\n' +
+    '  abbreviation = excluded.abbreviation, display_name = excluded.display_name,\n' +
+    '  nickname = excluded.nickname, conference = excluded.conference,\n' +
+    '  primary_color = excluded.primary_color;',
 );
 out.push('');
 
@@ -48,29 +101,135 @@ out.push('insert into public.franchise_eras (franchise_id, era_key, spin_weight)
 out.push(
   DATASET.combos
     .map((c) => `  (${quote(c.franchiseId)}, ${quote(c.era)}, ${c.spinWeight})`)
-    .join(',\n') + ';',
+    .join(',\n') +
+    '\non conflict (franchise_id, era_key) do update set spin_weight = excluded.spin_weight;',
 );
 out.push('');
 
-// Cards go in batches so a single statement never gets unreasonably large.
+/**
+ * A franchise-era that can no longer field a roster stops being spinnable.
+ *
+ * Safe to delete outright, unlike the tables above: nothing references
+ * `franchise_eras`. A spin records the franchise and the era directly, so an
+ * old spin does not lose its meaning when a combination stops being offered.
+ */
+out.push('create temp table seeded_combos (franchise_id text, era_key text) on commit drop;');
+out.push('insert into seeded_combos values');
+out.push(
+  DATASET.combos.map((c) => `  (${quote(c.franchiseId)}, ${quote(c.era)})`).join(',\n') + ';',
+);
+out.push(
+  'delete from public.franchise_eras f where not exists (\n' +
+    '  select 1 from seeded_combos s\n' +
+    '   where s.franchise_id = f.franchise_id and s.era_key = f.era_key);',
+);
+out.push('');
+
+/**
+ * The cards, upserted in batches so no single statement is unreasonable.
+ *
+ * `retired_at = null` on conflict is deliberate: a rebuild that brings a card
+ * back -- a season that qualifies again under a new rating model -- un-retires
+ * it, so the wheel starts offering it again without anybody having to notice.
+ */
 const BATCH = 500;
+const CARD_COLUMNS =
+  'id, entity_id, entity_type, display_name, position, franchise_id, season_year, era_key, ' +
+  'rating, archetypes, rating_model_version, retired_at';
+
 for (let i = 0; i < DATASET.cards.length; i += BATCH) {
   const batch = DATASET.cards.slice(i, i + BATCH);
-  out.push(
-    'insert into public.season_cards (id, entity_id, entity_type, display_name, position, franchise_id, season_year, era_key, rating, archetypes, rating_model_version) values',
-  );
+  out.push(`insert into public.season_cards (${CARD_COLUMNS}) values`);
   out.push(
     batch
       .map(
         (c) =>
           `  (${quote(c.id)}, ${quote(c.entityId)}, ${quote(c.position === 'DEF' ? 'defense' : 'player')}, ` +
           `${quote(displayName(c))}, ${quote(c.position)}, ${quote(c.franchiseId)}, ${c.year}, ${quote(c.era)}, ` +
-          `${c.rating}, ${array(c.archetypes)}, ${quote(DATASET.ratingModelVersion)})`,
+          `${c.rating}, ${array(c.archetypes)}, ${quote(DATASET.ratingModelVersion)}, null)`,
       )
-      .join(',\n') + ';',
+      .join(',\n') +
+      '\non conflict (id) do update set\n' +
+      '  entity_id = excluded.entity_id, entity_type = excluded.entity_type,\n' +
+      '  display_name = excluded.display_name, position = excluded.position,\n' +
+      '  franchise_id = excluded.franchise_id, season_year = excluded.season_year,\n' +
+      '  era_key = excluded.era_key, rating = excluded.rating,\n' +
+      '  archetypes = excluded.archetypes,\n' +
+      '  rating_model_version = excluded.rating_model_version,\n' +
+      '  retired_at = null;',
   );
   out.push('');
 }
+
+/**
+ * Retire what this dataset no longer contains.
+ *
+ * Never delete: a played `game_selections` row points at the card, and that
+ * season has to keep resolving. Retiring instead keeps the row, keeps the
+ * history readable, and takes the card off the wheel -- see 0020, and the spin
+ * and select endpoints that filter on it.
+ *
+ * Through a temp table rather than a 3,000-id `not in (...)`, which is both
+ * slower to plan and unreadable in a diff.
+ */
+out.push('create temp table seeded_cards (id text primary key) on commit drop;');
+for (let i = 0; i < DATASET.cards.length; i += BATCH) {
+  out.push('insert into seeded_cards values');
+  out.push(
+    DATASET.cards
+      .slice(i, i + BATCH)
+      .map((c) => `  (${quote(c.id)})`)
+      .join(',\n') + ';',
+  );
+}
+out.push('');
+out.push(
+  'update public.season_cards c set retired_at = now()\n' +
+    ' where c.retired_at is null\n' +
+    '   and not exists (select 1 from seeded_cards s where s.id = c.id);',
+);
+out.push('');
+
+/**
+ * The gameday calendar.
+ *
+ * Upserted like everything else, and never deleted from: real seasons carry a
+ * `gameday_key`, so a rebuilt calendar must not be able to orphan the evidence
+ * of what people played. The calendar grows and corrects itself.
+ *
+ * A window can legitimately move -- a flexed kickoff -- which is why the update
+ * clause exists at all.
+ */
+out.push(`-- ${GAMEDAYS.length} gamedays, upserted: a reseed must never orphan a played season`);
+out.push(
+  'insert into public.gamedays (key, season, week, game_type, weekday, opens_at, closes_at) values',
+);
+out.push(
+  GAMEDAYS.map(
+    (d) =>
+      `  (${quote(d.key)}, ${d.season}, ${d.week}, ${quote(d.type)}, ${quote(d.weekday)}, ` +
+      `${quote(d.opensAt)}, ${quote(d.closesAt)})`,
+  ).join(',\n') + '\non conflict (key) do update set',
+);
+out.push(
+  '  season = excluded.season, week = excluded.week, game_type = excluded.game_type,',
+);
+out.push(
+  '  weekday = excluded.weekday, opens_at = excluded.opens_at, closes_at = excluded.closes_at;',
+);
+out.push('');
+
+// Replaced wholesale per gameday, so a fixture that moves to another day does
+// not leave the franchise behind on both.
+out.push(
+  `delete from public.gameday_franchises where gameday_key in (${GAMEDAYS.map((d) => quote(d.key)).join(', ')});`,
+);
+out.push('insert into public.gameday_franchises (gameday_key, franchise_id) values');
+out.push(
+  GAMEDAYS.flatMap((d) => d.franchises.map((f) => `  (${quote(d.key)}, ${quote(f)})`)).join(',\n') +
+    ';',
+);
+out.push('');
 
 out.push('commit;');
 console.log(out.join('\n'));

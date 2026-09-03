@@ -11,6 +11,7 @@
   },
   "scripts": {
     "build:dataset": "tsx src/build.ts",
+    "build:schedule": "tsx src/build-schedule.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
     "analyze": "tsx src/cli/analyze.ts",

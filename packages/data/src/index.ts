@@ -4,6 +4,8 @@ import type { BootCard, Dataset, DatasetCard, DatasetComponent, DatasetFranchise
 
 export * from './schema.js';
 export * from './eras.js';
+export * from './schedule.js';
+export { TEAM_TO_FRANCHISE, franchiseForTeam } from './teams.js';
 export { headshotUrl } from './headshots.js';
 
 /**
