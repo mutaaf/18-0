@@ -39,16 +39,20 @@ const STORAGE_KEY = '18-0:stat-lines';
 /**
  * Where the published table lives.
  *
- * On the web it is the same deploy serving the app, so an origin-relative path
- * built from the same base URL the bundle was exported with -- a relative
- * `./` would resolve against whatever route the player happens to be on.
- * Natively there is no origin, so it is the published site unless something
- * points it elsewhere.
+ * On the web it is whichever deploy is serving the app, so an origin-relative
+ * path built from the base URL the bundle was exported with: empty on 18-0.co,
+ * `/18-0` on the GitHub Pages mirror, and correct on both. A relative `./`
+ * would resolve against whatever route the player happens to be on.
+ *
+ * Natively there is no origin, so it is the canonical host. Deliberately
+ * `18-0.co` rather than the Pages mirror: this value is baked into a native
+ * build and outlives it, and the mirror is the deployment the project has
+ * already said is not the real address.
  */
 const BASE = (
   Platform.OS === 'web'
     ? (process.env.EXPO_BASE_URL ?? '')
-    : (process.env.EXPO_PUBLIC_STATIC_URL ?? 'https://mutaaf.github.io/18-0')
+    : (process.env.EXPO_PUBLIC_STATIC_URL ?? 'https://18-0.co')
 ).replace(/\/+$/, '');
 
 interface StatLineState {
