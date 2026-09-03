@@ -117,7 +117,7 @@ export default function Home() {
     game.abandon();
   };
 
-  const display = layout.roomy ? 78 : layout.wide ? 62 : 44;
+  const display = layout.roomy ? 78 : layout.wide ? 62 : 38;
 
   const hero = (
     <View style={styles.heroColumn}>
@@ -127,25 +127,6 @@ export default function Home() {
           Spin history.{'\n'}Build seven.{'\n'}
           <Text style={styles.headlineAccent}>Chase perfection.</Text>
         </Text>
-        <Text style={[styles.blurb, layout.wide && styles.blurbWide]}>
-          Every spin hands you one franchise and one era. Take a player, fill a slot, and live with
-          it. Seven picks decide your season — no simulation, no luck after the whistle.
-        </Text>
-        <View style={styles.proof}>
-          <Text style={styles.proofValue}>
-            {DATASET.cards.length.toLocaleString()}
-            <Text style={styles.proofLabel}> rated seasons</Text>
-          </Text>
-          <View style={styles.proofDot} />
-          <Text style={styles.proofValue}>
-            {DATASET.combos.length}
-            <Text style={styles.proofLabel}> franchise-eras</Text>
-          </Text>
-          <View style={styles.proofDot} />
-          <Text style={styles.proofValue}>
-            {DATASET.coverage.firstSeason}–{DATASET.coverage.lastSeason}
-          </Text>
-        </View>
       </Reveal>
 
 
@@ -226,7 +207,7 @@ export default function Home() {
         <ModeCard
           name="Player IQ"
           badge="Blind"
-          copy="No ratings. No stat lines. Just a name, a team and a year — pick on what you actually know about football."
+          copy="A name, a team, a year. Pick on what you know."
           cta="Play blind"
           hero
           onPress={() => start('player_iq')}
@@ -234,11 +215,35 @@ export default function Home() {
         <ModeCard
           name="Rookie"
           badge="Ratings on"
-          copy="Every rating and stat line on screen. Good for learning what the model rewards before you go blind."
+          copy="Every rating on screen. Learn what the model rewards."
           cta="Play with ratings"
-          note={ranked ? 'Rookie seasons do not reach the leaderboard.' : undefined}
+          note={ranked ? 'Does not reach the board.' : undefined}
           onPress={() => start('rookie')}
         />
+      </Reveal>
+
+      {/* Below the choice on purpose. This is the part somebody reads once,
+          and it was pushing the two buttons they came for off a phone screen. */}
+      <Reveal delay={200}>
+        <Text style={[styles.blurb, layout.wide && styles.blurbWide]}>
+          Every spin hands you one franchise and one era. Take a player, fill a slot, and live with
+          it. Seven picks decide your season — no simulation, no luck after the whistle.
+        </Text>
+        <View style={styles.proof}>
+          <Text style={styles.proofValue}>
+            {DATASET.cards.length.toLocaleString()}
+            <Text style={styles.proofLabel}> rated seasons</Text>
+          </Text>
+          <View style={styles.proofDot} />
+          <Text style={styles.proofValue}>
+            {DATASET.combos.length}
+            <Text style={styles.proofLabel}> franchise-eras</Text>
+          </Text>
+          <View style={styles.proofDot} />
+          <Text style={styles.proofValue}>
+            {DATASET.coverage.firstSeason}–{DATASET.coverage.lastSeason}
+          </Text>
+        </View>
       </Reveal>
     </View>
   );
@@ -530,14 +535,18 @@ const styles = StyleSheet.create({
   discardLabel: { fontFamily: font.body, fontSize: 13, color: color.textFaint },
   lift: { transform: [{ translateY: -1 }] },
 
-  modes: { gap: space.md },
+  modes: { flexDirection: 'row', gap: space.sm, alignItems: 'stretch' },
   mode: {
+    // Half the row each, so both modes are on screen together.
+    flex: 1,
+    minWidth: 0,
     borderWidth: 1,
     borderColor: color.line,
     borderRadius: radius.md,
-    padding: space.xl,
+    padding: space.lg,
     gap: space.sm,
     backgroundColor: '#FFFFFF05',
+    justifyContent: 'space-between',
   },
   modeHero: {
     borderColor: color.red,
