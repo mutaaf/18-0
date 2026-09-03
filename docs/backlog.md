@@ -158,18 +158,28 @@ tracking" is no. Neither form can be filled from a repository.
 - **Play Console -> Data safety**: App activity -> App interactions, and Device
   or other IDs. Collected, not shared, deletion available in-app.
 
-## 8. Two branches want a decision
+## 8. The native projects can go stale without saying so
 
-- `fix/receiver-gap-and-season-hydration` — **delete it.** Its work is already on
-  main under different commits. Merging it now would revert the dataset from
-  4,872 cards to 3,279 and the model from 1.2.0 to 1.1.0.
-- `chore/vercel-18-0-co` — moving to a custom domain is not just a deploy
-  target. It changes the manifest's `start_url` and `scope`, the service
-  worker's shell path, every absolute Open Graph URL, the Supabase redirect
-  allow-list and CORS origins, and Apple's Services ID return URL. The branch
-  carries the first four and added checks to `web-head.mjs`; the last two are
-  console configuration no branch can carry. Land it deliberately, and re-run
-  `scripts/verify/linking.mjs` afterwards.
+`ios/` and `android/` are prebuild output and gitignored, and neither
+`expo run:ios` nor `expo run:android` regenerates one that already exists. A
+change in `app.config.js` therefore reaches the native project only if somebody
+remembers to re-run prebuild.
+
+It has already bitten. The bundle identifier moved to `com.eighteenzerodcai.app`
+on 3 September; `ios/` was hand-edited to match and `android/` was not. A
+release build installed on the emulator still reported `com.eighteenzero.app` --
+so a Play submission cut from that tree would have shipped a package that is not
+registered anywhere, and nothing would have said so until the upload was
+rejected.
+
+Fixed with `npx expo prebuild -p android --clean`, which is the right answer
+every time: these directories are generated, so regenerating is free and editing
+is not.
+
+**Do:** add a check that reads `applicationId` from `android/app/build.gradle`
+and `PRODUCT_BUNDLE_IDENTIFIER` from the Xcode project and fails when either
+disagrees with `app.config.js`. This is exactly the class of thing the
+repository already enforces in the build rather than in prose.
 
 ## 9. Three agents share one working tree
 
