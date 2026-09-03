@@ -121,47 +121,7 @@ built. Tier 0 (presentational) and tier 1 (spin pool) have shipped. Still open:
   and its own model version, never on the ranked rating board. The precedent for
   the shape is Scout (0017) and Gameday (0019).
 
-## 6. Turning a flag off in PostHog does not turn it off
-
-**A real bug, diagnosed 3 September 2026.** Both gameday flags were disabled in
-the PostHog console and the marquee kept showing.
-
-PostHog omits a disabled flag from `/decide` rather than returning it as false.
-Confirmed against the live project:
-
-```
-POST /decide/?v=3  ->  { "featureFlags": {} }
-```
-
-`resolveFlag()` then reads `remote?.[key]`, gets `undefined`, and falls through
-to `definition.fallback` — which is `true` for `gameday`. So the kill switch
-cannot work: an absent key is indistinguishable from "PostHog never answered",
-and both resolve to the shipped default.
-
-The fallback is right for the case it was written for. `startFlags()` already
-knows which case it is in — `fetchRemoteFlags()` returns `null` on failure and a
-map on success — but that knowledge is thrown away before resolution, which only
-ever looks at whether the *key* is present.
-
-**Do:** carry the distinction into `resolveFlag()`.
-
-- `remote === null` (never answered: offline, first launch) -> `fallback`
-- `remote !== null`, key absent -> the flag is **not active**: `false` for a
-  boolean, the control arm for a multivariate one
-
-Keep the offline-first behaviour exactly as it is; only stop treating a
-successful empty answer as silence.
-
-**Until then, two workarounds:** in PostHog leave the flag *enabled* and set the
-release condition to **0% rollout**, which returns an explicit `false` that the
-current code honours; or use the device-local override in the operator console.
-
-**Also worth knowing while testing:** flags are fetched once per launch and
-cached across cold starts, on purpose — a variant that changes mid-session
-measures nothing. So any flag change needs a full relaunch of the installed app,
-not a refresh, and the previous answer survives until a fetch succeeds.
-
-## 7. Player photographs are hot-linked from the NFL's CDN
+## 6. Player photographs are hot-linked from the NFL's CDN
 
 `packages/data/src/headshots.ts` carries 1,626 image URLs and its own header
 says the images "are not ours to redistribute". They are fetched from the NFL's
@@ -186,7 +146,7 @@ proven in production. Making `headshotUrl()` return null is a one-line change.
 **Decide before the binary is public.** Options: remove them; licence a source;
 or replace them with something generated that is ours.
 
-## 8. The two store forms
+## 7. The two store forms
 
 Every value is written out in [`submission.md`](submission.md) — the privacy
 declarations, the listing copy, the age rating and why the answer to "used for
@@ -198,7 +158,7 @@ tracking" is no. Neither form can be filled from a repository.
 - **Play Console -> Data safety**: App activity -> App interactions, and Device
   or other IDs. Collected, not shared, deletion available in-app.
 
-## 9. Two branches want a decision
+## 8. Two branches want a decision
 
 - `fix/receiver-gap-and-season-hydration` — **delete it.** Its work is already on
   main under different commits. Merging it now would revert the dataset from
@@ -211,7 +171,7 @@ tracking" is no. Neither form can be filled from a repository.
   console configuration no branch can carry. Land it deliberately, and re-run
   `scripts/verify/linking.mjs` afterwards.
 
-## 10. Three agents share one working tree
+## 9. Three agents share one working tree
 
 Not a code problem, but it has cost real time twice: a commit landed on another
 agent's feature branch because the branch was switched underneath it, and a
@@ -219,7 +179,7 @@ stale branch nearly reverted 1,593 cards. Give each agent its own clone or
 `git worktree`, and branch from `origin/main` rather than from whatever is
 checked out.
 
-## 11. Smaller things
+## 10. Smaller things
 
 - **One PostHog project takes everything** — local dev, the e2e harness and live
   traffic all write to 402075. Fine today; if funnels get muddy, make a dev

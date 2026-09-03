@@ -212,19 +212,24 @@ export async function startFlags(): Promise<void> {
 }
 
 /**
- * Keep only keys this build knows about, holding values this build allows.
+ * Keep only keys this build knows about.
  *
- * A payload arrives from a web form and outlives the app that reads it: keys
- * for flags already deleted, variants renamed since release, a toggle somebody
- * set to a string. Filtering on the way in means the rest of the runtime never
- * has to be defensive, and a stale cache can never resurrect a flag the code
- * no longer has.
+ * A payload arrives from a web form and outlives the app that reads it, so a
+ * stale cache must never resurrect a flag the code no longer has.
+ *
+ * It deliberately does **not** drop a key whose value is unusable. Absence has
+ * a meaning now -- `resolveFlag` reads an answered-but-absent key as "switched
+ * off", which is how PostHog reports a disabled flag -- and discarding a
+ * malformed value here would turn a typo in a variant name into a feature
+ * silently switching off. Validation belongs in one place, and that place is
+ * `resolveFlag`, which treats an unusable value as a misconfiguration and
+ * keeps the shipped default.
  */
 function sanitise(payload: Record<string, unknown>): Record<string, unknown> {
   const clean: Record<string, unknown> = {};
   for (const definition of FLAG_LIST) {
     const value = payload[definition.key];
-    if (value !== undefined && isValidValue(definition, value)) clean[definition.key] = value;
+    if (value !== undefined) clean[definition.key] = value;
   }
   return clean;
 }

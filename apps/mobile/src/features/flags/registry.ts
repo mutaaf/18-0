@@ -180,12 +180,42 @@ export function isValidValue(definition: FlagDefinition, value: unknown): boolea
 }
 
 /**
+ * What a flag means when the server answered and did not mention it.
+ *
+ * Off. A toggle is `false`; an experiment is its control arm, which is the
+ * untreated version and therefore the right thing to show somebody who is not
+ * in the experiment.
+ */
+function inactive(definition: FlagDefinition): boolean | string {
+  return definition.kind === 'experiment' ? 'control' : false;
+}
+
+/**
  * The resolution order, and the whole of it.
  *
- *   override  a device-local decision, from the operator console. QA and
- *             support, so somebody can reproduce a variant on demand.
- *   remote    what PostHog said at the last successful fetch.
- *   fallback  what the code ships with.
+ *   override        a device-local decision, from the operator console. QA and
+ *                   support, so somebody can reproduce a variant on demand.
+ *   remote, present what PostHog said.
+ *   remote, absent  PostHog answered and did not mention this flag, which is
+ *                   how it reports one that is switched off -- so: off.
+ *   fallback        nobody answered. What the code ships with.
+ *
+ * **The distinction between the last two is the kill switch.** PostHog omits a
+ * disabled flag from `/decide` rather than returning it as `false`, so an
+ * answered-but-absent key used to be indistinguishable from silence and both
+ * resolved to the shipped default. `gameday` ships as `true`, which meant
+ * switching it off in the console did nothing at all: the one thing the flag
+ * existed for was the one thing it could not do.
+ *
+ * `null` still means silence, and silence still means the fallback -- that is
+ * the offline-first promise and it is unchanged. It is only a *successful*
+ * empty answer that now counts as an answer.
+ *
+ * The cost is worth naming: if the project were ever pointed at a PostHog that
+ * answers 200 with no flags -- a rotated key, a fresh project -- every flag
+ * would read as off rather than as shipped. That is the correct reading of a
+ * successful answer, and it is why `fetchRemoteFlags()` returns `null` rather
+ * than `{}` for every failure it can detect, including having no key at all.
  *
  * Pure and total: it cannot throw, and it always returns a value the
  * definition allows. Every caller in the app goes through this, so there is
@@ -200,9 +230,17 @@ export function resolveFlag(
   if (override !== undefined && isValidValue(definition, override)) {
     return { value: override as boolean | string, source: 'override' };
   }
-  const value = remote?.[definition.key];
-  if (value !== undefined && isValidValue(definition, value)) {
-    return { value: value as boolean | string, source: 'remote' };
+  if (remote !== null) {
+    const value = remote[definition.key];
+    // Answered, and did not mention this flag: switched off.
+    if (value === undefined) return { value: inactive(definition), source: 'remote' };
+    if (isValidValue(definition, value)) {
+      return { value: value as boolean | string, source: 'remote' };
+    }
+    // Answered with something unusable -- a variant renamed in a web form an
+    // hour ago, a toggle set to a string. That is a misconfiguration rather
+    // than a decision, so the build's own default stands.
+    return { value: definition.fallback, source: 'fallback' };
   }
   return { value: definition.fallback, source: 'fallback' };
 }

@@ -85,10 +85,24 @@ Each of those was checked by deliberately breaking it, not by reading the test.
 ## Resolution order
 
 ```
-override   this device, from the operator console. QA and support.
-remote     what PostHog said at the last successful evaluation.
-fallback   what the build ships with.
+override          this device, from the operator console. QA and support.
+remote, present   what PostHog said.
+remote, absent    PostHog answered without mentioning the flag: it is off.
+fallback          nobody answered, or the answer was unusable.
 ```
+
+**The middle two are the kill switch.** PostHog omits a disabled flag from
+`/decide` rather than returning it as `false`. Treating that absence as silence
+made `gameday` — which ships as `true` — impossible to switch off: the one thing
+the flag existed for was the one thing it could not do. A *successful* empty
+answer is now an answer; only `null` is silence, and silence still means the
+fallback, which is the offline-first promise unchanged.
+
+A value that does not fit the definition is different again: a renamed variant
+or a toggle set to a string is a misconfiguration rather than a decision, so the
+shipped default stands. That is why `sanitise()` drops keys this build does not
+know but never drops a malformed *value* — absence has a meaning now, and
+discarding a typo into absence would switch a feature off.
 
 `resolveFlag()` is pure, total, and the only path — so "why am I seeing this"
 has exactly one answer, and the operator console prints it next to every flag.

@@ -203,9 +203,33 @@ describe('resolution is total, ordered, and refuses nonsense', () => {
     metric: 'app_opened',
   };
 
-  it('falls back when nothing else has an opinion', () => {
+  it('falls back when nobody answered', () => {
     expect(resolveFlag(toggle, null, null)).toEqual({ value: true, source: 'fallback' });
-    expect(resolveFlag(experiment, {}, {})).toEqual({ value: 'control', source: 'fallback' });
+    expect(resolveFlag(experiment, null, {})).toEqual({ value: 'control', source: 'fallback' });
+  });
+
+  /**
+   * The kill switch, and the reason this distinction exists at all.
+   *
+   * PostHog omits a disabled flag from `/decide` rather than returning it as
+   * false. Treating that absence as silence made `gameday` -- which ships as
+   * `true` -- impossible to switch off: the one thing the flag existed for was
+   * the one thing it could not do.
+   */
+  it('reads an answered-but-absent flag as switched off', () => {
+    expect(resolveFlag(toggle, {}, null)).toEqual({ value: false, source: 'remote' });
+    expect(resolveFlag(toggle, { something_else: true }, null)).toEqual({
+      value: false,
+      source: 'remote',
+    });
+    // An experiment nobody is in shows the untreated version.
+    expect(resolveFlag(experiment, {}, null)).toEqual({ value: 'control', source: 'remote' });
+  });
+
+  it('still treats silence as silence', () => {
+    // Offline, no key configured, a request that failed: `null`, not `{}`.
+    expect(resolveFlag(toggle, null, null).source).toBe('fallback');
+    expect(resolveFlag(toggle, null, null).value).toBe(true);
   });
 
   it('prefers remote over the fallback, and an override over remote', () => {
@@ -224,8 +248,17 @@ describe('resolution is total, ordered, and refuses nonsense', () => {
    * Remote configuration is untrusted input, and the fallback is always a
    * legitimate answer.
    */
-  it('discards a value the definition does not allow', () => {
-    expect(resolveFlag(toggle, { a_toggle: 'yes' }, null).source).toBe('fallback');
+  /**
+   * A value that does not fit the definition is a misconfiguration, not a
+   * decision -- a variant renamed in a web form, a toggle set to a string. It
+   * is discarded and the shipped default stands, which is deliberately a
+   * different answer from the absence above.
+   */
+  it('keeps the shipped default when the answer is unusable', () => {
+    expect(resolveFlag(toggle, { a_toggle: 'yes' }, null)).toEqual({
+      value: true,
+      source: 'fallback',
+    });
     expect(resolveFlag(experiment, { an_experiment: true }, null).source).toBe('fallback');
     expect(resolveFlag(experiment, { an_experiment: 'tratment' }, null).source).toBe('fallback');
     expect(resolveFlag(experiment, { an_experiment: 'treatment' }, null)).toEqual({
@@ -237,10 +270,14 @@ describe('resolution is total, ordered, and refuses nonsense', () => {
     expect(resolveFlag(experiment, null, { an_experiment: 'gone' }).source).toBe('fallback');
   });
 
-  it('ignores keys it has never heard of', () => {
-    expect(resolveFlag(toggle, { something_else: false }, { another: 1 })).toEqual({
+  it('lets an override win over any of it', () => {
+    expect(resolveFlag(toggle, {}, { a_toggle: true })).toEqual({
       value: true,
-      source: 'fallback',
+      source: 'override',
+    });
+    expect(resolveFlag(toggle, { a_toggle: true }, { a_toggle: false })).toEqual({
+      value: false,
+      source: 'override',
     });
   });
 
