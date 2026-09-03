@@ -159,33 +159,57 @@ export interface ComponentBreakdown {
  * they are a separate artifact that never touches the startup path.
  */
 type ComponentIndex = Record<string, { c: DatasetComponent[]; u: string[] }>;
-let componentIndex: ComponentIndex | null = null;
+let pending: Promise<ComponentIndex> | null = null;
 
-function components(): ComponentIndex {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  componentIndex ??= require('../generated/card-components.json') as ComponentIndex;
-  return componentIndex;
+/**
+ * Loaded on demand, and asynchronously, which is the only way it is actually
+ * on demand.
+ *
+ * This used to be a synchronous `require`. Metro inlines a JSON require into
+ * whatever bundle it finds it in, so 2.6 MB of component scores -- read by one
+ * screen, and only when a card is opened -- were being parsed on the way to the
+ * home screen. `import()` gives Metro something it can split on the web and
+ * defer everywhere else.
+ *
+ * Cached as the promise rather than the result, so two cards opened quickly do
+ * not start two loads.
+ */
+function components(): Promise<ComponentIndex> {
+  pending ??= import('../generated/card-components.json').then(
+    (m) => (m.default ?? m) as unknown as ComponentIndex,
+  );
+  return pending;
 }
 
-/** Rehydrates a card's component scores with their human labels. */
-export function componentBreakdown(card: BootCard): ComponentBreakdown[] {
-  const model = POSITION_MODELS[card.position];
-  const labels = new Map(model.components.map((c) => [c.key, c.label]));
-  return (components()[card.id]?.c ?? [])
-    .map((c) => ({
-      key: c.k,
-      label: labels.get(c.k) ?? c.k,
-      score: c.s,
-      weight: c.w,
-      metric: c.m,
-      z: c.z,
-    }))
-    .sort((a, b) => b.weight - a.weight);
+export interface CardExplanation {
+  /** Weighted components, heaviest first. */
+  readonly components: readonly ComponentBreakdown[];
+  /** Components with no data for this season, by their human labels. */
+  readonly unavailable: readonly string[];
 }
 
-/** Components with no historical data, with their labels. */
-export function unavailableComponents(card: BootCard): string[] {
+/**
+ * Why a card rates what it rates.
+ *
+ * One call rather than two, because the screen has always wanted both and two
+ * awaits for one file read is a worse shape for the same answer.
+ */
+export async function cardExplanation(card: BootCard): Promise<CardExplanation> {
+  const index = await components();
   const model = POSITION_MODELS[card.position];
   const labels = new Map(model.components.map((c) => [c.key, c.label]));
-  return (components()[card.id]?.u ?? []).map((key) => labels.get(key) ?? key);
+  const entry = index[card.id];
+  return {
+    components: (entry?.c ?? [])
+      .map((c) => ({
+        key: c.k,
+        label: labels.get(c.k) ?? c.k,
+        score: c.s,
+        weight: c.w,
+        metric: c.m,
+        z: c.z,
+      }))
+      .sort((a, b) => b.weight - a.weight),
+    unavailable: (entry?.u ?? []).map((key) => labels.get(key) ?? key),
+  };
 }

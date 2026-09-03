@@ -1,17 +1,20 @@
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   cardById,
-  componentBreakdown,
+  cardExplanation,
   displayName,
   eraLabel,
   franchise,
-  unavailableComponents,
+  type CardExplanation,
 } from '@18-0/data';
 import { Screen } from '@/components/Screen';
 import { showsRating, showsStats, useGameStore } from '@/state/game';
 import { CollectibleCard } from '@/components/CollectibleCard';
 import { DECORATIVE, color, font, positionColor, radius, space, tabular, tracking } from '@/theme';
+
+const EMPTY: CardExplanation = { components: [], unavailable: [] };
 
 /**
  * Player detail (PRFAQ §22.3). Shows enough to trust the number — component
@@ -28,6 +31,24 @@ export default function CardDetail() {
   // a name and a year, and both get everything once the season is scored.
   const mode = useGameStore((s) => s.mode);
   const playing = useGameStore((s) => s.status !== 'complete');
+
+  /**
+   * The component scores are 2.6 MB and live in their own chunk, so they
+   * arrive after the card does. The card itself is already in the bundled
+   * dataset, which is what the screen leads with -- the breakdown fills in
+   * underneath it rather than holding up the whole screen.
+   */
+  const [explanation, setExplanation] = useState<CardExplanation | null>(null);
+  useEffect(() => {
+    if (!card) return;
+    let live = true;
+    void cardExplanation(card).then((e) => {
+      if (live) setExplanation(e);
+    });
+    return () => {
+      live = false;
+    };
+  }, [card]);
   const blind = playing && !showsRating(mode);
   const hideStats = playing && !showsStats(mode);
 
@@ -42,8 +63,7 @@ export default function CardDetail() {
   }
 
   const team = franchise(card.franchiseId);
-  const components = componentBreakdown(card);
-  const missing = unavailableComponents(card);
+  const { components, unavailable: missing } = explanation ?? EMPTY;
   const accent = positionColor[card.position];
 
   return (
