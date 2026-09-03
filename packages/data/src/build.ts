@@ -36,8 +36,15 @@ const RAW = resolve(HERE, '../../../data/raw');
 const OUT = resolve(HERE, '../generated/dataset.json');
 /**
  * Component scores are 60% of the dataset's bytes and are read by exactly one
- * screen — the player detail modal. Splitting them out keeps them off the
- * startup path entirely.
+ * screen — the player detail modal.
+ *
+ * They are a separate artifact so that they *can* be loaded on demand, and on
+ * web today they are not: `index.ts` reaches them through a synchronous
+ * `require`, and Metro inlines a JSON require into the entry bundle wherever it
+ * finds one. Measured on the 1980-2025 dataset the exported web bundle is
+ * 6.6 MB raw and 1.14 MB gzipped, which is what a first load actually costs.
+ * Making the detail screen await an `import()` would take the component blob
+ * off that path for real; until then this split buys nothing on web.
  */
 const OUT_COMPONENTS = resolve(HERE, '../generated/card-components.json');
 
@@ -505,23 +512,43 @@ function main(): void {
   }));
 
   /**
-   * Hydrated seasons: the pre-1999 path that is meant to survive.
+   * Hydrated seasons: the pre-1999 path.
    *
-   * `HYDRATE=1` reads `data/raw/seasons/*.json` — one file per year, in the
-   * canonical shape `seasons.ts` documents. Unlike `LEGACY_SEASONS`, which is
-   * welded to one mirror's column names, this takes whatever source you have a
-   * licence to read and lets the era fill in a season at a time.
+   * Reads `data/raw/seasons/*.json` — one file per year, in the canonical shape
+   * `seasons.ts` documents. Unlike `LEGACY_SEASONS`, which is welded to one
+   * mirror's column names, this takes whatever source there is a licence to
+   * read, and the era fills in one season at a time.
    *
-   * Off by default for the same reason as the legacy path, plus one more: an
-   * era part-way through hydration is exactly the "plausible-looking, quietly
-   * false version of history" this project refused to ship. It is playable
-   * locally and it is fenced off from everything else — see `provisional` in
-   * `eras.ts` and the guard in `cli/seed-sql.ts`.
+   * On whenever the files are there, which is the same rule the modern seasons
+   * follow: `loadPlayerSeasons` reads whatever CSVs are in `data/raw`, and
+   * neither directory is committed. `HYDRATE=0` builds without them, for
+   * checking what the dataset looks like on modern data alone.
+   *
+   * An era that is only part-way hydrated still carries `provisional` and is
+   * still refused by `cli/seed-sql.ts`; that machinery does not go away just
+   * because the first two eras finished filling up.
    */
-  const hydrateEnabled = process.env.HYDRATE === '1';
+  const hydrateEnabled = process.env.HYDRATE !== '0';
   const hydration = hydrateEnabled
     ? loadHydratedSeasons(RAW)
     : { seasons: [], years: [], sources: [], rejected: [] };
+
+  /**
+   * Two pre-1999 loaders must never run together.
+   *
+   * They mint different player ids for the same person — `legacy.ts` from
+   * NFL.com's name-keyed files, `seasons.ts` from the source's own id — so the
+   * collapse to one card per identity cannot see that they are the same player.
+   * The result is two Joe Montanas in the same franchise-era, one of them built
+   * from a 49%-complete file. Loud failure beats a dataset that looks fine.
+   */
+  if (legacy.length > 0 && hydration.seasons.length > 0) {
+    throw new Error(
+      'Both pre-1999 loaders produced seasons: LEGACY_SEASONS=1 and ' +
+        `${hydration.years.length} hydrated year file(s). They mint different player ids, ` +
+        'so the same player would appear twice in one franchise-era. Unset LEGACY_SEASONS.',
+    );
+  }
   const hydrated = hydration.seasons.map((s) => ({
     playerId: s.playerId,
     name: s.name,
@@ -547,8 +574,8 @@ function main(): void {
     console.log(
       hydration.years.length
         ? `  hydrated ${hydrated.length.toLocaleString()} seasons from ${hydration.years.length} ` +
-            `year file(s): ${hydration.years.join(', ')}`
-        : `  HYDRATE=1 but no season files in ${join(RAW, 'seasons')}`,
+            `year file(s): ${hydration.years[0]}-${hydration.years[hydration.years.length - 1]}`
+        : `  no season files in ${join(RAW, 'seasons')} — pre-1999 eras will not be built`,
     );
     for (const source of hydration.sources) console.log(`    source: ${source}`);
     for (const why of hydration.rejected) console.log(`    !! rejected ${why}`);
@@ -853,14 +880,17 @@ function main(): void {
   const eraKeys = [...new Set(finalCards.map((c) => c.era))].sort();
 
   const dataset: Dataset = {
-    // 1.1.0 restores the 2003-2008 receivers that `recorded` was written for.
-    // Card ratings move with them: those seasons rejoin their eras'
-    // normalization pools, so every WR and TE rating in "The Indoor Years" and
-    // "Chasing Perfect" is now measured against a fuller league.
-    version: '1.1.0',
-    ratingModelVersion: '1.1.0',
+    // 1.2.0 adds 1980-1998. Every published rating moves: the per-position
+    // calibration curves are fitted across the whole draft, so nineteen more
+    // seasons re-map the raw distribution that every card's rating is read off.
+    //
+    // 1.1.0 restored the 2003-2008 receivers that `recorded` was written for.
+    version: '1.2.0',
+    ratingModelVersion: '1.2.0',
     generatedAt: new Date().toISOString(),
-    source: 'nflverse-data (stats_player_reg, stats_team_week, schedules), regular season only',
+    source:
+      'nflverse-data (stats_player_reg, stats_team_week, schedules) 1999+, ' +
+      'licensed season tables 1980-1998; regular season only',
     coverage: { firstSeason: Math.min(...years), lastSeason: Math.max(...years) },
     eras: ERA_TABLE.filter((e) => eraKeys.includes(e.key)).map((e) => ({
       key: e.key,

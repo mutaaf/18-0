@@ -76,7 +76,7 @@ credibility argument, and it makes itself in public on the first screen of the
 app — if the ratings were wrong, this is where anyone who watches football would
 see it.
 
-**2,994 rated seasons · 157 franchise-era combinations · 1999–2025**, built from
+**4,872 rated seasons · 218 franchise-era combinations · 1980–2025**, built from
 [nflverse](https://nflverse.com).
 
 <details>
@@ -181,6 +181,15 @@ The haptics and the three-finger spin only land properly on a real device.
 <summary><b>Modes, and the cheat that tells on you</b></summary>
 
 <br>
+
+**Gameday** only exists while the league is playing. It opens three hours before
+the first kickoff of a real NFL gameday and closes six hours after the last, the
+wheel narrows to the franchises actually on the field that day, and the season
+ranks on a board belonging to that date and nowhere else — the all-time boards
+never see it, because a wheel of two to twenty-six franchises is a different
+game. The calendar is generated from nflverse's schedule and bundled, so the
+front page knows when the lights come on with no connection at all.
+[`docs/gameday.md`](docs/gameday.md) has the design.
 
 **Player IQ** hides every rating and stat line — a name, a team, a year, and
 nothing else. You pick on what you actually know about football, and the numbers
@@ -304,20 +313,27 @@ Bringing the server up, and everything else operational, is in
 
 ## Known limits
 
-**The dataset starts at 1999**, which is where nflverse starts.
+**1980–1998 is thinner than 1999 onward, and says so.**
 
-The pipeline for 1980–1998 is built and it runs — NFL.com's own season files for
-the statistics, nflverse rosters for the positions, two more named eras, 201
-franchise-era combinations instead of 157. It is switched off, because the only
-free source for those years turns out to be **49% complete** and the missing half
-includes Emmitt Smith and Joe Montana outright. That leaves 1990s Dallas with no
-qualifying running back and San Francisco with no tight end: a plausible-looking,
-quietly false version of history, which is the one thing this game cannot ship.
+Those nineteen seasons come from a licensed source of season totals rather than
+from play-by-play, so four rating components have nothing to read and are
+dropped, their weight redistributed across the components that do — never scored
+as zero. Quarterback peak dominance, running back and receiver explosive plays,
+and defensive pressure are dark before 1999; team sacks are not in the source at
+all. Measured by rating one modern season both ways, losing the EPA family moves
+a raw rating by 1.6–2.1 points and leaves the order almost untouched, at a rank
+correlation of 0.91–0.96.
 
-`LEGACY_SEASONS=1 pnpm --filter @18-0/data build:dataset` builds them anyway.
-Turning them on for good needs a licensed source, not more code. The measurements
-are in
+Because every card is normalized against its own era, this costs nothing *within*
+an era — a 1985 receiver is scored against 1985 receivers on exactly the metrics
+1985 recorded. It is worth knowing when comparing a card across the 1999 line.
+
+The first attempt at these seasons used the only free source available and was
+**49% complete**, missing Emmitt Smith and Joe Montana outright. That version was
+never shipped, and the reasoning is preserved in
 [`docs/FINDINGS.md`](docs/FINDINGS.md#7-the-19801998-ingest-and-why-those-eras-are-switched-off).
+Hydrating them from a licensed source is
+[`docs/hydrating-seasons.md`](docs/hydrating-seasons.md).
 
 ---
 

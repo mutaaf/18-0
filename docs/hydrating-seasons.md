@@ -6,16 +6,22 @@ season files. See
 [`FINDINGS.md` §7](FINDINGS.md#7-the-19801998-ingest-and-why-those-eras-are-switched-off).
 
 **Status.** Pro-Football-Reference has licensed the season tables and confirmed
-the reading method below. 1980–1989 is fully hydrated, 10 of 10 seasons.
-1990–1998 is not started.
+the reading method below. **Both eras are hydrated and live**: 1980–1989 at 10 of
+10 seasons and 1990–1998 at 9 of 9, 9,586 player-seasons across 19 files. They
+build by default whenever the files are present, carry no `provisional` flag, and
+seed to the server like any other era.
 
 The eras fill in **one season at a time**, and a part-hydrated era can be played
 locally without any route by which it reaches a player.
 
 ```
-data/raw/seasons/1980.json      ->  HYDRATE=1 build  ->  era is 2/10, and says so
-data/raw/seasons/1981.json                              ...  10/10 when it is done
+data/raw/seasons/1980.json      ->  build  ->  era is 2/10, and says so
+data/raw/seasons/1981.json                     ...  10/10 when it is done
 ```
+
+Hydration is on whenever the files are there — the same rule the modern seasons
+follow, since `data/raw` is gitignored either way. `HYDRATE=0` builds without
+them, for checking what the dataset looks like on modern data alone.
 
 ## The contract
 
@@ -75,7 +81,7 @@ the field manifest: <https://claude.ai/code/artifact/a6baada2-d4cc-4d10-85f7-a20
 ## Building with it
 
 ```bash
-HYDRATE=1 pnpm --filter @18-0/data build:dataset
+pnpm --filter @18-0/data build:dataset
 ```
 
 ```
@@ -93,11 +99,13 @@ no migration. Coverage is counted from the files that exist.
 ## Why a provisional era cannot escape
 
 An era part-way through hydration is exactly the *"plausible-looking, quietly
-false version of history"* this project refused to ship. Three fences, none of
-which rely on anyone remembering:
+false version of history"* this project refused to ship. Both eras have since
+finished filling and the flag is off them, but the machinery stays for the next
+one. Three fences, none of which rely on anyone remembering:
 
-1. **`HYDRATE` is off by default.** A plain `build:dataset` produces a dataset
-   with no 1980s era in it at all, which is what gets committed and shipped.
+1. **A provisional era needs season files to exist at all.** Without them the
+   build produces no pre-1999 era, which is the state of any machine that has
+   not hydrated. `HYDRATE=0` forces that state deliberately.
 2. **`provisional: true` is stamped on the era** in `dataset.json`, and only ever
    when true — so a shipped dataset carries no such flag.
 3. **`seed:sql` refuses outright.** It exits non-zero and writes nothing:

@@ -12,11 +12,13 @@ sim-output/
 data/raw/*.csv
 data/raw/nfl/
 
-# Hydrated pre-1999 season files. One per year, in the canonical shape
-# `packages/data/src/seasons.ts` documents. Never committed: these are built
-# from whatever source you have a licence to read, and that licence does not
-# travel with the repository. See docs/hydrating-seasons.md.
+# Hydrated pre-1999 source data: season files in the canonical shape
+# `packages/data/src/seasons.ts` documents, and the standings and brackets
+# `scripts/build-era-stories.py` reads. Never committed: these are built from
+# whatever source you have a licence to read, and that licence does not travel
+# with the repository. See docs/hydrating-seasons.md.
 data/raw/seasons/
+data/raw/results/
 
 # Supabase local stack
 supabase/.temp/

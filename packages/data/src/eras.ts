@@ -47,7 +47,6 @@ export const ERA_TABLE: readonly EraDefinition[] = [
     startYear: 1980,
     endYear: 1989,
     tagline: "Montana's dynasty, and the most feared defence ever fielded",
-    provisional: true,
   },
   {
     key: '1990_1998',
@@ -56,7 +55,6 @@ export const ERA_TABLE: readonly EraDefinition[] = [
     startYear: 1990,
     endYear: 1998,
     tagline: "Dallas's three, Buffalo's four straight heartbreaks, Sanders in full flight",
-    provisional: true,
   },
   {
     key: '1999_2004',
@@ -150,6 +148,15 @@ export function eraLabel(key: EraKey): string {
  * this table can grow one verified entry at a time.
  */
 export const FRANCHISE_ERA_STORY: Readonly<Record<string, string>> = {
+  // Super Bowls XXV, XXVI, XXVII and XXVIII, lost in order. The generated line
+  // can only name the first, and the first is not the story.
+  'buf:1990_1998': 'Four straight Super Bowls. Lost all four.',
+  // 15-1, then Super Bowl XX. The era is named for this defence.
+  'chi:1980_1989': 'The 46 defense, and a 46-10 Super Bowl.',
+  // Four titles in nine seasons, XVI through XXIV.
+  'sf:1980_1989': 'Four rings in nine years.',
+  // Three in four seasons, XXVII, XXVIII and XXX.
+  'dal:1990_1998': 'Three rings in four years.',
   // Rams 1999-2001: record scoring, two Super Bowl trips, one title.
   'lar:1999_2004': 'The Greatest Show on Turf.',
   // 165 points allowed in 2000, still the 16-game record, then Super Bowl XXXV.
