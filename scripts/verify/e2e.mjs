@@ -1117,6 +1117,26 @@ if (!SERVICE) {
     rigged.status === 409 && rigged.body.error === 'assist_not_allowed_in_gameday',
     `${rigged.status} ${rigged.body.error}`);
 
+  // A challenge replays the creator's seven spins; a gameday deals from that
+  // day's franchises. Both decide the wheel, so a session may not be both --
+  // and the refusal is a trigger rather than a policy, which is easy to lose.
+  const bothAtOnce = await carol.sb.from('game_sessions').insert({
+    user_id: carol.user.id,
+    status: 'in_progress',
+    idempotency_key: crypto.randomUUID(),
+    mode: 'gameday',
+    challenge_id: challenge.data?.id,
+  }).select('id');
+  check('a challenge cannot be played as a gameday', bothAtOnce.error !== null,
+    bothAtOnce.error?.code ?? 'allowed');
+
+  // The screen that has to say something before anybody has finished a season
+  // reads this, so an empty answer is a blank panel on the one day it matters.
+  const { data: summaryRows } = await carol.sb.rpc('gameday_summary', { p_key: key });
+  const summary = Array.isArray(summaryRows) ? summaryRows[0] : summaryRows;
+  check('the day has a summary to show', Number(summary?.seasons) >= 1,
+    `${summary?.players} player(s), ${summary?.seasons} season(s)`);
+
   // Deleting the day leaves the seasons pointing at a key that is gone, which
   // is deliberate: `gameday_key` carries no foreign key precisely so that a
   // rebuilt calendar can never take real seasons with it.
