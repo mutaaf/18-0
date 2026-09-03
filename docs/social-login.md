@@ -20,12 +20,19 @@ builds. Apple signs the client secret with the team that owns the key, and using
 the wrong one fails as `invalid_client`, which says nothing about which of the
 two identifiers was wrong.
 
-**The bundle identifier does not match the registered App ID.** `app.config.js`
-says `com.eighteenzero.app`. The App ID registered under this team, and the one
-the Services ID points at, is `com.eighteenzerodcai.app`. Sign-in is unaffected,
-because the web flow presents the Services ID rather than the bundle. It will
-matter at submission, when the binary's bundle id has to match a registered App
-ID. Decide which one is real and make them agree before then.
+**The bundle identifier is `com.eighteenzerodcai.app`,** on iOS and on Android,
+and it matches the App ID registered under this team and the one the Services ID
+points at. It was `com.eighteenzero.app` until 3 September 2026, which was not
+registered anywhere and would have failed at submission.
+
+Changing it broke nothing in sign-in, and it is worth writing down why: the web
+flow presents the Services ID (`com.eighteenzerodcai.app.web`) rather than the
+bundle, and Google is configured with a single *web* client whose redirect is
+the Supabase callback. Neither is bound to the app's identifier. What it does
+change is that an already-installed build is a different app to iOS -- a device
+that had the old one keeps it, alongside the new one, with its own storage.
+Ranked seasons come back with a sign-in; anything played casually on the old
+build stays on the old build.
 
 ## What the code already decides for you
 
@@ -62,7 +69,7 @@ credentials in the two sections below.
 In the [Apple Developer](https://developer.apple.com/account/resources)
 account:
 
-1. **Identifiers → App IDs** — on the `com.eighteenzero.app` App ID, enable the
+1. **Identifiers → App IDs** — on the `com.eighteenzerodcai.app` App ID, enable the
    **Sign In with Apple** capability.
 2. **Identifiers → Services IDs** — `com.eighteenzerodcai.app.web` ("18-0 web")
    exists and is configured. This is the OAuth client id, and it is *not* the

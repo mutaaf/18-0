@@ -29,7 +29,7 @@ module.exports = {
 
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'com.eighteenzero.app',
+      bundleIdentifier: 'com.eighteenzerodcai.app',
       buildNumber,
       config: {
         // The app ships no encryption beyond HTTPS, which is exempt. Declaring
@@ -40,7 +40,7 @@ module.exports = {
     },
 
     android: {
-      package: 'com.eighteenzero.app',
+      package: 'com.eighteenzerodcai.app',
       versionCode: Number(buildNumber),
       edgeToEdgeEnabled: true,
       adaptiveIcon: {

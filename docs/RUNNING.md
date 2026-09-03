@@ -266,7 +266,7 @@ device itself; pass a UDID to pick a specific one.
 `-allowProvisioningUpdates` to xcodebuild, so with no existing provisioning
 profile it stops at signing — and a personal team has no profile until Xcode
 creates one, which is precisely this case. It fails with *"No profiles for
-'com.eighteenzero.app' were found"*. The script exists because of that.
+'com.eighteenzerodcai.app' were found"*. The script exists because of that.
 
 It builds **Release**, not Debug, so the JavaScript is embedded and the app runs
 with the laptop closed. A Debug build needs Metro alive on the same network,
