@@ -124,6 +124,17 @@ Two pieces of plumbing, both already done, both required:
 Only flags off their fallback are reported: a flag sitting on the default is
 the product, not a treatment.
 
+**Read an experiment's flag where its treatment becomes visible, not where the
+component that owns it happens to mount.** Reading it reports an exposure, and
+PostHog divides by exposures -- so a flag read at the top of a component that
+renders on every visit puts people who never saw a variant into the
+denominator, and washes the effect out. `gameday_cta` was written that way
+first: the marquee renders on every home screen, but its call to action only
+exists while a gameday is open, so every visitor on a Tuesday was being counted
+against a conversion they could not make. Hooks cannot be called conditionally,
+but a component can be rendered conditionally -- `GamedayCall` exists for
+exactly that reason.
+
 In PostHog: create an Experiment over the flag, set the goal metric to the one
 named in the registry, and read it there. `gameday_cta`'s goal is
 `gameday_started`.

@@ -54,6 +54,9 @@ function until(iso: string, now: number): string {
  *
  * Only the words change. Same wheel, same visibility, same board, same
  * scoring -- see the invariant in `features/flags/registry.ts`.
+ *
+ * Read by `GamedayCall`, which renders only while a gameday is open. That is
+ * deliberate; the comment on that component explains why.
  */
 const CTA_COPY: Record<
   string,
@@ -118,7 +121,6 @@ export function GamedayHero({
    * a web page on a Sunday afternoon is an App Store review.
    */
   const enabled = useFlag('gameday');
-  const copy = CTA_COPY[useFlag('gameday_cta')] ?? CTA_COPY.control!;
 
   // One clock for the whole slab. Thirty seconds is fine for a countdown
   // rendered in minutes, and it is what makes the panel light itself up when
@@ -225,63 +227,103 @@ export function GamedayHero({
         ) : null}
       </View>
 
-      <Text style={styles.copy}>
-        {live
-          ? copy.reason(day)
-          : `When the lights come on, the wheel narrows to the ${day.franchises.length} franchises playing ` +
-            'and everyone who plays lands on one board for the day.'}
-      </Text>
-
       {live ? (
-        <Pressable
-          onPress={() => onEnter(live)}
-          disabled={busy}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: busy }}
-          accessibilityLabel={`${copy.label(live)}, ${gamedayDate(live)}`}
-          style={({ pressed, hovered }: PressState) => [
-            styles.cta,
-            hovered && styles.ctaHover,
-            pressed && styles.ctaPressed,
-            busy && styles.ctaBusy,
-          ]}
-        >
-          {/* The turnstile shine. Purely decorative: the label underneath is
-              the button, and it is legible whether or not this ever runs. */}
-          <Animated.View
-            pointerEvents="none"
-            {...DECORATIVE}
-            style={[
-              styles.shine,
-              {
-                // Faint. Caught mid-sweep at full strength it is a pale bar
-                // across a third of the button, which looks like a rendering
-                // fault rather than a sheen.
-                opacity: shine.interpolate({ inputRange: [0, 0.2, 0.8, 1], outputRange: [0, 0.16, 0.16, 0] }),
-                transform: [
-                  {
-                    translateX: shine.interpolate({ inputRange: [0, 1], outputRange: [-220, 320] }),
-                  },
-                  { rotate: '18deg' },
-                ],
-              },
-            ]}
-          />
-          <Text style={styles.ctaLabel}>{busy ? 'Opening the gate…' : copy.label(live)}</Text>
-          <Text style={styles.ctaSub}>
-            {summary && summary.seasons > 0
-              ? `${summary.seasons} ${summary.seasons === 1 ? 'season' : 'seasons'} in · best ${summary.bestRating?.toFixed(1) ?? '—'}`
-              : 'Be the first season on today’s board'}
-          </Text>
-        </Pressable>
+        <GamedayCall day={live} summary={summary} busy={busy} onEnter={onEnter} shine={shine} />
       ) : (
-        <View style={styles.closed}>
-          <Text style={styles.closedLabel}>Doors open three hours before the first kickoff</Text>
-        </View>
+        <>
+          <Text style={styles.copy}>
+            {`When the lights come on, the wheel narrows to the ${day.franchises.length} franchises ` +
+              'playing and everyone who plays lands on one board for the day.'}
+          </Text>
+          <View style={styles.closed}>
+            <Text style={styles.closedLabel}>Doors open three hours before the first kickoff</Text>
+          </View>
+        </>
       )}
 
       {note ? <Text style={styles.note}>{note}</Text> : null}
     </View>
+  );
+}
+
+/**
+ * The words on the door, and the door.
+ *
+ * A separate component for one reason, and it is a measurement reason rather
+ * than a rendering one: reading a flag reports an exposure, and PostHog divides
+ * by exposures. The parent renders on every visit to the home screen -- most of
+ * them on a Tuesday, when the panel is a dark marquee with no call to action at
+ * all -- so reading `gameday_cta` up there put every one of those visitors into
+ * the denominator of an experiment they could not possibly convert in. The
+ * effect would have been washed out by people who never saw a variant.
+ *
+ * Hooks cannot be called conditionally, but a component can be rendered
+ * conditionally, and this one is rendered only when a gameday is open. So the
+ * exposure fires exactly when somebody is shown the thing being tested, which
+ * is the only version of that number worth dividing by.
+ *
+ * The rule generalises: read an experiment's flag where its treatment becomes
+ * visible, not where the component that owns it happens to mount.
+ */
+function GamedayCall({
+  day,
+  summary,
+  busy,
+  onEnter,
+  shine,
+}: {
+  day: Gameday;
+  summary: GamedayHeroProps['summary'];
+  busy: boolean;
+  onEnter: (day: Gameday) => void;
+  shine: Animated.Value;
+}) {
+  const copy = CTA_COPY[useFlag('gameday_cta')] ?? CTA_COPY.control!;
+
+  return (
+    <>
+      <Text style={styles.copy}>{copy.reason(day)}</Text>
+
+      <Pressable
+        onPress={() => onEnter(day)}
+        disabled={busy}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: busy }}
+        accessibilityLabel={`${copy.label(day)}, ${gamedayDate(day)}`}
+        style={({ pressed, hovered }: PressState) => [
+          styles.cta,
+          hovered && styles.ctaHover,
+          pressed && styles.ctaPressed,
+          busy && styles.ctaBusy,
+        ]}
+      >
+        {/* The turnstile shine. Purely decorative: the label underneath is the
+            button, and it is legible whether or not this ever runs. */}
+        <Animated.View
+          pointerEvents="none"
+          {...DECORATIVE}
+          style={[
+            styles.shine,
+            {
+              // Faint. Caught mid-sweep at full strength it is a pale bar
+              // across a third of the button, which looks like a rendering
+              // fault rather than a sheen.
+              opacity: shine.interpolate({ inputRange: [0, 0.2, 0.8, 1], outputRange: [0, 0.16, 0.16, 0] }),
+              transform: [
+                { translateX: shine.interpolate({ inputRange: [0, 1], outputRange: [-220, 320] }) },
+                { rotate: '18deg' },
+              ],
+            },
+          ]}
+        />
+        <Text style={styles.ctaLabel}>{busy ? 'Opening the gate…' : copy.label(day)}</Text>
+        <Text style={styles.ctaSub}>
+          {summary && summary.seasons > 0
+            ? `${summary.seasons} ${summary.seasons === 1 ? 'season' : 'seasons'} in · best ${summary.bestRating?.toFixed(1) ?? '—'}`
+            : 'Be the first season on today\u2019s board'}
+        </Text>
+      </Pressable>
+    </>
   );
 }
 
