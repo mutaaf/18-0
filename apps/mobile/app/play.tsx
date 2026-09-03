@@ -435,6 +435,37 @@ export default function Play() {
 
   // --- pieces, composed differently per breakpoint -------------------------
 
+  /**
+   * The lineup as a field.
+   *
+   * On a phone this sits under the spin and scrolls away with it, which is the
+   * right trade on a 390-pixel screen. On anything wider it gets its own
+   * column and stays put while the player list scrolls beside it, so you can
+   * see what a pick would do to the lineup without scrolling back up to check.
+   */
+  const fieldPanel = (
+    <>
+      <Field
+        cards={filled}
+        franchiseAbbrs={abbrs}
+        highlight={targetSlots}
+        target={targetSlot}
+        blind={blind}
+        onSlotPress={canPick ? pressSlot : undefined}
+      />
+
+      {canPick ? (
+        <Text style={styles.fieldHint}>
+          {selected && targetSlots.length > 1
+            ? `Tap ${targetSlots.join(' or ')} on the field to place ${displayName(selected)}`
+            : targetSlot
+              ? `Filling ${targetSlot} — choose a player`
+              : 'Tap a position on the field, or pick a player'}
+        </Text>
+      ) : null}
+    </>
+  );
+
   const spinPanel = (
     <View style={styles.stack}>
       {/* One full-width hero rather than two cramped columns. What a spin gave
@@ -616,24 +647,9 @@ export default function Play() {
         </View>
       ) : null}
 
-      <Field
-        cards={filled}
-        franchiseAbbrs={abbrs}
-        highlight={targetSlots}
-        target={targetSlot}
-        blind={blind}
-        onSlotPress={canPick ? pressSlot : undefined}
-      />
-
-      {canPick ? (
-        <Text style={styles.fieldHint}>
-          {selected && targetSlots.length > 1
-            ? `Tap ${targetSlots.join(' or ')} on the field to place ${displayName(selected)}`
-            : targetSlot
-              ? `Filling ${targetSlot} — choose a player`
-              : 'Tap a position on the field, or pick a player'}
-        </Text>
-      ) : null}
+      {/* Stacked under the spin on a phone. On a wide screen the field moves
+          into its own column and stays there -- see `fieldPanel`. */}
+      {layout.wide ? null : fieldPanel}
     </View>
   );
 
@@ -758,7 +774,7 @@ export default function Play() {
   );
 
   return (
-    <Screen maxWidth={layout.wide ? 780 : undefined}>
+    <Screen maxWidth={layout.wide ? Math.min(layout.maxWidth, 1180) : undefined}>
       <View
         style={styles.touchLayer}
         pointerEvents="box-none"
@@ -824,21 +840,26 @@ export default function Play() {
         </View>
       </View>
 
-      <Animated.ScrollView
-        ref={scrollRef}
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        stickyHeaderIndices={canPick ? [1] : undefined}
-        scrollEventThrottle={16}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-          useNativeDriver: true,
-        })}
-      >
-        {spinPanel}
-        {pickBar}
-        {browser}
-      </Animated.ScrollView>
+      <View style={layout.wide ? styles.split : styles.single}>
+        <Animated.ScrollView
+          ref={scrollRef}
+          style={styles.column}
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          stickyHeaderIndices={canPick ? [1] : undefined}
+          scrollEventThrottle={16}
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+            useNativeDriver: true,
+          })}
+        >
+          {spinPanel}
+          {pickBar}
+          {browser}
+        </Animated.ScrollView>
+
+        {layout.wide ? <View style={styles.fieldColumn}>{fieldPanel}</View> : null}
+      </View>
 
       {selected && targetSlots.length > 1 ? (
         <View style={[styles.actionBar, { maxWidth: layout.wide ? 520 : undefined }]}>
@@ -901,6 +922,11 @@ function Chip({
 }
 
 const styles = StyleSheet.create({
+  single: { flex: 1 },
+  /** The list scrolls; the field does not. That is the whole point of it. */
+  split: { flex: 1, flexDirection: 'row', gap: space.xl },
+  column: { flex: 1, minWidth: 0 },
+  fieldColumn: { flex: 1, minWidth: 0, maxWidth: 480, gap: space.md, paddingTop: space.lg },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

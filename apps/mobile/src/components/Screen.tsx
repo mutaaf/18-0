@@ -2,7 +2,6 @@ import { memo, type ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { DOCK_HEIGHT } from './Dock';
 import { DECORATIVE, color, useLayout } from '@/theme';
 
 /**
@@ -60,15 +59,7 @@ export function Screen({
     <View style={styles.root}>
       <StadiumBackdrop />
       <SafeAreaView style={styles.safe} edges={edges}>
-        <View
-          style={[
-            styles.column,
-            { maxWidth: maxWidth ?? Math.min(layout.maxWidth, 620) },
-            // The dock floats over the content instead of taking a column
-            // away from it, so the content has to stop short of it.
-            layout.wide && { paddingBottom: DOCK_HEIGHT },
-          ]}
-        >
+        <View style={[styles.column, { maxWidth: maxWidth ?? Math.min(layout.maxWidth, 620) }]}>
           {children}
         </View>
       </SafeAreaView>

@@ -1,17 +1,25 @@
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { AccountButton } from '@/components/AccountButton';
+import { DOCK_HEIGHT } from '@/components/Dock';
 import { NavBar } from '@/components/NavBar';
-import { color } from '@/theme';
+import { color, useLayout } from '@/theme';
 
 export default function TabsLayout() {
+  const layout = useLayout();
   return (
     <View style={styles.root}>
       <Tabs
         tabBar={(props) => <NavBar state={props.state} navigation={props.navigation as never} />}
         screenOptions={{
           headerShown: false,
-          sceneStyle: { backgroundColor: color.void },
+          // The dock floats over the content rather than taking a column away
+          // from it, so a tab screen stops short of where it sits. Screens
+          // outside the tabs have no dock and reserve nothing.
+          sceneStyle: {
+            backgroundColor: color.void,
+            paddingBottom: layout.wide ? DOCK_HEIGHT : 0,
+          },
         }}
       >
         <Tabs.Screen name="games" options={{ title: 'Games' }} />

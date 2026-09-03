@@ -210,7 +210,10 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: '#FFFFFF24',
-    overflow: 'hidden',
+    // Not hidden: a swelling tile lifts above the shelf, the way a dock icon
+    // does, and clipping it to the glass cut the tops off every magnified one.
+    // Nothing here needs clipping -- the ground is a background colour on a
+    // rounded box, and the lit edge is inset from both ends.
   },
   /** A single bright hairline along the top, where light catches an edge. */
   glassEdge: {
