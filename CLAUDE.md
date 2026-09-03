@@ -71,6 +71,7 @@ Full pattern, and why PostHog rather than LaunchDarkly:
 
 | | |
 |---|---|
+| [`docs/backlog.md`](docs/backlog.md) | **Open work, with the context to pick it up cold. Start here.** |
 | [`docs/scoring-model.md`](docs/scoring-model.md) | How a season becomes a number, and what has to be refitted when the pool changes |
 | [`docs/FINDINGS.md`](docs/FINDINGS.md) | What the simulation measured, and why the free pre-1999 source was rejected |
 | [`docs/hydrating-seasons.md`](docs/hydrating-seasons.md) | Bringing a pre-1999 season in, and the licence it needs |
