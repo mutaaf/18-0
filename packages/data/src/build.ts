@@ -27,7 +27,6 @@ import {
 import { parseCsv } from './csv.js';
 import { TEAM_TO_FRANCHISE } from './teams.js';
 import { ERA_TABLE, eraForYear } from './eras.js';
-import { loadLegacySeasons } from './legacy.js';
 import { loadHydratedSeasons } from './seasons.js';
 import { writeLedger } from './ledger.js';
 import { datasetFingerprint } from './fingerprint.js';
@@ -490,35 +489,11 @@ function main(): void {
   const players = loadPlayerSeasons();
   const defenses = loadDefenseSeasons();
 
-  // 1980-1998 from NFL.com's published statistics; nflverse starts at 1999.
-  //
-  // Off by default. The only free mirror of those seasons carries 49% of the
-  // skill players on the nflverse rosters for the same years, and the omissions
-  // are not the marginal ones: Emmitt Smith, Joe Montana and Brent Jones are
-  // absent entirely, so 1990s Dallas fields Tommie Agee at running back and the
-  // 49ers cannot field a tight end. A game whose whole claim is that the
-  // ratings are real cannot ship that. The loader is complete and the eras are
-  // defined; set LEGACY_SEASONS=1 to build them anyway, and point
-  // `data/raw/nfl` at a licensed source to turn them on for good.
-  //
-  // See docs/FINDINGS.md.
-  const legacyEnabled = process.env.LEGACY_SEASONS === '1';
-  const legacy = (legacyEnabled ? loadLegacySeasons(RAW) : []).map((s) => ({
-    playerId: s.playerId,
-    name: s.name,
-    position: s.position,
-    franchiseId: s.franchiseId,
-    year: s.year,
-    stats: s.stats,
-    display: s.stats as Record<string, number | undefined>,
-  }));
-
   /**
    * Hydrated seasons: the pre-1999 path.
    *
    * Reads `data/raw/seasons/*.json` — one file per year, in the canonical shape
-   * `seasons.ts` documents. Unlike `LEGACY_SEASONS`, which is welded to one
-   * mirror's column names, this takes whatever source there is a licence to
+   * `seasons.ts` documents. It takes whatever source there is a licence to
    * read, and the era fills in one season at a time.
    *
    * On whenever the files are there, which is the same rule the modern seasons
@@ -529,28 +504,16 @@ function main(): void {
    * An era that is only part-way hydrated still carries `provisional` and is
    * still refused by `cli/seed-sql.ts`; that machinery does not go away just
    * because the first two eras finished filling up.
+   *
+   * This replaced `legacy.ts`, which read one specific mirror of NFL.com's
+   * career files and knew its column names. That mirror was 49% complete and
+   * the loader is gone; what it found is in docs/FINDINGS.md §7.
    */
   const hydrateEnabled = process.env.HYDRATE !== '0';
   const hydration = hydrateEnabled
     ? loadHydratedSeasons(RAW)
     : { seasons: [], years: [], sources: [], rejected: [] };
 
-  /**
-   * Two pre-1999 loaders must never run together.
-   *
-   * They mint different player ids for the same person — `legacy.ts` from
-   * NFL.com's name-keyed files, `seasons.ts` from the source's own id — so the
-   * collapse to one card per identity cannot see that they are the same player.
-   * The result is two Joe Montanas in the same franchise-era, one of them built
-   * from a 49%-complete file. Loud failure beats a dataset that looks fine.
-   */
-  if (legacy.length > 0 && hydration.seasons.length > 0) {
-    throw new Error(
-      'Both pre-1999 loaders produced seasons: LEGACY_SEASONS=1 and ' +
-        `${hydration.years.length} hydrated year file(s). They mint different player ids, ` +
-        'so the same player would appear twice in one franchise-era. Unset LEGACY_SEASONS.',
-    );
-  }
   const hydrated = hydration.seasons.map((s) => ({
     playerId: s.playerId,
     name: s.name,
@@ -563,14 +526,9 @@ function main(): void {
   /** Games played that year, for the qualification floors (PRFAQ §12). */
   const hydratedGames = new Map(hydration.seasons.map((s) => [s.year, s.seasonGames]));
 
-  const all = [...players, ...defenses, ...legacy, ...hydrated];
+  const all = [...players, ...defenses, ...hydrated];
   console.log(
     `  loaded ${players.length.toLocaleString()} player-seasons and ${defenses.length} defensive seasons from nflverse (1999+)`,
-  );
-  console.log(
-    legacyEnabled
-      ? `  loaded ${legacy.length.toLocaleString()} seasons from NFL.com (1980-1998)`
-      : '  1980-1998 not built: source is 49% complete (LEGACY_SEASONS=1 to override)',
   );
   if (hydrateEnabled) {
     console.log(
@@ -797,7 +755,7 @@ function main(): void {
    * respectively.
    *
    * If an era must span most of its years to be offered, so must each position
-   * inside it. Reported rather than enforced, because the legacy eras will
+   * inside it. Reported rather than enforced, because a hydrating era will
    * legitimately trip it while a source is still being found — but reported
    * loudly, since the failure it catches is invisible in the output.
    */

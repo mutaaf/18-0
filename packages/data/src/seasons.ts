@@ -5,10 +5,12 @@ import type { Position, SeasonStats } from '@18-0/domain';
 /**
  * Hydrated season files: one year at a time, from whatever source you have.
  *
- * `legacy.ts` reads one specific mirror of NFL.com's career files and knows its
- * column names. That was right for a proof of concept and wrong as the place a
- * licensed feed lands, because every new source would mean another loader that
- * knows another set of column names.
+ * The first attempt at these seasons read one specific mirror of NFL.com's
+ * career files and knew its column names. That was right for a proof of concept
+ * and wrong as the place a licensed feed lands, because every new source would
+ * mean another loader that knows another set of column names. It was 49%
+ * complete, it never shipped, and it is gone -- docs/FINDINGS.md §7 keeps what
+ * it taught.
  *
  * This reads a **canonical** file instead. The keys are the `SeasonStats` keys
  * the rating models actually consult, so there is no column mapping here to get

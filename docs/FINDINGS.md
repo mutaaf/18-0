@@ -115,18 +115,24 @@ needs the historical dataset — the largest remaining piece of work.
 
 ---
 
-## 7. The 1980–1998 ingest, and why those eras are switched off
+## 7. The 1980–1998 ingest, and why the first attempt was switched off
+
+> **Resolved.** These eras are live, hydrated from licensed season tables one
+> year at a time by `packages/data/src/seasons.ts` — see
+> [`hydrating-seasons.md`](hydrating-seasons.md). The loader described below was
+> deleted once it was superseded; what it found is kept here because the reason
+> it was refused is the reason the replacement is shaped the way it is.
 
 The dataset stops at 1999 because that is where nflverse starts. The obvious
 next move is to fill 1980–1998 from somewhere else, and the pipeline for it is
-built: `packages/data/src/legacy.ts` reads NFL.com's own season files from a
+built: `packages/data/src/legacy.ts` read NFL.com's own season files from a
 public mirror, maps every franchise name used since 1980 through its
 relocations, derives team defence from game-log scorelines, and joins nflverse
 rosters — which *do* go back to 1920 — for the positions the mirror leaves
 blank. Two new eras are defined for it, **The 46 and the Catch** (1980–89) and
 **Three Rings and Four Falls** (1990–98).
 
-It runs. `LEGACY_SEASONS=1 pnpm --filter @18-0/data build:dataset` produces
+It ran. `LEGACY_SEASONS=1 pnpm --filter @18-0/data build:dataset` produced
 5,551 extra seasons and **201 franchise-era combinations across 7 eras**,
 against 157 across 5.
 

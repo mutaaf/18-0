@@ -12,9 +12,11 @@ import { FRANCHISE_ERA_RECORD } from './franchise-era-records.js';
  * Each era is named for the thing it is actually remembered for, not for its
  * date range. The dates are the fine print.
  *
- * 1980-1998 comes from NFL.com's published statistics (see `legacy.ts`) and is
- * thinner than nflverse — no EPA, no targets. Because normalization is per era,
- * every card inside those eras is scored on the same basis as its neighbours.
+ * 1980-1998 is hydrated from licensed season tables (see `seasons.ts`) and is
+ * thinner than nflverse — season totals rather than play-by-play, so the
+ * EPA-derived components have nothing to read. Because normalization is per
+ * era, every card inside those eras is scored on the same basis as its
+ * neighbours.
  */
 export interface EraDefinition {
   readonly key: EraKey;
@@ -143,7 +145,7 @@ export function eraLabel(key: EraKey): string {
  *    which sits inside 1999-2004. A nickname straddling two buckets belongs in
  *    neither.
  *
- * Coverage is deliberately partial: 157 franchise-eras exist and most have no
+ * Coverage is deliberately partial: 218 franchise-eras exist and most have no
  * story worth telling. Anything absent falls back to the generated line, so
  * this table can grow one verified entry at a time.
  */
@@ -184,7 +186,7 @@ export const FRANCHISE_ERA_STORY: Readonly<Record<string, string>> = {
  *
  * The hand-written table wins where it has an entry, because "The Legion of
  * Boom" beats a win-loss record. Everything else falls through to the computed
- * one, so all 157 have something true to say and nothing has to fall back to
+ * one, so all 218 have something true to say and nothing has to fall back to
  * naming players.
  */
 export function franchiseEraStory(franchiseId: string, era: string): string {
