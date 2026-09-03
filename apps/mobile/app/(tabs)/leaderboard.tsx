@@ -17,9 +17,9 @@ import * as Haptics from 'expo-haptics';
 import { displayName, franchise } from '@18-0/data';
 import { lookupCard } from '@/state/game';
 import { Screen } from '@/components/Screen';
-import { AccountPanel } from '@/components/AccountPanel';
 import { ReportButton } from '@/components/ReportButton';
 import { Avatar } from '@/components/Avatar';
+import { RankGate } from '@/components/RankGate';
 import { track } from '@/features/telemetry';
 import {
   fetchLeaderboard,
@@ -243,31 +243,20 @@ export default function Leaderboard() {
                 </Pressable>
               </View>
             ) : rows.length === 0 ? (
-              <View style={styles.notice}>
-                <Text style={styles.noticeTitle}>No seasons ranked yet</Text>
-                <Text style={styles.noticeCopy}>
-                  The board ranks Player IQ seasons from players with an account. Play blind,
-                  sign in, and be the first on it.
-                </Text>
+              <View style={styles.gate}>
+                <RankGate named={me?.named === true} heading="Be the first on the board" />
               </View>
             ) : (
               <>
                 {board === 'points' ? (
-                  <PointsBoard rows={scores} meId={me?.userId} wide={layout.wide} />
+                  <PointsBoard rows={scores} meId={me?.userId} named={me?.named === true} wide={layout.wide} />
                 ) : (
                   <>
                 <Podium rows={rows.slice(0, 3)} wide={layout.wide} />
                 {mine ? (
                   <YourStanding {...mine} />
                 ) : (
-                  <View style={styles.standingEmpty}>
-                    <Text style={styles.standingLabel}>Your place</Text>
-                    <Text style={styles.standingEmptyCopy}>
-                      {me && !me.named
-                        ? 'Only Player IQ seasons rank, and only once you sign in. Everything you have already played counts the moment you do.'
-                        : 'Only Player IQ seasons rank, and only once you sign in. Ratings on screen makes it a reading test, not a football one.'}
-                    </Text>
-                  </View>
+                  <RankGate named={me?.named === true} heading="Your place is empty" />
                 )}
 
                 {rows.length > 3 ? (
@@ -290,14 +279,6 @@ export default function Leaderboard() {
                 )}
               </>
             )}
-
-            {/* Underneath the competition, not on top of it. This is a
-                rankings screen; opening it with a sign-in form pushed the
-                board itself below the fold on a phone. */}
-            <Text style={styles.sectionLabel}>Your account</Text>
-            <View style={styles.account}>
-              <AccountPanel rank={mine?.rank ?? null} />
-            </View>
           </>
         )}
       </ScrollView>
@@ -544,19 +525,18 @@ function Entry({
 function PointsBoard({
   rows,
   meId,
+  named,
   wide,
 }: {
   rows: PointsRow[];
   meId?: string;
+  named: boolean;
   wide: boolean;
 }) {
   if (rows.length === 0) {
     return (
-      <View style={styles.notice}>
-        <Text style={styles.noticeTitle}>No points yet</Text>
-        <Text style={styles.noticeCopy}>
-          Every season you finish adds to this, Rookie included. Sign in and play one.
-        </Text>
+      <View style={styles.gate}>
+        <RankGate named={named} requireBlind={false} heading="No points yet" />
       </View>
     );
   }
@@ -677,6 +657,7 @@ function RosterLine({ pick }: { pick: RosterPick }) {
 }
 
 const styles = StyleSheet.create({
+  gate: { paddingHorizontal: space.lg, paddingTop: space.sm },
   scroll: { paddingBottom: 120 },
   account: { paddingHorizontal: space.lg, paddingBottom: space.md },
   sectionLabelTop: { paddingTop: space.lg },

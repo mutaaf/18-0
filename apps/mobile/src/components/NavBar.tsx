@@ -2,15 +2,17 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { DATASET } from '@18-0/data';
-import { Brand } from './Brand';
-import { color, font, radius, space, tracking, useLayout, type PressState } from '@/theme';
+import { Dock } from './Dock';
+import type { DockIconName } from './DockIcons';
+import { color, font, radius, space, tracking, useLayout } from '@/theme';
 
 const ICONS: Record<string, string> = {
-  games: 'M12 3a9 9 0 1 0 9 9 M12 7v5l3.5 2 M12 3l-3 2.4 3 2.4',
+  games: 'M9 5.5h8.5a1.5 1.5 0 0 1 1.5 1.5v11a1.5 1.5 0 0 1-1.5 1.5H9a1.5 1.5 0 0 1-1.5-1.5V7A1.5 1.5 0 0 1 9 5.5z M4.5 8v9.5A2.5 2.5 0 0 0 7 20',
   leaderboard: 'M8 21h8 M12 17v4 M7 4h10v5a5 5 0 0 1-10 0z M7 5H4v2a3 3 0 0 0 3 3 M17 5h3v2a3 3 0 0 1-3 3',
   index: 'M4 6h16v12H4z M12 6v12 M4 10h3 M17 10h3 M4 14h3 M17 14h3',
-  challenges: 'M4 4l7 7 M20 4l-7 7 M9 15l-5 5 M15 15l5 5 M11 11l2 2',
+  challenges: 'M12 3.4l7 2.5v5.6c0 4.6-3.5 7.1-7 8.6-3.5-1.5-7-4-7-8.6V5.9z M13 7.6L9.8 13H12l-.7 4 3.4-5.4h-2.2z',
   stats: 'M4 20V10 M10 20V4 M16 20v-7 M22 20h-20',
+  account: 'M12 11.5a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5 M4.5 20.5a7.5 7.5 0 0 1 15 0',
 };
 
 const LABELS: Record<string, string> = {
@@ -19,6 +21,7 @@ const LABELS: Record<string, string> = {
   index: 'Play',
   challenges: 'Versus',
   stats: 'Stats',
+  account: 'You',
 };
 
 /** The full name, for screen readers and the desktop rail. */
@@ -28,6 +31,7 @@ const FULL_LABELS: Record<string, string> = {
   index: 'Play',
   challenges: 'Challenges',
   stats: 'My Stats',
+  account: 'Account',
 };
 
 function Glyph({ name, active, tint, size = 20 }: { name: string; active: boolean; tint?: string; size?: number }) {
@@ -47,9 +51,9 @@ function Glyph({ name, active, tint, size = 20 }: { name: string; active: boolea
 /**
  * One navigation component, two compositions.
  *
- * A phone gets the expected bottom bar. A desktop window gets a persistent
- * left rail with the wordmark and a footer — an app chrome, not a stretched
- * phone control.
+ * A phone gets the expected bottom bar. Anything wide enough — a desktop
+ * window, a tablet, a phone turned sideways — gets a dock: navigation that
+ * floats over the content instead of taking a column away from it.
  */
 /**
  * The slice of the tab-bar props this component actually uses. Typed locally
@@ -70,6 +74,13 @@ export function NavBar({ state, navigation }: NavBarProps) {
   const layout = useLayout();
   const insets = useSafeAreaInsets();
 
+  // The account is reachable from the disc in the corner, not from the shelf.
+  // `href: null` keeps it out of the router's links but not out of the state a
+  // custom tab bar is handed, so it comes out here.
+  const routes = state.routes
+    .map((route, index) => ({ route, index }))
+    .filter(({ route }) => route.name !== 'account');
+
   const go = (index: number) => {
     const route = state.routes[index]!;
     const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
@@ -78,63 +89,22 @@ export function NavBar({ state, navigation }: NavBarProps) {
 
   if (layout.wide) {
     return (
-      <View style={[styles.rail, { paddingTop: insets.top + space.xl }]}>
-        <View style={styles.railBrand}>
-          <Brand size={26} subtitle="Est. 2026" />
-        </View>
-        <View style={styles.railItems}>
-          {state.routes.map((route, index) => {
-            const active = state.index === index;
-            // Play is the product. Everything else on this rail is a place to
-            // look at what you already did.
-            const isPlay = route.name === 'index';
-            return (
-              <Pressable
-                key={route.key}
-                onPress={() => go(index)}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={FULL_LABELS[route.name] ?? route.name}
-                style={({ hovered }: PressState) => [
-                  styles.railItem,
-                  hovered && !isPlay && styles.railItemHover,
-                  active && !isPlay && styles.railItemActive,
-                  isPlay && styles.railPlay,
-                  isPlay && hovered && styles.railPlayHover,
-                ]}
-              >
-                {isPlay ? null : (
-                  <View style={[styles.railMarker, active && styles.railMarkerActive]} />
-                )}
-                <Glyph name={route.name} active={active} tint={isPlay ? '#FFFFFF' : undefined} />
-                <Text
-                  style={[
-                    styles.railLabel,
-                    active && { color: color.text },
-                    isPlay && styles.railPlayLabel,
-                  ]}
-                >
-                  {FULL_LABELS[route.name] ?? route.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <View style={styles.railFooter}>
-          <Text style={styles.railFooterLabel}>Bundled history</Text>
-          <Text style={styles.railFooterValue}>
-            {DATASET.coverage.firstSeason}–{DATASET.coverage.lastSeason}
-          </Text>
-          <Text style={styles.railFooterValue}>{DATASET.cards.length.toLocaleString()} rated seasons</Text>
-          <Text style={styles.railFooterNote}>Plays fully offline</Text>
-        </View>
-      </View>
+      <Dock
+        activeIndex={routes.findIndex(({ index }) => index === state.index)}
+        onSelect={(position) => go(routes[position]!.index)}
+        items={routes.map(({ route }) => ({
+          key: route.key,
+          label: FULL_LABELS[route.name] ?? route.name,
+          short: LABELS[route.name] ?? route.name,
+          icon: route.name as DockIconName,
+        }))}
+      />
     );
   }
 
   return (
     <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, space.md) }]}>
-      {state.routes.map((route, index) => {
+      {routes.map(({ route, index }) => {
         const active = state.index === index;
         const isPlay = route.name === 'index';
         return (
@@ -169,64 +139,7 @@ export function NavBar({ state, navigation }: NavBarProps) {
   );
 }
 
-export const RAIL_WIDTH = 208;
-
 const styles = StyleSheet.create({
-  // --- desktop rail
-  rail: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: RAIL_WIDTH,
-    paddingHorizontal: space.lg,
-    paddingBottom: space.xl,
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: color.line,
-    backgroundColor: '#070A0EE6',
-    justifyContent: 'space-between',
-  },
-  railBrand: { paddingLeft: space.sm },
-  railItems: { gap: 2 },
-  railItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    minHeight: 44,
-    paddingVertical: 11,
-    paddingHorizontal: space.md,
-    borderRadius: radius.sm,
-  },
-  railItemHover: { backgroundColor: '#FFFFFF08' },
-  railItemActive: { backgroundColor: '#FFFFFF0A' },
-  /** The one filled control on the rail. */
-  railPlay: {
-    backgroundColor: color.red,
-    borderRadius: radius.md,
-    marginVertical: space.xs,
-    shadowColor: color.red,
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  railPlayHover: { backgroundColor: color.redBright },
-  railPlayLabel: { color: '#FFFFFF', fontSize: 14 },
-  railMarker: { position: 'absolute', left: 0, top: 12, bottom: 12, width: 2, borderRadius: 1 },
-  railMarkerActive: { backgroundColor: color.red },
-  railLabel: { fontFamily: font.label, fontSize: 13, letterSpacing: tracking.wide, color: color.textFaint },
-  railFooter: { gap: 1, paddingLeft: space.sm },
-  railFooterLabel: {
-    fontFamily: font.label,
-    fontSize: 9,
-    letterSpacing: tracking.wider,
-    color: color.textFaint,
-    textTransform: 'uppercase',
-    marginBottom: 3,
-  },
-  railFooterValue: { fontFamily: font.body, fontSize: 11, color: color.textDim },
-  railFooterNote: { fontFamily: font.bodyRegular, fontSize: 10, color: color.textFaint, marginTop: 4 },
-
   // --- phone bar
   bar: {
     flexDirection: 'row',
