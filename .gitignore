@@ -32,6 +32,11 @@ supabase/.branches/
 # a fresh clone does not have.
 !apps/mobile/assets/brand/*.png
 !docs/media/*.png
+# Store assets. They are generated, but from the *deployed* site rather than
+# from this checkout, so a fresh clone cannot rebuild them and a submission
+# needs them on hand.
+!apps/mobile/assets/store/*.png
+!apps/mobile/assets/store/**/*.png
 !docs/media/*.jpg
 # The link preview card. It is served, not built, so a clone that does not have
 # it deploys a page whose og:image 404s — which renders as a broken frame rather
