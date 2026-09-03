@@ -1,0 +1,608 @@
+<title>The 18-0 Season Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    color-scheme: dark;
+    --ground:#06080F; --panel:#0B0F1A; --raise:#141B2B; --sunk:#04060B; --hover:#1A2336;
+    --line:#1E2637; --line-hi:#2E3A52;
+    --ink:#F2F5FA; --silver:#C0C0C6; --dim:#98A3B6; --faint:#6F7A8D;
+    --gold:#FFB400; --ice:#7FB2FF; --ok:#3FD68C; --warn:#FFB400; --red:#FF6B6B;
+    --c-ok:#0E2A1E; --c-warn:#2A2108; --c-bad:#2E1113;
+    --meter:#2E6FC7; --meter-hi:#7FB2FF;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      color-scheme: light;
+      --ground:#EBEEF4; --panel:#FFFFFF; --raise:#F4F7FB; --sunk:#E2E7EF; --hover:#EDF2F9;
+      --line:#CCD5E2; --line-hi:#A6B2C6;
+      --ink:#070B14; --silver:#394254; --dim:#4C566A; --faint:#6B7689;
+      --gold:#8A6100; --ice:#1B5AAE; --ok:#0C6B41; --warn:#825B00; --red:#B3121C;
+      --c-ok:#DEF1E7; --c-warn:#F7EBD1; --c-bad:#F9E0E2;
+      --meter:#1B5AAE; --meter-hi:#2E6FC7;
+    }
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --ground:#EBEEF4; --panel:#FFFFFF; --raise:#F4F7FB; --sunk:#E2E7EF; --hover:#EDF2F9;
+    --line:#CCD5E2; --line-hi:#A6B2C6;
+    --ink:#070B14; --silver:#394254; --dim:#4C566A; --faint:#6B7689;
+    --gold:#8A6100; --ice:#1B5AAE; --ok:#0C6B41; --warn:#825B00; --red:#B3121C;
+    --c-ok:#DEF1E7; --c-warn:#F7EBD1; --c-bad:#F9E0E2;
+    --meter:#1B5AAE; --meter-hi:#2E6FC7;
+  }
+
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--ground); color:var(--ink);
+    font-family:Barlow,"Helvetica Neue",Arial,sans-serif; font-size:0.94rem; line-height:1.62;
+    -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1240px; margin:0 auto; padding:0 clamp(16px,3.5vw,40px); }
+  .col { max-width:68ch; }
+
+  .top { background:var(--panel); border-bottom:1px solid var(--line); }
+  .top .wrap { padding:clamp(32px,5vw,58px) clamp(16px,3.5vw,40px) clamp(22px,3.5vw,34px); }
+  .slug { font-family:"IBM Plex Mono",monospace; font-size:0.65rem; letter-spacing:0.18em;
+    text-transform:uppercase; color:var(--faint); margin:0 0 14px; display:flex; flex-wrap:wrap; gap:6px 18px; }
+  .slug b { color:var(--gold); font-weight:600; }
+  h1 { font-family:Rajdhani,sans-serif; font-weight:700; font-size:clamp(2.4rem,6vw,3.9rem);
+    line-height:0.98; text-transform:uppercase; margin:0 0 12px; }
+  .stand { color:var(--dim); max-width:72ch; margin:0; font-size:1rem; }
+  .stand strong { color:var(--ink); font-weight:600; }
+
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:1px;
+    background:var(--line); border:1px solid var(--line); margin:22px 0 0; }
+  .kpis > div { background:var(--panel); padding:14px 16px; }
+  .kpis dt { font-family:"IBM Plex Mono",monospace; font-size:0.59rem; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--faint); margin-bottom:5px; }
+  .kpis dd { margin:0; font-family:Rajdhani,sans-serif; font-weight:700; font-size:1.58rem;
+    line-height:1.05; color:var(--gold); font-variant-numeric:tabular-nums; }
+  .kpis dd small { display:block; margin-top:3px; font-family:Barlow,sans-serif; font-size:0.73rem;
+    font-weight:400; color:var(--dim); line-height:1.4; }
+
+  section { padding:clamp(28px,4vw,48px) 0; border-bottom:1px solid var(--line); }
+  section:last-of-type { border-bottom:0; }
+  .eyebrow { font-family:"IBM Plex Mono",monospace; font-size:0.62rem; letter-spacing:0.2em;
+    text-transform:uppercase; color:var(--faint); margin:0 0 9px; display:flex; align-items:center; gap:10px; }
+  .eyebrow::before { content:""; width:18px; height:2px; background:var(--line-hi); flex:none; }
+  h2 { font-family:Rajdhani,sans-serif; font-weight:700; font-size:clamp(1.6rem,3.2vw,2.2rem);
+    line-height:1.05; text-transform:uppercase; margin:0 0 12px; }
+  h3 { font-family:Rajdhani,sans-serif; font-weight:600; font-size:1.2rem; text-transform:uppercase;
+    letter-spacing:0.04em; margin:24px 0 8px; }
+  p { margin:0 0 13px; }
+  .col p, .col li { color:var(--dim); }
+  strong { color:var(--ink); font-weight:600; }
+  ul { margin:0 0 13px; padding-left:20px; } li { margin-bottom:6px; color:var(--dim); }
+  code, .mono { font-family:"IBM Plex Mono",monospace; font-size:0.85em; }
+  code { background:var(--sunk); border:1px solid var(--line); border-radius:3px; padding:1px 5px; color:var(--silver); }
+  .aside { border-left:2px solid var(--line-hi); padding:2px 0 2px 18px; margin:0 0 16px; color:var(--dim); }
+  .aside p:last-child { margin-bottom:0; }
+
+  /* two registers */
+  .registers { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:16px; margin:0 0 8px; }
+  .reg { border:1px solid var(--line); background:var(--panel); padding:20px 22px; }
+  .reg.eli5 { border-top:3px solid var(--ok); }
+  .reg.deep { border-top:3px solid var(--ice); }
+  .reg h3 { margin:0 0 4px; font-size:1.12rem; }
+  .reg .who { font-family:"IBM Plex Mono",monospace; font-size:0.62rem; letter-spacing:0.13em;
+    text-transform:uppercase; color:var(--faint); margin:0 0 12px; }
+  .reg.eli5 h3 { color:var(--ok); } .reg.deep h3 { color:var(--ice); }
+  .reg p { color:var(--dim); } .reg p:last-child { margin-bottom:0; }
+
+  /* controls + table */
+  .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; padding:14px;
+    background:var(--panel); border:1px solid var(--line); border-bottom:0; }
+  .field { display:flex; flex-direction:column; gap:5px; }
+  .field label { font-family:"IBM Plex Mono",monospace; font-size:0.59rem; letter-spacing:0.13em;
+    text-transform:uppercase; color:var(--faint); }
+  .field input, .field select { font-family:"IBM Plex Mono",monospace; font-size:0.8rem; color:var(--ink);
+    background:var(--sunk); border:1px solid var(--line-hi); border-radius:2px; padding:7px 9px; min-width:118px; }
+  .field input { min-width:186px; }
+  .spacer { flex:1 1 auto; }
+  .count { font-family:"IBM Plex Mono",monospace; font-size:0.75rem; color:var(--dim); padding-bottom:8px; white-space:nowrap; }
+  .count b { color:var(--gold); }
+  button.reset { font-family:"IBM Plex Mono",monospace; font-size:0.69rem; letter-spacing:0.1em;
+    text-transform:uppercase; background:transparent; color:var(--dim); border:1px solid var(--line-hi);
+    border-radius:2px; padding:8px 12px; cursor:pointer; }
+  button.reset:hover { color:var(--ink); border-color:var(--ice); }
+
+  .tablebox { border:1px solid var(--line); background:var(--panel); overflow-x:auto; }
+  table { width:100%; min-width:740px; border-collapse:collapse; font-size:0.83rem; }
+  thead th { position:sticky; top:0; z-index:2; font-family:"IBM Plex Mono",monospace; font-weight:500;
+    font-size:0.61rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--faint); text-align:left;
+    padding:11px 12px 9px; background:var(--sunk); border-bottom:1px solid var(--line-hi);
+    white-space:nowrap; cursor:pointer; user-select:none; }
+  thead th:hover { color:var(--ink); }
+  thead th[aria-sort] { color:var(--gold); }
+  tbody td { padding:8px 12px; border-bottom:1px solid var(--line); color:var(--dim); }
+  tbody tr { cursor:pointer; }
+  tbody tr:hover td { background:var(--hover); }
+  tbody tr[aria-selected="true"] td { background:var(--raise); box-shadow:inset 3px 0 0 var(--gold); }
+  td.name { color:var(--ink); font-weight:500; }
+  td.num { font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  td.rating { font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; color:var(--ink);
+    font-weight:600; white-space:nowrap; }
+  .meter { display:inline-block; vertical-align:middle; width:70px; height:5px; background:var(--sunk);
+    border-radius:1px; margin-left:9px; overflow:hidden; }
+  .meter i { display:block; height:100%; background:var(--meter); }
+  .meter i.hot { background:var(--meter-hi); }
+  .pos { font-family:"IBM Plex Mono",monospace; font-size:0.67rem; color:var(--silver); }
+  .era { font-family:"IBM Plex Mono",monospace; font-size:0.69rem; color:var(--faint); white-space:nowrap; }
+
+  .pager { display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--panel);
+    border:1px solid var(--line); border-top:0; font-family:"IBM Plex Mono",monospace; font-size:0.73rem; color:var(--dim); }
+  .pager button { font-family:"IBM Plex Mono",monospace; font-size:0.71rem; background:var(--sunk);
+    color:var(--ink); border:1px solid var(--line-hi); border-radius:2px; padding:6px 12px; cursor:pointer; }
+  .pager button:disabled { opacity:0.35; cursor:default; }
+  .empty { padding:38px 16px; text-align:center; color:var(--faint); font-family:"IBM Plex Mono",monospace; font-size:0.8rem; }
+
+  /* the defence panel */
+  .defence { border:1px solid var(--gold); background:var(--panel); margin:0 0 14px; }
+  .defence > header { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:baseline;
+    padding:14px 18px; border-bottom:1px solid var(--line); background:var(--sunk); }
+  .defence h3 { margin:0; font-size:1.32rem; }
+  .defence .meta { font-family:"IBM Plex Mono",monospace; font-size:0.72rem; color:var(--faint); }
+  .defence .big { margin-left:auto; font-family:Rajdhani,sans-serif; font-weight:700; font-size:2rem;
+    line-height:1; color:var(--gold); font-variant-numeric:tabular-nums; }
+  .defence .body { padding:18px; display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:20px; }
+  .defence .statline { display:flex; flex-wrap:wrap; gap:6px 14px; padding:0 18px 14px; }
+  .defence .statline span { font-family:"IBM Plex Mono",monospace; font-size:0.74rem; color:var(--dim); }
+  .defence .statline b { color:var(--ink); font-weight:600; }
+  .plain p { color:var(--dim); }
+  .plain p:first-child { color:var(--ink); }
+  .plain .lead { font-size:1.02rem; }
+  table.parts { min-width:0; font-size:0.78rem; }
+  table.parts th, table.parts td { padding:6px 10px 6px 0; }
+  table.parts thead th { position:static; background:transparent; border-bottom:1px solid var(--line-hi); cursor:default; }
+  table.parts tbody td { border-bottom:1px solid var(--line); }
+  table.parts tbody tr:hover td { background:transparent; }
+  .zbar { display:inline-block; width:56px; height:4px; background:var(--sunk); position:relative; vertical-align:middle; margin-left:6px; }
+  .zbar i { position:absolute; top:0; height:100%; background:var(--meter-hi); }
+  .zbar u { position:absolute; top:-2px; bottom:-2px; width:1px; background:var(--line-hi); left:50%; }
+  .dark { color:var(--warn); }
+  .close { background:transparent; border:1px solid var(--line-hi); color:var(--dim); border-radius:2px;
+    font-family:"IBM Plex Mono",monospace; font-size:0.68rem; padding:5px 10px; cursor:pointer; }
+
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:20px; }
+  .card { border:1px solid var(--line); background:var(--panel); }
+  .card > header { padding:12px 15px; border-bottom:1px solid var(--line); font-family:Rajdhani,sans-serif;
+    font-weight:600; font-size:1.04rem; letter-spacing:0.05em; text-transform:uppercase; }
+  .card .body2 { overflow-x:auto; }
+  table.tight { min-width:0; font-size:0.77rem; }
+  table.tight th, table.tight td { padding:7px 12px; }
+  table.tight thead th { cursor:default; }
+  .hash { font-family:"IBM Plex Mono",monospace; font-size:0.67rem; color:var(--faint); }
+  .full { color:var(--ok); }
+  .chip { display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:0.59rem; letter-spacing:0.09em;
+    text-transform:uppercase; padding:2px 6px; border-radius:2px; }
+  .chip.ok { background:var(--c-ok); color:var(--ok); }
+  .chip.warn { background:var(--c-warn); color:var(--warn); }
+
+  footer { border-top:1px solid var(--line); background:var(--panel); color:var(--faint); font-size:0.78rem; }
+  footer .wrap { padding-top:22px; padding-bottom:40px; }
+  footer .col { max-width:78ch; }
+  :focus-visible { outline:2px solid var(--ice); outline-offset:2px; }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <p class="slug"><b>18-0</b> <span>Season ledger</span> <span id="stamp"></span></p>
+    <h1>The season ledger</h1>
+    <p class="stand">
+      Every rated season, the file it was built from, and — for any card you click —
+      <strong>why it rates what it rates</strong>, explained twice: once for someone who just wants to
+      know, and once with the arithmetic showing.
+    </p>
+    <dl class="kpis" id="kpis"></dl>
+  </div>
+</header>
+
+<main>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The method</p>
+    <h2>How a season becomes a number</h2>
+    <div class="registers">
+      <div class="reg eli5">
+        <h3>The short version</h3>
+        <p class="who">If you just want to know</p>
+        <p>
+          Every season is graded against <em>the seasons around it</em>, not against history. A 1985
+          receiver is measured against other 1985-ish receivers, on the things 1985 actually wrote
+          down. So a 1,200-yard year in a run-heavy decade can rate higher than a 1,400-yard year in
+          a passing one.
+        </p>
+        <p>
+          Each position is scored on a handful of separate questions — how much did he produce, how
+          efficient was he, did he score, did he move the chains — and those are averaged with some
+          counting more than others. Being far better than everyone else at the heavily-weighted
+          questions is what makes a high number.
+        </p>
+        <p>
+          Nobody hand-picks the top card. The ratings come out of the method, and the leaders you'd
+          expect are the leaders that appear.
+        </p>
+      </div>
+      <div class="reg deep">
+        <h3>The long version</h3>
+        <p class="who">If you want to check it</p>
+        <p>
+          Each component draws on an ordered list of metrics; the first with data for that season
+          wins, and the card records which one was used. The value is z-scored against the
+          same-position distribution for that era, then mapped through a fixed, monotonic curve:
+          <span class="mono">0σ→75, +1σ→86, +2σ→93, +3σ→97.3</span>.
+        </p>
+        <p>
+          Components are combined by weight. A component whose metrics all return null is
+          <strong>dropped and its weight redistributed</strong> across the rest — never scored as
+          zero, which would punish a season for what its era failed to record. The weighted mean is
+          then calibrated per position onto the published scale, because averaging eight components
+          compresses the top.
+        </p>
+        <p>
+          Every number in the panel below — z, component score, effective weight — is the value the
+          build actually used.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">The ledger</p>
+    <h2>Every card, and its defence</h2>
+    <div class="col">
+      <p>
+        Click any row and the rating takes the stand. Sort any column; the meter is on a fixed
+        55&ndash;100 scale so bars compare across filters.
+      </p>
+    </div>
+
+    <div id="defence"></div>
+
+    <div class="controls">
+      <div class="field"><label for="q">Search player or franchise</label>
+        <input id="q" type="search" placeholder="Montana, Rice, Emmitt…" autocomplete="off"></div>
+      <div class="field"><label for="fEra">Era</label><select id="fEra"><option value="">All eras</option></select></div>
+      <div class="field"><label for="fPos">Position</label><select id="fPos"><option value="">All</option></select></div>
+      <div class="field"><label for="fFr">Franchise</label><select id="fFr"><option value="">All</option></select></div>
+      <div class="field"><label for="fMin">Min rating</label>
+        <select id="fMin">
+          <option value="0">Any</option><option value="90">90+</option>
+          <option value="93">93+ · All-Pro</option><option value="96">96+ · all-time elite</option>
+          <option value="98">98+</option>
+        </select></div>
+      <div class="spacer"></div>
+      <button class="reset" id="reset" type="button">Reset</button>
+      <div class="count" id="count"></div>
+    </div>
+
+    <div class="tablebox">
+      <table id="tbl">
+        <thead><tr>
+          <th data-k="0" scope="col">Player</th><th data-k="1" scope="col">Year</th>
+          <th data-k="3" scope="col">Pos</th><th data-k="2" scope="col">Franchise</th>
+          <th data-k="4" scope="col">Era</th><th data-k="6" scope="col">G</th>
+          <th data-k="5" scope="col" aria-sort="descending">Rating</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="empty" id="empty" hidden>Nothing matches those filters.</div>
+    </div>
+    <div class="pager">
+      <button id="prev" type="button">&larr; Prev</button>
+      <span id="pageinfo"></span>
+      <button id="next" type="button">Next &rarr;</button>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap col">
+    <p class="eyebrow">What is missing</p>
+    <h2>Four components are dark before 1999, and it is measurable</h2>
+    <p>
+      The 1980&ndash;1998 seasons come from season totals, not play-by-play, so the EPA-derived
+      metrics have nothing to read. Rather than guess, the affected components are dropped and their
+      weight redistributed.
+    </p>
+    <ul>
+      <li><strong>Quarterback peak dominance</strong> — ranks total passing EPA. No fallback exists.</li>
+      <li><strong>Explosive plays</strong>, at back and receiver — needs a count of 20-yard gains, not a longest.</li>
+      <li><strong>Defensive pressure</strong> — team sacks are not in the source at all.</li>
+    </ul>
+    <p>
+      The cost was measured rather than assumed: 2004 was rated twice from identical rows, once with
+      every column and once with only the columns the pre-1999 source can supply. Raw ratings moved
+      by <strong>1.6&ndash;2.1 points on average</strong> and the order barely changed —
+      <span class="mono">ρ = 0.91</span> at quarterback, <span class="mono">0.96</span> at running
+      back. Peyton Manning's 2004 stayed first either way.
+    </p>
+    <div class="aside">
+      <p>
+        Within an era this costs nothing: every card in it is scored on the same available metrics,
+        which is the entire point of normalizing per era. It is worth knowing when comparing a card
+        across the 1999 line.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="eyebrow">Proof</p>
+    <h2>Where the numbers came from</h2>
+    <div class="col">
+      <p>
+        The pre-1999 seasons are hydrated one file per year, each listed with its own SHA-256, so a
+        rebuild can be checked against exactly the bytes these ratings were computed from.
+        1999&ndash;2025 comes from nflverse.
+      </p>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <header>Season files &middot; <span id="provCount"></span></header>
+        <div class="body2"><table class="tight">
+          <thead><tr><th scope="col">Year</th><th scope="col">G</th><th scope="col">Players</th>
+            <th scope="col">Teams</th><th scope="col">SHA-256</th></tr></thead>
+          <tbody id="provRows"></tbody></table></div>
+      </div>
+      <div class="card">
+        <header>Season coverage by position</header>
+        <div class="body2"><table class="tight">
+          <thead><tr><th scope="col">Era</th><th scope="col">QB</th><th scope="col">RB</th>
+            <th scope="col">WR</th><th scope="col">TE</th><th scope="col">DEF</th><th scope="col">State</th></tr></thead>
+          <tbody id="covRows"></tbody></table></div>
+      </div>
+    </div>
+    <div class="col" style="margin-top:18px">
+      <p>
+        The coverage table is the check that matters. An era clears its 80% floor on aggregate season
+        count, which one healthy position can carry alone — that is how six seasons of missing
+        receivers once shipped unnoticed. This table breaks it down per position, per era.
+      </p>
+      <div class="aside" id="covNote" hidden>
+        <p>
+          An era marked <strong>hydrating</strong> is still filling up, one season at a time. It is
+          playable in a local build and is refused by the seed generator, so it cannot reach the
+          server or set a ranked record — but the cards it does have are rated against a partial
+          league, and are shown here so that is visible rather than implied.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap col">
+    Ratings are computed by <code>@18-0/domain</code> from the files above; each metric is z-scored
+    against the same-position league environment for its own era, then mapped through a per-position
+    calibration. Components with no data are dropped and their weight redistributed, never scored as
+    zero. Statistics 1999&ndash;2025 from nflverse under CC BY 4.0; 1980&ndash;1998 under licence. This
+    project uses no club names, marks or logos — franchises are identified by city.
+  </div>
+</footer>
+
+<script>
+const D = /*__DATA__*/;
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => n.toLocaleString();
+
+/* Plain words for each component, for the short version of a defence. */
+const PLAIN = {
+  passing_efficiency:'moving the ball through the air without wasting downs',
+  scoring_production:'throwing touchdowns', turnover_avoidance:'not giving the ball away',
+  passing_volume:'sheer passing output', rushing_value:'running it himself',
+  sack_avoidance:'getting rid of it before the rush arrived', peak_dominance:'towering over the rest of his era',
+  rushing_efficiency:'gaining more than the blocking gave him', rushing_production:'total yards from scrimmage',
+  receiving_value:'catching passes out of the backfield', scoring:'reaching the end zone',
+  success_rate:'turning carries into first downs', explosive:'breaking long ones',
+  ball_security:'holding onto the football', receiving_production:'total yards from scrimmage',
+  receiving_efficiency:'gaining more than a typical target is worth', td_production:'reaching the end zone',
+  first_downs:'moving the chains', offense_share:'carrying his team’s passing game',
+  catch_efficiency:'catching what was thrown at him', positional_dominance:'owning the position in his era',
+  points_allowed:'keeping points off the board', def_epa:'giving up nothing per play',
+  pass_defense:'defending the pass', rush_defense:'defending the run',
+  takeaways:'taking the ball away', pressure:'getting to the quarterback',
+  era_dominance:'suffocating its era',
+};
+const band = (z) => z === null ? null
+  : z >= 2.5 ? ['far and away the best in his era at', 'ok']
+  : z >= 1.5 ? ['one of the very best in his era at', 'ok']
+  : z >= 0.75 ? ['clearly better than most at', 'ok']
+  : z >= 0.25 ? ['a bit better than most at', '']
+  : z >= -0.25 ? ['about typical at', '']
+  : z >= -1 ? ['below par at', 'bad'] : ['well below par at', 'bad'];
+
+const eraOf = (i) => D.eras[i];
+const posOf = (i) => D.pos[i];
+/**
+ * A team defence has no player name -- the dataset leaves it empty and the game
+ * builds one from the franchise and the year, the same way `displayName` does.
+ */
+const nameOf = (c) => posOf(c[3]) === 'DEF'
+  ? `${c[1]} ${D.franchises[c[2]].nm} Defense`
+  : c[0];
+
+$('stamp').textContent = `dataset ${D.version} · model ${D.model} · ${D.coverage.firstSeason}–${D.coverage.lastSeason}`;
+const hydrated = D.provenance.reduce((a, p) => a + p.players, 0);
+$('kpis').innerHTML = [
+  ['Rated cards', fmt(D.cards.length), 'one per player per franchise-era'],
+  ['Eras', D.eras.length, `${D.coverage.lastSeason - D.coverage.firstSeason + 1} seasons of football`],
+  ['Franchise-eras', D.combos, 'able to field a full roster'],
+  ['Hydrated seasons', fmt(hydrated), 'player-seasons read from source files'],
+  ['Source files', D.provenance.length, 'each with a published hash'],
+].map(([k, v, s]) => `<div><dt>${k}</dt><dd>${v}<small>${s}</small></dd></div>`).join('');
+
+$('fEra').insertAdjacentHTML('beforeend', D.eras.map((e, i) => `<option value="${i}">${e.n} · ${e.l}</option>`).join(''));
+$('fPos').insertAdjacentHTML('beforeend', D.pos.map((p, i) => `<option value="${i}">${p}</option>`).join(''));
+$('fFr').insertAdjacentHTML('beforeend', D.franchises.map((f, i) => [i, f])
+  .sort((a, b) => a[1].nm.localeCompare(b[1].nm))
+  .map(([i, f]) => `<option value="${i}">${f.nm}</option>`).join(''));
+
+let sortKey = 5, sortDir = -1, page = 0, selected = null;
+const PER = 50;
+
+function filtered() {
+  const q = $('q').value.trim().toLowerCase();
+  const e = $('fEra').value, p = $('fPos').value, f = $('fFr').value, min = Number($('fMin').value);
+  return D.cards.filter((c) => {
+    if (e !== '' && c[4] !== +e) return false;
+    if (p !== '' && c[3] !== +p) return false;
+    if (f !== '' && c[2] !== +f) return false;
+    if (c[5] < min) return false;
+    if (q) { const fr = D.franchises[c[2]];
+      if (!nameOf(c).toLowerCase().includes(q) && !fr.nm.toLowerCase().includes(q)
+          && !fr.ab.toLowerCase().includes(q)) return false; }
+    return true;
+  });
+}
+
+/* ---- the defence ---- */
+function defend(c) {
+  const fr = D.franchises[c[2]], era = eraOf(c[4]), pos = posOf(c[3]);
+  const parts = c[8].map(([ci, s, w, mi, z]) => ({
+    key: D.compKeys[ci], label: D.compLabel[D.compKeys[ci]] ?? D.compKeys[ci],
+    score: s, weight: w, metric: mi >= 0 ? D.metricKeys[mi] : null,
+    metricLabel: mi >= 0 ? (D.metricLabel[D.metricKeys[mi]] ?? D.metricKeys[mi]) : null, z,
+  })).sort((a, b) => b.score * b.weight - a.score * a.weight);
+  const dark = c[9].map((i) => D.compKeys[i]).filter(Boolean);
+
+  const strong = parts.filter((p) => p.z === null || p.z > 0.25).slice(0, 2);
+  const weak = [...parts].reverse().find((p) => p.z !== null && p.z < -0.1);
+  const statline = c[7].map(([l, v]) => `<span>${l} <b>${v}</b></span>`).join('');
+
+  const say = (p) => { const b = band(p.z);
+    return b ? `${b[0]} ${PLAIN[p.key] ?? p.label.toLowerCase()}` : `strong on ${PLAIN[p.key] ?? p.label.toLowerCase()}`; };
+
+  const eli5 = [];
+  eli5.push(`<p class="lead"><strong>${nameOf(c)}</strong>${pos === 'DEF' ? '' : `’s ${c[1]}`} rates <strong>${c[5].toFixed(2)}</strong> because, measured against ${pos === 'DEF' ? 'the defences' : 'the ' + ({QB:'quarterbacks',RB:'backs',WR:'receivers',TE:'tight ends'}[pos])} of ${era.n} (${era.l}), he was ${strong.length ? say(strong[0]) : 'solid across the board'}.</p>`);
+  if (strong[1]) eli5.push(`<p>He was also ${say(strong[1])} — and those two carry ${Math.round((strong[0].weight + strong[1].weight) * 100)}% of the grade between them.</p>`);
+  if (weak) eli5.push(`<p>What held it back: he was ${band(weak.z)[0]} ${PLAIN[weak.key] ?? weak.label.toLowerCase()}.</p>`);
+  if (dark.length) eli5.push(`<p class="dark">Not measurable for this season: ${dark.map((k) => PLAIN[k] ?? k).join(', ')}. That part of the grade was shared out across everything else rather than counted as a zero.</p>`);
+
+  const rows = parts.map((p) => {
+    const pct = p.z === null ? null : Math.max(-3, Math.min(3, p.z));
+    const bar = p.z === null ? '<span class="mono" style="color:var(--faint)">rank</span>'
+      : `<span class="zbar"><u></u><i style="${pct >= 0 ? `left:50%;width:${(pct / 3) * 50}%` : `right:50%;width:${(-pct / 3) * 50}%`}"></i></span>`;
+    return `<tr><td style="color:var(--ink)">${p.label}</td>
+      <td class="num">${p.z === null ? '—' : (p.z > 0 ? '+' : '') + p.z.toFixed(2)}${bar}</td>
+      <td class="num">${p.score.toFixed(1)}</td>
+      <td class="num">${Math.round(p.weight * 100)}%</td>
+      <td class="mono" style="font-size:0.72rem;color:var(--faint)">${p.metricLabel ?? '—'}</td></tr>`;
+  }).join('');
+
+  return `<div class="defence">
+    <header>
+      <h3>${nameOf(c)}</h3>
+      <span class="meta">${c[1]} · ${fr.nm} · ${pos} · ${c[6]} games</span>
+      <span class="meta">${era.n} (${era.l})</span>
+      <button class="close" id="closeDef" type="button">Close</button>
+      <span class="big">${c[5].toFixed(2)}</span>
+    </header>
+    <div class="statline">${statline}</div>
+    <div class="body">
+      <div class="plain">
+        <h3 style="color:var(--ok);margin-top:0">The short version</h3>
+        ${eli5.join('')}
+      </div>
+      <div>
+        <h3 style="color:var(--ice);margin-top:0">The long version</h3>
+        <div style="overflow-x:auto"><table class="parts">
+          <thead><tr><th scope="col">Component</th><th scope="col">z vs era</th>
+            <th scope="col">Score</th><th scope="col">Weight</th><th scope="col">Metric used</th></tr></thead>
+          <tbody>${rows}</tbody></table></div>
+        ${dark.length ? `<p class="mono dark" style="font-size:0.74rem;margin-top:10px">Dropped, weight redistributed: ${dark.map((k) => D.compLabel[k] ?? k).join(' · ')}</p>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function render() {
+  const rows = filtered();
+  rows.sort((a, b) => {
+    const x = a[sortKey], y = b[sortKey];
+    const c0 = sortKey === 0 ? nameOf(a).localeCompare(nameOf(b))
+      : (typeof x === 'string' ? x.localeCompare(y) : x - y);
+    return (c0 * sortDir) || nameOf(a).localeCompare(nameOf(b));
+  });
+  const pages = Math.max(1, Math.ceil(rows.length / PER));
+  if (page >= pages) page = pages - 1;
+  const slice = rows.slice(page * PER, page * PER + PER);
+
+  $('count').innerHTML = `<b>${fmt(rows.length)}</b> of ${fmt(D.cards.length)} cards`;
+  $('empty').hidden = rows.length > 0;
+  $('pageinfo').textContent = `Page ${page + 1} of ${fmt(pages)}`;
+  $('prev').disabled = page === 0;
+  $('next').disabled = page >= pages - 1;
+
+  $('rows').innerHTML = slice.map((c, i) => {
+    const fr = D.franchises[c[2]], era = eraOf(c[4]);
+    const pct = Math.max(0, Math.min(100, ((c[5] - 55) / 45) * 100));
+    const sel = selected && selected[0] === c[0] && selected[1] === c[1] && selected[2] === c[2];
+    return `<tr data-i="${i}"${sel ? ' aria-selected="true"' : ''}>
+      <td class="name">${nameOf(c)}</td><td class="num">${c[1]}</td>
+      <td class="num pos">${posOf(c[3])}</td><td>${fr.nm}</td>
+      <td class="era">${era.l}</td><td class="num">${c[6]}</td>
+      <td class="rating">${c[5].toFixed(2)}<span class="meter"><i class="${c[5] >= 93 ? 'hot' : ''}" style="width:${pct.toFixed(1)}%"></i></span></td>
+    </tr>`;
+  }).join('');
+
+  for (const tr of $('rows').querySelectorAll('tr')) {
+    tr.addEventListener('click', () => { selected = slice[+tr.dataset.i]; show(); render(); });
+  }
+}
+
+function show() {
+  $('defence').innerHTML = selected ? defend(selected) : '';
+  const b = $('closeDef');
+  if (b) b.addEventListener('click', () => { selected = null; show(); render(); });
+  if (selected) $('defence').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+for (const th of document.querySelectorAll('#tbl thead th')) {
+  th.addEventListener('click', () => {
+    const k = +th.dataset.k;
+    if (k === sortKey) sortDir = -sortDir; else { sortKey = k; sortDir = k === 0 ? 1 : -1; }
+    for (const o of document.querySelectorAll('#tbl thead th')) o.removeAttribute('aria-sort');
+    th.setAttribute('aria-sort', sortDir === 1 ? 'ascending' : 'descending');
+    page = 0; render();
+  });
+}
+for (const id of ['q', 'fEra', 'fPos', 'fFr', 'fMin']) $(id).addEventListener('input', () => { page = 0; render(); });
+$('prev').addEventListener('click', () => { page--; render(); });
+$('next').addEventListener('click', () => { page++; render(); });
+$('reset').addEventListener('click', () => {
+  $('q').value = ''; $('fEra').value = ''; $('fPos').value = ''; $('fFr').value = ''; $('fMin').value = '0';
+  sortKey = 5; sortDir = -1; page = 0; selected = null; show(); render();
+});
+
+$('provCount').textContent = `${D.provenance.length} years · ${fmt(hydrated)} player-seasons`;
+$('provRows').innerHTML = D.provenance.map((p) => `<tr>
+  <td class="num" style="color:var(--ink)">${p.year}</td><td class="num">${p.seasonGames}</td>
+  <td class="num">${p.players}</td><td class="num">${p.defenses}</td>
+  <td class="hash" title="${p.sha256}">${p.sha256.slice(0, 20)}…</td></tr>`).join('');
+
+$('covRows').innerHTML = D.cov.map((c) => {
+  const era = D.eras.find((e) => e.k === c.k);
+  const cells = c.pos.map((n) => `<td class="num${n === c.span ? ' full' : ''}">${n}/${c.span}</td>`).join('');
+  // Read from the era, never assumed. An era still filling up is exactly the
+  // thing this table exists to disclose, and a hardcoded "Live" would make the
+  // proof page the one place that hides it.
+  return `<tr><td style="color:var(--ink)">${era.n}<br><span class="era">${era.l}</span></td>${cells}
+    <td><span class="chip ${era.p ? 'warn' : 'ok'}">${era.p ? 'Hydrating' : 'Live'}</span></td></tr>`;
+}).join('');
+if (D.eras.some((e) => e.p)) {
+  document.getElementById('covNote').hidden = false;
+}
+
+/* Open on the best card in the set, so the page shows what it does at rest. */
+selected = D.cards[0];
+show();
+render();
+</script>

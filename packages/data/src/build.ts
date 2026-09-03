@@ -29,6 +29,7 @@ import { TEAM_TO_FRANCHISE } from './teams.js';
 import { ERA_TABLE, eraForYear } from './eras.js';
 import { loadLegacySeasons } from './legacy.js';
 import { loadHydratedSeasons } from './seasons.js';
+import { writeLedger } from './ledger.js';
 import type { Dataset, DatasetCard, DatasetComponent, StatLine } from './schema.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -919,11 +920,20 @@ function main(): void {
   };
   writeFileSync(OUT, JSON.stringify(boot));
 
+  // The public ledger is written from the same objects, in the same run. A
+  // page that argues for these ratings has to be built by whatever produced
+  // them, or it becomes a confident description of a dataset that moved on.
+  const ledger = writeLedger(dataset, finalCards, RAW);
+
   const bytes = readFileSync(OUT).length;
   const componentBytes = readFileSync(OUT_COMPONENTS).length;
   console.log(`  ${combos.length} valid franchise-era combos across ${eraKeys.length} eras`);
   console.log(`  wrote ${OUT} (${(bytes / 1024 / 1024).toFixed(2)} MB, loaded at startup)`);
   console.log(`  wrote ${OUT_COMPONENTS} (${(componentBytes / 1024 / 1024).toFixed(2)} MB, loaded on demand)`);
+  console.log(
+    `  wrote ${ledger.path} (${(ledger.bytes / 1024 / 1024).toFixed(2)} MB, ` +
+      `${ledger.cards.toLocaleString()} cards, served by URL only)`,
+  );
 }
 
 main();
