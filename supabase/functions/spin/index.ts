@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
 
   const { data: session, error: sessionError } = await admin
     .from('game_sessions')
-    .select('id, user_id, status, assisted')
+    .select('id, user_id, status, assisted, challenge_id')
     .eq('id', body.gameSessionId)
     .maybeSingle();
   if (sessionError) return json({ error: 'lookup_failed' }, 500);
@@ -99,6 +99,79 @@ Deno.serve(async (req) => {
   // One selection per spin: refuse to deal another card until the last one was used.
   const spinCount = spins?.length ?? 0;
   if (spinCount > filled.size) return await refuse('pick_first', 409);
+
+  // A challenge is a duel, and a duel on two different wheels is not one. A
+  // session that declared a challenge replays the creator's franchise-era at
+  // this sequence, so both rosters are built from the same seven spins.
+  //
+  // Here rather than in the client for the usual reason: a client that could
+  // name its own buckets would name the seven holding the best cards in the
+  // dataset and win every challenge it was ever sent.
+  if (session.challenge_id) {
+    // The cheat exists for solo play. Using it against another player is not
+    // a cheat the game is willing to record as a win.
+    if (body.assist === true) return await refuse('assist_not_allowed_in_challenge', 409);
+
+    const { data: challenge } = await admin
+      .from('challenges')
+      .select('creator_game_session_id')
+      .eq('id', session.challenge_id)
+      .maybeSingle();
+
+    const scripted = challenge
+      ? (await admin
+          .from('game_spins')
+          .select('franchise_id, era_key')
+          .eq('game_session_id', challenge.creator_game_session_id)
+          .eq('sequence', spinCount + 1)
+          .maybeSingle()).data
+      : null;
+
+    if (scripted) {
+      const sequence = spinCount + 1;
+      const { error: replayError } = await admin.from('game_spins').insert({
+        game_session_id: session.id,
+        sequence,
+        franchise_id: scripted.franchise_id,
+        era_key: scripted.era_key,
+      });
+      if (replayError) {
+        log('error', ctx, { event: 'spin_insert_failed', reason: replayError.message });
+        return await refuse('spin_failed', 500);
+      }
+      const kept = await audit(admin, ctx, {
+        event: 'spin_issued',
+        outcome: 'ok',
+        actorId: user.id,
+        subjectType: 'game_session',
+        subjectId: session.id,
+        detail: {
+          sequence,
+          franchise_id: scripted.franchise_id,
+          era_key: scripted.era_key,
+          assisted: false,
+          replayed_from_challenge: session.challenge_id,
+        },
+      });
+      if (!kept) {
+        await admin.from('game_spins').delete()
+          .eq('game_session_id', session.id).eq('sequence', sequence);
+        return json({ error: 'audit_unavailable' }, 503);
+      }
+      return json({
+        spin: { sequence, franchiseId: scripted.franchise_id, era: scripted.era_key },
+        assisted: session.assisted,
+      });
+    }
+    // No script at this sequence means the creator's session is missing spins
+    // it should have. Falling through to a fair random spin keeps the game
+    // playable; the challenge simply stops being a like-for-like duel.
+    log('warn', ctx, {
+      event: 'challenge_script_missing',
+      session: session.id,
+      sequence: spinCount + 1,
+    });
+  }
 
   const openPositions = [...new Set(
     ROSTER_SLOTS.filter((slot) => !filled.has(slot)).map((slot) => SLOT_POSITION[slot]),

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Stack } from 'expo-router';
+import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -29,6 +29,21 @@ export default function RootLayout() {
     if (ready || error) SplashScreen.hideAsync().catch(() => {});
   }, [ready, error]);
 
+  // A challenge arrives as `?c=<token>` on the site's own address rather than
+  // as a path of its own. The site is a static export on GitHub Pages, which
+  // serves exactly the files that were exported: a link to /challenge/<token>
+  // would 404 before any of this ran. A query parameter on the index always
+  // loads, and the route it wants is pushed from here once the app is up.
+  useEffect(() => {
+    if (!ready && !error) return;
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const token = new URLSearchParams(window.location.search).get('c');
+    if (!token) return;
+    // Cleared first, so a reload or a back-navigation does not re-open it.
+    window.history.replaceState(null, '', window.location.pathname);
+    router.push({ pathname: '/challenge', params: { t: token } });
+  }, [ready, error]);
+
   if (!ready && !error) {
     return <View style={styles.boot} />;
   }
@@ -54,6 +69,7 @@ export default function RootLayout() {
           <Stack.Screen name="result" options={{ animation: 'fade', gestureEnabled: false }} />
           <Stack.Screen name="card/[id]" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="admin" options={{ animation: 'slide_from_bottom' }} />
+          <Stack.Screen name="challenge" options={{ animation: 'slide_from_bottom' }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

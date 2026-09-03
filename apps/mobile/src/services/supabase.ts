@@ -245,65 +245,160 @@ export async function fetchRoster(gameSessionId: string): Promise<RosterPick[]> 
 export interface ChallengeRow {
   readonly id: string;
   readonly shareToken: string;
+  readonly status: 'open' | 'complete' | 'expired';
+  readonly createdAt: string;
+  readonly mine: boolean;
   readonly creatorHandle: string;
   readonly creatorRating: number | null;
   readonly creatorRecord: string | null;
-  readonly status: string;
-  readonly createdAt: string;
+  readonly opponentHandle: string | null;
+  readonly opponentRating: number | null;
+  readonly opponentRecord: string | null;
+  /** null while it is open, and also on a genuine tie to the decimal. */
+  readonly winnerUserId: string | null;
 }
 
+const record = (wins: unknown, losses: unknown): string | null =>
+  wins === null || wins === undefined ? null : `${wins}-${losses}`;
+
+const number = (value: unknown): number | null =>
+  value === null || value === undefined ? null : Number(value);
+
+/**
+ * Both sides of every challenge you are party to.
+ *
+ * `my_challenges` decides who won, rather than each screen deciding for itself
+ * from two ratings and a rule it half-remembers.
+ */
 export async function fetchMyChallenges(): Promise<ChallengeRow[]> {
   if (!supabase) return [];
   const me = await currentUser();
   if (!me) return [];
 
-  // `creator_user_id` references public.profiles, so the embed hint is the
-  // profiles constraint — hinting the auth.users one resolves to nothing and
-  // PostgREST fails with PGRST200.
   const { data, error } = await supabase
-    .from('challenges')
-    .select('id, share_token, status, created_at, creator_game_session_id, game_sessions!challenges_creator_game_session_id_fkey(final_rating, record_wins, record_losses), profiles!challenges_creator_user_id_fkey(handle)')
-    .or(`creator_user_id.eq.${me.id},opponent_user_id.eq.${me.id}`)
+    .from('my_challenges')
+    .select('*')
     .order('created_at', { ascending: false })
     .limit(50);
   if (error) throw new Error(error.message);
-  if (!data) return [];
-  return data.map((row) => {
-    const session = (row as Record<string, unknown>).game_sessions as
-      | { final_rating: number; record_wins: number; record_losses: number }
-      | null;
-    const profile = (row as Record<string, unknown>).profiles as { handle: string } | null;
-    return {
-      id: row.id as string,
-      shareToken: row.share_token as string,
-      creatorHandle: profile?.handle ?? 'player',
-      creatorRating: session ? Number(session.final_rating) : null,
-      creatorRecord: session ? `${session.record_wins}-${session.record_losses}` : null,
-      status: row.status as string,
-      createdAt: row.created_at as string,
-    };
-  });
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    shareToken: row.share_token as string,
+    status: row.status as ChallengeRow['status'],
+    createdAt: row.created_at as string,
+    mine: row.creator_user_id === me.id,
+    creatorHandle: (row.creator_handle as string) ?? 'player',
+    creatorRating: number(row.creator_rating),
+    creatorRecord: record(row.creator_wins, row.creator_losses),
+    opponentHandle: (row.opponent_handle as string) ?? null,
+    opponentRating: number(row.opponent_rating),
+    opponentRecord: record(row.opponent_wins, row.opponent_losses),
+    winnerUserId: (row.winner_user_id as string) ?? null,
+  }));
 }
 
-export async function createChallenge(gameSessionId: string): Promise<ChallengeRow | null> {
+export interface MySeason {
+  readonly id: string;
+  readonly rating: number;
+  readonly record: string;
+  readonly ending: string | null;
+  readonly blind: boolean;
+  readonly assisted: boolean;
+  readonly completedAt: string | null;
+}
+
+/**
+ * Your own server-scored seasons, best first.
+ *
+ * A challenge can only be built from one of these. A season played offline has
+ * no row for the other side to be measured against, and a season this device
+ * scored for itself is not a number anyone should be asked to chase.
+ */
+export async function fetchMySeasons(): Promise<MySeason[]> {
+  if (!supabase) return [];
+  const me = await currentUser();
+  if (!me) return [];
+  const { data, error } = await supabase
+    .from('game_sessions')
+    .select('id, final_rating, record_wins, record_losses, ending_key, blind, assisted, completed_at')
+    .eq('user_id', me.id)
+    .eq('status', 'completed')
+    .order('final_rating', { ascending: false })
+    .limit(25);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    rating: Number(row.final_rating),
+    record: `${row.record_wins}-${row.record_losses}`,
+    ending: (row.ending_key as string) ?? null,
+    blind: row.blind === true,
+    assisted: row.assisted === true,
+    completedAt: (row.completed_at as string) ?? null,
+  }));
+}
+
+/** What someone holding a share link is allowed to see before they answer. */
+export interface ChallengeInvite {
+  readonly id: string;
+  readonly status: 'open' | 'complete' | 'expired';
+  readonly createdAt: string;
+  readonly creatorHandle: string;
+  readonly creatorRating: number | null;
+  readonly creatorRecord: string | null;
+  readonly creatorEnding: string | null;
+  readonly creatorTier: string | null;
+  readonly creatorAssisted: boolean;
+  readonly opponentHandle: string | null;
+  readonly opponentRating: number | null;
+  readonly opponentRecord: string | null;
+  /** True when you are looking at your own challenge. */
+  readonly isMine: boolean;
+  /** Your attempt at it, if you have started or finished one. */
+  readonly myStatus: 'in_progress' | 'completed' | 'abandoned' | null;
+}
+
+export async function fetchChallengeInvite(token: string): Promise<ChallengeInvite | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('challenge_by_token', { p_token: token });
+  if (error) throw new Error(error.message);
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+  return {
+    id: row.id as string,
+    status: row.status as ChallengeInvite['status'],
+    createdAt: row.created_at as string,
+    creatorHandle: (row.creator_handle as string) ?? 'player',
+    creatorRating: number(row.creator_rating),
+    creatorRecord: record(row.creator_wins, row.creator_losses),
+    creatorEnding: (row.creator_ending as string) ?? null,
+    creatorTier: (row.creator_tier as string) ?? null,
+    creatorAssisted: row.creator_assisted === true,
+    opponentHandle: (row.opponent_handle as string) ?? null,
+    opponentRating: number(row.opponent_rating),
+    opponentRecord: record(row.opponent_wins, row.opponent_losses),
+    isMine: row.viewer_is_creator === true,
+    myStatus: (row.viewer_status as ChallengeInvite['myStatus']) ?? null,
+  };
+}
+
+/**
+ * Turns one of your finished seasons into a challenge.
+ *
+ * Only a server-scored season can be challenged: the whole point is that the
+ * number your friend is chasing is one the server stands behind.
+ */
+export async function createChallenge(gameSessionId: string): Promise<string | null> {
   if (!supabase) return null;
   const me = await currentUser();
   if (!me) return null;
   const { data, error } = await supabase
     .from('challenges')
     .insert({ creator_user_id: me.id, creator_game_session_id: gameSessionId })
-    .select('id, share_token, status, created_at')
+    .select('share_token')
     .single();
   if (error || !data) return null;
-  return {
-    id: data.id as string,
-    shareToken: data.share_token as string,
-    creatorHandle: 'you',
-    creatorRating: null,
-    creatorRecord: null,
-    status: data.status as string,
-    createdAt: data.created_at as string,
-  };
+  return data.share_token as string;
 }
 
 /**

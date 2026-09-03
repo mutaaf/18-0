@@ -152,16 +152,26 @@ const SLOTS = ['QB', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'DEF'];
 const SLOT_POSITION = { QB: 'QB', RB1: 'RB', RB2: 'RB', WR1: 'WR', WR2: 'WR', TE1: 'TE', DEF: 'DEF' };
 
 /** Plays a full ranked game: create session, spin 7 times, pick each time. */
-async function playRankedGame({ sb, user, token }, { assist = false, blind = true } = {}) {
+async function playRankedGame(
+  { sb, user, token },
+  { assist = false, blind = true, challengeId = null } = {},
+) {
   const idempotencyKey = crypto.randomUUID();
   const { data: session, error } = await sb
     .from('game_sessions')
-    .insert({ user_id: user.id, status: 'in_progress', idempotency_key: idempotencyKey, blind })
+    .insert({
+      user_id: user.id,
+      status: 'in_progress',
+      idempotency_key: idempotencyKey,
+      blind,
+      challenge_id: challengeId,
+    })
     .select('id')
     .single();
   if (error) throw new Error(`session insert failed: ${error.message}`);
 
   const selections = [];
+  const spins = [];
   const filled = new Set();
   const usedEntities = new Set();
 
@@ -169,6 +179,7 @@ async function playRankedGame({ sb, user, token }, { assist = false, blind = tru
     const spun = await call('spin', token, { gameSessionId: session.id, assist });
     if (spun.status !== 200) throw new Error(`spin ${i + 1} failed: ${JSON.stringify(spun.body)}`);
     const { franchiseId, era, sequence } = spun.body.spin;
+    spins.push({ sequence, franchiseId, era });
 
     const open = SLOTS.filter((s) => !filled.has(s));
     const { data: cards } = await sb
@@ -191,7 +202,7 @@ async function playRankedGame({ sb, user, token }, { assist = false, blind = tru
     selections.push({ slot, cardId: card.id, spinSequence: sequence });
   }
 
-  return { sessionId: session.id, idempotencyKey, selections };
+  return { sessionId: session.id, idempotencyKey, selections, spins };
 }
 
 console.log('\n18-0 — SERVER END-TO-END VERIFICATION\n' + '='.repeat(64));
@@ -421,6 +432,83 @@ const hijack = await bob.sb.from('challenges')
   .eq('id', challenge.data?.id ?? crypto.randomUUID()).select();
 check('a challenge cannot be hijacked', hijack.error !== null || (hijack.data ?? []).length === 0,
   hijack.error ? hijack.error.code : `${(hijack.data ?? []).length} rows changed`);
+
+// The loop the feature actually is: a link, an answer on the same wheels, and
+// a result that settles itself.
+const token = challenge.data?.share_token;
+const invite = await bob.sb.rpc('challenge_by_token', { p_token: token });
+const invited = Array.isArray(invite.data) ? invite.data[0] : invite.data;
+check('someone who was sent the link can read the challenge',
+  invite.error === null && Boolean(invited), invite.error?.message ?? invited?.creator_handle);
+check('the link shows the score to beat', Number(invited?.creator_rating) > 0,
+  String(invited?.creator_rating));
+check('the link does not carry the creator\'s roster',
+  invited !== undefined && invited !== null && !Object.keys(invited).some((k) => /card|roster|selection/i.test(k)),
+  Object.keys(invited ?? {}).join(','));
+
+const strangerRead = await bob.sb.from('challenges').select('id').eq('share_token', token);
+check('and still cannot read the row itself', (strangerRead.data ?? []).length === 0,
+  `${(strangerRead.data ?? []).length} rows`);
+
+const ownAnswer = await alice.sb.from('game_sessions').insert({
+  user_id: alice.user.id, status: 'in_progress', idempotency_key: crypto.randomUUID(),
+  blind: true, challenge_id: challenge.data?.id,
+}).select('id');
+check('you cannot answer your own challenge', ownAnswer.error !== null,
+  ownAnswer.error?.code ?? 'insert allowed');
+
+const answer = await playRankedGame(bob, { challengeId: challenge.data?.id });
+const { data: aliceSpins } = await alice.sb.from('game_spins')
+  .select('sequence, franchise_id, era_key').eq('game_session_id', game.sessionId).order('sequence');
+const sameWheel = (aliceSpins ?? []).length === answer.spins.length
+  && (aliceSpins ?? []).every((s, i) =>
+    s.franchise_id === answer.spins[i].franchiseId && s.era_key === answer.spins[i].era);
+check('the answer is dealt the same seven franchise-eras', sameWheel,
+  (aliceSpins ?? []).map((s) => `${s.franchise_id}:${s.era_key}`).join(' '));
+
+const answerResult = await call('complete-game', bob.token, {
+  gameSessionId: answer.sessionId,
+  idempotencyKey: answer.idempotencyKey,
+  selections: answer.selections,
+});
+check('the answer scores', answerResult.status === 200, String(answerResult.status));
+
+const { data: settled } = await alice.sb.from('my_challenges')
+  .select('status, opponent_user_id, opponent_rating, creator_rating, winner_user_id')
+  .eq('id', challenge.data?.id).maybeSingle();
+check('finishing the answer settles the challenge, with no client call',
+  settled?.status === 'complete' && settled?.opponent_user_id === bob.user.id,
+  `${settled?.status} / ${settled?.opponent_user_id === bob.user.id ? 'bob' : settled?.opponent_user_id}`);
+const higher = Number(settled?.opponent_rating) > Number(settled?.creator_rating)
+  ? bob.user.id
+  : Number(settled?.creator_rating) > Number(settled?.opponent_rating) ? alice.user.id : null;
+check('and names the higher rating as the winner', settled?.winner_user_id === higher,
+  `${settled?.creator_rating} vs ${settled?.opponent_rating}`);
+
+const bobSees = await bob.sb.from('my_challenges').select('id').eq('id', challenge.data?.id);
+check('both sides can see the settled challenge', (bobSees.data ?? []).length === 1,
+  `${(bobSees.data ?? []).length} rows`);
+
+const secondAnswer = await carol.sb.from('game_sessions').insert({
+  user_id: carol.user.id, status: 'in_progress', idempotency_key: crypto.randomUUID(),
+  blind: true, challenge_id: challenge.data?.id,
+}).select('id');
+check('a settled challenge cannot be answered again', secondAnswer.error !== null,
+  secondAnswer.error?.code ?? 'insert allowed');
+
+// The assisted spin is a solo affordance. Against another player it is theft.
+const duel2 = await alice.sb.from('challenges').insert({
+  creator_user_id: alice.user.id, creator_game_session_id: game.sessionId,
+}).select('id').single();
+const cheatSession = await bob.sb.from('game_sessions').insert({
+  user_id: bob.user.id, status: 'in_progress', idempotency_key: crypto.randomUUID(),
+  blind: true, challenge_id: duel2.data?.id,
+}).select('id').single();
+const cheat = await call('spin', bob.token, {
+  gameSessionId: cheatSession.data?.id, assist: true,
+});
+check('the assisted spin is refused inside a challenge', cheat.status === 409,
+  cheat.body?.error ?? String(cheat.status));
 
 // ---------------------------------------------------------------------------
 console.log('\nAUDIT TRAIL');

@@ -89,6 +89,13 @@ async function readError(error: unknown): Promise<string | null> {
  */
 export async function beginRanked(
   blind: boolean,
+  /**
+   * The challenge this season answers, if it answers one. Declared at insert
+   * time so the server can replay the creator's wheel from the first spin and
+   * so the result attaches itself when it is scored -- neither of which can be
+   * bolted on afterwards by a client that has already seen its score.
+   */
+  challengeId?: string,
 ): Promise<RankedResult<{ sessionId: string; idempotencyKey: string }>> {
   if (!isBackendConfigured || !supabase) return offline('Ranked play is not configured.');
   if (!(await ensureSession())) return offline('Could not start a session.');
@@ -99,10 +106,21 @@ export async function beginRanked(
   const idempotencyKey = uuid();
   const { data, error } = await supabase
     .from('game_sessions')
-    .insert({ user_id: me.id, status: 'in_progress', idempotency_key: idempotencyKey, blind })
+    .insert({
+      user_id: me.id,
+      status: 'in_progress',
+      idempotency_key: idempotencyKey,
+      blind,
+      challenge_id: challengeId ?? null,
+    })
     .select('id')
     .single();
-  if (error || !data) return offline('Could not open a ranked game.');
+  if (error || !data) {
+    // The insert policy refuses a session pointed at a challenge that is
+    // closed, expired, or your own, so this is the one place that failure can
+    // surface and it deserves its own sentence.
+    return offline(challengeId ? 'That challenge is no longer open.' : 'Could not open a ranked game.');
+  }
   return { ok: true, value: { sessionId: data.id as string, idempotencyKey } };
 }
 

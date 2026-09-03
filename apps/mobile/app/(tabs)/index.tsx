@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { RankedSwitch } from '@/components/RankedSwitch';
 import { Reveal } from '@/components/Reveal';
 import { ROSTER_SLOTS } from '@18-0/domain';
 import { DATASET } from '@18-0/data';
@@ -10,6 +11,7 @@ import { Crown } from '@/components/Crown';
 import { Hall } from '@/components/Hall';
 import { Screen } from '@/components/Screen';
 import { LeaderboardStrip } from '@/components/LeaderboardStrip';
+import { Panel } from '@/components/Panel';
 import { track } from '@/features/telemetry';
 import { beginRanked } from '@/features/ranked';
 import { isBackendConfigured } from '@/services/supabase';
@@ -22,6 +24,7 @@ import {
   radius,
   space,
   tabular,
+  tierColor,
   tracking,
   useLayout,
   type PressState,
@@ -170,36 +173,14 @@ export default function Home() {
 
       {isBackendConfigured ? (
         <Reveal delay={120}>
-          <Pressable
-            onPress={() => {
-              setRanked((on: boolean) => !on);
+          <RankedSwitch
+            on={ranked}
+            busy={opening}
+            onToggle={() => {
+              setRanked((was: boolean) => !was);
               Haptics.selectionAsync().catch(() => {});
             }}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: ranked }}
-            accessibilityLabel="Play for the leaderboard"
-            style={({ hovered }: PressState) => [
-              styles.ranked,
-              hovered && { borderColor: color.lineBright },
-              ranked && styles.rankedOn,
-            ]}
-          >
-            <View style={[styles.rankedTick, ranked && styles.rankedTickOn]}>
-              {ranked ? <Text style={styles.rankedTickMark}>✓</Text> : null}
-            </View>
-            <View style={styles.rankedBody}>
-              <Text style={[styles.rankedTitle, ranked && { color: color.text }]}>
-                Play for the leaderboard
-              </Text>
-              <Text style={styles.rankedCopy}>
-                {opening
-                  ? 'Opening a ranked game…'
-                  : ranked
-                    ? 'The server deals every spin and scores the roster. Only Player IQ seasons rank, and only once you sign in.'
-                    : 'Off — this season stays on your device.'}
-              </Text>
-            </View>
-          </Pressable>
+          />
         </Reveal>
       ) : null}
 
@@ -252,37 +233,58 @@ export default function Home() {
     <View style={styles.aside}>
       <Reveal delay={180} style={styles.statRow}>
         <Stat label="Games" value={String(stats.played)} />
-        <Stat label="Best rating" value={stats.bestRating ? stats.bestRating.toFixed(1) : '—'} />
+        {/* The rating wears its own tier's colour, so the number and the badge
+            it would earn on a card are never two different claims. */}
+        <Stat
+          label="Best rating"
+          value={stats.bestRating ? stats.bestRating.toFixed(1) : '—'}
+          tint={stats.bestRating ? tierColor[tierOf(stats.bestRating)] : undefined}
+        />
         <Stat
           label="Best record"
           value={stats.bestRecord ? `${stats.bestRecord.wins}-${stats.bestRecord.losses}` : '—'}
+          tint={
+            stats.bestRecord?.losses === 0 && stats.bestRecord.wins > 0
+              ? color.gold
+              : stats.bestRecord
+                ? color.ice
+                : undefined
+          }
         />
       </Reveal>
 
-      <Reveal delay={220} style={styles.chase}>
+      <Reveal delay={220}>
+        <Panel tint={stats.perfectSeasons > 0 ? color.gold : undefined} contentStyle={styles.chase}>
         <View style={styles.chaseHead}>
           <Crown size={20} tint={stats.perfectSeasons > 0 ? color.gold : color.textFaint} bright={stats.perfectSeasons > 0 ? color.goldBright : color.textFaint} />
           <Text style={styles.chaseTitle}>The chase</Text>
         </View>
         <View style={styles.chaseRow}>
           <View>
+            {/* A zero stays grey. Colour here is the reward for the thing
+                having happened at all. */}
             <Text style={[styles.chaseValue, stats.perfectSeasons > 0 && { color: color.goldBright }]}>
               {stats.perfectSeasons}
             </Text>
             <Text style={styles.chaseLabel}>18-0 seasons</Text>
           </View>
           <View>
-            <Text style={styles.chaseValue}>{stats.heartbreaks}</Text>
+            <Text style={[styles.chaseValue, stats.heartbreaks > 0 && { color: color.ice }]}>
+              {stats.heartbreaks}
+            </Text>
             <Text style={styles.chaseLabel}>17-1 seasons</Text>
           </View>
           <View>
-            <Text style={styles.chaseValue}>{stats.playerIqGames}</Text>
+            <Text style={[styles.chaseValue, stats.playerIqGames > 0 && { color: color.redBright }]}>
+              {stats.playerIqGames}
+            </Text>
             <Text style={styles.chaseLabel}>Built blind</Text>
           </View>
         </View>
         <Text style={styles.chaseNote}>
           18-0 lands about once every 6,000 games. 17-1 about once every 49.
         </Text>
+        </Panel>
       </Reveal>
 
       <Reveal delay={260}>
@@ -407,13 +409,26 @@ function ModeCard({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, tint }: { label: string; value: string; tint?: string }) {
   return (
-    <View style={styles.stat}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    <Panel tint={tint} style={styles.stat} contentStyle={styles.statBody}>
+      <View>
+        <Text style={[styles.statValue, tint ? { color: tint } : null]}>{value}</Text>
+        <Text style={styles.statLabel}>{label}</Text>
+      </View>
+    </Panel>
   );
+}
+
+/** The tier a rating would earn, for colour only. */
+function tierOf(rating: number): string {
+  if (rating >= 99) return 'IMMORTAL';
+  if (rating >= 96) return 'S+';
+  if (rating >= 93) return 'S';
+  if (rating >= 90) return 'A+';
+  if (rating >= 86) return 'A';
+  if (rating >= 82) return 'B+';
+  return 'B';
 }
 
 const styles = StyleSheet.create({
@@ -423,31 +438,6 @@ const styles = StyleSheet.create({
   splitMain: { flex: 1.45, minWidth: 0 },
   splitSide: { flex: 1, minWidth: 0, maxWidth: 440 },
 
-  ranked: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    padding: space.lg,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: color.line,
-    backgroundColor: '#0A0E1799',
-  },
-  rankedOn: { borderColor: `${color.gold}66`, backgroundColor: '#14110699' },
-  rankedTick: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: color.lineBright,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rankedTickOn: { backgroundColor: color.gold, borderColor: color.gold },
-  rankedTickMark: { fontFamily: font.bodyBold, fontSize: 13, color: '#0A0E17' },
-  rankedBody: { flex: 1, minWidth: 0, gap: 2 },
-  rankedTitle: { fontFamily: font.heading, fontSize: 17, color: color.textDim },
-  rankedCopy: { fontFamily: font.bodyRegular, fontSize: 12, lineHeight: 17, color: color.textFaint },
 
   steps: { gap: space.md },
   stepsWide: { flexDirection: 'row' },
@@ -597,15 +587,8 @@ const styles = StyleSheet.create({
   modeGoQuiet: { color: color.textFaint },
 
   statRow: { flexDirection: 'row', gap: space.sm },
-  stat: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: color.line,
-    borderRadius: radius.md,
-    paddingVertical: space.lg,
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF05',
-  },
+  stat: { flex: 1 },
+  statBody: { paddingVertical: space.lg, alignItems: 'center' },
   statValue: {
     fontFamily: font.display,
     fontSize: 30,
@@ -621,14 +604,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 
-  chase: {
-    borderWidth: 1,
-    borderColor: color.line,
-    borderRadius: radius.md,
-    padding: space.lg,
-    gap: space.md,
-    backgroundColor: '#FFFFFF04',
-  },
+  chase: { padding: space.lg, gap: space.md },
   chaseHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   chaseTitle: {
     fontFamily: font.label,

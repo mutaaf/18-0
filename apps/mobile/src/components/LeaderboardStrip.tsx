@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { fetchLeaderboard, isBackendConfigured, type LeaderboardRow } from '@/services/supabase';
 import { computeStats, useHistoryStore } from '@/state/history';
+import { Panel } from './Panel';
 import { color, font, radius, space, tabular, tierColor, tracking, type PressState } from '@/theme';
 
 /**
@@ -38,12 +39,13 @@ export function LeaderboardStrip({ onPress }: { onPress: () => void }) {
   const online = isBackendConfigured && !failed && rows !== null && rows.length > 0;
 
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel="Open leaderboards"
-      style={({ hovered }: PressState) => [styles.card, hovered && { borderColor: color.lineBright }]}
-    >
+    <Panel tint={online ? color.navy : undefined} contentStyle={styles.card}>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel="Open leaderboards"
+        style={({ hovered }: PressState) => [hovered && { opacity: 0.9 }]}
+      >
       <View style={styles.head}>
         <Text style={styles.title}>{online ? 'Leaderboard' : 'Your best seasons'}</Text>
         <View style={[styles.pill, online ? styles.pillLive : styles.pillLocal]}>
@@ -86,7 +88,8 @@ export function LeaderboardStrip({ onPress }: { onPress: () => void }) {
             ? "Couldn't reach the global board — showing yours"
             : 'Global rankings need a connection'}
       </Text>
-    </Pressable>
+      </Pressable>
+    </Panel>
   );
 }
 
@@ -104,27 +107,28 @@ function Row({
   tier: string;
 }) {
   const accent = tierColor[tier] ?? color.text;
+  const medal = MEDAL[rank];
   return (
     <View style={styles.row}>
-      <Text style={[styles.rank, rank === 1 && { color: accent }]}>{rank}</Text>
+      <Text style={[styles.rank, medal ? { color: medal } : null]}>{rank}</Text>
       <Text style={styles.name} numberOfLines={1}>
         {name}
       </Text>
       <Text style={[styles.record, { color: accent }]}>{record}</Text>
-      <Text style={styles.rating}>{rating.toFixed(1)}</Text>
+      <Text style={[styles.rating, { color: accent }]}>{rating.toFixed(1)}</Text>
     </View>
   );
 }
 
+/** Gold, silver, bronze. Anything below third is just a number. */
+const MEDAL: Record<number, string | undefined> = {
+  1: color.gold,
+  2: color.silver,
+  3: '#C87A3D',
+};
+
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderColor: color.line,
-    borderRadius: radius.md,
-    padding: space.lg,
-    gap: 2,
-    backgroundColor: '#FFFFFF04',
-  },
+  card: { padding: space.lg, gap: 2 },
   head: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: space.sm },
   title: {
     flex: 1,
