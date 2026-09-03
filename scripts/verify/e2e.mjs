@@ -184,11 +184,16 @@ async function playRankedGame(
     spins.push({ sequence, franchiseId, era });
 
     const open = SLOTS.filter((s) => !filled.has(s));
+    // Retired cards are excluded for the same reason a real client never sees
+    // one: a rebuilt dataset no longer contains it, the bundle has never heard
+    // of it, and `select` refuses it (0020). Without this the harness picks a
+    // card no player could pick and reports the refusal as a failure.
     const { data: cards } = await sb
       .from('season_cards')
       .select('id, entity_id, position, rating')
       .eq('franchise_id', franchiseId)
       .eq('era_key', era)
+      .is('retired_at', null)
       .in('position', [...new Set(open.map((s) => SLOT_POSITION[s]))])
       .order('rating', { ascending: false });
 
@@ -329,7 +334,9 @@ const bobGame = await (async () => {
 })();
 
 const { data: best } = await bob.sb
-  .from('season_cards').select('id, position, entity_id').order('rating', { ascending: false }).limit(400);
+  .from('season_cards').select('id, position, entity_id')
+  .is('retired_at', null)
+  .order('rating', { ascending: false }).limit(400);
 const dream = [];
 const seen = new Set();
 for (const slot of SLOTS) {
