@@ -36,14 +36,31 @@ if [[ -z "$UDID" ]]; then
   # not accept it. This is the one that works.
   # sed, not awk: BSD awk on macOS has no match() capture argument, and that is
   # the awk this will actually run under.
+  # Only the connected section. `xctrace` prints `== Devices Offline ==` between
+  # `== Devices ==` and `== Simulators ==`, so a range ending at the simulators
+  # happily selects a phone that is paired but not here -- and xcodebuild then
+  # fails on a destination it cannot reach, which reads like a signing problem
+  # rather than an unplugged cable. The range stops at the blank line that ends
+  # the section.
   UDID=$(xcrun xctrace list devices 2>/dev/null \
-    | sed -n '/== Devices ==/,/== Simulators ==/p' \
+    | sed -n '/== Devices ==/,/^$/p' \
     | grep -E '^(iPhone|iPad)' \
     | sed -n 's/.*(\([0-9A-Fa-f][0-9A-Fa-f-]\{24,\}\))[[:space:]]*$/\1/p' \
-    | head -1)
+    | head -1 || true)
+  # `|| true` because finding no phone is a normal outcome this script handles
+  # below. Without it `grep`'s exit 1 travels through `pipefail` into the
+  # assignment and `set -e` ends the run right here -- silently, before the
+  # message that says what to plug in.
 fi
 if [[ -z "$UDID" ]]; then
-  echo "No paired iPhone found. Plug it in, unlock it, and trust this Mac." >&2
+  # Paired but asleep, locked, or unplugged is the overwhelmingly common case,
+  # and it deserves a different sentence from "no phone has ever been paired".
+  if xcrun xctrace list devices 2>/dev/null \
+      | sed -n '/== Devices Offline ==/,/== Simulators ==/p' | grep -qE '^(iPhone|iPad)'; then
+    echo "Your iPhone is paired but offline. Plug it in and unlock it." >&2
+  else
+    echo "No paired iPhone found. Plug it in, unlock it, and trust this Mac." >&2
+  fi
   xcrun xctrace list devices 2>/dev/null | sed -n '/== Devices ==/,/== Simulators ==/p' >&2
   exit 1
 fi
