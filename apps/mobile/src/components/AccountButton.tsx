@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { router, usePathname } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { identity, isBackendConfigured, type Identity } from '@/services/supabase';
+import { identifyPlayer } from '@/features/analytics';
+import { ratingBucket } from '@/features/telemetry';
+import { computeStats, useHistoryStore } from '@/state/history';
 import { color, font, space, tracking, type PressState } from '@/theme';
 
 const SIZE = 46;
@@ -25,6 +28,8 @@ export function AccountButton() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const [me, setMe] = useState<Identity | null>(null);
+  const games = useHistoryStore((s) => s.games);
+  const stats = useMemo(() => computeStats(games), [games]);
 
   // Keyed on the route so it picks up a name the moment you claim one, without
   // any of the screens having to know this button exists.
@@ -32,12 +37,28 @@ export function AccountButton() {
     if (!isBackendConfigured) return;
     let alive = true;
     identity()
-      .then((who) => alive && setMe(who))
+      .then((who) => {
+        if (!alive) return;
+        setMe(who);
+        // Person properties, so the events already being sent belong to
+        // somebody rather than to a stream. A no-op unless analytics is
+        // configured, and it only calls out when something actually changed.
+        if (who) {
+          void identifyPlayer({
+            userId: who.userId,
+            handle: who.handle,
+            named: who.named,
+            seasons: stats.played,
+            bestRatingBucket: stats.bestRating === null ? undefined : ratingBucket(stats.bestRating),
+            favouriteMode: stats.topMode ?? undefined,
+          });
+        }
+      })
       .catch(() => undefined);
     return () => {
       alive = false;
     };
-  }, [pathname]);
+  }, [pathname, stats.played, stats.bestRating, stats.topMode]);
 
   // Nothing to travel to from the screen you are already on.
   if (pathname.endsWith('/account')) return null;

@@ -60,6 +60,8 @@ export interface ProfileStats {
   /** Seasons built blind. The number worth bragging about. */
   playerIqGames: number;
   bestPlayerIqRating: number | null;
+  /** Whichever of the three modes they reach for most. */
+  topMode: string | null;
 }
 
 export interface ProfileStatsInput {
@@ -76,7 +78,8 @@ export function computeStats(all: readonly HistoryEntry[]): ProfileStats {
   if (games.length === 0) {
     return {
       played: all.length, bestRating: null, bestRecord: null, perfectSeasons: 0,
-      heartbreaks: 0, averageRating: null, topFranchise: null, topEra: null, bestCard: null,
+      heartbreaks: 0, averageRating: null, topFranchise: null, topEra: null, topMode: null,
+      bestCard: null,
       playerIqGames: 0, bestPlayerIqRating: null,
     };
   }
@@ -101,6 +104,11 @@ export function computeStats(all: readonly HistoryEntry[]): ProfileStats {
     [...map.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
   const blind = games.filter((g) => g.mode === 'player_iq');
+  const modes = new Map<string, number>();
+  for (const g of games) {
+    const mode = g.mode ?? 'rookie';
+    modes.set(mode, (modes.get(mode) ?? 0) + 1);
+  }
 
   return {
     played: all.length,
@@ -115,6 +123,7 @@ export function computeStats(all: readonly HistoryEntry[]): ProfileStats {
     averageRating: ratingTotal / games.length,
     topFranchise: top(franchises),
     topEra: top(eras),
+    topMode: top(modes),
     bestCard,
   };
 }

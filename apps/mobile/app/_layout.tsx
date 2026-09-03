@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
+import { startAnalytics } from '@/features/analytics';
 import { Rajdhani_600SemiBold, Rajdhani_700Bold } from '@expo-google-fonts/rajdhani';
 import {
   Montserrat_400Regular,
@@ -28,6 +29,13 @@ export default function RootLayout() {
   useEffect(() => {
     if (ready || error) SplashScreen.hideAsync().catch(() => {});
   }, [ready, error]);
+
+  // Installs a second sink on the telemetry that already exists. With no
+  // PostHog key configured this does nothing at all and makes no network call,
+  // which is the state the repository ships in.
+  useEffect(() => {
+    startAnalytics();
+  }, []);
 
   // A challenge arrives as `?c=<token>` on the site's own address rather than
   // as a path of its own. The site is a static export on GitHub Pages, which

@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from './supabase';
+import { resetAnalytics } from '@/features/analytics';
 import { invalidateIdentity } from '@/features/cache';
 
 /**
@@ -177,6 +178,9 @@ export async function signOut(): Promise<void> {
   // The identity is cached to disk, so without this the next screen can still
   // paint the name of the account that just left.
   invalidateIdentity();
+  // And the analytics identity, or the next person to use this device would be
+  // filed under the account that just signed out.
+  await resetAnalytics();
 }
 
 /**
