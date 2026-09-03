@@ -19,9 +19,25 @@ apps/mobile/src/features/flags/
 2. **Read it** where it is used: `useFlag('key')` in a component,
    `flag('key')` anywhere else. Keys are a union type, so a typo is a
    compile error and there is no string to get wrong.
-3. **Create it in PostHog** with *exactly* the same key, and — for an
-   experiment — exactly the same variant names. A mismatch is silent by
-   design: an unrecognised value is discarded and the fallback stands.
+3. **Push it to PostHog**, which is a script rather than a web form because the
+   registry has to stay the single source of truth:
+
+   ```bash
+   npx tsx scripts/posthog-flags.ts            # dry run, prints the payloads
+   set -a; . .local/posthog.env; set +a
+   npx tsx scripts/posthog-flags.ts --apply    # creates or updates
+   ```
+
+   It needs a **personal** API key with `feature_flag:write` --
+   `EXPO_PUBLIC_POSTHOG_KEY` is a project ingestion token, write-only for
+   events, and cannot manage anything. It is idempotent, and it never deletes:
+   a flag dropped from the registry is left for a human to archive.
+
+   Doing this by hand works too, but a variant name typed into a web form
+   drifts from the code the moment somebody renames one, and the drift is
+   silent in the worst way — the client discards a value it does not recognise
+   and serves the fallback, so the experiment looks like it is running and is
+   not.
 4. **Run the tests.** `pnpm --filter @18-0/mobile test`.
 
 ```tsx
