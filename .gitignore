@@ -10,15 +10,15 @@ sim-output/
 
 # Raw source CSVs — re-fetch with data/raw/fetch.sh, never committed
 data/raw/*.csv
-data/raw/nfl/
+data/raw/nfl
 
 # Hydrated pre-1999 source data: season files in the canonical shape
 # `packages/data/src/seasons.ts` documents, and the standings and brackets
 # `scripts/build-era-stories.py` reads. Never committed: these are built from
 # whatever source you have a licence to read, and that licence does not travel
 # with the repository. See docs/hydrating-seasons.md.
-data/raw/seasons/
-data/raw/results/
+data/raw/seasons
+data/raw/results
 
 # Supabase local stack
 supabase/.temp/
@@ -44,7 +44,12 @@ supabase/.branches/
 !apps/mobile/public/*.png
 
 # Local secrets, never committed
-.local/
+# No trailing slash, deliberately. Each of these is a directory in this
+# checkout and a *symlink* inside an agent's worktree
+# (scripts/agent-worktree.sh), and a trailing slash matches a directory but not
+# a link -- with one, `git add -A` in a worktree offers to commit a symlink
+# pointing at this machine's credentials. The bare form matches both.
+.local
 
 # Native projects are generated from app.config.js by `expo prebuild`, so they
 # are build output rather than source. Committing them means the config and the

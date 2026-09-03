@@ -69,11 +69,34 @@ Full pattern, and why PostHog rather than LaunchDarkly:
   overlapping windows, and the flag registry test. A rule with no test is a
   rule that is already being broken somewhere.
 
+## One agent, one checkout
+
+Do not work in a checkout somebody else is working in. Three agents shared this
+tree and it cost real time three times: a commit landed on another agent's
+feature branch because the branch was switched underneath it, a stale branch
+nearly reverted 1,593 cards, and an end-to-end run failed on a spin that was
+fine because two harnesses were playing real games against the same database at
+the same moment -- which looked exactly like a regression and was chased as one.
+
+```bash
+scripts/agent-worktree.sh <name>      # ../18-0-<name> on agent/<name>, from origin/main
+```
+
+It links `.local`, `data/raw` and `apps/mobile/.env` back here -- credentials in
+one place, no re-fetching gigabytes of CSVs -- and installs. Branch from
+`origin/main`, never from whatever happens to be checked out. Push the branch
+and open a pull request; `git worktree remove` when it is merged.
+
+If you are already working in the shared tree, finish and land what you have,
+then move. Until then: **stage by path, never `git add -A`**, and read
+`git status` as a description of several people's work rather than your own.
+
 ## Where the rest is written down
 
 | | |
 |---|---|
 | [`docs/backlog.md`](docs/backlog.md) | **Open work, with the context to pick it up cold. Start here.** |
+| `scripts/agent-worktree.sh` | Your own checkout, in one command |
 | [`docs/scoring-model.md`](docs/scoring-model.md) | How a season becomes a number, and what has to be refitted when the pool changes |
 | [`docs/FINDINGS.md`](docs/FINDINGS.md) | What the simulation measured, and why the free pre-1999 source was rejected |
 | [`docs/hydrating-seasons.md`](docs/hydrating-seasons.md) | Bringing a pre-1999 season in, and the licence it needs |

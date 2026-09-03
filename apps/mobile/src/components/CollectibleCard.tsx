@@ -6,6 +6,7 @@ import { displayName, era as eraDef, franchise, headshotUrl, type BootCard } fro
 import { color, elevate, font, positionColor, radius, space, tabular, tracking } from '@/theme';
 import { useCardTilt } from './useCardTilt';
 import { useCardStats } from '@/features/stat-lines';
+import { useFlag } from '@/features/flags';
 
 /**
  * The card as an object, rather than a heading with facts under it.
@@ -35,7 +36,9 @@ export function CollectibleCard({
   const teamColor2 = team.color2 || teamColor;
 
   const { panHandlers, transform, sheenShift } = useCardTilt();
-  const photo = headshotUrl(card.entityId);
+  // Behind a switch because the images are hot-linked from the NFL's CDN and
+  // are not ours. See `player_photos` in the flag registry.
+  const photo = useFlag('player_photos') ? headshotUrl(card.entityId) : null;
 
   /**
    * Turning the card over.

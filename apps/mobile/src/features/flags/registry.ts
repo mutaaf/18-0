@@ -135,6 +135,40 @@ export const FLAGS = {
     variants: ['control', 'clock', 'field'],
     metric: 'gameday_started',
   },
+  /**
+   * Player photographs, on or off.
+   *
+   * Not a product decision -- a legal one, kept where it can be made in
+   * seconds. `headshots.ts` carries 1,626 URLs on the NFL's CDN and its own
+   * header says the images "are not ours to redistribute". They were pulled to
+   * prove a point when nothing was public; the app is now installable, and the
+   * exposure is larger than the trademark question the codebase already takes
+   * seriously enough to refuse club names over.
+   *
+   * If a takedown arrives, this turns every photograph off everywhere that can
+   * reach PostHog, in the time it takes to click a toggle, with no App Store
+   * review in the path. `CollectibleCard` has degraded gracefully since the
+   * first build -- `{photo ? … : null}`, leaving the team-coloured wash -- and
+   * every team defence card has run without a photo in production all along,
+   * so the off state is the proven one.
+   *
+   * A device that cannot reach PostHog keeps its shipped default of `true`,
+   * which is the usual limit of a remote switch. It matters less here than it
+   * looks: a photograph is fetched from the CDN when a card is opened, so a
+   * device with no network is not displaying them either.
+   *
+   * `removeBy` is the date by which the underlying decision has to be made
+   * rather than deferred again: licence a source, generate something that is
+   * ours, or remove them. A switch is a stay of execution, not an answer.
+   */
+  player_photos: {
+    key: 'player_photos',
+    kind: 'toggle',
+    summary: 'Shows player photographs on a card. Off leaves the team-coloured wash.',
+    owner: 'mutaaf',
+    removeBy: '2027-09-01',
+    fallback: true,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof FLAGS;

@@ -145,8 +145,16 @@ with the comment *"a missing one simply leaves the wash"* — and every team
 defence card has run without a photo since the first build, so the fallback is
 proven in production. Making `headshotUrl()` return null is a one-line change.
 
+**There is now a switch.** `player_photos` (PostHog flag 865321, fallback
+`true`) turns every photograph off wherever a device can reach PostHog, without
+an App Store review in the path. That is a stay of execution and not an answer:
+it shortens the response time from a release cycle to a click, and does nothing
+about a device that is offline or a build that never had the flag.
+
 **Decide before the binary is public.** Options: remove them; licence a source;
-or replace them with something generated that is ours. Recorded alongside every
+or replace them with something generated that is ours. The flag's `removeBy` is
+2027-09-01, which is the date the build starts failing if the decision has been
+deferred again. Recorded alongside every
 other third-party input in [`licensing.md`](licensing.md), which is now the page
 to read before answering this one.
 
@@ -189,11 +197,20 @@ release is cut on, which is the only machine where it can be wrong.
 
 ## 9. Three agents share one working tree
 
-Not a code problem, but it has cost real time twice: a commit landed on another
-agent's feature branch because the branch was switched underneath it, and a
-stale branch nearly reverted 1,593 cards. Give each agent its own clone or
-`git worktree`, and branch from `origin/main` rather than from whatever is
-checked out.
+**Fixed 3 September 2026.** `scripts/agent-worktree.sh <name>` gives an agent
+its own checkout on `agent/<name>` from `origin/main`, links `.local`,
+`data/raw` and `apps/mobile/.env` back to the main tree, and installs. CLAUDE.md
+says to use it before touching anything.
+
+It had cost real time three times: a commit landed on another agent's feature
+branch because the branch was switched underneath it, a stale branch nearly
+reverted 1,593 cards, and an end-to-end run failed on a spin that was fine
+because two harnesses were playing real games against the same database at the
+same moment.
+
+**Remaining:** agents already working in the shared tree have to finish and land
+what they have before moving. Until they do, the old rules still apply there —
+stage by path, never `git add -A`.
 
 ## 10. Smaller things
 
