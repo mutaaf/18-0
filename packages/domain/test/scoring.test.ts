@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_SCORING_CONFIG,
+  RATING_MODEL_VERSION,
+  scoringConfigForVersion,
   ROSTER_SLOTS,
   computeBaseRating,
   computeChemistry,
@@ -232,5 +234,39 @@ describe('determinism (PRFAQ §17)', () => {
         scoreRoster(low, config).finalRating,
       );
     }
+  });
+});
+
+/**
+ * A retune bumps the version and leaves the old one behind, because completed
+ * games store the version that scored them. The mistake this guards is small
+ * and silent: replacing the registry entry instead of adding to it, which makes
+ * every season already played unreadable and nothing complains until something
+ * tries to read one.
+ */
+describe('the version registry (PRFAQ §20, §45)', () => {
+  it('resolves the version the app is currently scoring with', () => {
+    expect(scoringConfigForVersion(RATING_MODEL_VERSION).version).toBe(RATING_MODEL_VERSION);
+  });
+
+  it('still resolves every version that has scored a real season', () => {
+    // Add to this list, never edit it: each entry is a version some stored
+    // game_sessions row carries.
+    for (const version of ['1.2.0', '1.3.0']) {
+      expect(scoringConfigForVersion(version).version).toBe(version);
+    }
+  });
+
+  it('hands back the config that version actually used, not the current one', () => {
+    const then = scoringConfigForVersion('1.2.0');
+    expect(then.perfection.minFinalRating).toBe(98.5);
+    expect(then.perfection.universalSlotMinimum).toBe(93);
+    expect(then.recordBands.find((b) => b.endingKey === 'PERFECT')?.minRating).toBe(98.5);
+    // The curve moved too, so a stored raw score must not re-read on the new one.
+    expect(then.calibration.anchors).not.toEqual(DEFAULT_SCORING_CONFIG.calibration.anchors);
+  });
+
+  it('refuses a version it has never scored with', () => {
+    expect(() => scoringConfigForVersion('9.9.9')).toThrow(/Unknown rating model version/);
   });
 });

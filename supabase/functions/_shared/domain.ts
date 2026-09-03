@@ -234,7 +234,38 @@ var SCORING_CONFIG_V1 = {
 };
 var DEFAULT_SCORING_CONFIG = SCORING_CONFIG_V1;
 var RATING_MODEL_VERSION = SCORING_CONFIG_V1.version;
+var CALIBRATION_V1_2 = {
+  anchors: [
+    { raw: 50.3714, final: 30 },
+    { raw: 75.3714, final: 58 },
+    { raw: 78.2971, final: 64 },
+    { raw: 80.7311, final: 68 },
+    { raw: 82.9854, final: 71.5 },
+    { raw: 86.8963, final: 76 },
+    { raw: 90.6285, final: 80 },
+    { raw: 92.7895, final: 87 },
+    { raw: 94.1584, final: 92 },
+    { raw: 94.865, final: 95 },
+    { raw: 96.032, final: 97.5 },
+    { raw: 97.209, final: 99 },
+    { raw: 98.0668, final: 99.35 },
+    { raw: 99.6661, final: 99.6 },
+    { raw: 100, final: 100 }
+  ]
+};
+var SCORING_CONFIG_V1_2 = {
+  ...SCORING_CONFIG_V1,
+  version: "1.2.0",
+  calibration: CALIBRATION_V1_2,
+  // 98.5 was the perfection floor before the deeper pool pushed 18-0 to
+  // 1 in 1,690 and the gates were raised to hold the published rarity.
+  recordBands: RECORD_BANDS.map(
+    (b) => b.endingKey === "PERFECT" ? { ...b, minRating: 98.5 } : b
+  ),
+  perfection: { ...PERFECTION, minFinalRating: 98.5, universalSlotMinimum: 93 }
+};
 var REGISTRY = {
+  "1.2.0": SCORING_CONFIG_V1_2,
   "1.3.0": SCORING_CONFIG_V1
 };
 function scoringConfigForVersion(version) {

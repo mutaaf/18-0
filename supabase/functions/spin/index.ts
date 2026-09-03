@@ -224,12 +224,38 @@ Deno.serve(async (req) => {
   if (usedEntities.length > 0) query = query.not('entity_id', 'in', `(${usedEntities.join(',')})`);
   if (gamedayFranchises) query = query.in('franchise_id', gamedayFranchises);
 
-  const { data: candidates, error: candidateError } = await query.limit(4000);
+  /**
+   * The ceiling has to sit above the whole live dataset, not near it.
+   *
+   * On the first spin of a game every position is open, so this query is
+   * "every live card", ordered by rating. A cap below that count silently
+   * drops the tail -- and because the order is by rating descending, what it
+   * drops is the weakest cards, which are exactly the ones that make a thin
+   * franchise-era spinnable at all. A bucket whose every card fell past the cut
+   * would simply stop being offered, with nothing logged and nothing to notice.
+   *
+   * It was 4,000 and the dataset reached 4,872 when 1980-1998 came in. No
+   * franchise-era lost its last card -- checked, the 4,000th row rated 71.82
+   * and every bucket still had something above it -- so this was one era away
+   * from being a real bug rather than a latent one.
+   */
+  const CANDIDATE_CEILING = 25_000;
+
+  const { data: candidates, error: candidateError } = await query.limit(CANDIDATE_CEILING);
   if (candidateError) {
     log('error', ctx, { event: 'spin_lookup_failed', reason: candidateError.message });
     return await refuse('lookup_failed', 500);
   }
   if (!candidates || candidates.length === 0) return await refuse('no_playable_spin', 409);
+  // Hitting the ceiling means the tail was truncated and some franchise-era may
+  // no longer be reachable. Cheap to check, and the alternative is finding out
+  // from a player who says a team stopped coming up.
+  if (candidates.length === CANDIDATE_CEILING) {
+    log('error', ctx, {
+      event: 'spin_candidates_truncated',
+      reason: `the candidate query returned the full ${CANDIDATE_CEILING} it was allowed; raise the ceiling`,
+    });
+  }
 
   // The three-finger spin lands on the bucket holding the single best card
   // still available. Recorded as assisted here, where the client cannot undo it.

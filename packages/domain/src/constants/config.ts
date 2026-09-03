@@ -313,7 +313,53 @@ export const SCORING_CONFIG_V1: ScoringConfig = {
 export const DEFAULT_SCORING_CONFIG = SCORING_CONFIG_V1;
 export const RATING_MODEL_VERSION = SCORING_CONFIG_V1.version;
 
+/**
+ * 1.2.0, frozen, because seasons were played under it.
+ *
+ * The retune that produced 1.3.0 moved three numbers and refitted the curve.
+ * Replacing the registry entry rather than adding to it would have made
+ * `scoringConfigForVersion('1.2.0')` throw — and every completed game on the
+ * live instance carries exactly that version, so the one thing the registry
+ * exists to guarantee had quietly stopped being true.
+ *
+ * These anchors are the fit that shipped with the 3,279-card dataset; they are
+ * history now and will never be regenerated, which is why they sit here rather
+ * than in `calibration.generated.ts`.
+ */
+const CALIBRATION_V1_2: CalibrationConfig = {
+  anchors: [
+    { raw: 50.3714, final: 30 },
+    { raw: 75.3714, final: 58 },
+    { raw: 78.2971, final: 64 },
+    { raw: 80.7311, final: 68 },
+    { raw: 82.9854, final: 71.5 },
+    { raw: 86.8963, final: 76 },
+    { raw: 90.6285, final: 80 },
+    { raw: 92.7895, final: 87 },
+    { raw: 94.1584, final: 92 },
+    { raw: 94.865, final: 95 },
+    { raw: 96.032, final: 97.5 },
+    { raw: 97.209, final: 99 },
+    { raw: 98.0668, final: 99.35 },
+    { raw: 99.6661, final: 99.6 },
+    { raw: 100, final: 100 },
+  ],
+};
+
+const SCORING_CONFIG_V1_2: ScoringConfig = {
+  ...SCORING_CONFIG_V1,
+  version: '1.2.0',
+  calibration: CALIBRATION_V1_2,
+  // 98.5 was the perfection floor before the deeper pool pushed 18-0 to
+  // 1 in 1,690 and the gates were raised to hold the published rarity.
+  recordBands: RECORD_BANDS.map((b) =>
+    b.endingKey === 'PERFECT' ? { ...b, minRating: 98.5 } : b,
+  ),
+  perfection: { ...PERFECTION, minFinalRating: 98.5, universalSlotMinimum: 93 },
+};
+
 const REGISTRY: Readonly<Record<string, ScoringConfig>> = {
+  '1.2.0': SCORING_CONFIG_V1_2,
   '1.3.0': SCORING_CONFIG_V1,
 };
 
