@@ -3,7 +3,8 @@
 Open work, with enough context to pick it up cold. Each item says what it is,
 why it matters, what has already been decided, and how to know when it is done.
 
-Last reviewed **2026-09-03**. Items 4 and 8 are done. This repository moves quickly — before acting on
+Last reviewed **2026-09-04**. Items 3, 4, 8 and 9 are closed — 3 by deciding it
+rather than changing it. This repository moves quickly — before acting on
 an item, check the "still true?" line, because several things listed here in the
 past were fixed by the time anybody read them.
 
@@ -18,7 +19,7 @@ for the two most recent subsystems.
 | Live site | <https://18-0.co> (Vercel, deploys from `main`); mirror at <https://mutaaf.github.io/18-0/> |
 | Supabase | project `keqwdtnyotdovrtcswel`, credentials in `.local/` (gitignored) |
 | PostHog | US Cloud, project **402075** ("Default project"), token `phc_wwVMwmj7…` |
-| Flags | `gameday` (865091), `gameday_cta` (865098) |
+| Flags | `gameday` (865091), `gameday_cta` (865098) — **both currently disabled**; `player_photos` (865321, on) |
 | Experiment | "Gameday marquee wording" (460866) — **draft** |
 | Next gameday | **2026-09-09**, window opens `21:20Z` — a 2-franchise Wednesday |
 
@@ -47,7 +48,16 @@ experiment 460866 still says DRAFT.
 ## 2. Watch the first live gameday
 
 **2026-09-09, from 21:20Z.** Everything about Gameday has been verified except
-the one thing that cannot be simulated: a real window opening. The e2e harness
+the one thing that cannot be simulated: a real window opening.
+
+**Both gameday flags are switched off in PostHog right now.** `/decide` returns
+only `player_photos`, and since the kill switch was fixed an absent key reads as
+*off* rather than as silence — so `gameday` currently resolves to `false` on
+every device that can reach PostHog. They were disabled on 3 September while
+diagnosing that very bug and never turned back on. **Re-enable 865091 and
+865098 before the window opens**, or the marquee will not appear, no session
+will open, and every check below will read as "gameday is broken" when it is
+simply switched off. The e2e harness
 proves the mechanism against a synthetic gameday it inserts itself; this is the
 first time the *generated calendar* drives it.
 
@@ -244,7 +254,7 @@ stage by path, never `git add -A`.
   traffic all write to 402075. Fine today; if funnels get muddy, make a dev
   project and point `apps/mobile/.env` at it. The GitHub repo variable keeps
   production clean either way.
-- **Retired cards accumulate.** 119 rows carry `retired_at` and no path removes
+- **Retired cards accumulate.** 123 rows carry `retired_at` and no path removes
   them. Harmless — they are excluded from the wheel and from `select` — but a
   card retired for good, referenced by nothing, could eventually be deleted.
 - **The flags expire on purpose.** `gameday_cta` on **2026-12-01** and `gameday`
