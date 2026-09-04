@@ -71,16 +71,26 @@ echo "→ device $UDID"
 TEAM="${APPLE_TEAM_ID:-95988FTS33}"
 echo "→ signing with team $TEAM"
 
+# The scheme is whatever prebuild named the target, and that is a function of
+# `name` in app.config.js -- which moved from '18-0' to 'Eighteen Zero' because
+# '18-0' sanitises to '180', a purely numeric Xcode target that EAS cannot look
+# up. Hardcoding it here meant this script broke the moment that changed, so it
+# is read from the workspace that actually exists.
+WORKSPACE=$(find ios -maxdepth 1 -name '*.xcworkspace' | head -1)
+[[ -n "$WORKSPACE" ]] || { echo "No .xcworkspace in ios/. Run: npx expo prebuild -p ios" >&2; exit 1; }
+SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+echo "→ scheme $SCHEME"
+
 xcodebuild \
-  -workspace ios/180.xcworkspace \
-  -scheme 180 \
+  -workspace "$WORKSPACE" \
+  -scheme "$SCHEME" \
   -configuration Release \
   -destination "id=$UDID" \
   -allowProvisioningUpdates \
   DEVELOPMENT_TEAM="$TEAM" \
   build
 
-APP=$(find ~/Library/Developer/Xcode/DerivedData -maxdepth 6 -name '180.app' \
+APP=$(find ~/Library/Developer/Xcode/DerivedData -maxdepth 6 -name "$SCHEME.app" \
   -path '*Release-iphoneos*' 2>/dev/null | head -1)
 [[ -n "$APP" ]] || { echo "Built, but the .app could not be located." >&2; exit 1; }
 
