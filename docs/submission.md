@@ -223,26 +223,60 @@ that tree would have carried a package registered nowhere. CI cannot run this
 one, because CI has never prebuilt; it is a step for the machine the release is
 cut on, which is the only machine where it can be wrong.
 
-## Cutting an iOS build
+## Cutting a release
 
-EAS is set up: project `@mutaaf/eighteen-zero`, App Store Connect record
-`6808414695`. Everything below runs without an Apple password or a 2FA prompt,
-because it authenticates with an App Store Connect API key rather than an Apple
-ID.
+**Run the *Release* workflow.** Actions -> Release -> Run workflow, pick a
+platform, leave the profile on `production`. Or push a `v*` tag. That is the
+whole procedure; everything below is what it does and how to repair it.
+
+`.github/workflows/release.yml` builds and uploads both stores. It needs seven
+repository secrets, all of which are set:
+
+| Secret | What it is |
+|---|---|
+| `EXPO_TOKEN` | access token for the `github-actions-release` robot user (Developer role) |
+| `ASC_API_KEY_BASE64` | the App Store Connect `.p8`, base64 |
+| `ASC_KEY_ID` / `ASC_ISSUER_ID` | that key's identifiers |
+| `IOS_DIST_P12_BASE64` | distribution certificate, base64 |
+| `IOS_DIST_P12_PASSWORD` | the password it was exported with |
+| `IOS_PROVISIONING_PROFILE_BASE64` | the "18-0 App Store" profile, base64 |
+| `PLAY_SERVICE_ACCOUNT_JSON` | **not set yet** — see [`android-release.md`](android-release.md) |
+
+The Android job is written to come out *skipped* rather than failed while that
+last one is missing, because a release that shows a red X every time is a
+release nobody reads.
+
+**Build numbers are EAS's job now.** `cli.appVersionSource` is `remote`, so EAS
+holds the number and `autoIncrement` raises it per platform on every production
+build. This is the only arrangement that works here: `autoIncrement` against a
+local version source writes to `app.json` and refuses to run against a dynamic
+`app.config.js` at all. The stopgap was an `EXPO_BUILD_NUMBER` read from the
+environment, and it meant remembering to raise it by hand -- both stores reject
+a number they have already seen, so forgetting produced a failed upload rather
+than a warning. `app.config.js` now sets no build number at all, deliberately.
+
+### Doing it by hand
+
+Rarely necessary, but the workflow is only these commands:
 
 ```bash
-set -a; . .local/asc.env; set +a          # key path, key id, issuer, team
-export EXPO_BUILD_NUMBER=<n>              # see below
+set -a; . .local/asc.env; set +a
 cd apps/mobile
 eas build  --platform ios --profile production --non-interactive --no-wait
 eas submit --platform ios --profile production --latest --non-interactive
 ```
 
-**The build number is not automatic and cannot be.** `autoIncrement` is what
-EAS would normally do, and it refuses to work with a dynamic `app.config.js` --
-so the number comes from `EXPO_BUILD_NUMBER`, which is exactly what that config
-was written to read. App Store Connect rejects a build whose number it has seen
-before, so this has to go up by hand on every upload.
+`eas submit` schedules the upload on EAS's servers rather than streaming it
+from here, so it survives the terminal closing. It reads the App Store Connect
+key from `eas.json` and **only** from `eas.json` -- the documented
+`EXPO_ASC_API_KEY_PATH` / `EXPO_ASC_KEY_ID` / `EXPO_ASC_ISSUER_ID` environment
+variables are ignored, and what comes back instead is *"App Store Connect API
+Keys cannot be set up in --non-interactive mode"*, which blames the flag rather
+than naming the three fields it wanted. The workflow writes those fields at
+runtime from secrets; locally, add them to `submit.production.ios` yourself.
+Do not put `appleId` back in that block: its presence sends EAS down the
+Apple-ID login path, which then refuses to run without a human to answer a
+two-factor prompt.
 
 ### Signing material
 

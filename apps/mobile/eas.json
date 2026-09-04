@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 5.0.0",
-    "appVersionSource": "local"
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -26,13 +26,14 @@
       }
     },
     "production": {
-      "channel": "production"
+      "channel": "production",
+      "autoIncrement": true,
+      "credentialsSource": "local"
     }
   },
   "submit": {
     "production": {
       "ios": {
-        "appleId": "mutaaf.aziz@gmail.com",
         "ascAppId": "6808414695",
         "appleTeamId": "Z73865R687"
       },
