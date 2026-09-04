@@ -223,6 +223,72 @@ that tree would have carried a package registered nowhere. CI cannot run this
 one, because CI has never prebuilt; it is a step for the machine the release is
 cut on, which is the only machine where it can be wrong.
 
+## Cutting an iOS build
+
+EAS is set up: project `@mutaaf/eighteen-zero`, App Store Connect record
+`6808414695`. Everything below runs without an Apple password or a 2FA prompt,
+because it authenticates with an App Store Connect API key rather than an Apple
+ID.
+
+```bash
+set -a; . .local/asc.env; set +a          # key path, key id, issuer, team
+export EXPO_BUILD_NUMBER=<n>              # see below
+cd apps/mobile
+eas build  --platform ios --profile production --non-interactive --no-wait
+eas submit --platform ios --profile production --latest --non-interactive
+```
+
+**The build number is not automatic and cannot be.** `autoIncrement` is what
+EAS would normally do, and it refuses to work with a dynamic `app.config.js` --
+so the number comes from `EXPO_BUILD_NUMBER`, which is exactly what that config
+was written to read. App Store Connect rejects a build whose number it has seen
+before, so this has to go up by hand on every upload.
+
+### Signing material
+
+Held in `.local/ios-credentials/`, gitignored, mode 600:
+
+| | |
+|---|---|
+| `dist.p12` + `p12.password` | distribution certificate `ZXD6754A8M`, expires 2027-09-04 |
+| `profile.mobileprovision` | `W8H55SVRZF`, "18-0 App Store", IOS_APP_STORE |
+| `dist.key` | the certificate's private half |
+
+These were minted through the App Store Connect API rather than by clicking
+around the developer portal, so they can be reissued the same way. Losing
+`dist.key` means revoking the certificate and issuing another, and Apple allows
+only a small number at a time.
+
+`eas build` reads them through `apps/mobile/credentials.json`, which is
+gitignored because it carries the `.p12` password in clear. It is not committed
+and has to exist on whichever machine cuts the release:
+
+```json
+{
+  "ios": {
+    "provisioningProfilePath": "<repo>/.local/ios-credentials/profile.mobileprovision",
+    "distributionCertificate": {
+      "path": "<repo>/.local/ios-credentials/dist.p12",
+      "password": "<contents of p12.password>"
+    }
+  }
+}
+```
+
+with `"credentialsSource": "local"` on the `production` build profile. The
+alternative is letting EAS hold the certificate, which needs one interactive
+`eas credentials` run and is worth doing if more than one machine ever cuts a
+release.
+
+### Why the target is called EighteenZero
+
+Covered in `app.config.js`, and worth knowing before anyone "fixes" the name
+back: `expo.name` is both the label under the icon and the string prebuild
+sanitises into the Xcode target name. `18-0` sanitises to `180`, which is purely
+numeric, so the pbxproj stores it unquoted and parsers read it as a number --
+and the build dies with `Could not find target '180' in project.pbxproj`.
+`plugins/with-display-name.js` puts `18-0` back on both home screens.
+
 ## Still open
 
 - **Player photographs.** `packages/data/src/headshots.ts` hot-links 1,626
