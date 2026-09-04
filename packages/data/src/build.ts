@@ -12,6 +12,7 @@ import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   POSITION_MODELS,
+  RATING_MODEL_VERSION,
   applyPlayerCalibration,
   fitPlayerCalibration,
   buildSeasonContext,
@@ -874,7 +875,14 @@ function main(): void {
     //
     // 1.1.0 restored the 2003-2008 receivers that `recorded` was written for.
     version: '1.2.0',
-    ratingModelVersion: '1.2.0',
+    // Read from the domain, never restated. This was the literal '1.2.0'
+    // while the domain had already moved to 1.3.0, so a rebuild that ran
+    // *after* the perfection gates were raised still labelled its cards
+    // with the model that did not produce them -- and because the bundle
+    // and the seed both took the stamp from here, the two agreed and
+    // `version_mismatch` stayed silent. A constant cannot detect a change
+    // in the thing it is supposed to be tracking.
+    ratingModelVersion: RATING_MODEL_VERSION,
     // Filled in below, once there is content to hash.
     fingerprint: '',
     // Both are placeholders: they are digests of this very object, so they are
