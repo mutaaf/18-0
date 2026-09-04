@@ -246,6 +246,23 @@ The Android job is written to come out *skipped* rather than failed while that
 last one is missing, because a release that shows a red X every time is a
 release nobody reads.
 
+**Seed the counter before the first CI release, if the app has ever been
+uploaded from anywhere else.** Switching to a remote version source starts EAS's
+counter at 1 rather than at whatever the store has already seen, and the first
+automated build then collides with an upload made by hand:
+
+    Build number 1 for app version 0.1.0 has already been used.
+    App Store Connect requires unique build numbers within each app version.
+
+which cost a full build and submit cycle to discover. Check both sides and
+raise EAS's to match before running the workflow:
+
+```bash
+cd apps/mobile
+eas build:version:get --platform ios          # what EAS thinks
+eas build:version:set --platform ios          # raise it to the store's highest
+```
+
 **Build numbers are EAS's job now.** `cli.appVersionSource` is `remote`, so EAS
 holds the number and `autoIncrement` raises it per platform on every production
 build. This is the only arrangement that works here: `autoIncrement` against a
