@@ -42,6 +42,28 @@ const BUCKETS = (() => {
 
 export const bucketKey = (franchiseId: string, era: EraKey): string => `${franchiseId}:${era}`;
 
+/**
+ * A franchise, named for where it plays now.
+ *
+ * This is deliberate and it is the answer to a question that comes up every
+ * time somebody meets an old season: Todd Christensen's 1983 shows as Las
+ * Vegas, and he played in Los Angeles.
+ *
+ * A season belongs to the franchise that owns that history, and that franchise
+ * is identified by the city representing it today. The Raiders of 1983 are the
+ * Raiders of now; the 1983 Colts are Indianapolis; the Greatest Show on Turf
+ * belongs to the Rams, who are in Los Angeles again. Reviving the city of the
+ * day would split one lineage into three labels and make "the Raiders of the
+ * eighties" a bucket a player could no longer recognise.
+ *
+ * The exception would be a franchise with no modern representation, which would
+ * have to keep its own identity because nothing else carries it. The dataset has
+ * none: all 32 franchises in it are among the 32 playing today, because
+ * `TEAM_TO_FRANCHISE` folds every historic team forward onto a current lineage.
+ *
+ * Cities, never clubs, throughout -- that part is a separate rule and it still
+ * holds. See `docs/licensing.md`.
+ */
 export function franchise(id: string): DatasetFranchise {
   const found = FRANCHISE_BY_ID.get(id);
   if (!found) throw new Error(`Unknown franchise: ${id}`);

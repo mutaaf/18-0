@@ -67,7 +67,33 @@ first time the *generated calendar* drives it.
 It is a two-franchise Wednesday, which is the narrowest wheel the mode will ever
 offer: ~10 franchise-eras. If a roster proves unfillable, that is the finding.
 
-## 3. A pre-relocation season shows the wrong city
+## 3. A pre-relocation season shows the current city — decided, and deliberate
+
+**Decided 2026-09-04: a franchise is named for where it plays now.** A season
+belongs to the franchise that owns that history, and that franchise is
+identified by the city representing it today. Todd Christensen's 1983 reads Las
+Vegas, the 1983 Colts read Indianapolis, and the Greatest Show on Turf belongs
+to the Rams, who are in Los Angeles again.
+
+The rule has one exception — a franchise with no modern representation would
+keep its own identity, because nothing else carries it — and this dataset has no
+such case: all 32 franchises in it are among the 32 playing today, since
+`TEAM_TO_FRANCHISE` folds every historic team forward onto a current lineage.
+The exception is written down for the day a defunct franchise is added, not
+because one is waiting.
+
+Written up in the README and on `franchise()` in `packages/data/src/index.ts`,
+which is where somebody meets the question.
+
+*Previously recorded here as a bug, and briefly fixed the other way — an
+era-accurate city per season, reverted the same day. What that attempt did
+establish, and worth keeping: thirteen franchise-eras name a city that was not
+theirs for any season in the era, the largest being the Chargers reading Los
+Angeles across five eras spent in San Diego. Under the rule above that is
+correct rather than wrong, but it is the shape of the objection somebody will
+raise again.*
+
+The old framing follows.
 
 The model's top-rated tight end is **Todd Christensen · Las Vegas 1983**. He
 played in Los Angeles. The 1983 Colts render as Indianapolis, the mid-90s Rams

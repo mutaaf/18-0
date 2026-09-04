@@ -360,6 +360,13 @@ the statistics are facts, while the club name is a trademark. Team palettes are
 generated per franchise rather than copied. It is unaffiliated with, and not
 endorsed by, any league or club.
 
+**A franchise is named for where it plays now.** A season belongs to the
+franchise that owns that history, and that franchise is identified by the city
+representing it today — so a 1983 Raiders season reads Las Vegas, and a 1983
+Colts season reads Indianapolis. The alternative splits one lineage into three
+labels and makes an era nobody can recognise. A franchise with no modern
+representation would keep its own identity; every team in this dataset has one.
+
 <div align="center">
 <br>
 <a href="https://18-0.co"><b>&#9654;&nbsp; Go chase it</b></a>
