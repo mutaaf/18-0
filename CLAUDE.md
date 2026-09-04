@@ -104,6 +104,7 @@ then move. Until then: **stage by path, never `git add -A`**, and read
 | [`docs/feature-flags.md`](docs/feature-flags.md) | Flags and experiments |
 | [`docs/RUNNING.md`](docs/RUNNING.md) | Running it, deploying it, regenerating the model |
 | [`docs/hosting.md`](docs/hosting.md) | The domain, the two deployments, and everything outside git that holds the address |
+| [`docs/android-release.md`](docs/android-release.md) | Getting onto Google Play, and the verifications that gate it |
 | `PRFAQ.md` | The original specification. Section numbers are cited throughout the code |
 
 ## Before saying it works

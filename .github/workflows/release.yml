@@ -1,0 +1,253 @@
+name: Release
+
+# Cutting a store build from CI needs seven repository secrets and one setting
+# in eas.json, none of which is discoverable from the errors you get without
+# them. docs/submission.md holds the actual values.
+#
+#   EXPO_TOKEN                       an Expo access token for the `mutaaf` account
+#   ASC_API_KEY_BASE64               the App Store Connect .p8, base64 encoded
+#   ASC_KEY_ID, ASC_ISSUER_ID        that key's identifiers
+#   IOS_DIST_P12_BASE64              distribution certificate, base64 encoded
+#   IOS_DIST_P12_PASSWORD            the password it was exported with
+#   IOS_PROVISIONING_PROFILE_BASE64  the "18-0 App Store" profile, base64 encoded
+#   PLAY_SERVICE_ACCOUNT_JSON        raw JSON — see the android jobs below
+#
+# Apple is authenticated with an API key and never an Apple ID password,
+# because a password means a two-factor prompt and there is nobody sitting at a
+# runner to answer one.
+#
+# The `production` build profile must carry `"credentialsSource": "local"`.
+# Without it EAS looks for a certificate on its own servers, finds none, and
+# fails in a way that says nothing about the perfectly good one this workflow
+# just wrote to disk.
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Which stores to build for
+        type: choice
+        options: [all, ios, android]
+        default: all
+      profile:
+        description: EAS build profile
+        type: choice
+        options: [production, preview]
+        default: production
+      submit:
+        description: Upload the build to the store when it finishes
+        type: boolean
+        default: true
+  push:
+    tags: ['v*']
+
+run-name: Release ${{ inputs.profile || 'production' }} for ${{ inputs.platform || 'all' }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  # Deliberately not cancel-in-progress. A cancelled `eas submit` does not
+  # un-upload what it has already sent, and App Store Connect will not take the
+  # same build number twice — so a half-finished release is a worse state to be
+  # in than a queued one.
+  cancel-in-progress: false
+
+env:
+  # The build log otherwise repeats a warning about Expo Go compatibility on
+  # every native module, which does not apply to a store build at all.
+  EAS_BUILD_NO_EXPO_GO_WARNING: true
+
+jobs:
+  ios:
+    name: iOS
+    # A tag push carries no inputs at all, so every condition here is written as
+    # a negative: an absent platform means both of them, which is what a tag
+    # should do.
+    if: inputs.platform != 'android'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      # app.config.js is a *dynamic* config, so `eas build` evaluates it in this
+      # checkout before it uploads anything. That needs the workspace installed
+      # even though the compile itself happens on EAS.
+      - run: pnpm install --frozen-lockfile
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Write the signing material
+        env:
+          IOS_DIST_P12_BASE64: ${{ secrets.IOS_DIST_P12_BASE64 }}
+          IOS_DIST_P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        # The key material goes to RUNNER_TEMP rather than the checkout: EAS
+        # tars the project directory up and ships it to a build worker, and a
+        # private key has no business being in that tarball. credentials.json
+        # has to sit in the project root because that is the only place EAS
+        # looks, but it holds paths rather than keys.
+        #
+        # Built with jq rather than a heredoc because the .p12 password is
+        # arbitrary bytes, and one quote or backslash in it would produce
+        # invalid JSON with nothing to say so.
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$IOS_DIST_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          printf '%s' "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+          jq -n \
+            --arg profile "$RUNNER_TEMP/profile.mobileprovision" \
+            --arg p12 "$RUNNER_TEMP/dist.p12" \
+            --arg password "$IOS_DIST_P12_PASSWORD" \
+            '{ios: {provisioningProfilePath: $profile, distributionCertificate: {path: $p12, password: $password}}}' \
+            > apps/mobile/credentials.json
+
+      - name: Build
+        working-directory: apps/mobile
+        # Nothing here stamps a build number, and nothing here should. eas.json
+        # sets `appVersionSource: remote` with `autoIncrement` on the production
+        # profile, so EAS assigns the number server-side and remembers what it
+        # assigned — the only arrangement under which two releases cut an hour
+        # apart cannot land on the same number, which App Store Connect rejects.
+        # Anything that supplies a number from this side fights that.
+        run: eas build --platform ios --profile ${{ inputs.profile || 'production' }} --non-interactive --wait
+
+      - name: Point the submit profile at the App Store Connect API key
+        if: >-
+          (github.event_name != 'workflow_dispatch' || inputs.submit)
+          && (inputs.profile || 'production') == 'production'
+        env:
+          ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        # EAS reads the API key from eas.json and *only* from eas.json. The
+        # documented EXPO_ASC_API_KEY_PATH / EXPO_ASC_KEY_ID / EXPO_ASC_ISSUER_ID
+        # environment variables are ignored by `eas submit`, and what you get
+        # instead is "App Store Connect API Keys cannot be set up in
+        # --non-interactive mode" — a message that blames the flag rather than
+        # naming the three fields it wanted, which is what makes this cost an
+        # afternoon. The key cannot be committed, so the fields are written here
+        # at runtime; this edits the runner's checkout and is never committed.
+        #
+        # It runs after the build on purpose. eas.json goes up with the project
+        # tarball, and the key id and issuer id are secrets that the build
+        # worker has no reason to see.
+        #
+        # Note also what is *not* set: `appleId`. Its presence sends EAS down
+        # the Apple-ID login path, which then refuses to run non-interactively
+        # no matter how good the API key is. Do not add it back.
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$ASC_API_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/asc-api-key.p8"
+          ASC_KEY_FILE="$RUNNER_TEMP/asc-api-key.p8" node -e '
+            const fs = require("fs");
+            const path = "apps/mobile/eas.json";
+            const config = JSON.parse(fs.readFileSync(path, "utf8"));
+            Object.assign(config.submit.production.ios, {
+              ascApiKeyPath: process.env.ASC_KEY_FILE,
+              ascApiKeyId: process.env.ASC_KEY_ID,
+              ascApiKeyIssuerId: process.env.ASC_ISSUER_ID,
+            });
+            fs.writeFileSync(path, JSON.stringify(config, null, 2) + "\n");
+          '
+
+      - name: Submit to App Store Connect
+        # A preview build is `distribution: internal` — an ad-hoc .ipa that App
+        # Store Connect will not take, and eas.json declares no preview submit
+        # profile to take it with. Ignoring `submit` for that profile is better
+        # than a green build followed by a red upload.
+        if: >-
+          (github.event_name != 'workflow_dispatch' || inputs.submit)
+          && (inputs.profile || 'production') == 'production'
+        working-directory: apps/mobile
+        run: eas submit --platform ios --profile production --latest --non-interactive
+
+      - name: Discard the signing material
+        if: always()
+        # The runner is thrown away, but not until after every remaining step
+        # has run in the same workspace. Nothing past the upload needs the
+        # certificate, and a step added here later should not silently inherit
+        # a distribution key, its password, or the API key ids left in eas.json.
+        run: |
+          rm -f "$RUNNER_TEMP/dist.p12" "$RUNNER_TEMP/profile.mobileprovision" \
+                "$RUNNER_TEMP/asc-api-key.p8" apps/mobile/credentials.json
+          git checkout -- apps/mobile/eas.json || true
+
+  # The Play developer account is still unverified, so there is no app record to
+  # upload to and PLAY_SERVICE_ACCOUNT_JSON does not exist yet. This has to be
+  # its own job because the `secrets` context is not readable from a job-level
+  # `if:` — and the Android job needs to come out *skipped*, not green and
+  # empty. A release that shows a red X every time while Android is pending is a
+  # release nobody reads.
+  android-ready:
+    name: Android preflight
+    if: inputs.platform != 'ios'
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - id: check
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -n "$PLAY_SERVICE_ACCOUNT_JSON" ]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo "::notice title=Android release skipped::PLAY_SERVICE_ACCOUNT_JSON is not set, so there is nothing to build against or upload to yet. Add the secret once the Play developer account is verified and the app record exists; until then this is skipped on purpose, and a failure here means something else."
+          fi
+
+  android:
+    name: Android
+    needs: android-ready
+    if: needs.android-ready.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Write the service account key
+        env:
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        # eas.json names `./play-service-account.json` relative to the project
+        # root, so unlike the iOS material this one cannot live in RUNNER_TEMP.
+        # It is gitignored for the same reason it is a secret.
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$PLAY_SERVICE_ACCOUNT_JSON" > apps/mobile/play-service-account.json
+
+      - name: Build
+        working-directory: apps/mobile
+        run: eas build --platform android --profile ${{ inputs.profile || 'production' }} --non-interactive --wait
+
+      - name: Submit to Play
+        # Same reasoning as iOS: the preview profile builds an APK, and Play
+        # takes an app bundle on the internal track.
+        if: >-
+          (github.event_name != 'workflow_dispatch' || inputs.submit)
+          && (inputs.profile || 'production') == 'production'
+        working-directory: apps/mobile
+        run: eas submit --platform android --profile production --latest --non-interactive
+
+      - name: Discard the service account key
+        if: always()
+        run: rm -f apps/mobile/play-service-account.json

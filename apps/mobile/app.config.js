@@ -5,13 +5,15 @@
  * `/<repo>/`, and Expo Router needs to know that at build time or every asset
  * and route resolves against the domain root.
  *
- * And the store build numbers are read from the environment, so CI can stamp a
- * build without a commit that only bumps an integer.
+ * Store build numbers are deliberately absent. EAS holds them
+ * (`cli.appVersionSource: "remote"` in eas.json) and increments on every
+ * production build, which is the only arrangement that works here: EAS's
+ * `autoIncrement` writes to app.json and refuses to run against a dynamic
+ * config at all, and stamping the number from the environment meant remembering
+ * to raise it by hand -- App Store Connect rejects a build number it has
+ * already seen, so forgetting is a failed upload rather than a warning.
  */
 const baseUrl = process.env.EXPO_BASE_URL ?? undefined;
-
-/** Store builds are versioned separately from the marketing version. */
-const buildNumber = process.env.EXPO_BUILD_NUMBER ?? '1';
 
 module.exports = {
   expo: {
@@ -38,7 +40,6 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.eighteenzerodcai.app',
-      buildNumber,
       config: {
         // The app ships no encryption beyond HTTPS, which is exempt. Declaring
         // it here answers App Store Connect's export-compliance question once
@@ -49,7 +50,6 @@ module.exports = {
 
     android: {
       package: 'com.eighteenzerodcai.app',
-      versionCode: Number(buildNumber),
       edgeToEdgeEnabled: true,
       adaptiveIcon: {
         foregroundImage: './assets/android-icon-foreground.png',
