@@ -3,8 +3,9 @@
 Open work, with enough context to pick it up cold. Each item says what it is,
 why it matters, what has already been decided, and how to know when it is done.
 
-Last reviewed **2026-09-04**. Items 3, 4, 8 and 9 are closed — 3 by deciding it
-rather than changing it. This repository moves quickly — before acting on
+Last reviewed **2026-09-04**. Items 3, 4, 7, 8 and 9 are closed — 3 by deciding
+it rather than changing it, 7 by filing both store forms. Item 6 is the last one
+that can stop a public binary, and it is a decision rather than a task. This repository moves quickly — before acting on
 an item, check the "still true?" line, because several things listed here in the
 past were fixed by the time anybody read them.
 
@@ -194,17 +195,27 @@ deferred again. Recorded alongside every
 other third-party input in [`licensing.md`](licensing.md), which is now the page
 to read before answering this one.
 
-## 7. The two store forms
+## 7. The two store forms — done
 
-Every value is written out in [`submission.md`](submission.md) — the privacy
-declarations, the listing copy, the age rating and why the answer to "used for
-tracking" is no. Neither form can be filled from a repository.
+**Filed 4 September 2026**, both of them, by the one person who could: neither
+form can be filled from a repository.
+
+What was declared is in [`submission.md`](submission.md) and is worth keeping
+accurate rather than merely filed, because the declaration is a claim about the
+code:
 
 - **App Store Connect -> App Privacy**: Usage Data -> Product Interaction, and
   Identifiers -> User ID. Both linked to the user, both **not** used for
   tracking.
 - **Play Console -> Data safety**: App activity -> App interactions, and Device
   or other IDs. Collected, not shared, deletion available in-app.
+
+**Still true only while the analytics stay as they are.** Two changes would
+falsify it and both are easy to make without noticing: sending anything from
+`analytics.ts` beyond gameplay events, a device id, a chosen handle and a rating
+band; or adding an advertising SDK, which turns first-party analytics into
+tracking and pulls an ATT prompt with it. Either means editing the forms *and*
+`digitalcraftai.com/privacy` in the same pass.
 
 ## 8. The native projects can go stale without saying so
 
