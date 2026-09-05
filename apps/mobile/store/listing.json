@@ -1,0 +1,51 @@
+{
+  "_comment": "The store listing, as data. docs/submission.md explains the choices; this is what actually gets pushed, by scripts/store/push-listing.mjs. Apple's limits are enforced by that script rather than discovered at review.",
+  "copyright": "2026 DigitalCraft AI",
+  "primaryLocale": "en-US",
+  "appInfo": {
+    "en-US": {
+      "name": "18-0",
+      "subtitle": "Build the perfect roster",
+      "privacyPolicyUrl": "https://18-0.co/privacy"
+    }
+  },
+  "version": {
+    "en-US": {
+      "description": "Seven spins, sixty years of pro football, one shot at an undefeated season.\n\nEach spin hands you one franchise and one era. Take a player, fill a slot, and live with it. Seven picks decide your season \u2014 no simulation, no luck after the whistle.\n\nThree ways to play. Rookie shows you every rating. Scout gives you the stat line and no grade. GM Mode gives you a name and a year, and nothing else.\n\nEvery rating is computed from what actually happened, against the era it happened in. 18-0 lands about once every 6,000 games.",
+      "keywords": "football,roster,history,trivia,stats,seasons,draft,sports",
+      "promotionalText": "Each spin hands you one franchise and one era. Seven picks decide a season, rated against the era it was played in. 18-0 lands about once every 6,000 games.",
+      "marketingUrl": "https://18-0.co",
+      "supportUrl": "https://18-0.co"
+    }
+  },
+  "play": {
+    "shortDescription": "Seven spins, sixty years of football, one shot at an undefeated season."
+  },
+  "_ageRatingComment": "The questionnaire, from docs/submission.md. Enum fields take NONE / INFREQUENT_OR_MILD / FREQUENT_OR_INTENSE / INFREQUENT / FREQUENT; the rest are booleans. userGeneratedContent is the only yes, and it is the display name -- filtered when chosen and reportable by anyone. kidsAgeBand is deliberately absent: this is not a Kids Category app, and setting it opts into rules that are much stricter than the game needs.",
+  "ageRating": {
+    "alcoholTobaccoOrDrugUseOrReferences": "NONE",
+    "contests": "NONE",
+    "gamblingSimulated": "NONE",
+    "gunsOrOtherWeapons": "NONE",
+    "horrorOrFearThemes": "NONE",
+    "matureOrSuggestiveThemes": "NONE",
+    "medicalOrTreatmentInformation": "NONE",
+    "profanityOrCrudeHumor": "NONE",
+    "sexualContentGraphicAndNudity": "NONE",
+    "sexualContentOrNudity": "NONE",
+    "violenceCartoonOrFantasy": "NONE",
+    "violenceRealistic": "NONE",
+    "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+    "advertising": false,
+    "ageAssurance": false,
+    "gambling": false,
+    "healthOrWellnessTopics": false,
+    "lootBox": false,
+    "messagingAndChat": false,
+    "parentalControls": false,
+    "socialMedia": false,
+    "socialMediaAgeRestricted": false,
+    "unrestrictedWebAccess": false,
+    "userGeneratedContent": true
+  }
+}
