@@ -36,6 +36,7 @@ export type EventName =
   // same deterministic model, so if it ever does, something drifted between
   // the client's copy and the server's.
   | 'ranked_started'
+  | 'app_link_opened'
   | 'challenge_created'
   | 'challenge_accepted'
   | 'ranked_downgraded'

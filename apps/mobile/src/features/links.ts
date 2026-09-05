@@ -55,3 +55,16 @@ export const OG_IMAGE = `${APP_URL}/og.png`;
  * cannot move again without editing all three.
  */
 export const PRIVACY_URL = `${APP_URL}/privacy`;
+
+/**
+ * The public TestFlight link for the iOS beta.
+ *
+ * Public rather than an invite: anyone with the URL can join, up to Apple's
+ * 10,000 external testers, without an email being collected first.
+ *
+ * The link is live before the build behind it is. External testing needs Beta
+ * App Review, and while that is pending TestFlight answers the link with "this
+ * beta isn't accepting testers right now" -- which reads like a fault and is
+ * only a queue. Worth knowing before assuming the URL is wrong.
+ */
+export const TESTFLIGHT_URL = 'https://testflight.apple.com/join/Q79YnwEs';

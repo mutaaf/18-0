@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
+import { usePathname } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
@@ -43,6 +44,7 @@ import { color, elevate, font, radius, space, tracking, useLayout, type PressSta
 export function InstallBar() {
   const insets = useSafeAreaInsets();
   const layout = useLayout();
+  const pathname = usePathname();
   const games = useHistoryStore((s) => s.games);
 
   const [kind, setKind] = useState<InstallKind>('installed');
@@ -67,6 +69,14 @@ export function InstallBar() {
   // Standalone with nothing played: the one moment the transfer is worth
   // offering unprompted, because it is the moment the history went missing.
   const needsTransfer = isStandalone() && games.length === 0 && !transferDone;
+
+  // The landing screen carries the "Get 18-0" panel, which makes the same offer
+  // with room to explain it and the two stores beside it. Two install prompts
+  // on one screen reads as nagging rather than as an offer, so the floating one
+  // stands down there. The transfer prompt is a different message and still
+  // shows, because losing a history is worth interrupting for.
+  const landing = pathname === '/' || pathname.endsWith('/(tabs)');
+  if (landing && !needsTransfer) return null;
 
   if (!needsTransfer && (dismissed || kind === 'installed' || kind === 'unsupported')) {
     return null;

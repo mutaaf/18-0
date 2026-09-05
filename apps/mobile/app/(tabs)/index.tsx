@@ -12,6 +12,7 @@ import { GamedayHero } from '@/components/GamedayHero';
 import { Crown } from '@/components/Crown';
 import { Hall } from '@/components/Hall';
 import { Screen } from '@/components/Screen';
+import { GetTheApp } from '@/components/GetTheApp';
 import { LeaderboardStrip } from '@/components/LeaderboardStrip';
 import { Panel } from '@/components/Panel';
 import { track } from '@/features/telemetry';
@@ -365,6 +366,10 @@ export default function Home() {
 
       <Reveal delay={260}>
         <LeaderboardStrip onPress={() => router.push('/(tabs)/leaderboard')} />
+      </Reveal>
+
+      <Reveal delay={280}>
+        <GetTheApp />
       </Reveal>
 
       <Reveal delay={300} style={styles.footer}>
