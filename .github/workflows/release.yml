@@ -38,6 +38,10 @@ on:
         description: Upload the build to the store when it finishes
         type: boolean
         default: true
+      notes:
+        description: "What's New text (a tag release takes this from the tag instead)"
+        type: string
+        required: false
   push:
     tags: ['v*']
 
@@ -69,6 +73,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The release notes ride in the tag's annotation, and a shallow clone
+          # fetches the commit without it.
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -169,6 +177,36 @@ jobs:
           && (inputs.profile || 'production') == 'production'
         working-directory: apps/mobile
         run: eas submit --platform ios --profile production --latest --non-interactive
+
+      - name: Push the listing and the release notes
+        if: >-
+          (github.event_name != 'workflow_dispatch' || inputs.submit)
+          && (inputs.profile || 'production') == 'production'
+        env:
+          # Reuses the key the submit step already decoded.
+          EXPO_ASC_API_KEY_PATH: ${{ runner.temp }}/asc-api-key.p8
+          EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          DISPATCH_NOTES: ${{ inputs.notes }}
+        # The store page is generated from apps/mobile/store/listing.json, so a
+        # copy change is a pull request rather than an afternoon in a web form.
+        #
+        # Notes come off the tag: scripts/store/release.mjs writes them as the
+        # annotation, which means the text that ships is the text somebody read
+        # before pushing the tag, not something retyped afterwards.
+        run: |
+          set -euo pipefail
+          NOTES="$DISPATCH_NOTES"
+          if [ -z "$NOTES" ] && [ "${{ github.ref_type }}" = "tag" ]; then
+            NOTES=$(git tag -l --format='%(contents:body)' "${{ github.ref_name }}")
+          fi
+          if [ -n "$NOTES" ]; then
+            node scripts/store/push-listing.mjs --whats-new "$NOTES"
+          else
+            # No notes is normal for a re-run: leave whatsNew alone rather than
+            # blanking a line that is already on the store page.
+            node scripts/store/push-listing.mjs
+          fi
 
       - name: Discard the signing material
         if: always()

@@ -272,6 +272,61 @@ environment, and it meant remembering to raise it by hand -- both stores reject
 a number they have already seen, so forgetting produced a failed upload rather
 than a warning. `app.config.js` now sets no build number at all, deliberately.
 
+### The store page is generated
+
+`apps/mobile/store/listing.json` is the source of truth for the App Store
+listing -- name, subtitle, description, keywords, promotional text, the URLs and
+the copyright line. `scripts/store/push-listing.mjs` pushes it, and refuses
+before sending anything if a field is over Apple's limit, because the API
+rejects with a JSON pointer and no stated maximum. Re-running is a no-op: every
+field that already matches prints `already correct, skipped`. So a copy change
+is a pull request, not an afternoon in a web form, and the store page cannot
+quietly drift from what the repo says it is.
+
+`scripts/store/push-screenshots.mjs` does the same for the images in
+`apps/mobile/assets/store/screenshots/`. Two constants in it were established by
+asking Apple rather than from memory, and both are traps:
+
+| On disk | Display type | |
+|---|---|---|
+| `ios-6.9/` 1290x2796 | `APP_IPHONE_67` | **there is no `APP_IPHONE_69`** -- the directory is named for the device Apple markets, the API for the slot it fills |
+| `ipad-12.9/` 2048x2732 | `APP_IPAD_PRO_3GEN_129` | not `APP_IPAD_PRO_129`, which is the retired 2nd-gen slot at the *identical* pixel size and is accepted without complaint |
+
+It checks each PNG's real dimensions out of the IHDR chunk first, and polls
+`assetDeliveryState` after the commit -- that PATCH returns 200 while the asset
+is still being validated, which is exactly how a push looks clean and leaves
+broken images on the listing.
+
+**Release notes cannot be set on a first version.** Apple answers `Attribute
+'whatsNew' cannot be edited at this time`, correctly: there is no previous
+release for notes to be new against. `push-listing.mjs` sends `whatsNew` in its
+own request for that reason -- batched with the rest, one impossible field would
+reject the description, the keywords and the promotional text along with it, on
+the exact release where the listing is being filled in for the first time. It
+reports the skip and exits 0 rather than failing a release whose build already
+shipped.
+
+### Putting it in front of App Review
+
+`scripts/store/submit-for-review.mjs` attaches the build, writes the review
+contact and notes, and runs a preflight over everything Apple checks before a
+human ever sees it. **It stops there.** Submitting notifies Apple, starts a
+review and writes any rejection to the account's record, so the last step is a
+separate, explicit `--submit` rather than the end of a script somebody ran for
+another reason.
+
+It needs four contact variables, which live in `.local/asc.env` beside the API
+key: `ASC_CONTACT_FIRST_NAME`, `ASC_CONTACT_LAST_NAME`, `ASC_CONTACT_EMAIL`,
+`ASC_CONTACT_PHONE`. It refuses rather than inventing a number -- Apple validates
+the format server-side and wants a country code.
+
+The age rating questionnaire is in `listing.json` and pushed with the rest of
+the listing. It hangs off the `appInfo` rather than the version, which is why
+`/v1/appStoreVersions/{id}/ageRatingDeclaration` returns a 404 and looks like
+the wrong id. `userGeneratedContent` is the only yes -- it is the display name --
+and the answers as written compute to **4+**, which is what the store listing
+claims.
+
 ### Doing it by hand
 
 Rarely necessary, but the workflow is only these commands:
