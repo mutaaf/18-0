@@ -322,6 +322,64 @@ check(
     : String(build.attributes.usesNonExemptEncryption),
 );
 
+// Everything below was learned the hard way. App Store Connect refuses a
+// submission with one sentence -- "This resource cannot be reviewed, please
+// check associated errors to see why" -- and never says which resource or which
+// error, so each of these cost a round trip to find. None of them is visible on
+// the version; they hang off the app, the appInfo or the price schedule.
+
+// A category is required and starts unset. Nothing in the version references
+// it, so a listing can look finished while this is empty.
+const category = appInfo
+  ? await asc(`/v1/appInfos/${appInfo.id}/primaryCategory`).catch(() => null)
+  : null;
+check(
+  'a primary category is set',
+  Boolean(category?.data),
+  category?.data ? category.data.id : 'unset — App Information → Category',
+);
+
+// "Does your app contain third-party content?" Null until answered, and the
+// answer is a rights assertion rather than a setting.
+const app = await asc(`/v1/apps/${APP_ID}`);
+check(
+  'the content rights question is answered',
+  Boolean(app.data.attributes.contentRightsDeclaration),
+  app.data.attributes.contentRightsDeclaration ?? 'null — App Information → Content Rights',
+);
+
+// A new app has no price schedule at all, not even a free one, and without it
+// there is nothing to sell in any territory. The schedule resource exists as
+// soon as the app does, so its presence proves nothing; the prices under it do.
+const prices = await Promise.all([
+  asc(`/v1/appPriceSchedules/${APP_ID}/manualPrices?limit=1`).catch(() => null),
+  asc(`/v1/appPriceSchedules/${APP_ID}/automaticPrices?limit=1`).catch(() => null),
+]);
+const priced = prices.some((r) => (r?.data?.length ?? 0) > 0);
+check(
+  'the app has a price and territories',
+  priced,
+  priced ? 'price schedule exists' : 'none — Pricing and Availability (a free app still needs one)',
+);
+
+// The IDFA question lives on the version and starts null. An app with no ads
+// still has to say so.
+check(
+  'the advertising identifier question is answered',
+  version.attributes.usesIdfa !== null && version.attributes.usesIdfa !== undefined,
+  version.attributes.usesIdfa === false ? 'does not use the IDFA' : String(version.attributes.usesIdfa),
+);
+
+// App Privacy has no API. Every documented path 404s with "the relationship
+// does not exist", so this cannot be read, let alone checked -- and it is
+// required, and it was the last thing blocking the first submission. A line
+// that cannot pass is still better than silence, because the failure it
+// prevents is a submission refused with no reason given.
+console.log(
+  '  ! app privacy (the data-collection labels) cannot be read through the API\n' +
+  '      confirm it is published: App Store Connect → App Privacy',
+);
+
 // ---------------------------------------------------------------------------
 // 7. Submit — only ever on an explicit --submit
 

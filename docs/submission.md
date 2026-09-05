@@ -308,6 +308,20 @@ shipped.
 
 ### Putting it in front of App Review
 
+**Five of the preflight checks exist because the first submission failed on
+them**, one at a time. App Store Connect refuses with a single sentence --
+*"This resource cannot be reviewed, please check associated errors to see
+why"* -- and never names the resource or the error, so each one cost a round
+trip:
+
+| | Where it hides |
+|---|---|
+| Primary category | on the `appInfo`, unset by default; the listing looks finished without it |
+| Content rights | on the *app*, null until answered — a rights assertion, not a setting |
+| Price and territories | a new app has no price schedule at all, and a free app still needs one. The schedule resource exists as soon as the app does, so only the prices under it prove anything |
+| Advertising identifier | `usesIdfa` on the version, null until answered even with no ads |
+| App Privacy | **no API at all** — every documented path 404s. The preflight prints a line it cannot check, because a reminder beats a submission refused with no reason |
+
 `scripts/store/submit-for-review.mjs` attaches the build, writes the review
 contact and notes, and runs a preflight over everything Apple checks before a
 human ever sees it. **It stops there.** Submitting notifies Apple, starts a
