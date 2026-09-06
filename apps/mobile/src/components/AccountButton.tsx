@@ -3,7 +3,7 @@ import { router, usePathname } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
-import { identity, isBackendConfigured, type Identity } from '@/services/supabase';
+import { fetchProgress, identity, isBackendConfigured, type Identity, type Progress } from '@/services/supabase';
 import { identifyPlayer } from '@/features/analytics';
 import { ratingBucket } from '@/features/telemetry';
 import { computeStats, useHistoryStore } from '@/state/history';
@@ -28,6 +28,7 @@ export function AccountButton() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const [me, setMe] = useState<Identity | null>(null);
+  const [progress, setProgress] = useState<Progress | null>(null);
   const games = useHistoryStore((s) => s.games);
   const stats = useMemo(() => computeStats(games), [games]);
 
@@ -36,6 +37,12 @@ export function AccountButton() {
   useEffect(() => {
     if (!isBackendConfigured) return;
     let alive = true;
+    // The level rides on the same route change the identity does. It is a
+    // second round trip, but an unbadged disc after a season that earned a
+    // level is worse than a badge that arrives a moment late.
+    void fetchProgress()
+      .then((p) => alive && setProgress(p))
+      .catch(() => undefined);
     identity()
       .then((who) => {
         if (!alive) return;
@@ -113,6 +120,16 @@ export function AccountButton() {
             </Svg>
           )}
         </View>
+
+        {/* The level, on the disc rather than beside it: the corner has one
+            control in it and adding a second would make the first ambiguous.
+            Only once there is something to show -- a badge reading 1 before
+            anybody has played is a chore, not a reward. */}
+        {progress && progress.level > 1 ? (
+          <View style={styles.level}>
+            <Text style={styles.levelText}>{progress.level}</Text>
+          </View>
+        ) : null}
       </Pressable>
     </View>
   );
@@ -140,6 +157,27 @@ const styles = StyleSheet.create({
     elevation: 9,
   },
   face: { alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  level: {
+    position: 'absolute',
+    bottom: -3,
+    right: -3,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: color.gold,
+    borderWidth: 2,
+    borderColor: '#06080F',
+    zIndex: 2,
+  },
+  levelText: {
+    fontFamily: font.display,
+    fontSize: 11,
+    color: '#0A0E17',
+    includeFontPadding: false,
+  },
   initials: {
     fontFamily: font.display,
     fontSize: 15,

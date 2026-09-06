@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { AccountPanel } from '@/components/AccountPanel';
+import { LevelPanel } from '@/components/LevelPanel';
 import {
   fetchLeaderboard,
   identity,
@@ -49,6 +50,7 @@ export default function Account() {
           </Text>
         </View>
         <View style={styles.body}>
+          <LevelPanel />
           <AccountPanel rank={rank} />
         </View>
       </ScrollView>
@@ -73,5 +75,5 @@ const styles = StyleSheet.create({
     color: color.textFaint,
     textTransform: 'uppercase',
   },
-  body: { paddingHorizontal: space.lg },
+  body: { paddingHorizontal: space.lg, gap: space.md },
 });

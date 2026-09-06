@@ -91,6 +91,11 @@ function toResponse(row: Record<string, unknown>) {
     perfectEligibility: { eligible: row.perfect_eligible, failedGates: row.failed_gates ?? [] },
     assisted: row.assisted === true,
     ratingModelVersion: row.rating_model_version,
+    // Sent back so the result screen can show what the season was worth without
+    // a second round trip, and so the number it shows is the stored one rather
+    // than a client's guess at the same arithmetic.
+    pointsMultiplier: row.points_multiplier === null ? 1 : Number(row.points_multiplier),
+    multiplierDetail: row.multiplier_detail ?? null,
   };
 }
 
@@ -277,10 +282,28 @@ Deno.serve(async (req) => {
 
   // Scoped UPDATE, not an upsert: it cannot create a row, cannot touch another
   // user's row, and the status predicate makes completion single-shot.
+  // What this season is worth, decided here and stored on the row. The player
+  // never sends it and it is never recomputed: `season_points()` is evaluated
+  // on read, so a multiplier expressed there would rewrite every past total
+  // the moment a streak changed. A streak earned today has to still be worth
+  // what it was worth today, a year from now.
+  const { data: bonusRows } = await admin.rpc('points_multiplier_for', { p_user: user.id });
+  const bonus = Array.isArray(bonusRows) ? bonusRows[0] : bonusRows;
+  const multiplier = Number(bonus?.multiplier ?? 1);
+
   const { data: saved, error: saveError } = await admin
     .from('game_sessions')
     .update({
       status: 'completed',
+      points_multiplier: Number.isFinite(multiplier) ? multiplier : 1,
+      multiplier_detail: bonus
+        ? {
+            day_streak: bonus.day_streak,
+            week_streak: bonus.week_streak,
+            today: bonus.today,
+            this_hour: bonus.this_hour,
+          }
+        : null,
       completed_at: new Date().toISOString(),
       rating_model_version: result.ratingModelVersion,
       final_rating: result.finalRating,

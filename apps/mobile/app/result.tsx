@@ -13,6 +13,8 @@ import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
 import { ShareCard, type ShareRosterRow } from '@/components/ShareCard';
 import { shareResult } from '@/features/share';
+import { askForReminders, scheduleStreakReminder } from '@/features/reminders';
+import { hideSeason } from '@/services/supabase';
 import { lookupCard, useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
 import { DECORATIVE,
@@ -45,6 +47,18 @@ export default function Result() {
 
   const cardRef = useRef<View>(null);
   const [shareNote, setShareNote] = useState<string | null>(null);
+  /** Optimistic: the row flips immediately and reverts if the server refuses. */
+  const [boardHidden, setBoardHidden] = useState(false);
+
+  // Asked here rather than at launch: a prompt before the first season asks
+  // somebody to protect a streak they do not have. A ranked season that just
+  // scored is the first moment there is something to lose.
+  useEffect(() => {
+    if (!game.serverSessionId || game.assisted) return;
+    void askForReminders().then((granted) => {
+      if (granted) void scheduleStreakReminder();
+    });
+  }, [game.serverSessionId, game.assisted]);
 
   // 18-0 breathes and wears the crown. Nothing else in the app does either.
   const glow = useRef(new Animated.Value(0)).current;
@@ -342,6 +356,48 @@ export default function Result() {
               <Text style={styles.badgeText}>Assisted · not counted</Text>
             </View>
           ) : null}
+        </Reveal>
+      ) : null}
+
+      {/* The one thing about a finished season that may still change.
+          Hiding is offered; counting is not, and cannot be -- a season the
+          server never dealt has nothing to verify, and one it did deal was
+          already counted before the score was known. This only ever lowers
+          you, which is exactly why it is safe to offer after the fact. */}
+      {game.serverSessionId && !game.assisted ? (
+        <Reveal delay={360}>
+          <Pressable
+            onPress={() => {
+              const next = !boardHidden;
+              setBoardHidden(next);
+              void hideSeason(game.serverSessionId!, next).then((ok) => {
+                if (!ok) setBoardHidden(!next);
+              });
+            }}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: !boardHidden }}
+            accessibilityLabel="Show this season on the leaderboard"
+            style={({ hovered }: PressState) => [
+              styles.boardRow,
+              hovered && { borderColor: color.lineBright },
+            ]}
+          >
+            <View style={styles.boardText}>
+              <Text style={styles.boardTitle}>
+                {boardHidden ? 'Kept off the board' : 'On the board'}
+              </Text>
+              <Text style={styles.boardCopy}>
+                {boardHidden
+                  ? 'Nobody else can see this season. It earns you no points.'
+                  : 'Counts towards your level and can rank on the board.'}
+              </Text>
+            </View>
+            <View style={[styles.boardToggle, boardHidden && styles.boardToggleOff]}>
+              <Text style={[styles.boardToggleText, boardHidden && styles.boardToggleTextOff]}>
+                {boardHidden ? 'SHOW' : 'HIDE'}
+              </Text>
+            </View>
+          </Pressable>
         </Reveal>
       ) : null}
 
@@ -741,6 +797,34 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   badgeBlind: { borderColor: '#C49BFF66', backgroundColor: '#C49BFF14' },
+  boardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    padding: space.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: color.line,
+    backgroundColor: '#FFFFFF06',
+  },
+  boardText: { flex: 1, minWidth: 0, gap: 1 },
+  boardTitle: { fontFamily: font.bodyBold, fontSize: 14, color: color.text },
+  boardCopy: { fontFamily: font.bodyRegular, fontSize: 11, lineHeight: 15, color: color.textFaint },
+  boardToggle: {
+    paddingVertical: 5,
+    paddingHorizontal: space.md,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: color.line,
+  },
+  boardToggleOff: { borderColor: `${color.gold}66`, backgroundColor: `${color.gold}14` },
+  boardToggleText: {
+    fontFamily: font.label,
+    fontSize: 10,
+    letterSpacing: tracking.wide,
+    color: color.textDim,
+  },
+  boardToggleTextOff: { color: color.gold },
   badgeBlindText: {
     fontFamily: font.label,
     fontSize: 10,

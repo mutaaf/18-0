@@ -3,6 +3,7 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from './supabase';
 import { resetAnalytics } from '@/features/analytics';
+import { clearReminders } from '@/features/reminders';
 import { invalidateIdentity } from '@/features/cache';
 
 /**
@@ -181,6 +182,9 @@ export async function signOut(): Promise<void> {
   // And the analytics identity, or the next person to use this device would be
   // filed under the account that just signed out.
   await resetAnalytics();
+  // A streak reminder is about one account's streak. Leaving it scheduled
+  // would tell the next person on this device to protect somebody else's.
+  await clearReminders();
 }
 
 /**

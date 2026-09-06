@@ -383,6 +383,85 @@ export async function fetchMyChallenges(): Promise<ChallengeRow[]> {
   }));
 }
 
+export interface Progress {
+  readonly points: number;
+  readonly level: number;
+  /** Points at which this level began, and at which the next one starts. */
+  readonly levelFloor: number;
+  readonly nextLevelAt: number;
+  readonly seasons: number;
+  readonly hidden: number;
+  readonly bestMultiplier: number;
+}
+
+/**
+ * Your level and the points behind it, including seasons you have hidden.
+ *
+ * Not read off the public points board: that board excludes a hidden season --
+ * correct for everybody else, misleading for you -- and does not exist at all
+ * until a handle is claimed.
+ */
+export async function fetchProgress(): Promise<Progress | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('my_progress');
+  if (error) return null;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+  return {
+    points: Number(row.points ?? 0),
+    level: Number(row.level ?? 1),
+    levelFloor: Number(row.level_floor ?? 0),
+    nextLevelAt: Number(row.next_level_at ?? 0),
+    seasons: Number(row.seasons ?? 0),
+    hidden: Number(row.hidden ?? 0),
+    bestMultiplier: Number(row.best_multiplier ?? 1),
+  };
+}
+
+export interface MultiplierNow {
+  readonly multiplier: number;
+  readonly dayStreak: number;
+  readonly weekStreak: number;
+  readonly today: number;
+  readonly thisHour: number;
+}
+
+/** What the next finished season would be multiplied by, right now. */
+export async function fetchMultiplier(): Promise<MultiplierNow | null> {
+  if (!supabase) return null;
+  const me = await currentUser();
+  if (!me) return null;
+  const { data, error } = await supabase.rpc('points_multiplier_for', { p_user: me.id });
+  if (error) return null;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+  return {
+    multiplier: Number(row.multiplier ?? 1),
+    dayStreak: Number(row.day_streak ?? 0),
+    weekStreak: Number(row.week_streak ?? 0),
+    today: Number(row.today ?? 0),
+    thisHour: Number(row.this_hour ?? 0),
+  };
+}
+
+/**
+ * Takes one of your own finished seasons off every board, or puts it back.
+ *
+ * Safe in both directions because it can only ever cost you: a best-of board
+ * keeps your best season, and points are a sum of positive terms, so hiding
+ * one lowers you and showing it again only restores what was already yours.
+ * The unsafe move -- deciding a season counts *after* seeing what it scored --
+ * is not offered anywhere, and could not be honoured if it were.
+ */
+export async function hideSeason(sessionId: string, hidden = true): Promise<boolean> {
+  if (!supabase) return false;
+  const { error } = await supabase.rpc('hide_own_season', {
+    p_session: sessionId,
+    p_hidden: hidden,
+  });
+  return !error;
+}
+
 export interface MySeason {
   readonly id: string;
   readonly rating: number;

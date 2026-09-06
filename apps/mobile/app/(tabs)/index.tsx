@@ -57,14 +57,26 @@ export default function Home() {
   const games = useHistoryStore((s) => s.games);
   const stats = useMemo(() => computeStats(games), [games]);
   /**
-   * Off by default, and deliberately.
+   * On by default now, and the switch is gone from the way in.
    *
-   * A ranked game is played against the server, so it needs a connection and it
-   * is slower by a round trip per spin. The offline game is the product; the
-   * leaderboard is the reason to go online, not a tax on everyone who does not
-   * care about it.
+   * It used to be off, on the reasoning that the offline game is the product
+   * and the leaderboard is the reason to go online rather than a tax on
+   * everyone else. That reasoning was right about the game and wrong about the
+   * cost: reaching a board took a toggle *and* a mode card, and the toggle sat
+   * above the thing people came to press. Two deliberate acts to be counted,
+   * one to be forgotten.
+   *
+   * So ranked is what happens unless it cannot. `beginRanked` already falls
+   * back to a local game and says why when the server does not answer in eight
+   * seconds, which is the same thing the toggle used to buy -- without asking
+   * anybody to predict their own connection before the first spin.
+   *
+   * Nothing about integrity moves: the mode is still declared before the first
+   * spin and still immutable afterwards. What changes afterwards is only
+   * whether a finished season is *shown*, which is safe in the one direction
+   * the result screen offers it.
    */
-  const [ranked, setRanked] = useState(false);
+  const [ranked, setRanked] = useState(true);
   const [opening, setOpening] = useState(false);
   /** How today's board is doing, when there is one and a server to ask. */
   const [gameday, setGameday] = useState<GamedaySummary | null>(null);
@@ -244,19 +256,6 @@ export default function Home() {
         </Reveal>
       ) : null}
 
-      {isBackendConfigured ? (
-        <Reveal delay={120}>
-          <RankedSwitch
-            on={ranked}
-            busy={opening}
-            onToggle={() => {
-              setRanked((was: boolean) => !was);
-              Haptics.selectionAsync().catch(() => {});
-            }}
-          />
-        </Reveal>
-      ) : null}
-
       <Reveal delay={140} style={styles.modes}>
         <ModeCard
           name={MODE_LABEL.player_iq}
@@ -279,6 +278,22 @@ export default function Home() {
           onPress={() => start('rookie')}
         />
       </Reveal>
+
+      {/* Under the modes, not above them. Ranked is what happens now, so this
+          is a preference rather than a gate -- and a gate is what it was while
+          it sat between somebody and the button they came to press. */}
+      {isBackendConfigured ? (
+        <Reveal delay={160}>
+          <RankedSwitch
+            on={ranked}
+            busy={opening}
+            onToggle={() => {
+              setRanked((was: boolean) => !was);
+              Haptics.selectionAsync().catch(() => {});
+            }}
+          />
+        </Reveal>
+      ) : null}
 
       {/* Below the choice on purpose. This is the part somebody reads once,
           and it was pushing the two buttons they came for off a phone screen. */}
