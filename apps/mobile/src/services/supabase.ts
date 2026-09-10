@@ -809,3 +809,44 @@ export function explainHandleRejection(message: string): string | null {
   if (match[1] === 'reserved') return 'That name is reserved.';
   return 'That name is not allowed.';
 }
+
+/**
+ * Carrying ranked seasons off an anonymous account and onto the one the player
+ * signs in to.
+ *
+ * The three calls are one flow, and the order matters: `transferableSeasons`
+ * decides whether the offer is worth making, `offerSeasonTransfer` must be
+ * called while the anonymous session is still the current one -- holding it is
+ * the only proof of control there is -- and `claimSeasonTransfer` runs once the
+ * player is signed in as somebody else. See `0022_carry_seasons_across.sql`.
+ */
+export interface Transferable {
+  readonly seasons: number;
+  /** False for an account that is already permanent: this is not a merge tool. */
+  readonly eligible: boolean;
+}
+
+export async function transferableSeasons(): Promise<Transferable | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('transferable_seasons');
+  if (error) return null;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+  return { seasons: Number(row.seasons ?? 0), eligible: row.eligible === true };
+}
+
+/** Returns the ticket id, or null if there is nothing to hand over. */
+export async function offerSeasonTransfer(): Promise<string | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('offer_season_transfer');
+  if (error) return null;
+  return typeof data === 'string' ? data : null;
+}
+
+/** How many seasons actually moved. Null when the ticket was refused. */
+export async function claimSeasonTransfer(ticket: string): Promise<number | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('claim_season_transfer', { p_ticket: ticket });
+  if (error) return null;
+  return Number(data ?? 0);
+}

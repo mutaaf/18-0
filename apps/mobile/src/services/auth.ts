@@ -285,6 +285,38 @@ function readAttempt(): { provider: SocialProvider; anonymous: boolean } | null 
   }
 }
 
+
+/**
+ * A pending season transfer, across the navigation that signs you in.
+ *
+ * Same problem as the attempt above and the same answer: the ticket is minted
+ * by a session that is about to be replaced, and the page that comes back has
+ * to know about it. Session storage on web; on native the process survives, but
+ * it is written down anyway so one code path covers both.
+ */
+const TICKET = '18-0:auth:ticket';
+
+export function rememberTransfer(ticket: string): void {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.setItem(TICKET, ticket);
+  } catch {
+    // Private browsing refuses; the seasons simply stay where they are.
+  }
+}
+
+/** The ticket to claim, if a transfer was offered before this sign-in. */
+export function consumeTransfer(): string | null {
+  if (typeof sessionStorage === 'undefined') return null;
+  try {
+    const ticket = sessionStorage.getItem(TICKET);
+    sessionStorage.removeItem(TICKET);
+    return ticket;
+  } catch {
+    return null;
+  }
+}
+
 function webRedirect(): string {
   const { origin, pathname } = globalThis.location;
   return `${origin}${pathname}`;

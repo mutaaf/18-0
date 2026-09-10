@@ -2,7 +2,7 @@
   "name": "eighteen-zero",
   "private": true,
   "version": "0.1.0",
-  "description": "18-0 \u2014 Spin history. Build seven. Chase perfection.",
+  "description": "18-0 — Spin history. Build seven. Chase perfection.",
   "scripts": {
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
@@ -13,7 +13,8 @@
     "store:listing": "node scripts/store/push-listing.mjs",
     "store:screenshots": "node scripts/store/push-screenshots.mjs",
     "store:review": "node scripts/store/submit-for-review.mjs",
-    "verify:native": "node scripts/verify/native-ids.mjs"
+    "verify:native": "node scripts/verify/native-ids.mjs",
+    "verify:transfer": "node scripts/verify/transfer.mjs"
   },
   "packageManager": "pnpm@10.27.0",
   "pnpm": {

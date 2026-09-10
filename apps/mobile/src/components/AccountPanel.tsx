@@ -9,8 +9,10 @@ import { ProviderButton } from './ProviderButton';
 import { computeStats, useHistoryStore } from '@/state/history';
 import {
   consumeRedirectOutcome,
+  consumeTransfer,
   linkedProviders,
   providerLabel,
+  rememberTransfer,
   signInWith,
   signOut,
   socialProviders,
@@ -20,10 +22,13 @@ import {
 import {
   canRenameNow,
   claimHandle,
+  claimSeasonTransfer,
   deleteAccount,
   handleProblem,
   identity,
   isBackendConfigured,
+  offerSeasonTransfer,
+  transferableSeasons,
   type Identity,
 } from '@/services/supabase';
 import { color, font, radius, space, themed, tracking, type PressState } from '@/theme';
@@ -57,6 +62,8 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
   const [linked, setLinked] = useState<readonly SocialProvider[]>([]);
   /** Set when a provider turns out to belong to a different account. */
   const [elsewhere, setElsewhere] = useState<SocialProvider | null>(null);
+  /** How many ranked seasons this anonymous account could take with it. */
+  const [carryable, setCarryable] = useState(0);
 
   const refresh = useCallback(async () => {
     if (!isBackendConfigured) return;
@@ -99,15 +106,50 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
   // sees `?error=identity_already_exists` in the address bar and no prompt.
   useEffect(() => {
     const redirected = consumeRedirectOutcome();
-    if (!redirected) return;
-    if (redirected.alreadyLinked && redirected.provider) setElsewhere(redirected.provider);
-    setNote(redirected.error ?? 'Sign-in did not complete.');
-  }, []);
+    if (redirected) {
+      if (redirected.alreadyLinked && redirected.provider) {
+        setElsewhere(redirected.provider);
+        // The offer is only worth making if there is something to bring, so
+        // the count is fetched before the prompt is drawn rather than after
+        // the player has been promised something.
+        void transferableSeasons().then((t) => {
+          if (t?.eligible) setCarryable(t.seasons);
+        });
+      }
+      setNote(redirected.error ?? 'Sign-in did not complete.');
+      return;
+    }
 
-  const connect = async (provider: SocialProvider, switchAccount = false) => {
+    // A sign-in that succeeded may have a ticket waiting from the account it
+    // left. Claimed here rather than inside `connect`, because on web the
+    // navigation means `connect` never returns.
+    const ticket = consumeTransfer();
+    if (!ticket) return;
+    void claimSeasonTransfer(ticket).then(async (moved) => {
+      if (moved === null) {
+        setNote('Those seasons could not be carried over.');
+        return;
+      }
+      if (moved > 0) {
+        setNote(`${moved} ${moved === 1 ? 'season' : 'seasons'} carried over.`);
+        await refresh();
+      }
+    });
+  }, [refresh]);
+
+  const connect = async (provider: SocialProvider, switchAccount = false, carry = false) => {
     setBusy(true);
     setNote(null);
     setElsewhere(null);
+
+    // Minted while the anonymous session is still the current one -- holding
+    // it is the only proof of control there is, and signing in replaces it.
+    // A ticket that is never claimed simply expires.
+    if (carry) {
+      const ticket = await offerSeasonTransfer();
+      if (ticket) rememberTransfer(ticket);
+    }
+
     const result = await signInWith(provider, { switchAccount });
     setBusy(false);
     // Closing the sheet is a decision, not a failure. Saying "sign-in did not
@@ -116,6 +158,15 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
     if (result.ok) {
       track('signed_in', { provider, switched: switchAccount });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      // Native returns here; on web the page navigated and the effect above
+      // does this instead.
+      const ticket = consumeTransfer();
+      if (ticket) {
+        const moved = await claimSeasonTransfer(ticket);
+        if (moved && moved > 0) {
+          setNote(`${moved} ${moved === 1 ? 'season' : 'seasons'} carried over.`);
+        }
+      }
       await refresh();
       return;
     }
@@ -273,10 +324,13 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
         <>
           <Text style={styles.copy}>
             Your {providerLabel(elsewhere)} account already has seasons on it. Signing in takes
-            you to that one. Anything played on this device stays here.
+            you to that one.
+            {carryable > 0
+              ? ` Your ${carryable} ranked ${carryable === 1 ? 'season' : 'seasons'} from this device can come with you.`
+              : ' Anything played on this device stays here.'}
           </Text>
           <Pressable
-            onPress={() => connect(elsewhere, true)}
+            onPress={() => connect(elsewhere, true, carryable > 0)}
             disabled={busy}
             accessibilityRole="button"
             accessibilityLabel={`Sign in to the existing ${providerLabel(elsewhere)} account`}
@@ -287,7 +341,9 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
               busy && styles.claimButtonMuted,
             ]}
           >
-            <Text style={styles.claimLabel}>Use that account</Text>
+            <Text style={styles.claimLabel}>
+              {carryable > 0 ? 'Use that account and bring my seasons' : 'Use that account'}
+            </Text>
           </Pressable>
         </>
       ) : null}
