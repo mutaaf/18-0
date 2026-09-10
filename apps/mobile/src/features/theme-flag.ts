@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useFlag } from '@/features/flags';
+import { useFlag, useFlagStatus } from '@/features/flags';
 import { DEFAULT_THEME, setTheme, useThemeId } from '@/theme';
 
 /**
@@ -19,12 +19,24 @@ import { DEFAULT_THEME, setTheme, useThemeId } from '@/theme';
  * a player whose theme was reset while the flag was down chose Broadcast the
  * moment they were put there. Re-theming somebody's app without them asking is
  * the thing this is trying to avoid, not a feature.
+ *
+ * **It waits for `ready`, and that is the whole correctness of it.** An
+ * unresolved flag reads as its fallback, and this one's fallback is off -- so
+ * without the wait, every cold start ran the guard against a flag that had not
+ * answered yet and threw the player back to Broadcast a moment after
+ * `startTheme` restored them, permanently, because the reset persists. It
+ * presented as "the simulator will not stay on Turf" and it was this. `ready`
+ * turns true when the fetch settles *or fails*, so a device that is offline
+ * forever still ends up enforcing the fallback -- just not before it has been
+ * asked.
  */
 export function useThemeFlagGuard(): void {
+  const { ready } = useFlagStatus();
   const enabled = useFlag('theme_picker');
   const active = useThemeId();
 
   useEffect(() => {
+    if (!ready) return;
     if (!enabled && active !== DEFAULT_THEME) setTheme(DEFAULT_THEME);
-  }, [enabled, active]);
+  }, [ready, enabled, active]);
 }
