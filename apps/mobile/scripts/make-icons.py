@@ -91,6 +91,81 @@ def wordmark(size: int, pad: float = 0.10) -> Image.Image:
     return canvas.resize((size, size), Image.LANCZOS)
 
 
+
+def radius_of(piece: Image.Image, size: int, pad: int) -> float:
+    """
+    How far the artwork actually reaches from the centre, in pixels.
+
+    Measured from the alpha channel rather than from the bounding box. The crest
+    is a crest -- its corners are empty -- so a box-corner measurement would
+    demand padding for pixels that are not there and shrink the icon for
+    nothing.
+    """
+    art, at = fit(piece, size, pad)
+    alpha = art.getchannel('A')
+    cx, cy = size / 2, size / 2
+    far = 0.0
+    # Every fourth pixel. The artwork is hundreds of pixels wide here and the
+    # answer moves by well under a pixel at this stride.
+    for y in range(0, art.size[1], 4):
+        for x in range(0, art.size[0], 4):
+            if alpha.getpixel((x, y)) > 8:
+                far = max(far, ((at[0] + x - cx) ** 2 + (at[1] + y - cy) ** 2) ** 0.5)
+    return far
+
+
+SAFE = 0.40
+"""
+The maskable safe zone, as a fraction of the icon's width.
+
+A `purpose: "maskable"` icon is not shown as drawn. Android and Chrome crop it
+to whatever shape the launcher uses -- a circle on some, a squircle on others --
+and the only region guaranteed to survive is a centred circle of 80% diameter,
+which is 0.40 of the width as a radius.
+
+The shipped one was framed identically to the plain icon, whose artwork reaches
+1.05x the icon width. The crown tips, both stadium lights and the ends of the
+banner were being cut off on every Android home screen.
+"""
+
+
+def maskable(piece: Image.Image, size: int) -> tuple[Image.Image, int]:
+    """The crest, shrunk until every lit pixel of it is inside the safe circle."""
+    # Grown from the plain icon's padding rather than solved for. It runs once,
+    # it is obvious, and it cannot be wrong about the shape.
+    pad = int(size * 0.04)
+    while pad < size // 2 and radius_of(piece, size, pad) > size * SAFE:
+        pad += max(1, size // 100)
+    return on_void(piece, size, pad), pad
+
+
+def pwa(art: Image.Image) -> None:
+    """
+    The icons the installed web app uses.
+
+    These four sat in `public/icons/` with nothing generating them -- exactly
+    the state this script exists to end, and it went unnoticed because they
+    look right in a browser tab, which is the one place a maskable icon is
+    never masked.
+    """
+    icons = ROOT / 'public' / 'icons'
+
+    # `purpose: "any"`. Drawn as given, so it keeps the full-bleed framing.
+    on_void(art, 512, 20).save(icons / 'icon-512.png')
+    on_void(art, 192, 8).save(icons / 'icon-192.png')
+
+    # iOS applies its own superellipse and promises no safe zone, so this
+    # matches the App Store icon rather than the maskable one.
+    on_void(art, 180, 7).save(icons / 'apple-touch-icon.png')
+
+    mask, pad = maskable(art, 512)
+    mask.save(icons / 'maskable-512.png')
+
+    reach = radius_of(art, 512, pad) / 512
+    assert reach <= SAFE, f'maskable artwork reaches {reach:.3f}, past the {SAFE} safe zone'
+    print(f'maskable-512  padded {pad}px, artwork reaches {reach:.3f} of {SAFE} allowed')
+
+
 def main() -> None:
     art = artwork()
 
@@ -122,10 +197,16 @@ def main() -> None:
     # reads when everything else has blurred.
     wordmark(96).save(ASSETS / 'favicon.png')
 
+    pwa(art)
+
     for name in ('icon.png', 'android-icon-foreground.png', 'android-icon-background.png',
                  'android-icon-monochrome.png', 'splash-icon.png', 'favicon.png'):
         image = Image.open(ASSETS / name)
         print(f'{name:32} {image.size[0]}x{image.size[1]}  {image.mode}')
+
+    for name in ('icon-192.png', 'icon-512.png', 'maskable-512.png', 'apple-touch-icon.png'):
+        image = Image.open(ROOT / 'public' / 'icons' / name)
+        print(f'public/icons/{name:19} {image.size[0]}x{image.size[1]}  {image.mode}')
 
 
 if __name__ == '__main__':

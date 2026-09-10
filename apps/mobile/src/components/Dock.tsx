@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { DockIcon, type DockIconName } from './DockIcons';
 import { useHasHover } from './useHasHover';
 import { color, elevate, font, radius, space, themed, tracking } from '@/theme';
@@ -47,6 +48,10 @@ export function Dock({
   onSelect: (index: number) => void;
 }) {
   const [focus, setFocus] = useState<number | null>(null);
+  // Measured rather than assumed: the shelf is sized by its children, and the
+  // glass has to be drawn at exactly that size to get a rim that follows the
+  // corner instead of a hairline that stops short of it.
+  const [shelf, setShelf] = useState({ width: 0, height: 0 });
   const hasHover = useHasHover();
 
   const named = focus === null ? null : items[focus];
@@ -65,9 +70,16 @@ export function Dock({
           ) : null}
         </View>
       ) : null}
-      <View style={[styles.dock, GLASS, elevate(10)]}>
-        {/* The lit top edge every piece of glass has. */}
-        <View style={styles.glassEdge} pointerEvents="none" />
+      <View
+        style={[styles.dock, GLASS, elevate(10)]}
+        onLayout={(e) => {
+          const { width, height } = e.nativeEvent.layout;
+          setShelf((prev) =>
+            prev.width === width && prev.height === height ? prev : { width, height },
+          );
+        }}
+      >
+        <Glass width={shelf.width} height={shelf.height} />
         {items.map((item, index) => (
           <Fragment key={item.key}>
             {/* A dock separates the apps from the things that are yours. */}
@@ -128,13 +140,16 @@ function DockTile({
       // One value drives width, lift and scale together, so it has to run on
       // the JS driver -- width is layout, and layout is not native-drivable.
       useNativeDriver: false,
-      friction: 8,
-      tension: 130,
+      // Critically damped. The previous spring overshot, and a dock that
+      // wobbles after the pointer has stopped moving reads as loose rather
+      // than lively -- especially with five of them settling at once.
+      bounciness: 0,
+      speed: 16,
     }).start();
   }, [target, swell]);
 
   const box = swell.interpolate({ inputRange: [0, 1], outputRange: [BASE, PEAK] });
-  const lift = swell.interpolate({ inputRange: [0, 1], outputRange: [0, -(PEAK - BASE) * 0.4] });
+  const lift = swell.interpolate({ inputRange: [0, 1], outputRange: [0, -(PEAK - BASE) * 0.22] });
   const scale = swell.interpolate({ inputRange: [0, 1], outputRange: [1, PEAK / BASE] });
 
   return (
@@ -173,6 +188,69 @@ function DockTile({
 }
 
 /**
+ * The shelf's material.
+ *
+ * It replaced a `borderWidth` and a separate one-pixel highlight, and the
+ * reason is what those two looked like together: a hairline inset twelve points
+ * from each end reads as a scratch across a shelf whose corners are rounded by
+ * twenty-eight, and a flat 14% white stroke all the way round reads as a box
+ * somebody drew rather than an edge catching light. Between two magnified
+ * tiles, the bright top edge became a disconnected line segment slicing the row
+ * in half.
+ *
+ * Glass instead: a ground that falls off downwards, a gloss over the top third,
+ * and a rim that is brightest where light would actually land -- the top -- and
+ * nearly gone by the time it passes behind a magnified icon. It follows the
+ * radius all the way round because it is the same rounded rectangle, drawn at
+ * the size the shelf measured.
+ */
+function Glass({ width, height }: { width: number; height: number }) {
+  if (width === 0 || height === 0) return null;
+
+  // A dock is a lozenge, not a card. Just short of a full pill, so the straight
+  // run along the top still reads as a shelf.
+  const r = Math.min(height * 0.46, width / 2);
+  const inset = 0.75;
+
+  return (
+    <Svg style={StyleSheet.absoluteFill} width={width} height={height} pointerEvents="none">
+      <Defs>
+        <LinearGradient id="dock-ground" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.14" />
+          <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity="0.05" />
+          <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0.015" />
+        </LinearGradient>
+        <LinearGradient id="dock-gloss" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.16" />
+          <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+        </LinearGradient>
+        <LinearGradient id="dock-rim" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.34" />
+          {/* Faint by the height a magnified tile rises through. */}
+          <Stop offset="0.45" stopColor="#FFFFFF" stopOpacity="0.06" />
+          <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0.13" />
+        </LinearGradient>
+      </Defs>
+
+      <Rect x="0" y="0" width={width} height={height} rx={r} fill="url(#dock-ground)" />
+      {/* Clipped by nothing: it fades to zero before the bottom corners, so its
+          own rounding never shows. */}
+      <Rect x="0" y="0" width={width} height={height * 0.55} rx={r} fill="url(#dock-gloss)" />
+      <Rect
+        x={inset}
+        y={inset}
+        width={width - inset * 2}
+        height={height - inset * 2}
+        rx={Math.max(0, r - inset)}
+        fill="none"
+        stroke="url(#dock-rim)"
+        strokeWidth={1.25}
+      />
+    </Svg>
+  );
+}
+
+/**
  * Glass, where the platform has it.
  *
  * A solid slab across the bottom is a second navigation bar; the point of a
@@ -204,36 +282,25 @@ const styles = themed(() => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: space.xs,
-    paddingHorizontal: space.sm,
-    paddingTop: space.xs,
-    paddingBottom: 5,
+    paddingHorizontal: space.md,
+    paddingTop: 9,
+    paddingBottom: 7,
     borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: '#FFFFFF24',
     // Not hidden: a swelling tile lifts above the shelf, the way a dock icon
     // does, and clipping it to the glass cut the tops off every magnified one.
     // Nothing here needs clipping -- the ground is a background colour on a
     // rounded box, and the lit edge is inset from both ends.
   },
-  /** A single bright hairline along the top, where light catches an edge. */
-  glassEdge: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    top: 0,
-    height: 1,
-    backgroundColor: '#FFFFFF40',
-  },
-  slot: { alignItems: 'center', justifyContent: 'flex-end', gap: 5 },
+  slot: { alignItems: 'center', justifyContent: 'flex-end', gap: 4 },
   // No chrome of its own: the icon is the tile. The shadow is what sets it on
   // the shelf rather than in it.
   tile: {
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
-    shadowOpacity: 0.55,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.38,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
   divider: { width: 1, height: BASE * 0.7, marginHorizontal: 3, backgroundColor: '#FFFFFF1F' },
