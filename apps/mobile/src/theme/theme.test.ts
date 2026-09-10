@@ -171,6 +171,37 @@ describe('the source tree', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('subscribes every route to the palette', () => {
+    // React Navigation hands a screen an element and memoizes it, so a theme
+    // change re-renders only what *subscribes*. Nothing else in a screen can do
+    // it on that screen's behalf: a wrapper like `Screen` re-rendering does not
+    // reach `{children}`, because those elements were created by the route and
+    // React bails out on an unchanged reference.
+    //
+    // Missing it looks exactly like it did the first time: a repainted theme
+    // picker sitting inside a screen still wearing the old colours.
+    const routes: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) walk(full);
+        else if (/\.tsx$/.test(full)) routes.push(full);
+      }
+    };
+    walk(join(APP, 'app'));
+
+    const missing = routes.filter((file) => {
+      const src = readFileSync(file, 'utf8');
+      if (!/^export default function/m.test(src)) return false;
+      // The root layout subscribes through `useThemeFlagGuard`, which calls
+      // `useThemeId` for its own reasons.
+      if (file.endsWith(join('app', '_layout.tsx'))) return !/useThemeFlagGuard\(\)/.test(src);
+      return !/\buseThemeId\(\)/.test(src);
+    });
+
+    expect(missing.map((f) => relative(APP, f))).toEqual([]);
+  });
+
   it('never spells a token out by hand', () => {
     // The subtler half of the same mistake, and the one the lightness rule
     // above cannot see: `'#D50A0A14'` is not dark, it is a *wash of the action

@@ -19,7 +19,7 @@ import { useStatLineStatus } from '@/features/stat-lines';
 import { useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
 import { useOverrideStore } from '@/state/overrides';
-import { color, font, radius, space, tabular, themed, tracking, type PressState, useLayout } from '@/theme';
+import { color, font, radius, space, tabular, themed, tracking, type PressState, useLayout, useThemeId } from '@/theme';
 
 /**
  * Operator console.
@@ -43,6 +43,12 @@ import { color, font, radius, space, tabular, themed, tracking, type PressState,
 const PIN = process.env.EXPO_PUBLIC_ADMIN_PIN;
 
 export default function Admin() {
+  // Subscribes this screen to the palette. React Navigation memoizes the
+  // element it was handed, so a theme change reaches the component that
+  // *creates* this screen's children or it reaches nothing -- which showed up
+  // as a repainted picker sitting inside a screen still wearing the old
+  // colours. `theme.test.ts` asserts every route does this.
+  useThemeId();
   const router = useRouter();
   const layout = useLayout();
   const [entered, setEntered] = useState('');

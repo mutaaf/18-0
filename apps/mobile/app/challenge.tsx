@@ -8,7 +8,7 @@ import { beginRanked } from '@/features/ranked';
 import { track } from '@/features/telemetry';
 import { fetchChallengeInvite, isBackendConfigured, type ChallengeInvite } from '@/services/supabase';
 import { useGameStore } from '@/state/game';
-import { color, elevate, font, radius, space, tabular, themed, tracking, type PressState } from '@/theme';
+import { color, elevate, font, radius, space, tabular, themed, tracking, type PressState, useThemeId } from '@/theme';
 
 /**
  * The screen a challenge link lands on.
@@ -28,6 +28,12 @@ import { color, elevate, font, radius, space, tabular, themed, tracking, type Pr
  * wheels, the same dataset, a different pair of eyes.
  */
 export default function Challenge() {
+  // Subscribes this screen to the palette. React Navigation memoizes the
+  // element it was handed, so a theme change reaches the component that
+  // *creates* this screen's children or it reaches nothing -- which showed up
+  // as a repainted picker sitting inside a screen still wearing the old
+  // colours. `theme.test.ts` asserts every route does this.
+  useThemeId();
   const { t } = useLocalSearchParams<{ t?: string }>();
   const token = typeof t === 'string' ? t : null;
 

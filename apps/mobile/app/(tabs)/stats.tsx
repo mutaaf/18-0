@@ -4,9 +4,15 @@ import { eraLabel, franchise } from '@18-0/data';
 import { useMemo } from 'react';
 import { Screen } from '@/components/Screen';
 import { computeStats, useHistoryStore } from '@/state/history';
-import { color, font, radius, space, tabular, themed, tracking, useLayout } from '@/theme';
+import { color, font, radius, space, tabular, themed, tracking, useLayout, useThemeId } from '@/theme';
 
 export default function Stats() {
+  // Subscribes this screen to the palette. React Navigation memoizes the
+  // element it was handed, so a theme change reaches the component that
+  // *creates* this screen's children or it reaches nothing -- which showed up
+  // as a repainted picker sitting inside a screen still wearing the old
+  // colours. `theme.test.ts` asserts every route does this.
+  useThemeId();
   const router = useRouter();
   const layout = useLayout();
   const games = useHistoryStore((s) => s.games);

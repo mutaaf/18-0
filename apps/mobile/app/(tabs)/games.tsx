@@ -6,9 +6,15 @@ import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
 import { useHistoryStore, type HistoryEntry } from '@/state/history';
 import { MODE_LABEL } from '@/state/game';
-import { color, font, positionColor, radius, space, tabular, themed, tierColor, tracking, type PressState, useLayout } from '@/theme';
+import { color, font, positionColor, radius, space, tabular, themed, tierColor, tracking, type PressState, useLayout, useThemeId } from '@/theme';
 
 export default function Games() {
+  // Subscribes this screen to the palette. React Navigation memoizes the
+  // element it was handed, so a theme change reaches the component that
+  // *creates* this screen's children or it reaches nothing -- which showed up
+  // as a repainted picker sitting inside a screen still wearing the old
+  // colours. `theme.test.ts` asserts every route does this.
+  useThemeId();
   const router = useRouter();
   const layout = useLayout();
   const games = useHistoryStore((s) => s.games);

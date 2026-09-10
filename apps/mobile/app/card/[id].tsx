@@ -13,7 +13,7 @@ import { Screen } from '@/components/Screen';
 import { useCardStats } from '@/features/stat-lines';
 import { showsRating, showsStats, useGameStore } from '@/state/game';
 import { CollectibleCard } from '@/components/CollectibleCard';
-import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking } from '@/theme';
+import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking, useThemeId } from '@/theme';
 
 const EMPTY: CardExplanation = { components: [], unavailable: [] };
 
@@ -23,6 +23,12 @@ const EMPTY: CardExplanation = { components: [], unavailable: [] };
  * season was — without being required to play.
  */
 export default function CardDetail() {
+  // Subscribes this screen to the palette. React Navigation memoizes the
+  // element it was handed, so a theme change reaches the component that
+  // *creates* this screen's children or it reaches nothing -- which showed up
+  // as a repainted picker sitting inside a screen still wearing the old
+  // colours. `theme.test.ts` asserts every route does this.
+  useThemeId();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const card = id ? cardById(decodeURIComponent(id)) : undefined;

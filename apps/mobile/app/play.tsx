@@ -24,13 +24,19 @@ import { MODE_LABEL, lookupCard, showsRating, slotsForCard, useGameStore } from 
 import { useHistoryStore } from '@/state/history';
 import { ratingBucket, track } from '@/features/telemetry';
 import { rankedComplete, rankedSelect, rankedSpin } from '@/features/ranked';
-import { DECORATIVE, color, elevate, font, positionColor, radius, space, tabular, themed, tracking, type PressState, useLayout } from '@/theme';
+import { DECORATIVE, color, elevate, font, positionColor, radius, space, tabular, themed, tracking, type PressState, useLayout, useThemeId } from '@/theme';
 
 /** How many names blur past before the reel settles on the result. */
 const REEL_LENGTH = 18;
 const REEL_DURATION = 1150;
 
 export default function Play() {
+  // Subscribes this screen to the palette. React Navigation memoizes the
+  // element it was handed, so a theme change reaches the component that
+  // *creates* this screen's children or it reaches nothing -- which showed up
+  // as a repainted picker sitting inside a screen still wearing the old
+  // colours. `theme.test.ts` asserts every route does this.
+  useThemeId();
   const router = useRouter();
   const layout = useLayout();
   const game = useGameStore();

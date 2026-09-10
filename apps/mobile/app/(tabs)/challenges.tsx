@@ -26,7 +26,7 @@ import {
   type ChallengeRow,
   type MySeason,
 } from '@/services/supabase';
-import { color, font, radius, space, tabular, themed, tracking, type PressState, useLayout } from '@/theme';
+import { color, font, radius, space, tabular, themed, tracking, type PressState, useLayout, useThemeId } from '@/theme';
 
 /** Where a challenge lives. A query parameter, because the site is a static
  *  export and a path that was never exported is a 404 before the app runs. */
@@ -46,6 +46,12 @@ export const challengeUrl = (token: string) => `${APP_URL}?c=${token}`;
  * at two different answers.
  */
 export default function Challenges() {
+  // Subscribes this screen to the palette. React Navigation memoizes the
+  // element it was handed, so a theme change reaches the component that
+  // *creates* this screen's children or it reaches nothing -- which showed up
+  // as a repainted picker sitting inside a screen still wearing the old
+  // colours. `theme.test.ts` asserts every route does this.
+  useThemeId();
   const layout = useLayout();
   const [rows, setRows] = useState<ChallengeRow[]>([]);
   const [seasons, setSeasons] = useState<MySeason[]>([]);

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { color, font, space, themed } from '@/theme';
+import { color, font, space, themed, useThemeId } from '@/theme';
 
 /**
  * A landing pad for the OAuth redirect.
@@ -19,6 +19,12 @@ import { color, font, space, themed } from '@/theme';
  * exchange again here would race with it and burn a single-use code.
  */
 export default function AuthCallback() {
+  // Subscribes this screen to the palette. React Navigation memoizes the
+  // element it was handed, so a theme change reaches the component that
+  // *creates* this screen's children or it reaches nothing -- which showed up
+  // as a repainted picker sitting inside a screen still wearing the old
+  // colours. `theme.test.ts` asserts every route does this.
+  useThemeId();
   const router = useRouter();
 
   useEffect(() => {

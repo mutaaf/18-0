@@ -10,7 +10,7 @@ import {
   isBackendConfigured,
   type Identity,
 } from '@/services/supabase';
-import { color, font, space, themed, tracking, useLayout } from '@/theme';
+import { color, font, space, themed, tracking, useLayout, useThemeId } from '@/theme';
 
 /**
  * Your account, on its own.
@@ -23,6 +23,12 @@ import { color, font, space, themed, tracking, useLayout } from '@/theme';
  * a card that says nothing about where you stand is a worse card.
  */
 export default function Account() {
+  // Subscribes this screen to the palette. React Navigation memoizes the
+  // element it was handed, so a theme change reaches the component that
+  // *creates* this screen's children or it reaches nothing -- which showed up
+  // as a repainted picker sitting inside a screen still wearing the old
+  // colours. `theme.test.ts` asserts every route does this.
+  useThemeId();
   const layout = useLayout();
   const [me, setMe] = useState<Identity | null>(null);
   const [rank, setRank] = useState<number | null>(null);

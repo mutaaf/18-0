@@ -34,6 +34,7 @@ import {
   tracking,
   type PressState,
   useLayout,
+  useThemeId,
 } from '@/theme';
 
 /** Resolves to null rather than hanging, so a stalled request cannot trap a screen. */
@@ -52,6 +53,12 @@ async function withTimeout<T>(work: Promise<T>, ms: number): Promise<T | null> {
 }
 
 export default function Home() {
+  // Subscribes this screen to the palette. React Navigation memoizes the
+  // element it was handed, so a theme change reaches the component that
+  // *creates* this screen's children or it reaches nothing -- which showed up
+  // as a repainted picker sitting inside a screen still wearing the old
+  // colours. `theme.test.ts` asserts every route does this.
+  useThemeId();
   const router = useRouter();
   const layout = useLayout();
   const game = useGameStore();
