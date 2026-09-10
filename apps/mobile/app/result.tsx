@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Animated, Easing } from 'react-native';
 import { ROSTER_SLOTS, isPerfectionDenied, type RosterSlot } from '@18-0/domain';
 import { displayName, eraLabel, franchise } from '@18-0/data';
 import { Brand } from '@/components/Brand';
-import { Reveal } from '@/components/Reveal';
-import { Crown } from '@/components/Crown';
+import { EASE_OUT, Layer, SkipLayer, keyframes, useTimeline } from '@/components/Broadcast';
+import { CUE, ROSTER_STEP, Scoreboard } from '@/components/Scoreboard';
 import { Celebration } from '@/components/Celebration';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
@@ -38,6 +37,23 @@ import {
  * The reveal does two jobs: land the result hard, and make the next spin feel
  * inevitable. So the distance from 18-0 is the second thing on the page rather
  * than a footnote — the whole product is the chase.
+ *
+ * The landing is a broadcast build rather than a page that fades in, and the
+ * whole page is on one clock to make it one: the rundown is `CUE` in
+ * `Scoreboard.tsx`, and everything here — the chase meter, the badges, the
+ * buttons, every roster row — is a `Layer` reading its window off `line.t`.
+ *
+ * Three things that were separately true and had to be made simultaneously
+ * true, because each of them is a way to lose the result behind the animation:
+ *
+ * - **Reduce Motion gets no sequence at all.** Not a slower one. `useTimeline`
+ *   settles before the first paint and every layer is at its end state.
+ * - **A tap on the panel ends it.** `line.settle()` puts the clock at its last
+ *   millisecond, which is the same state the sequence would have reached, so
+ *   there is no separate "skipped" rendering to get wrong.
+ * - **Nothing is conditional on a cue.** Every value on this page is in the
+ *   tree from the first frame and only its opacity moves, so a driver that
+ *   never runs costs a fade, not a score.
  */
 const PERFECT_THRESHOLD = 98.5;
 
@@ -69,15 +85,27 @@ export default function Result() {
     });
   }, [game.serverSessionId, game.assisted]);
 
-  // 18-0 breathes and wears the crown. Nothing else in the app does either.
-  const glow = useRef(new Animated.Value(0)).current;
-  const crownLift = useRef(new Animated.Value(0)).current;
-  // The record lands rather than appears: it overshoots, then settles.
-  const slam = useRef(new Animated.Value(0)).current;
+  // One clock for the whole page. Read before the early return below, so the
+  // hook order never changes.
+  const line = useTimeline(CUE.end, result?.finalRating);
 
-  // Read before the early return below, so the hook order never changes.
-  const winsTarget = result?.record.wins ?? 0;
-  const countedWins = useCountUp(winsTarget, 850);
+  /**
+   * The celebration is not its own event.
+   *
+   * Mounted with the screen it threw confetti over a panel that had not
+   * finished building and a record that still said 0-0 -- two moments a second
+   * apart, neither of which was the moment. It belongs to the frame the tier
+   * stamps on, and to that frame only.
+   */
+  const [onAir, setOnAir] = useState(false);
+  useEffect(() => {
+    if (line.settled) {
+      setOnAir(true);
+      return;
+    }
+    const at = setTimeout(() => setOnAir(true), CUE.stamp);
+    return () => clearTimeout(at);
+  }, [line.settled]);
 
   const rosterCards = useMemo(
     () =>
@@ -112,52 +140,34 @@ export default function Result() {
     return ratings.length > 1 ? ratings[1]! : null;
   }, [history]);
 
+  /**
+   * The buzz belongs to the frame the record locks on.
+   *
+   * Fired on mount it arrived a full second before the number it was reacting
+   * to, which read as the phone going off at nothing. The rating it fired for
+   * is remembered so a skip tap, the natural end of the sequence and the
+   * failsafe cannot between them buzz the same result three times.
+   */
+  const buzzedFor = useRef<number | null>(null);
   useEffect(() => {
     if (!result) return;
-    const wins = result.record.wins;
-    if (wins >= 12) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    else if (wins >= 9) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    else Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
-  }, [result?.finalRating]);
-
-  useEffect(() => {
-    if (result?.ending.key !== 'PERFECT') return;
-    Animated.spring(crownLift, {
-      toValue: 1,
-      delay: 260,
-      damping: 9,
-      stiffness: 140,
-      mass: 1,
-      useNativeDriver: true,
-    }).start();
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glow, {
-          toValue: 1,
-          duration: 1700,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(glow, {
-          toValue: 0,
-          duration: 1700,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    pulse.start();
-    return () => pulse.stop();
-  }, [result?.ending.key]);
-
-  useEffect(() => {
-    if (!result) return;
-    slam.setValue(0);
-    Animated.sequence([
-      Animated.delay(620),
-      Animated.spring(slam, { toValue: 1, damping: 6, stiffness: 190, mass: 0.9, useNativeDriver: true }),
-    ]).start();
-  }, [result?.finalRating]);
+    const rating = result.finalRating;
+    if (buzzedFor.current === rating) return;
+    const fire = () => {
+      if (buzzedFor.current === rating) return;
+      buzzedFor.current = rating;
+      const wins = result.record.wins;
+      if (wins >= 12) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      else if (wins >= 9) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      else Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    };
+    if (line.settled) {
+      fire();
+      return;
+    }
+    const at = setTimeout(fire, CUE.lock);
+    return () => clearTimeout(at);
+  }, [result?.finalRating, line.settled]);
 
   useEffect(() => {
     if (!result) router.replace('/(tabs)');
@@ -218,104 +228,29 @@ export default function Result() {
 
   const verdict = (
     <View style={styles.verdictColumn}>
-      <View style={styles.heroHalo}>
-        {perfect ? (
-          /* A slow gold breath behind the record. Nothing else in the app
-             pulses, so this reads as the moment it is.
-
-             It sits *behind* the card rather than inside it. As a child of the
-             card it was a filled rectangle painted over the card's own
-             background, which tinted the whole panel gold and left gold text on
-             a gold field — the one screen the entire game exists for, and you
-             could not read it. Outside and behind, the card's opaque background
-             masks the middle and only the halo escapes at the edges, which is
-             what a glow is. */
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.glow,
-              { opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.16, 0.42] }) },
-            ]}
-          />
-        ) : null}
-
-        <Reveal delay={0}
-          style={[styles.hero, { borderColor: `${accent}4D` }, perfect && styles.heroPerfect]}
-          accessible
-          accessibilityLabel={`Final result. ${wins} and ${result.record.losses}. ${result.ending.label}. Tier ${result.ending.tier}. Rating ${result.finalRating.toFixed(1)}.`}
-        >
-        <View style={styles.heroContent}>
-        {perfect ? (
-          <Animated.View
-            style={{
-              opacity: crownLift,
-              transform: [
-                { scale: crownLift.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
-                { translateY: crownLift.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) },
-              ],
-            }}
-          >
-            <Crown size={layout.wide ? 64 : 50} />
-          </Animated.View>
-        ) : null}
-
-        <Text style={styles.kicker}>Projected Record</Text>
-
-        <Animated.View
-          style={[
-            styles.recordRow,
-            {
-              transform: [
-                { scale: slam.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] }) },
-              ],
-            },
-          ]}
-        >
-          <Text
-            maxFontSizeMultiplier={1.15}
-            style={[
-              styles.recordNum,
-              { fontSize: recordSize, lineHeight: recordSize * 1.04 },
-              perfect && styles.recordPerfect,
-            ]}
-          >
-            {countedWins}
-          </Text>
-          <View style={[styles.recordBar, { backgroundColor: accent, height: recordSize * 0.09 }]} />
-          <Text
-            maxFontSizeMultiplier={1.15}
-            style={[
-              styles.recordNum,
-              { fontSize: recordSize, lineHeight: recordSize * 1.04 },
-              perfect && styles.recordPerfect,
-            ]}
-          >
-            {result.record.losses}
-          </Text>
-        </Animated.View>
-
-        <Text style={[styles.endingName, { color: accent }]}>
-          {perfect ? 'PERFECT' : result.ending.label.toUpperCase()}
-        </Text>
-
-        {perfect ? <Text style={styles.immortal}>IMMORTAL</Text> : null}
-
-        <View style={styles.heroMeta}>
-          <Text style={styles.metaLabel}>
-            TIER <Text style={{ color: accent }}>{result.ending.tier}</Text>
-          </Text>
-          <View style={styles.metaDot} />
-          <Text style={styles.metaRating}>
-            {result.finalRating.toFixed(1)}
-            <Text style={styles.metaLabel}> RATING</Text>
-          </Text>
-        </View>
-        </View>
-        </Reveal>
+      <View>
+        <Scoreboard
+          line={line}
+          wins={wins}
+          losses={result.record.losses}
+          label={perfect ? 'PERFECT' : result.ending.label.toUpperCase()}
+          tier={result.ending.tier}
+          rating={result.finalRating}
+          accent={accent}
+          perfect={perfect}
+          recordSize={recordSize}
+          crownSize={layout.wide ? 64 : 50}
+          summary={`Final result. ${wins} and ${result.record.losses}. ${result.ending.label}. Tier ${result.ending.tier}. Rating ${result.finalRating.toFixed(1)}.`}
+        />
+        {/* Over the panel and nothing else, and only while there is something
+            to skip. The panel carries no controls, so a tap it swallows costs
+            nobody anything; a layer over the page would have eaten the first
+            press on Build Another. */}
+        {line.settled ? null : <SkipLayer onPress={line.settle} />}
       </View>
 
       {/* The hook: how close you came, and what it would take to go again. */}
-      <Reveal delay={220} style={styles.chase}>
+      <Layer t={line.t} at={CUE.meter - 140} style={styles.chase}>
         {perfect ? (
           <Text style={styles.chaseHeadline}>
             No weaknesses. No compromises. A roster for the ages.
@@ -327,7 +262,24 @@ export default function Result() {
               <Text style={styles.chaseValue}>{toPerfect.toFixed(2)}</Text>
             </View>
             <View style={styles.meter}>
-              <View style={[styles.meterFill, { width: `${progress * 100}%` }]} />
+              {/* scaleX rather than width: width cannot be driven natively, and
+                  dropping this one bar off the driver stutters the whole
+                  sequence on a mid-range phone. */}
+              <Animated.View
+                style={[
+                  styles.meterFill,
+                  {
+                    transform: [
+                      {
+                        scaleX: keyframes(line.t, CUE.meter, 640, EASE_OUT).interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, progress],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
             </View>
             <Text style={styles.chaseCopy}>
               {denied
@@ -340,21 +292,21 @@ export default function Result() {
             </Text>
           </>
         )}
-      </Reveal>
+      </Layer>
 
       {denied ? (
-        <Reveal delay={300} style={styles.denied}>
+        <Layer t={line.t} at={CUE.tail - 60} style={styles.denied}>
           <Text style={styles.deniedTitle}>Perfection Denied</Text>
           {result.perfectEligibility.failedGates.slice(0, 3).map((gate) => (
             <Text key={`${gate.kind}-${gate.slot}`} style={styles.deniedGate}>
               {gate.message}
             </Text>
           ))}
-        </Reveal>
+        </Layer>
       ) : null}
 
       {game.mode === 'player_iq' || game.assisted ? (
-        <Reveal delay={340} style={styles.badgeRow}>
+        <Layer t={line.t} at={CUE.tail} style={styles.badgeRow}>
           {game.mode === 'player_iq' ? (
             <View style={[styles.badge, styles.badgeBlind]}>
               <Text style={styles.badgeBlindText}>Built blind · GM Mode</Text>
@@ -365,7 +317,7 @@ export default function Result() {
               <Text style={styles.badgeText}>Assisted · not counted</Text>
             </View>
           ) : null}
-        </Reveal>
+        </Layer>
       ) : null}
 
       {/* The one thing about a finished season that may still change.
@@ -374,7 +326,7 @@ export default function Result() {
           already counted before the score was known. This only ever lowers
           you, which is exactly why it is safe to offer after the fact. */}
       {game.serverSessionId && !game.assisted ? (
-        <Reveal delay={360}>
+        <Layer t={line.t} at={CUE.tail + 60}>
           <Pressable
             onPress={() => {
               const next = !boardHidden;
@@ -407,10 +359,10 @@ export default function Result() {
               </Text>
             </View>
           </Pressable>
-        </Reveal>
+        </Layer>
       ) : null}
 
-      <Reveal delay={400} style={styles.actions}>
+      <Layer t={line.t} at={CUE.tail + 120} style={styles.actions}>
         <Pressable
           style={({ pressed, hovered }: PressState) => [
             styles.primary,
@@ -435,7 +387,7 @@ export default function Result() {
         >
           <Text style={styles.secondaryLabel}>Share</Text>
         </Pressable>
-      </Reveal>
+      </Layer>
 
       {shareNote ? (
         <Text style={styles.note} accessibilityLiveRegion="polite">
@@ -447,12 +399,17 @@ export default function Result() {
 
   // ----------------------------------------------------------------- detail
 
+  // The two analysis panels build after the last roster row rather than at a
+  // time somebody wrote down once and never updated: the roster is seven rows
+  // today and the slot list is not this file's to fix.
+  const rosterEnd = CUE.roster + rosterCards.length * ROSTER_STEP;
+
   const detail = (
     <View style={styles.detailColumn}>
       <View style={styles.panel}>
         <Text style={styles.panelTitle}>Roster</Text>
         {rosterCards.map(({ slot, card }, index) => (
-          <Reveal key={slot} delay={280 + index * 50}>
+          <Layer key={slot} t={line.t} at={CUE.roster + index * ROSTER_STEP}>
             {/* Every name in the app opens its card. A player who has just
                 been told a roster scored 92.6 will want to look at the seven
                 seasons that did it. */}
@@ -477,11 +434,11 @@ export default function Result() {
             </View>
             <RatingBadge rating={card.rating} size="sm" />
             </Pressable>
-          </Reveal>
+          </Layer>
         ))}
       </View>
 
-      <Reveal delay={560} style={styles.panel}>
+      <Layer t={line.t} at={rosterEnd + 40} style={styles.panel}>
         <Text style={styles.panelTitle}>How it scored</Text>
         <Line label="Weighted roster rating" value={result.breakdown.baseRating.toFixed(2)} />
         <Line
@@ -515,10 +472,10 @@ export default function Result() {
             {result.breakdown.weakLinkDetail[0]!.rating.toFixed(1)}
           </Text>
         ) : null}
-      </Reveal>
+      </Layer>
 
       {result.breakdown.chemistryDetail.links.length > 0 ? (
-        <Reveal delay={620} style={styles.panel}>
+        <Layer t={line.t} at={rosterEnd + 120} style={styles.panel}>
           <Text style={styles.panelTitle}>Chemistry</Text>
           {result.breakdown.chemistryDetail.links.map((link) => (
             <View key={link.key} style={styles.chemRow}>
@@ -536,7 +493,7 @@ export default function Result() {
               </Text>
             </View>
           ))}
-        </Reveal>
+        </Layer>
       ) : null}
 
       <Text style={styles.modelNote}>
@@ -549,7 +506,7 @@ export default function Result() {
   return (
     <Screen maxWidth={layout.wide ? 760 : undefined}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Reveal delay={0} distance={0} style={styles.header}>
+        <Layer t={line.t} at={CUE.plate} distance={0} style={styles.header}>
           <Brand size={22} tint={perfect ? color.goldBright : undefined} />
           <Pressable
             onPress={() => router.replace('/(tabs)')}
@@ -558,7 +515,7 @@ export default function Result() {
           >
             <Text style={styles.close}>✕</Text>
           </Pressable>
-        </Reveal>
+        </Layer>
 
         {verdict}
         {detail}
@@ -577,57 +534,11 @@ export default function Result() {
 
       {/* Last child so it sits over everything, and pointer-transparent so it
           cannot swallow the Share or Build Another buttons underneath. */}
-      <Celebration intensity={celebration} palette={[accent, color.text, color.silver]} perfect={perfect} />
+      {onAir ? (
+        <Celebration intensity={celebration} palette={[accent, color.text, color.silver]} perfect={perfect} />
+      ) : null}
     </Screen>
   );
-}
-
-/**
- * Counts to the final win total instead of printing it.
- *
- * Deliberately stepped rather than per-frame -- this re-renders the result
- * screen on each tick, and ~20 of them reads as a scoreboard rolling over
- * while 60 would just be expensive. Reduce Motion jumps straight to the answer,
- * and a failsafe guarantees the real number even if the ticker is interrupted:
- * decoration must never be the reason a score is wrong on screen.
- */
-function useCountUp(target: number, duration: number): number {
-  const [value, setValue] = useState(target);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const stop = () => timer.current && clearTimeout(timer.current);
-
-    const failsafe = setTimeout(() => !cancelled && setValue(target), duration + 900);
-
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((reduced) => {
-        if (cancelled) return;
-        if (reduced || target <= 0) {
-          setValue(target);
-          return;
-        }
-        setValue(0);
-        const start = Date.now();
-        const tick = () => {
-          if (cancelled) return;
-          const t = Math.min(1, (Date.now() - start) / duration);
-          setValue(Math.round(target * (1 - (1 - t) ** 3)));
-          if (t < 1) timer.current = setTimeout(tick, 42);
-        };
-        timer.current = setTimeout(tick, 380);
-      })
-      .catch(() => !cancelled && setValue(target));
-
-    return () => {
-      cancelled = true;
-      stop();
-      clearTimeout(failsafe);
-    };
-  }, [target, duration]);
-
-  return value;
 }
 
 function Line({ label, value, tone }: { label: string; value: string; tone?: string }) {
@@ -658,92 +569,8 @@ const styles = themed(() => StyleSheet.create({
     textAlign: 'center',
   },
 
-  split: { flexDirection: 'row', gap: space.xxl, alignItems: 'flex-start', width: '100%' },
   verdictColumn: { gap: space.md, width: '100%' },
   detailColumn: { gap: space.md, width: '100%' },
-
-  hero: {
-    borderWidth: 1,
-    borderRadius: radius.lg,
-    paddingTop: space.xl,
-    paddingBottom: space.lg,
-    paddingHorizontal: space.lg,
-    alignItems: 'center',
-    backgroundColor: color.ink,
-    zIndex: 1,
-  },
-  /** Holds the card above its own halo, on both paint models. */
-  heroHalo: { width: '100%' },
-  heroContent: { width: '100%', alignItems: 'center', zIndex: 1 },
-  /**
-   * A ring, not a fill.
-   *
-   * This was a filled gold rectangle sitting behind the card, which relies on
-   * the card's own background to mask its middle — and that held on native but
-   * not on the web, where the record ended up gold-on-gold and unreadable.
-   * A border has no interior to leak, so the halo is correct by construction on
-   * every platform rather than by luck of paint order.
-   */
-  glow: {
-    position: 'absolute',
-    top: -22,
-    left: -22,
-    right: -22,
-    bottom: -22,
-    borderRadius: radius.lg + 22,
-    borderWidth: 22,
-    borderColor: color.gold,
-  },
-  heroPerfect: {
-    backgroundColor: color.ink,
-    zIndex: 1,
-    borderColor: `${color.gold}80`,
-    shadowColor: color.gold,
-    ...elevate(14),
-    shadowOffset: { width: 0, height: 0 },
-  },
-  kicker: {
-    fontFamily: font.label,
-    fontSize: 10,
-    letterSpacing: tracking.wider,
-    color: color.textFaint,
-    textTransform: 'uppercase',
-  },
-  recordRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginTop: 2 },
-  recordNum: {
-    fontFamily: font.display,
-    color: color.text,
-    includeFontPadding: false,
-    textShadowColor: color.goldGlow,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 18,
-    ...tabular,
-  },
-  recordPerfect: { color: color.goldBright },
-  recordBar: { width: 26, borderRadius: 3 },
-  endingName: {
-    fontFamily: font.display,
-    fontSize: 28,
-    letterSpacing: tracking.wide,
-    includeFontPadding: false,
-    marginTop: 2,
-  },
-  immortal: {
-    fontFamily: font.display,
-    fontSize: 15,
-    letterSpacing: 7,
-    color: color.gold,
-    marginTop: 4,
-  },
-  heroMeta: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.md },
-  metaLabel: {
-    fontFamily: font.label,
-    fontSize: 11,
-    letterSpacing: tracking.wide,
-    color: color.textFaint,
-  },
-  metaDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: color.textFaint },
-  metaRating: { fontFamily: font.display, fontSize: 17, color: color.text, ...tabular },
 
   chase: {
     borderWidth: 1,
@@ -771,7 +598,13 @@ const styles = themed(() => StyleSheet.create({
   },
   chaseCopy: { fontFamily: font.bodyRegular, fontSize: 12.5, color: color.textDim, lineHeight: 18 },
   meter: { height: 6, borderRadius: 3, backgroundColor: '#FFFFFF0F', overflow: 'hidden' },
-  meterFill: { height: 6, borderRadius: 3, backgroundColor: color.gold },
+  meterFill: {
+    height: 6,
+    width: '100%',
+    borderRadius: 3,
+    backgroundColor: color.gold,
+    transformOrigin: 'left',
+  },
 
   denied: {
     borderWidth: 1,
