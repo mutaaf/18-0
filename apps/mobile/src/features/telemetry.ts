@@ -51,6 +51,7 @@ export type EventName =
   | 'signed_in'
   | 'handle_claimed'
   | 'account_deleted'
+  | 'theme_changed'
   /**
    * Feature flags. The `$`-prefixed name is not a typo and not ours: PostHog
    * computes an experiment's exposure from an event called exactly this, with

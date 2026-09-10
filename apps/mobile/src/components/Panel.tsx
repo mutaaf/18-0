@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { color, elevate, radius } from '@/theme';
+import { color, elevate, radius, themed } from '@/theme';
 
 /**
  * A surface with a light source.
@@ -46,8 +46,8 @@ export function Panel({
       <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
         <Defs>
           <LinearGradient id={`${id}-ground`} x1="0" y1="0" x2="0.25" y2="1">
-            <Stop offset="0" stopColor="#1A2233" stopOpacity="0.9" />
-            <Stop offset="1" stopColor="#080B12" stopOpacity="0.95" />
+            <Stop offset="0" stopColor={color.panelTop} stopOpacity="0.9" />
+            <Stop offset="1" stopColor={color.panelBottom} stopOpacity="0.95" />
           </LinearGradient>
           <LinearGradient id={`${id}-wash`} x1="0" y1="0" x2="0.6" y2="1">
             <Stop offset="0" stopColor={tint ?? '#FFFFFF'} stopOpacity="0.16" />
@@ -72,13 +72,13 @@ export function Panel({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   panel: {
     borderRadius: radius.md,
     borderWidth: 1,
     overflow: 'hidden',
-    backgroundColor: '#080B12',
+    backgroundColor: color.panelBottom,
   },
   rail: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
   body: { zIndex: 1 },
-});
+}));

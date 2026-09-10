@@ -9,17 +9,19 @@ import { useFonts } from 'expo-font';
 import { startAnalytics } from '@/features/analytics';
 import { startFlags } from '@/features/flags';
 import { startStatLines } from '@/features/stat-lines';
+import { useThemeFlagGuard } from '@/features/theme-flag';
 import { Rajdhani_600SemiBold, Rajdhani_700Bold } from '@expo-google-fonts/rajdhani';
 import {
   Montserrat_400Regular,
   Montserrat_500Medium,
   Montserrat_700Bold,
 } from '@expo-google-fonts/montserrat';
-import { color, font } from '@/theme';
+import { color, font, startTheme, themed } from '@/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
+  useThemeFlagGuard();
   const [ready, error] = useFonts({
     Rajdhani_600SemiBold,
     Rajdhani_700Bold,
@@ -43,6 +45,10 @@ export default function RootLayout() {
     // Display text only, and only when this build is behind the published
     // table. Nothing waits for it. See `features/stat-lines`.
     void startStatLines();
+    // The app renders in the shipped palette and repaints when this lands,
+    // which is a frame or two on a warm start. A theme is not worth holding a
+    // splash screen for.
+    void startTheme();
   }, []);
 
   // A challenge arrives as `?c=<token>` on the site's own address rather than
@@ -92,9 +98,9 @@ export default function RootLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: color.void },
   boot: { flex: 1, backgroundColor: color.void },
   fontWarning: { backgroundColor: '#00000000', paddingHorizontal: 12, paddingTop: 2 },
   fontWarningText: { fontFamily: font.bodyRegular, fontSize: 9, color: color.textFaint },
-});
+}));

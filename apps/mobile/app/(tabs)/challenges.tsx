@@ -26,7 +26,7 @@ import {
   type ChallengeRow,
   type MySeason,
 } from '@/services/supabase';
-import { color, font, radius, space, tabular, tracking, useLayout, type PressState } from '@/theme';
+import { color, font, radius, space, tabular, themed, tracking, type PressState, useLayout } from '@/theme';
 
 /** Where a challenge lives. A query parameter, because the site is a static
  *  export and a path that was never exported is a 404 before the app runs. */
@@ -123,11 +123,11 @@ export default function Challenges() {
             </Text>
           </Panel>
         ) : loading ? (
-          <ActivityIndicator color={color.red} style={{ marginTop: space.xl }} />
+          <ActivityIndicator color={color.action} style={{ marginTop: space.xl }} />
         ) : (
           <>
             {best ? (
-              <Panel tint={color.red} contentStyle={styles.pitch}>
+              <Panel tint={color.action} contentStyle={styles.pitch}>
                 <Text style={styles.pitchLabel}>Put one up</Text>
                 <View style={styles.pitchRow}>
                   <View style={styles.pitchMain}>
@@ -146,7 +146,7 @@ export default function Challenges() {
                   accessibilityLabel="Challenge a friend with this season"
                   style={({ hovered, pressed }: PressState) => [
                     styles.cta,
-                    hovered && { backgroundColor: color.redBright },
+                    hovered && { backgroundColor: color.actionBright },
                     pressed && { opacity: 0.85 },
                     making && { opacity: 0.6 },
                   ]}
@@ -308,7 +308,7 @@ function Side({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   header: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.md },
   title: {
     fontFamily: font.displayBlack,
@@ -351,16 +351,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: color.red,
+    backgroundColor: color.action,
   },
-  ctaLabel: { fontFamily: font.display, fontSize: 16, color: '#FFFFFF', letterSpacing: tracking.wide },
+  ctaLabel: { fontFamily: font.display, fontSize: 16, color: color.onAction, letterSpacing: tracking.wide },
 
   note: { padding: space.lg, gap: 6 },
   noteTitle: { fontFamily: font.heading, fontSize: 17, color: color.text },
   noteCopy: { fontFamily: font.bodyRegular, fontSize: 13, lineHeight: 19, color: color.textFaint },
   strong: { color: color.gold },
   quiet: { alignSelf: 'flex-start', paddingVertical: space.xs },
-  quietLabel: { fontFamily: font.label, fontSize: 12, letterSpacing: tracking.wide, color: color.redBright },
+  quietLabel: { fontFamily: font.label, fontSize: 12, letterSpacing: tracking.wide, color: color.actionBright },
 
   failed: { fontFamily: font.bodyRegular, fontSize: 13, color: color.textFaint },
 
@@ -410,4 +410,4 @@ const styles = StyleSheet.create({
     color: color.textFaint,
     textTransform: 'uppercase',
   },
-});
+}));

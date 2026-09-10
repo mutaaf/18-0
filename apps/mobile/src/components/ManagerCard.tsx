@@ -6,7 +6,7 @@ import { useCardTilt } from './useCardTilt';
 import type { ProfileStats } from '@/state/history';
 import type { Identity } from '@/services/supabase';
 import type { SocialProvider } from '@/services/auth';
-import { color, elevate, font, radius, space, tabular, tierColor, tracking } from '@/theme';
+import { color, elevate, font, radius, space, tabular, themed, tierColor, tracking } from '@/theme';
 
 /**
  * The player's own card.
@@ -162,14 +162,14 @@ function tierOf(rating: number): string {
   return 'B';
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   card: {
     // Dragging a card on the web selected its text instead of turning it.
     userSelect: 'none',
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: color.line,
-    backgroundColor: '#0A0E17',
+    backgroundColor: color.ink,
     overflow: 'hidden',
     paddingVertical: space.lg,
     paddingHorizontal: space.lg,
@@ -272,4 +272,4 @@ const styles = StyleSheet.create({
     letterSpacing: tracking.wider,
     color: color.textFaint,
   },
-});
+}));

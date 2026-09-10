@@ -8,7 +8,7 @@ import {
   type MultiplierNow,
   type Progress,
 } from '@/services/supabase';
-import { color, font, radius, space, tabular, tracking } from '@/theme';
+import { color, font, radius, space, tabular, themed, tracking } from '@/theme';
 
 /**
  * Your level, and what the next season is worth.
@@ -115,7 +115,7 @@ export function LevelPanel() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   body: { padding: space.lg, gap: space.sm },
   head: { flexDirection: 'row', alignItems: 'center', gap: space.md },
   badge: {
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontFamily: font.display,
     fontSize: 21,
-    color: '#0A0E17',
+    color: color.ink,
     includeFontPadding: false,
     ...tabular,
   },
@@ -183,4 +183,4 @@ const styles = StyleSheet.create({
   termValue: { fontFamily: font.body, fontSize: 13, color: color.text, ...tabular },
   termBonus: { fontFamily: font.label, fontSize: 11, color: color.gold },
   hidden: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint },
-});
+}));

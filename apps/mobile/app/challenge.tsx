@@ -8,7 +8,7 @@ import { beginRanked } from '@/features/ranked';
 import { track } from '@/features/telemetry';
 import { fetchChallengeInvite, isBackendConfigured, type ChallengeInvite } from '@/services/supabase';
 import { useGameStore } from '@/state/game';
-import { color, elevate, font, radius, space, tabular, tracking, type PressState } from '@/theme';
+import { color, elevate, font, radius, space, tabular, themed, tracking, type PressState } from '@/theme';
 
 /**
  * The screen a challenge link lands on.
@@ -90,7 +90,7 @@ export default function Challenge() {
 
         {loading ? (
           <View style={styles.centre}>
-            <ActivityIndicator color={color.red} />
+            <ActivityIndicator color={color.action} />
           </View>
         ) : !invite ? (
           <Missing onHome={home} inline />
@@ -142,7 +142,7 @@ export default function Challenge() {
                 accessibilityLabel={`Answer the challenge from ${invite.creatorHandle}`}
                 style={({ hovered, pressed }: PressState) => [
                   styles.cta,
-                  hovered && { backgroundColor: color.redBright },
+                  hovered && { backgroundColor: color.actionBright },
                   pressed && { opacity: 0.85 },
                   opening && { opacity: 0.6 },
                 ]}
@@ -233,7 +233,7 @@ function Missing({ onHome, inline }: { onHome: () => void; inline?: boolean }) {
   return inline ? body : <Screen maxWidth={560}>{body}</Screen>;
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   scroll: { padding: space.lg, paddingBottom: 140, gap: space.md },
   centre: { paddingVertical: space.xxl, alignItems: 'center' },
   eyebrow: {
@@ -247,8 +247,8 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: `${color.red}40`,
-    backgroundColor: '#0C0A12F2',
+    borderColor: `${color.action}40`,
+    backgroundColor: `${color.ink}F2`,
     padding: space.lg,
     gap: space.md,
   },
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: color.line,
-    backgroundColor: '#0A0E1799',
+    backgroundColor: `${color.ink}99`,
     padding: space.lg,
     gap: 4,
   },
@@ -308,14 +308,14 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: color.red,
+    backgroundColor: color.action,
   },
   ctaLabel: {
     fontFamily: font.display,
     fontSize: 17,
-    color: '#FFFFFF',
+    color: color.onAction,
     letterSpacing: tracking.wide,
   },
   quiet: { alignSelf: 'center', paddingVertical: space.sm, paddingHorizontal: space.md },
   quietLabel: { fontFamily: font.label, fontSize: 12, letterSpacing: tracking.wide, color: color.textFaint },
-});
+}));

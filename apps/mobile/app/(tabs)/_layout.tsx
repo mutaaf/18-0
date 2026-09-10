@@ -4,7 +4,7 @@ import { AccountButton } from '@/components/AccountButton';
 import { DOCK_HEIGHT } from '@/components/Dock';
 import { InstallBar } from '@/components/InstallBar';
 import { NavBar } from '@/components/NavBar';
-import { color, useLayout } from '@/theme';
+import { color, themed, useLayout } from '@/theme';
 
 export default function TabsLayout() {
   const layout = useLayout();
@@ -40,4 +40,4 @@ export default function TabsLayout() {
   );
 }
 
-const styles = StyleSheet.create({ root: { flex: 1, backgroundColor: color.void } });
+const styles = themed(() => StyleSheet.create({ root: { flex: 1, backgroundColor: color.void } }));

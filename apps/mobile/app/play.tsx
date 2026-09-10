@@ -24,7 +24,7 @@ import { MODE_LABEL, lookupCard, showsRating, slotsForCard, useGameStore } from 
 import { useHistoryStore } from '@/state/history';
 import { ratingBucket, track } from '@/features/telemetry';
 import { rankedComplete, rankedSelect, rankedSpin } from '@/features/ranked';
-import { DECORATIVE, color, elevate, font, positionColor, radius, space, tabular, tracking, useLayout, type PressState } from '@/theme';
+import { DECORATIVE, color, elevate, font, positionColor, radius, space, tabular, themed, tracking, type PressState, useLayout } from '@/theme';
 
 /** How many names blur past before the reel settles on the result. */
 const REEL_LENGTH = 18;
@@ -507,7 +507,7 @@ export default function Play() {
 
         <View style={styles.heroTop}>
           <View style={[styles.heroTeam, layout.roomy && styles.heroTeamRoomy]}>
-            <Text style={[styles.spinLabel, { color: color.red }]}>Team</Text>
+            <Text style={[styles.spinLabel, { color: color.action }]}>Team</Text>
             {spinning && reel ? (
               <SpinReel
                 items={reel.teams}
@@ -919,7 +919,7 @@ function Chip({
   dimmed?: boolean;
   onPress: () => void;
 }) {
-  const accent = tint ?? color.red;
+  const accent = tint ?? color.action;
   return (
     <Pressable
       onPress={onPress}
@@ -938,7 +938,7 @@ function Chip({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   single: { flex: 1 },
   /** The list scrolls; the field does not. That is the whole point of it. */
   split: { flex: 1, flexDirection: 'row', gap: space.xl },
@@ -1003,7 +1003,7 @@ const styles = StyleSheet.create({
     ...tabular,
   },
   progressTrack: { width: 96, height: 3, borderRadius: 2, backgroundColor: '#FFFFFF12', overflow: 'hidden', alignSelf: 'flex-end' },
-  progressFill: { height: 3, borderRadius: 2, backgroundColor: color.red },
+  progressFill: { height: 3, borderRadius: 2, backgroundColor: color.action },
   progress: { fontFamily: font.display, fontSize: 20, color: color.text, includeFontPadding: false, ...tabular },
   progressTotal: { color: color.textFaint, fontSize: 14 },
   close: {
@@ -1027,11 +1027,11 @@ const styles = StyleSheet.create({
 
   hero: {
     borderWidth: 1,
-    borderColor: '#D50A0A59',
+    borderColor: `${color.action}59`,
     borderRadius: radius.lg,
     paddingVertical: space.lg,
     paddingHorizontal: space.lg,
-    backgroundColor: '#0A0E13E6',
+    backgroundColor: `${color.ink}E6`,
     overflow: 'hidden',
     gap: space.sm,
   },
@@ -1118,13 +1118,13 @@ const styles = StyleSheet.create({
   },
 
   spinButton: {
-    backgroundColor: color.red,
+    backgroundColor: color.action,
     borderRadius: radius.md,
     paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 50,
-    shadowColor: color.red,
+    shadowColor: color.action,
     shadowOpacity: 0.45,
     ...elevate(6),
   },
@@ -1145,13 +1145,13 @@ const styles = StyleSheet.create({
   // Deliberately red, not gold: gold is reserved for an earned 18-0, and this
   // button fires on every game including the ones that end 2-16.
   revealButton: {
-    backgroundColor: color.red,
+    backgroundColor: color.action,
     borderRadius: radius.md,
     paddingVertical: 15,
     minHeight: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: color.red,
+    shadowColor: color.action,
     shadowOpacity: 0.5,
     ...elevate(6),
   },
@@ -1159,7 +1159,7 @@ const styles = StyleSheet.create({
     fontFamily: font.display,
     fontSize: 18,
     letterSpacing: tracking.wide,
-    color: '#FFFFFF',
+    color: color.onAction,
     textTransform: 'uppercase',
     includeFontPadding: false,
   },
@@ -1273,7 +1273,7 @@ const styles = StyleSheet.create({
     right: space.lg,
     bottom: space.xl,
     alignSelf: 'center',
-    backgroundColor: '#0D1219F5',
+    backgroundColor: `${color.ink}F5`,
     borderWidth: 1,
     borderColor: color.line,
     borderRadius: radius.md,
@@ -1289,11 +1289,11 @@ const styles = StyleSheet.create({
   actionName: { flex: 1, fontFamily: font.heading, fontSize: 15, color: color.text },
   actionSlots: { flexDirection: 'row', gap: space.sm },
   actionSlot: {
-    backgroundColor: color.red,
+    backgroundColor: color.action,
     borderRadius: radius.sm,
     paddingHorizontal: space.lg,
     minHeight: 44,
     justifyContent: 'center',
   },
-  actionSlotLabel: { fontFamily: font.label, fontSize: 13, letterSpacing: tracking.wide, color: '#FFFFFF' },
-});
+  actionSlotLabel: { fontFamily: font.label, fontSize: 13, letterSpacing: tracking.wide, color: color.onAction },
+}));

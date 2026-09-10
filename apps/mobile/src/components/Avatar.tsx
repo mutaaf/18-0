@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { font, tracking } from '@/theme';
+import { font, themed, tracking } from '@/theme';
 
 /**
  * A player's initials in a coloured disc.
@@ -61,7 +61,7 @@ const PALETTE = [
   '#D9822B',
 ];
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   disc: { alignItems: 'center', justifyContent: 'center' },
   initials: {
     fontFamily: font.display,
@@ -69,4 +69,4 @@ const styles = StyleSheet.create({
     letterSpacing: tracking.wide,
     includeFontPadding: false,
   },
-});
+}));

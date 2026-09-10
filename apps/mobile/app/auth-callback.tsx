@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { color, font, space } from '@/theme';
+import { color, font, space, themed } from '@/theme';
 
 /**
  * A landing pad for the OAuth redirect.
@@ -34,7 +34,7 @@ export default function AuthCallback() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   screen: {
     flex: 1,
     alignItems: 'center',
@@ -43,4 +43,4 @@ const styles = StyleSheet.create({
     backgroundColor: color.void,
   },
   copy: { fontFamily: font.bodyRegular, fontSize: 14, color: color.textDim },
-});
+}));

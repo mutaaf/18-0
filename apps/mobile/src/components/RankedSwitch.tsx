@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { color, elevate, font, radius, space, tracking, type PressState } from '@/theme';
+import { color, elevate, font, radius, space, themed, tracking, type PressState } from '@/theme';
 
 const TRACK = 56;
 const KNOB = 24;
@@ -100,7 +100,7 @@ export function RankedSwitch({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   panel: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -111,12 +111,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: color.line,
-    backgroundColor: '#0A0E1799',
+    backgroundColor: `${color.ink}99`,
     overflow: 'hidden',
   },
   panelOn: {
     borderColor: `${color.gold}59`,
-    backgroundColor: '#15100299',
+    backgroundColor: `${color.ink}99`,
     shadowColor: color.gold,
     shadowOpacity: 0.22,
     shadowRadius: 18,
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: color.lineBright,
-    backgroundColor: '#05070C',
+    backgroundColor: color.inkDeep,
   },
   trackOn: { borderColor: color.gold, backgroundColor: `${color.gold}2E` },
   knob: {
@@ -173,4 +173,4 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 0 },
   },
-});
+}));

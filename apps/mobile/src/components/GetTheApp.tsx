@@ -12,7 +12,7 @@ import {
   promptInstall,
   type InstallKind,
 } from '@/features/install';
-import { color, font, radius, space, tracking, type PressState } from '@/theme';
+import { color, font, radius, space, themed, tracking, type PressState } from '@/theme';
 
 /**
  * Where to get the game, on the one surface that needs to say so.
@@ -183,8 +183,8 @@ function AndroidMark() {
         strokeWidth={1.6}
         strokeLinecap="round"
       />
-      <Rect x="9" y="11" width="1.8" height="1.8" rx="0.9" fill="#0A0E17" />
-      <Rect x="13.2" y="11" width="1.8" height="1.8" rx="0.9" fill="#0A0E17" />
+      <Rect x="9" y="11" width="1.8" height="1.8" rx="0.9" fill={color.ink} />
+      <Rect x="13.2" y="11" width="1.8" height="1.8" rx="0.9" fill={color.ink} />
     </Svg>
   );
 }
@@ -192,11 +192,11 @@ function AndroidMark() {
 function InstallMark() {
   return (
     <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-      <Rect x="4" y="2.5" width="16" height="19" rx="3" stroke={color.redBright} strokeWidth={1.7} />
-      <Path d="M9.5 18.5h5" stroke={color.redBright} strokeWidth={1.7} strokeLinecap="round" />
+      <Rect x="4" y="2.5" width="16" height="19" rx="3" stroke={color.actionBright} strokeWidth={1.7} />
+      <Path d="M9.5 18.5h5" stroke={color.actionBright} strokeWidth={1.7} strokeLinecap="round" />
       <Path
         d="M12 7v6 M9 10l3 3 3-3"
-        stroke={color.redBright}
+        stroke={color.actionBright}
         strokeWidth={1.7}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -205,7 +205,7 @@ function InstallMark() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   body: { padding: space.lg, gap: space.xs },
   eyebrow: {
     fontFamily: font.label,
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     fontFamily: font.label,
     fontSize: 11,
     letterSpacing: tracking.wide,
-    color: color.redBright,
+    color: color.actionBright,
     flexShrink: 1,
   },
   soon: {
@@ -259,4 +259,4 @@ const styles = StyleSheet.create({
     letterSpacing: tracking.wide,
     color: color.textFaint,
   },
-});
+}));

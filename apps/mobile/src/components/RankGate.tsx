@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { MODE_LABEL, type GameMode } from '@/state/game';
-import { color, elevate, font, radius, space, tracking, type PressState } from '@/theme';
+import { color, elevate, font, radius, space, themed, tracking, type PressState } from '@/theme';
 
 /**
  * What it takes to get on the board, as two doors rather than a sentence.
@@ -86,7 +86,7 @@ export function RankGate({
         accessibilityLabel={next?.key === 'account' ? 'Sign in' : `Start a ${MODE_LABEL[mode]} season`}
         style={({ hovered, pressed }: PressState) => [
           styles.cta,
-          hovered && { backgroundColor: color.redBright },
+          hovered && { backgroundColor: color.actionBright },
           pressed && { opacity: 0.85 },
         ]}
       >
@@ -116,7 +116,7 @@ function BlindIcon() {
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z" stroke={color.text} {...STROKE} />
       <Circle cx="12" cy="12" r="2.5" stroke={color.text} {...STROKE} />
-      <Path d="M4 20L20 4" stroke={color.redBright} strokeWidth={2} strokeLinecap="round" />
+      <Path d="M4 20L20 4" stroke={color.actionBright} strokeWidth={2} strokeLinecap="round" />
     </Svg>
   );
 }
@@ -148,12 +148,12 @@ function ArrowIcon() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   card: {
     borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: `${color.red}59`,
-    backgroundColor: '#12070AF2',
+    borderColor: `${color.action}59`,
+    backgroundColor: `${color.ink}F2`,
     padding: space.lg,
     gap: space.xs,
     overflow: 'hidden',
@@ -219,12 +219,12 @@ const styles = StyleSheet.create({
     gap: space.sm,
     height: 50,
     borderRadius: radius.md,
-    backgroundColor: color.red,
+    backgroundColor: color.action,
   },
   ctaLabel: {
     fontFamily: font.display,
     fontSize: 16,
-    color: '#FFFFFF',
+    color: color.onAction,
     letterSpacing: tracking.wide,
   },
-});
+}));

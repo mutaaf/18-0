@@ -25,7 +25,7 @@ import {
   isBackendConfigured,
   type Identity,
 } from '@/services/supabase';
-import { color, font, radius, space, tracking, type PressState } from '@/theme';
+import { color, font, radius, space, themed, tracking, type PressState } from '@/theme';
 
 /**
  * Your name on the board, and the way off it.
@@ -223,7 +223,7 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
               accessibilityLabel="Claim this name"
               style={({ hovered, pressed }: PressState) => [
                 styles.claimButton,
-                hovered && { backgroundColor: color.redBright },
+                hovered && { backgroundColor: color.actionBright },
                 (busy || draft.trim().length < 2) && styles.claimButtonMuted,
                 pressed && { opacity: 0.85 },
               ]}
@@ -271,7 +271,7 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
             accessibilityLabel={`Sign in to the existing ${providerLabel(elsewhere)} account`}
             style={({ hovered, pressed }: PressState) => [
               styles.claimButton,
-              hovered && { backgroundColor: color.redBright },
+              hovered && { backgroundColor: color.actionBright },
               pressed && { opacity: 0.85 },
               busy && styles.claimButtonMuted,
             ]}
@@ -383,14 +383,14 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   panel: {
     gap: space.sm,
     padding: space.lg,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: color.line,
-    backgroundColor: '#0A0E1799',
+    backgroundColor: `${color.ink}99`,
   },
   label: {
     fontFamily: font.label,
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: color.line,
-    backgroundColor: '#0B0F18',
+    backgroundColor: color.ink,
     color: color.text,
     fontFamily: font.bodyRegular,
     fontSize: 15,
@@ -430,16 +430,16 @@ const styles = StyleSheet.create({
     minWidth: 88,
     paddingHorizontal: space.lg,
     borderRadius: radius.sm,
-    backgroundColor: color.red,
+    backgroundColor: color.action,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  claimButtonMuted: { backgroundColor: '#2A2F3C' },
+  claimButtonMuted: { backgroundColor: color.surfaceHigh },
   claimLabel: {
     fontFamily: font.label,
     fontSize: 13,
     letterSpacing: tracking.wide,
-    color: '#FFFFFF',
+    color: color.onAction,
     textTransform: 'uppercase',
   },
 
@@ -467,4 +467,4 @@ const styles = StyleSheet.create({
   dangerConfirmLabel: { fontFamily: font.label, fontSize: 12, letterSpacing: tracking.wide, color: color.negative },
   dangerCancel: { paddingHorizontal: space.md, height: 40, justifyContent: 'center' },
   dangerCancelLabel: { fontFamily: font.bodyRegular, fontSize: 13, color: color.textDim },
-});
+}));

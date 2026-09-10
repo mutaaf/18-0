@@ -49,7 +49,7 @@ const METAL_DIM = '#A8B2C4';
  * The ground every icon sits on: graphite, lit from above, with a hairline rim
  * so the tile still has an edge against a dark dock.
  */
-function Ground({ id, from = '#232C3E', to = '#080B12' }: { id: string; from?: string; to?: string }) {
+function Ground({ id, from = color.surfaceHigh, to = color.panelBottom }: { id: string; from?: string; to?: string }) {
   return (
     <>
       <Defs>
@@ -105,11 +105,11 @@ function GamesIcon() {
           <Rect x="20" y="17" width="24" height="31" rx="3.5" fill={METAL} />
           {/* The front one reads as a roster card: a portrait, a name rule and
               the rating strip along the bottom. */}
-          <Rect x="23" y="20" width="18" height="13" rx="2.5" fill="#1B2436" />
+          <Rect x="23" y="20" width="18" height="13" rx="2.5" fill={color.surfaceHigh} />
           <Circle cx="32" cy="25.5" r="3.2" fill={METAL_DIM} />
           <Path d="M26.4 33a5.9 5.9 0 0 1 11.2 0z" fill={METAL_DIM} />
-          <Rect x="23" y="36" width="12" height="2.4" rx="1.2" fill="#1B2436" opacity="0.55" />
-          <Rect x="23" y="41" width="18" height="3.6" rx="1.8" fill={color.red} />
+          <Rect x="23" y="36" width="12" height="2.4" rx="1.2" fill={color.surfaceHigh} opacity="0.55" />
+          <Rect x="23" y="41" width="18" height="3.6" rx="1.8" fill={color.action} />
         </G>
       </Raised>
     </>
@@ -138,11 +138,11 @@ function LeaderboardIcon() {
   );
 }
 
-/** Play — the ball, on the one red tile. This is the thing you can do. */
+/** Play — the ball, on the one tile wearing the action colour. This is the thing you can do. */
 function PlayIcon() {
   return (
     <>
-      <Ground id="ic-play" from="#E2201F" to="#6B0202" />
+      <Ground id="ic-play" from={color.actionBright} to={color.actionDeep} />
       <Raised>
         <G transform="rotate(-28 32 32)">
           <Ellipse cx="32" cy="32" rx="19.5" ry="12" fill="#F1E4D2" />
@@ -171,7 +171,7 @@ function ChallengesIcon() {
           <Path
             d="M32 10l19.5 6.8v13.7c0 11.7-9.8 18.5-19.5 22.5-9.7-4-19.5-10.8-19.5-22.5V16.8z"
             fill="none"
-            stroke="#1B2436"
+            stroke={color.surfaceHigh}
             strokeWidth="1.5"
           />
           {/* The bolt is the collision, and it is what splits the crest. */}
@@ -217,10 +217,10 @@ function AccountIcon() {
           <Circle cx="32" cy="24" r="9.5" fill={METAL} />
           <Path d="M15 54a17 17 0 0 1 34 0z" fill={METAL} />
           {/* The badge: this is the one tile that is about you, not the game. */}
-          <Circle cx="46" cy="44.5" r="8.5" fill={color.gold} stroke="#0A0E17" strokeWidth="2.5" />
+          <Circle cx="46" cy="44.5" r="8.5" fill={color.gold} stroke={color.ink} strokeWidth="2.5" />
           <Path
             d="M42.2 44.8l2.7 2.7 5.2-5.4"
-            stroke="#0A0E17"
+            stroke={color.ink}
             strokeWidth="2.6"
             strokeLinecap="round"
             strokeLinejoin="round"

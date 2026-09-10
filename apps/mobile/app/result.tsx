@@ -17,7 +17,8 @@ import { askForReminders, scheduleStreakReminder } from '@/features/reminders';
 import { hideSeason } from '@/services/supabase';
 import { lookupCard, useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
-import { DECORATIVE,
+import {
+  DECORATIVE,
   color,
   elevate,
   font,
@@ -25,10 +26,11 @@ import { DECORATIVE,
   radius,
   space,
   tabular,
+  themed,
   tierColor,
   tracking,
-  useLayout,
   type PressState,
+  useLayout,
 } from '@/theme';
 
 /**
@@ -630,7 +632,7 @@ function Line({ label, value, tone }: { label: string; value: string; tone?: str
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   blank: { flex: 1 },
   scroll: { paddingHorizontal: space.lg, paddingBottom: 60, gap: space.lg },
   header: {
@@ -660,7 +662,7 @@ const styles = StyleSheet.create({
     paddingBottom: space.lg,
     paddingHorizontal: space.lg,
     alignItems: 'center',
-    backgroundColor: '#0C0D11',
+    backgroundColor: color.ink,
     zIndex: 1,
   },
   /** Holds the card above its own halo, on both paint models. */
@@ -686,9 +688,9 @@ const styles = StyleSheet.create({
     borderColor: color.gold,
   },
   heroPerfect: {
-    backgroundColor: '#15100A',
+    backgroundColor: color.ink,
     zIndex: 1,
-    borderColor: '#FFB40080',
+    borderColor: `${color.gold}80`,
     shadowColor: color.gold,
     ...elevate(14),
     shadowOffset: { width: 0, height: 0 },
@@ -739,7 +741,7 @@ const styles = StyleSheet.create({
   chase: {
     borderWidth: 1,
     borderColor: color.lineGold,
-    backgroundColor: '#FFB4000A',
+    backgroundColor: `${color.gold}0A`,
     borderRadius: radius.md,
     padding: space.lg,
     gap: space.sm,
@@ -766,8 +768,8 @@ const styles = StyleSheet.create({
 
   denied: {
     borderWidth: 1,
-    borderColor: '#FF6B6B4D',
-    backgroundColor: '#FF6B6B0F',
+    borderColor: `${color.negative}4D`,
+    backgroundColor: `${color.negative}0F`,
     borderRadius: radius.md,
     padding: space.lg,
     gap: 4,
@@ -837,12 +839,12 @@ const styles = StyleSheet.create({
   lift: { transform: [{ translateY: -1 }] },
   primary: {
     flex: 1.4,
-    backgroundColor: color.red,
+    backgroundColor: color.action,
     borderRadius: radius.md,
     minHeight: 54,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: color.red,
+    shadowColor: color.action,
     shadowOpacity: 0.5,
     ...elevate(8),
   },
@@ -850,7 +852,7 @@ const styles = StyleSheet.create({
     fontFamily: font.display,
     fontSize: 19,
     letterSpacing: tracking.wide,
-    color: '#FFFFFF',
+    color: color.onAction,
     textTransform: 'uppercase',
   },
   secondary: {
@@ -931,4 +933,4 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   captureHost: { position: 'absolute', left: -10000, top: 0, opacity: 0 },
-});
+}));

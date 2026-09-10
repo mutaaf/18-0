@@ -55,6 +55,12 @@ Full pattern, and why PostHog rather than LaunchDarkly:
   `season_cards`; `game_spins` references `franchises` and `eras`. A
   `truncate … cascade` there deletes every pick and every spin ever made. The
   seed upserts, and a card the dataset drops is *retired* (0020), never removed.
+- **Colour comes from `color`, never from a literal.** A hex in a component
+  is a token spelled out by hand: it looked right while there was one theme and
+  it is what stays black when the app turns navy. Module-scope stylesheets are
+  wrapped in `themed(() => …)` because `StyleSheet.create` freezes the palette
+  at import. `theme.test.ts` enforces both by reading the source tree. See
+  [`docs/theming.md`](docs/theming.md).
 - **Anything that changes a published score bumps `version`** in
   `packages/domain/src/constants/config.ts` — and when the card pool grows, the
   calibration curve and the perfection gates both need refitting, or the "once
@@ -102,6 +108,7 @@ then move. Until then: **stage by path, never `git add -A`**, and read
 | [`docs/hydrating-seasons.md`](docs/hydrating-seasons.md) | Bringing a pre-1999 season in, and the licence it needs |
 | [`docs/gameday.md`](docs/gameday.md) | The gameday mode, and the tiers of what a live event may change |
 | [`docs/feature-flags.md`](docs/feature-flags.md) | Flags and experiments |
+| [`docs/theming.md`](docs/theming.md) | The two themes, and the rules that keep a third cheap |
 | [`docs/RUNNING.md`](docs/RUNNING.md) | Running it, deploying it, regenerating the model |
 | [`docs/hosting.md`](docs/hosting.md) | The domain, the two deployments, and everything outside git that holds the address |
 | [`docs/android-release.md`](docs/android-release.md) | Getting onto Google Play, and the verifications that gate it |

@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { fetchLeaderboard, isBackendConfigured, type LeaderboardRow } from '@/services/supabase';
 import { computeStats, useHistoryStore } from '@/state/history';
 import { Panel } from './Panel';
-import { color, font, radius, space, tabular, tierColor, tracking, type PressState } from '@/theme';
+import { color, font, radius, space, tabular, themed, tierColor, tracking, type PressState } from '@/theme';
 
 /**
  * Rankings, always on screen.
@@ -127,7 +127,7 @@ const MEDAL: Record<number, string | undefined> = {
   3: '#C87A3D',
 };
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   card: { padding: space.lg, gap: 2 },
   head: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginBottom: space.sm },
   title: {
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   pill: { borderWidth: 1, borderRadius: radius.pill, paddingHorizontal: space.sm, paddingVertical: 1 },
-  pillLive: { borderColor: '#FF2B2B80', backgroundColor: '#D50A0A1A' },
+  pillLive: { borderColor: `${color.actionBright}80`, backgroundColor: `${color.action}1A` },
   pillLocal: { borderColor: color.line },
   pillText: {
     fontFamily: font.label,
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     color: color.textFaint,
     textTransform: 'uppercase',
   },
-  pillTextLive: { color: color.redBright },
+  pillTextLive: { color: color.actionBright },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingVertical: 7 },
   rank: { fontFamily: font.display, fontSize: 16, color: color.textFaint, width: 16, ...tabular },
   name: { flex: 1, fontFamily: font.body, fontSize: 14, color: color.text, minWidth: 0 },
@@ -156,4 +156,4 @@ const styles = StyleSheet.create({
   rating: { fontFamily: font.display, fontSize: 16, color: color.silver, width: 46, textAlign: 'right', ...tabular },
   empty: { fontFamily: font.bodyRegular, fontSize: 13, color: color.textFaint, paddingVertical: space.sm },
   footer: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint, marginTop: space.sm },
-});
+}));

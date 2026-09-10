@@ -13,7 +13,7 @@ import { Screen } from '@/components/Screen';
 import { useCardStats } from '@/features/stat-lines';
 import { showsRating, showsStats, useGameStore } from '@/state/game';
 import { CollectibleCard } from '@/components/CollectibleCard';
-import { DECORATIVE, color, font, positionColor, radius, space, tabular, tracking } from '@/theme';
+import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking } from '@/theme';
 
 const EMPTY: CardExplanation = { components: [], unavailable: [] };
 
@@ -179,7 +179,7 @@ export default function CardDetail() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   header: { alignItems: 'flex-end', paddingHorizontal: space.lg, paddingTop: space.sm },
   closeHit: { padding: space.sm, marginRight: -space.sm },
   close: {
@@ -282,4 +282,4 @@ const styles = StyleSheet.create({
   },
   missing: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   missingText: { fontFamily: font.body, fontSize: 14, color: color.textDim },
-});
+}));

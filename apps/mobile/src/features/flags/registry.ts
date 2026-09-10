@@ -169,6 +169,35 @@ export const FLAGS = {
     removeBy: '2027-09-01',
     fallback: true,
   },
+
+  /**
+   * The Turf theme, offered or not.
+   *
+   * The app grew a second visual identity -- a navy ground, a green primary and
+   * a rounder shape language -- and this decides whether anybody is invited to
+   * switch to it. A look is exactly the kind of thing that should be tried on a
+   * slice of players and then either kept or deleted, which is what a flag with
+   * a date on it is for.
+   *
+   * It gates the *picker*, not the runtime. Turning it off puts anybody already
+   * on Turf back onto Broadcast, because the alternative is somebody stranded in
+   * a theme with no control left on screen to leave it.
+   *
+   * `fallback: false` is the shipping behaviour rather than caution: a device
+   * that never reaches PostHog is a device this has not been evaluated on. The
+   * invariant at the top of this file is safe either way -- a theme changes what
+   * a season *looks* like and nothing about what it scores. See
+   * `docs/theming.md`.
+   */
+  theme_picker: {
+    key: 'theme_picker',
+    kind: 'toggle',
+    summary:
+      'Offers the Turf theme on the account screen. Off ships Broadcast only, and anyone already on Turf is put back.',
+    owner: 'mutaaf',
+    removeBy: '2026-12-01',
+    fallback: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof FLAGS;

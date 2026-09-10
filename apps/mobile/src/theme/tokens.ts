@@ -1,65 +1,23 @@
 /**
  * 18-0 visual system.
  *
- * Three sources, reconciled deliberately:
- *
- *   Ground    Navy #013369 and red #D50A0A — a broadcast palette, not a club's.
- *   ESPN      Dense red header bars, hard uppercase labels, ticker rhythm.
- *   18-0      Victory Gold #FFB400, Steel Silver #C0C0C6 from the brand sheet.
- *
- * So the chrome is a broadcast: a navy-black bowl, red for anything live, and
- * silver type. Gold is not chrome — it is the colour of the chase, and the
- * crown that wears it is reserved for an earned 18-0.
+ * The colours and the shape scale moved to `palettes.ts` when the app grew a
+ * second identity, and are served from `runtime.ts` as live objects -- see the
+ * long note there for why they are mutated rather than reassigned. What is left
+ * here is everything that is genuinely fixed across themes: the type stack, the
+ * spacing rhythm, the depth helper, and the two colour maps that encode data
+ * rather than decoration.
  */
 
-export const color = {
-  // Ground — black with navy in it rather than neutral grey.
-  void: '#06080F',
-  field: '#090C16',
-  surface: '#0E1220',
-  surfaceRaised: '#141A2B',
-  surfaceHigh: '#1C2437',
-  navy: '#013369',
-  navyDeep: '#011E3F',
-
-  // Structure
-  line: '#222C42',
-  lineBright: '#31405F',
-  lineGold: '#FFB40033',
-  chalk: '#FFFFFF12',
-
-  // Type — silver is the brand's body metal, not plain white.
-  text: '#F2F5FA',
-  silver: '#C0C0C6',
-  textDim: '#9AA4B8',
-  textFaint: '#7C8699',
-
-  // Live action — broadcast red, with a hotter red for small type.
-  red: '#D50A0A',
-  redBright: '#FF2B2B',
-  redGlow: '#D50A0A33',
-
-  // The chase
-  gold: '#FFB400',
-  goldBright: '#FFD152',
-  goldDeep: '#C98A00',
-  goldGlow: '#FFB40033',
-
-  // Kept as a secondary heat, not a primary.
-  ignition: '#FF6A00',
-  ignitionBright: '#FF8A33',
-  ignitionGlow: '#FF6A0033',
-
-  // Heartbreak stays cold against all that heat.
-  ice: '#7FB2FF',
-
-  positive: '#3FD68C',
-  negative: '#FF6B6B',
-} as const;
+export { color, radius } from './runtime';
 
 /**
- * Position accents. Deliberately restrained metals and one cool tone so gold
- * and orange stay the loudest things on screen.
+ * Position accents. Deliberately restrained metals and one cool tone so the
+ * action colour and gold stay the loudest things on screen.
+ *
+ * Not themed: these identify a position the way a tier letter identifies a
+ * tier. A reader who learns that blue means RB should not have to relearn it
+ * because they changed the ground.
  */
 export const positionColor = {
   QB: '#F2F5FA',
@@ -71,7 +29,8 @@ export const positionColor = {
 
 /**
  * Result tiers. Never the only signal — every use is paired with the tier
- * letter and the ending name (PRFAQ §34).
+ * letter and the ending name (PRFAQ §34). Not themed, for the same reason as
+ * the positions above.
  */
 export const tierColor: Record<string, string> = {
   F: '#8A93A1',
@@ -102,10 +61,6 @@ export const font = {
 
 export const space = {
   xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48,
-} as const;
-
-export const radius = {
-  sm: 6, md: 10, lg: 14, xl: 20, pill: 999,
 } as const;
 
 /**

@@ -4,7 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { DATASET } from '@18-0/data';
 import { Dock } from './Dock';
 import type { DockIconName } from './DockIcons';
-import { color, font, radius, space, tracking, useLayout } from '@/theme';
+import { color, font, radius, space, themed, tracking, useLayout } from '@/theme';
 
 const ICONS: Record<string, string> = {
   games: 'M9 5.5h8.5a1.5 1.5 0 0 1 1.5 1.5v11a1.5 1.5 0 0 1-1.5 1.5H9a1.5 1.5 0 0 1-1.5-1.5V7A1.5 1.5 0 0 1 9 5.5z M4.5 8v9.5A2.5 2.5 0 0 0 7 20',
@@ -39,7 +39,7 @@ function Glyph({ name, active, tint, size = 20 }: { name: string; active: boolea
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d={ICONS[name] ?? ''}
-        stroke={tint ?? (active ? color.redBright : color.textFaint)}
+        stroke={tint ?? (active ? color.actionBright : color.textFaint)}
         strokeWidth={1.75}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -136,7 +136,7 @@ export function NavBar({ state, navigation }: NavBarProps) {
           >
             {isPlay ? (
               <View style={[styles.playDisc, active && styles.playDiscActive]}>
-                <Glyph name={route.name} active tint="#FFFFFF" size={24} />
+                <Glyph name={route.name} active tint={color.onAction} size={24} />
               </View>
             ) : (
               <Glyph name={route.name} active={active} />
@@ -144,7 +144,7 @@ export function NavBar({ state, navigation }: NavBarProps) {
             <Text
               style={[
                 styles.barLabel,
-                active && { color: color.redBright },
+                active && { color: color.actionBright },
                 isPlay && styles.playLabel,
               ]}
             >
@@ -157,13 +157,13 @@ export function NavBar({ state, navigation }: NavBarProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   // --- phone bar
   bar: {
     flexDirection: 'row',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: color.line,
-    backgroundColor: '#080B0FF2',
+    backgroundColor: `${color.inkDeep}F2`,
     // Room for the raised Play disc to break the top edge without clipping.
     paddingTop: space.lg,
     overflow: 'visible',
@@ -195,15 +195,15 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: color.red,
+    backgroundColor: color.action,
     borderWidth: 3,
-    borderColor: '#080B0F',
-    shadowColor: color.red,
+    borderColor: color.inkDeep,
+    shadowColor: color.action,
     shadowOpacity: 0.55,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 3 },
     elevation: 8,
   },
-  playDiscActive: { backgroundColor: color.redBright },
-  playLabel: { color: color.redBright, fontFamily: font.bodyBold },
-});
+  playDiscActive: { backgroundColor: color.actionBright },
+  playLabel: { color: color.actionBright, fontFamily: font.bodyBold },
+}));

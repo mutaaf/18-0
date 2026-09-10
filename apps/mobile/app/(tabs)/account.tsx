@@ -3,13 +3,14 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { AccountPanel } from '@/components/AccountPanel';
 import { LevelPanel } from '@/components/LevelPanel';
+import { ThemePicker } from '@/components/ThemePicker';
 import {
   fetchLeaderboard,
   identity,
   isBackendConfigured,
   type Identity,
 } from '@/services/supabase';
-import { color, font, space, tracking, useLayout } from '@/theme';
+import { color, font, space, themed, tracking, useLayout } from '@/theme';
 
 /**
  * Your account, on its own.
@@ -52,13 +53,14 @@ export default function Account() {
         <View style={styles.body}>
           <LevelPanel />
           <AccountPanel rank={rank} />
+          <ThemePicker />
         </View>
       </ScrollView>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   scroll: { paddingBottom: 140 },
   header: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.md },
   title: {
@@ -76,4 +78,4 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   body: { paddingHorizontal: space.lg, gap: space.md },
-});
+}));

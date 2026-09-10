@@ -5,7 +5,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { franchise, type BootCard } from '@18-0/data';
 import { useCardStats } from '@/features/stat-lines';
 import { showsRating, showsStats, type GameMode } from '@/state/game';
-import { color, font, positionColor, radius, space, tabular, tracking, type PressState } from '@/theme';
+import { color, font, positionColor, radius, space, tabular, themed, tracking, type PressState, useThemeId } from '@/theme';
 
 /**
  * A player card, not a spreadsheet row.
@@ -41,12 +41,16 @@ export const PlayerCard = memo(function PlayerCard({
   onPress: () => void;
   onDetails: () => void;
 }) {
+  // Memoized, and a theme change moves none of these props. Without the
+  // subscription the roster keeps the old palette until something else forces
+  // a re-render. See `StadiumBackdrop` for the same note.
+  useThemeId();
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
   const stats = useCardStats(card);
   const team = franchise(card.franchiseId);
   const accent = positionColor[card.position];
-  const teamColor = team.color || '#3A3F4B';
+  const teamColor = team.color || color.lineBright;
   const teamColor2 = team.color2 || teamColor;
 
   return (
@@ -150,7 +154,7 @@ function ratingTone(rating: number) {
   return { color: color.textDim };
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -161,7 +165,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: color.line,
-    backgroundColor: '#101218',
+    backgroundColor: color.ink,
     overflow: 'hidden',
   },
   hovered: { borderColor: color.gold, transform: [{ translateY: -1 }] },
@@ -217,4 +221,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   hiddenGlyph: { fontFamily: font.display, fontSize: 22, color: color.textFaint },
-});
+}));

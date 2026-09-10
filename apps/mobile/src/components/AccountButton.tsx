@@ -7,7 +7,7 @@ import { fetchProgress, identity, isBackendConfigured, type Identity, type Progr
 import { identifyPlayer } from '@/features/analytics';
 import { ratingBucket } from '@/features/telemetry';
 import { computeStats, useHistoryStore } from '@/state/history';
-import { color, font, space, tracking, type PressState } from '@/theme';
+import { color, font, space, themed, tracking, type PressState } from '@/theme';
 
 const SIZE = 46;
 
@@ -89,7 +89,7 @@ export function AccountButton() {
           <Defs>
             <LinearGradient id="ab-ground" x1="0" y1="0" x2="0.3" y2="1">
               <Stop offset="0" stopColor="#2A3448" />
-              <Stop offset="1" stopColor="#080B12" />
+              <Stop offset="1" stopColor={color.panelBottom} />
             </LinearGradient>
             <LinearGradient id="ab-gloss" x1="0" y1="0" x2="0" y2="1">
               <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.22" />
@@ -142,7 +142,7 @@ function initials(handle: string): string {
   return (words.length > 1 ? `${words[0]![0]}${words[1]![0]}` : cleaned.slice(0, 2)).toUpperCase();
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   dock: { position: 'absolute', right: space.lg, zIndex: 20 },
   button: {
     width: SIZE,
@@ -169,13 +169,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: color.gold,
     borderWidth: 2,
-    borderColor: '#06080F',
+    borderColor: color.void,
     zIndex: 2,
   },
   levelText: {
     fontFamily: font.display,
     fontSize: 11,
-    color: '#0A0E17',
+    color: color.ink,
     includeFontPadding: false,
   },
   initials: {
@@ -185,4 +185,4 @@ const styles = StyleSheet.create({
     letterSpacing: tracking.wide,
     includeFontPadding: false,
   },
-});
+}));

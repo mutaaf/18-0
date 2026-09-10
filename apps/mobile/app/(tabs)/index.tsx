@@ -29,10 +29,11 @@ import {
   radius,
   space,
   tabular,
+  themed,
   tierColor,
   tracking,
-  useLayout,
   type PressState,
+  useLayout,
 } from '@/theme';
 
 /** Resolves to null rather than hanging, so a stalled request cannot trap a screen. */
@@ -367,7 +368,7 @@ export default function Home() {
             <Text style={styles.chaseLabel}>17-1 seasons</Text>
           </View>
           <View>
-            <Text style={[styles.chaseValue, stats.playerIqGames > 0 && { color: color.redBright }]}>
+            <Text style={[styles.chaseValue, stats.playerIqGames > 0 && { color: color.actionBright }]}>
               {stats.playerIqGames}
             </Text>
             <Text style={styles.chaseLabel}>Built blind</Text>
@@ -516,7 +517,7 @@ function ModeCard({
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
           <Path
             d="M5 12h13 M13 6l6 6-6 6"
-            stroke={hero ? '#FFFFFF' : color.redBright}
+            stroke={hero ? color.onAction : color.actionBright}
             strokeWidth={2.5}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -549,7 +550,7 @@ function tierOf(rating: number): string {
   return 'B';
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   content: { paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: 140, gap: space.xxl },
   header: { paddingBottom: space.sm },
   split: { flexDirection: 'row', gap: space.xxl, alignItems: 'flex-start', width: '100%' },
@@ -567,12 +568,12 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: color.line,
-    backgroundColor: '#0A0E1799',
+    backgroundColor: `${color.ink}99`,
   },
   stepIndex: {
     fontFamily: font.display,
     fontSize: 13,
-    color: color.red,
+    color: color.action,
     letterSpacing: tracking.wide,
     ...tabular,
   },
@@ -591,7 +592,7 @@ const styles = StyleSheet.create({
     fontFamily: font.label,
     fontSize: 12,
     letterSpacing: tracking.wider,
-    color: color.redBright,
+    color: color.actionBright,
     textTransform: 'uppercase',
     marginBottom: space.sm,
   },
@@ -620,13 +621,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   resumeTrack: { height: 3, backgroundColor: '#FFFFFF0D' },
-  resumeFill: { height: 3, backgroundColor: color.red },
+  resumeFill: { height: 3, backgroundColor: color.action },
   resumeBody: { flexDirection: 'row', alignItems: 'center', gap: space.md, padding: space.lg },
   resumeMain: { flex: 1, minWidth: 0 },
   resumeTitle: { fontFamily: font.heading, fontSize: 19, color: color.text },
   resumeMeta: { fontFamily: font.bodyRegular, fontSize: 13, color: color.textDim, marginTop: 1 },
   resumeGo: {
-    backgroundColor: color.red,
+    backgroundColor: color.action,
     borderRadius: radius.sm,
     paddingHorizontal: space.lg,
     minHeight: 44,
@@ -636,7 +637,7 @@ const styles = StyleSheet.create({
     fontFamily: font.display,
     fontSize: 15,
     letterSpacing: tracking.wide,
-    color: '#fff',
+    color: color.onAction,
     textTransform: 'uppercase',
   },
   discard: { minHeight: 44, justifyContent: 'center', paddingHorizontal: space.sm },
@@ -656,9 +657,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF05',
   },
   modeHero: {
-    borderColor: color.red,
-    backgroundColor: '#D50A0A14',
-    shadowColor: color.red,
+    borderColor: color.action,
+    backgroundColor: `${color.action}14`,
+    shadowColor: color.action,
     shadowOpacity: 0.3,
     ...elevate(7),
   },
@@ -672,13 +673,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: `${color.red}59`,
-    backgroundColor: `${color.red}1F`,
+    borderColor: `${color.action}59`,
+    backgroundColor: `${color.action}1F`,
   },
   modeGoHero: {
-    borderColor: color.redBright,
-    backgroundColor: color.red,
-    shadowColor: color.red,
+    borderColor: color.actionBright,
+    backgroundColor: color.action,
+    shadowColor: color.action,
     shadowOpacity: 0.6,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 4 },
@@ -698,7 +699,7 @@ const styles = StyleSheet.create({
     color: color.textFaint,
     textTransform: 'uppercase',
   },
-  modeBadgeTextHero: { color: color.redBright },
+  modeBadgeTextHero: { color: color.actionBright },
   modeNote: {
     fontFamily: font.label,
     fontSize: 11,
@@ -755,4 +756,4 @@ const styles = StyleSheet.create({
   },
   footerValue: { fontFamily: font.body, fontSize: 13, color: color.textDim },
   footerNote: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textFaint, lineHeight: 17 },
-});
+}));

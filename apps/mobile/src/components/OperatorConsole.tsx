@@ -23,7 +23,7 @@ import {
   type OperatorSeason,
   type Overview,
 } from '@/services/operator';
-import { color, font, radius, space, tabular, tracking, type PressState } from '@/theme';
+import { color, font, radius, space, tabular, themed, tracking, type PressState } from '@/theme';
 
 /**
  * What is happening on the server, and what to do about it.
@@ -77,7 +77,7 @@ export function OperatorConsole() {
   if (loading && !overview) {
     return (
       <View style={styles.centre}>
-        <ActivityIndicator color={color.red} />
+        <ActivityIndicator color={color.action} />
       </View>
     );
   }
@@ -108,7 +108,7 @@ export function OperatorConsole() {
           <Tile
             label="Playing now"
             value={overview.inProgress}
-            tint={overview.inProgress > 0 ? color.redBright : undefined}
+            tint={overview.inProgress > 0 ? color.actionBright : undefined}
           />
           <Tile label="Seasons today" value={overview.completionsToday} sub={`${overview.completionsTotal} all time`} />
           <Tile label="Games opened today" value={overview.sessionsToday} />
@@ -392,7 +392,7 @@ function ago(iso: string): string {
 const clock = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   root: { gap: space.sm },
   centre: { paddingVertical: space.xxl, alignItems: 'center' },
   headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.sm },
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
     color: color.text,
     fontFamily: font.body,
     fontSize: 14,
-    backgroundColor: '#0A0E1799',
+    backgroundColor: `${color.ink}99`,
   },
   list: { gap: space.sm },
   player: { padding: space.md, gap: space.sm },
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
     borderColor: color.line,
     marginTop: space.md,
   },
-  chipOn: { borderColor: `${color.red}80`, backgroundColor: `${color.red}1F` },
+  chipOn: { borderColor: `${color.action}80`, backgroundColor: `${color.action}1F` },
   chipText: { fontFamily: font.label, fontSize: 9, letterSpacing: tracking.wide, color: color.textFaint },
-  chipTextOn: { color: color.redBright },
-});
+  chipTextOn: { color: color.actionBright },
+}));

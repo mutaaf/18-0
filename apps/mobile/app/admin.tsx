@@ -19,7 +19,7 @@ import { useStatLineStatus } from '@/features/stat-lines';
 import { useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
 import { useOverrideStore } from '@/state/overrides';
-import { color, font, radius, space, tabular, tracking, useLayout, type PressState } from '@/theme';
+import { color, font, radius, space, tabular, themed, tracking, type PressState, useLayout } from '@/theme';
 
 /**
  * Operator console.
@@ -436,7 +436,7 @@ function WeightRow({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   lock: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.lg, padding: space.xl },
   lockTitle: { fontFamily: font.display, fontSize: 26, color: color.text },
   lockCopy: {
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   primary: {
-    backgroundColor: color.red,
+    backgroundColor: color.action,
     borderRadius: radius.md,
     paddingHorizontal: space.xxl,
     minHeight: 48,
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
   primaryLabel: {
     fontFamily: font.display,
     fontSize: 16,
-    color: '#fff',
+    color: color.onAction,
     letterSpacing: tracking.wide,
     textTransform: 'uppercase',
   },
@@ -492,8 +492,8 @@ const styles = StyleSheet.create({
 
   warn: {
     borderWidth: 1,
-    borderColor: '#FFB40040',
-    backgroundColor: '#FFB4000D',
+    borderColor: `${color.gold}40`,
+    backgroundColor: `${color.gold}0D`,
     borderRadius: radius.md,
     padding: space.lg,
   },
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
     minHeight: 40,
     justifyContent: 'center',
   },
-  actionDestructive: { borderColor: '#FF6B6B59' },
+  actionDestructive: { borderColor: `${color.negative}59` },
   actionLabel: {
     fontFamily: font.label,
     fontSize: 13,
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF0F',
     overflow: 'hidden',
   },
-  weightFill: { height: 6, backgroundColor: color.red },
+  weightFill: { height: 6, backgroundColor: color.action },
   weightInput: {
     width: 76,
     borderWidth: 1,
@@ -608,4 +608,4 @@ const styles = StyleSheet.create({
   event: { flexDirection: 'row', gap: space.md, paddingVertical: 3 },
   eventName: { fontFamily: font.label, fontSize: 11, color: color.silver, width: 152 },
   eventProps: { flex: 1, fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint },
-});
+}));

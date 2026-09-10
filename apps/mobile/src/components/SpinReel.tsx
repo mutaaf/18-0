@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { AccessibilityInfo, Animated, Easing, StyleSheet, Text, View, type TextStyle } from 'react-native';
-import { DECORATIVE } from '@/theme';
+import { DECORATIVE, themed } from '@/theme';
 
 /**
  * A slot-machine reel.
@@ -89,8 +89,8 @@ export function SpinReel({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   window: { overflow: 'hidden', justifyContent: 'flex-start' },
   cell: { justifyContent: 'center' },
   text: { includeFontPadding: false },
-});
+}));

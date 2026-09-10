@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { radius, space, type PressState } from '@/theme';
+import { radius, space, themed, type PressState } from '@/theme';
 import type { SocialProvider } from '@/services/auth';
 
 /**
@@ -93,7 +93,7 @@ function GoogleMark() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   button: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -120,4 +120,4 @@ const styles = StyleSheet.create({
   },
   appleLabel: { color: '#000000' },
   googleLabel: { color: '#E3E3E3' },
-});
+}));

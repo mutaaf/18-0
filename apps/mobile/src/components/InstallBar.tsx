@@ -18,7 +18,7 @@ import {
 import { useHistoryStore } from '@/state/history';
 import { DOCK_HEIGHT } from './Dock';
 import { phoneBarHeight } from './NavBar';
-import { color, elevate, font, radius, space, tracking, useLayout, type PressState } from '@/theme';
+import { color, elevate, font, radius, space, themed, tracking, type PressState, useLayout } from '@/theme';
 
 
 /**
@@ -284,11 +284,11 @@ function ShareGlyph() {
 function HomeGlyph() {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="4" y="2.5" width="16" height="19" rx="3" stroke={color.redBright} strokeWidth={1.75} />
-      <Path d="M9.5 18.5h5" stroke={color.redBright} strokeWidth={1.75} strokeLinecap="round" />
+      <Rect x="4" y="2.5" width="16" height="19" rx="3" stroke={color.actionBright} strokeWidth={1.75} />
+      <Path d="M9.5 18.5h5" stroke={color.actionBright} strokeWidth={1.75} strokeLinecap="round" />
       <Path
         d="M12 7v6 M9 10l3 3 3-3"
-        stroke={color.redBright}
+        stroke={color.actionBright}
         strokeWidth={1.75}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -311,7 +311,7 @@ function BoxGlyph() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   stage: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 15 },
   bar: {
     width: '100%',
@@ -320,8 +320,8 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: `${color.red}4D`,
-    backgroundColor: '#0B0E17F5',
+    borderColor: `${color.action}4D`,
+    backgroundColor: `${color.ink}F5`,
     padding: space.md,
     gap: space.sm,
   },
@@ -348,14 +348,14 @@ const styles = StyleSheet.create({
     borderColor: color.line,
     backgroundColor: '#FFFFFF0A',
   },
-  actionPrimary: { backgroundColor: color.red, borderColor: color.redBright },
+  actionPrimary: { backgroundColor: color.action, borderColor: color.actionBright },
   actionLabel: {
     fontFamily: font.label,
     fontSize: 12,
     letterSpacing: tracking.wide,
     color: color.textDim,
   },
-  actionLabelPrimary: { color: '#FFFFFF' },
+  actionLabelPrimary: { color: color.onAction },
 
   close: { paddingHorizontal: 2 },
   closeGlyph: { fontFamily: font.body, fontSize: 15, color: color.textFaint },
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   stepN: {
     fontFamily: font.label,
     fontSize: 10,
-    color: color.redBright,
+    color: color.actionBright,
     width: 16,
   },
   stepText: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textDim },
@@ -382,9 +382,9 @@ const styles = StyleSheet.create({
     color: color.text,
     fontFamily: font.body,
     fontSize: 13,
-    backgroundColor: '#05070C',
+    backgroundColor: color.inkDeep,
   },
   skip: { alignSelf: 'flex-start', paddingVertical: 2 },
   skipLabel: { fontFamily: font.label, fontSize: 11, letterSpacing: tracking.wide, color: color.textFaint },
   note: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textDim },
-});
+}));

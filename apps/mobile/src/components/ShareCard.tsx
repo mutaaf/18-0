@@ -3,7 +3,7 @@ import { StyleSheet, Text as RNText, View } from 'react-native';
 import Svg, { Defs, Line, LinearGradient, Rect, Stop } from 'react-native-svg';
 import type { GameResult, RosterSlot } from '@18-0/domain';
 import { APP_URL_LABEL } from '@/features/share';
-import { color, font, positionColor, radius, space, tabular, tierColor, tracking } from '@/theme';
+import { color, font, positionColor, radius, space, tabular, themed, tierColor, tracking } from '@/theme';
 
 /**
  * The card is a fixed 540x675 canvas that gets captured to a PNG, so its text
@@ -41,8 +41,8 @@ export const ShareCard = forwardRef<View, {
       <Svg style={StyleSheet.absoluteFill} viewBox="0 0 540 675" preserveAspectRatio="none">
         <Defs>
           <LinearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={perfect ? '#1B1503' : '#0C1219'} />
-            <Stop offset="1" stopColor="#07090C" />
+            <Stop offset="0" stopColor={perfect ? color.ink : color.ink} />
+            <Stop offset="1" stopColor={color.void} />
           </LinearGradient>
         </Defs>
         <Rect x="0" y="0" width="540" height="675" fill="url(#bg)" />
@@ -115,7 +115,7 @@ const PLAY_AT = `PLAY AT ${APP_URL_LABEL.toUpperCase()}`;
 
 export const SHARE_CARD_SIZE = { width: 540, height: 675 };
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   card: {
     width: SHARE_CARD_SIZE.width,
     height: SHARE_CARD_SIZE.height,
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   lockup: { flexDirection: 'row', alignItems: 'center' },
   mark: { fontFamily: font.displayBlack, fontSize: 30, color: color.text, includeFontPadding: false },
-  markDash: { width: 11, height: 4, borderRadius: 2, backgroundColor: color.red, marginHorizontal: 4 },
+  markDash: { width: 11, height: 4, borderRadius: 2, backgroundColor: color.action, marginHorizontal: 4 },
   headMeta: { fontFamily: font.label, fontSize: 9, letterSpacing: tracking.wider, color: color.textFaint },
   hero: { alignItems: 'center' },
   kicker: {
@@ -190,4 +190,4 @@ const styles = StyleSheet.create({
   },
   cta: { fontFamily: font.display, fontSize: 19, letterSpacing: tracking.wide, color: color.text },
   footNote: { fontFamily: font.bodyRegular, fontSize: 9, color: color.textFaint },
-});
+}));

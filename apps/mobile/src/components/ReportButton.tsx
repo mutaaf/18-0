@@ -7,7 +7,7 @@ import {
   reportHandle,
   type ReportReason,
 } from '@/services/supabase';
-import { color, font, radius, space, tracking, type PressState } from '@/theme';
+import { color, font, radius, space, themed, tracking, type PressState } from '@/theme';
 
 /**
  * Reporting a name on the leaderboard.
@@ -107,13 +107,13 @@ export function ReportButton({ userId, handle }: { userId: string; handle: strin
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   flag: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', opacity: 0.4 },
   flagGlyph: { fontSize: 13, color: color.textFaint },
 
   backdrop: {
     flex: 1,
-    backgroundColor: '#04060BCC',
+    backgroundColor: `${color.inkDeep}CC`,
     alignItems: 'center',
     justifyContent: 'center',
     padding: space.lg,
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: color.line,
-    backgroundColor: '#0B0F18',
+    backgroundColor: color.ink,
   },
   reasonLabel: { fontFamily: font.bodyRegular, fontSize: 14, color: color.text },
 
@@ -149,16 +149,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: radius.sm,
-    backgroundColor: color.red,
+    backgroundColor: color.action,
     marginTop: space.sm,
   },
   doneLabel: {
     fontFamily: font.label,
     fontSize: 13,
     letterSpacing: tracking.wide,
-    color: '#FFFFFF',
+    color: color.onAction,
     textTransform: 'uppercase',
   },
   cancel: { minHeight: 40, alignItems: 'center', justifyContent: 'center' },
   cancelLabel: { fontFamily: font.bodyRegular, fontSize: 13, color: color.textDim },
-});
+}));

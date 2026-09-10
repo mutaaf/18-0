@@ -10,7 +10,7 @@ import {
   type Gameday,
 } from '@18-0/data';
 import { useFlag } from '@/features/flags';
-import { DECORATIVE, color, elevate, font, radius, space, tabular, tracking, type PressState } from '@/theme';
+import { DECORATIVE, color, elevate, font, radius, space, tabular, themed, tracking, type PressState } from '@/theme';
 
 /**
  * The gameday slab.
@@ -363,7 +363,7 @@ function Floodlights({ live }: { live: boolean }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   slab: {
     borderRadius: radius.xl,
     borderWidth: 1,
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
 
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md },
   beaconRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexShrink: 1 },
-  beacon: { width: 9, height: 9, borderRadius: radius.pill, backgroundColor: color.redBright },
+  beacon: { width: 9, height: 9, borderRadius: radius.pill, backgroundColor: color.actionBright },
   beaconOff: { backgroundColor: color.textFaint },
 
   kicker: {
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: color.textDim,
   },
-  kickerLive: { color: color.redBright },
+  kickerLive: { color: color.actionBright },
 
   clock: { fontFamily: font.body, fontSize: 11, color: color.textFaint },
   clockValue: { fontFamily: font.bodyBold, color: color.silver, ...tabular },
@@ -422,15 +422,15 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: color.gold,
-    backgroundColor: color.red,
+    backgroundColor: color.action,
     paddingVertical: space.lg,
     paddingHorizontal: space.xl,
     alignItems: 'center',
     gap: 2,
     overflow: 'hidden',
   },
-  ctaHover: { backgroundColor: color.redBright, borderColor: color.goldBright },
-  ctaPressed: { transform: [{ scale: 0.99 }], backgroundColor: color.redBright },
+  ctaHover: { backgroundColor: color.actionBright, borderColor: color.goldBright },
+  ctaPressed: { transform: [{ scale: 0.99 }], backgroundColor: color.actionBright },
   ctaBusy: { opacity: 0.7 },
   shine: {
     position: 'absolute',
@@ -445,9 +445,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     letterSpacing: tracking.normal,
     textTransform: 'uppercase',
-    color: color.text,
+    color: color.onAction,
   },
-  ctaSub: { fontFamily: font.body, fontSize: 11, color: '#FFE9E9' },
+  ctaSub: { fontFamily: font.body, fontSize: 11, color: `${color.onAction}CC` },
 
   closed: {
     marginTop: space.xs,
@@ -466,5 +466,5 @@ const styles = StyleSheet.create({
     color: color.textFaint,
   },
 
-  note: { fontFamily: font.body, fontSize: 12, color: color.redBright },
-});
+  note: { fontFamily: font.body, fontSize: 12, color: color.actionBright },
+}));

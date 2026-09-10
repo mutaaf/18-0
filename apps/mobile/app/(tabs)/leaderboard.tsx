@@ -51,10 +51,11 @@ import {
   radius,
   space,
   tabular,
+  themed,
   tierColor,
   tracking,
-  useLayout,
   type PressState,
+  useLayout,
 } from '@/theme';
 
 /**
@@ -294,7 +295,7 @@ export default function Leaderboard() {
                     board === b.key && styles.boardTabOn,
                   ]}
                 >
-                  <Text style={[styles.boardLabel, board === b.key && { color: '#fff' }]}>
+                  <Text style={[styles.boardLabel, board === b.key && { color: color.onAction }]}>
                     {b.label}
                   </Text>
                   <Text style={[styles.boardBlurb, board === b.key && { color: '#FFFFFFCC' }]}>
@@ -315,11 +316,11 @@ export default function Leaderboard() {
                   accessibilityState={{ selected: period === p.key }}
                   style={({ hovered }: PressState) => [
                     styles.tab,
-                    hovered && { borderColor: color.red },
+                    hovered && { borderColor: color.action },
                     period === p.key && styles.tabActive,
                   ]}
                 >
-                  <Text style={[styles.tabLabel, period === p.key && { color: color.redBright }]}>
+                  <Text style={[styles.tabLabel, period === p.key && { color: color.actionBright }]}>
                     {p.label}
                   </Text>
                 </Pressable>
@@ -328,7 +329,7 @@ export default function Leaderboard() {
 
             {loading ? (
               <View style={styles.loading}>
-                <ActivityIndicator color={color.red} />
+                <ActivityIndicator color={color.action} />
               </View>
             ) : failed ? (
               <View style={styles.notice}>
@@ -770,7 +771,7 @@ function RosterLine({ pick }: { pick: RosterPick }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   gate: { paddingHorizontal: space.lg, paddingTop: space.sm },
   scroll: { paddingBottom: 120 },
   account: { paddingHorizontal: space.lg, paddingBottom: space.md },
@@ -803,7 +804,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: color.line,
   },
-  tabActive: { backgroundColor: '#D50A0A26', borderColor: color.red },
+  tabActive: { backgroundColor: `${color.action}26`, borderColor: color.action },
   tabLabel: { fontFamily: font.label, fontSize: 12, letterSpacing: tracking.wide, color: color.textDim },
   loading: { paddingVertical: space.xxxl },
 
@@ -817,7 +818,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     gap: 1,
   },
-  boardTabOn: { backgroundColor: color.red, borderColor: color.red },
+  boardTabOn: { backgroundColor: color.action, borderColor: color.action },
   boardLabel: {
     fontFamily: font.heading,
     fontSize: 15,
@@ -843,12 +844,12 @@ const styles = StyleSheet.create({
   stepPoints: {
     fontFamily: font.display,
     fontSize: 15,
-    color: '#3FD68C',
+    color: color.positive,
     ...tabular,
     includeFontPadding: false,
   },
   stepPointsLead: { fontSize: 20 },
-  stepPointsUnit: { fontSize: 10, color: '#3FD68CAA' },
+  stepPointsUnit: { fontSize: 10, color: `${color.positive}AA` },
   pointsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -864,7 +865,7 @@ const styles = StyleSheet.create({
   pointsValue: {
     fontFamily: font.display,
     fontSize: 17,
-    color: '#3FD68C',
+    color: color.positive,
     ...tabular,
     includeFontPadding: false,
   },
@@ -921,8 +922,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: `${color.red}55`,
-    backgroundColor: '#D50A0A14',
+    borderColor: `${color.action}55`,
+    backgroundColor: `${color.action}14`,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -957,7 +958,7 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   standingRating: { fontSize: 15, color: color.textDim },
-  standingGap: { fontFamily: font.bodyRegular, fontSize: 12, color: color.redBright },
+  standingGap: { fontFamily: font.bodyRegular, fontSize: 12, color: color.actionBright },
 
   sectionLabel: {
     fontFamily: font.label,
@@ -972,7 +973,7 @@ const styles = StyleSheet.create({
   // --- entries --------------------------------------------------------------
   list: { paddingHorizontal: space.lg, gap: 4 },
   entry: { borderRadius: radius.md, backgroundColor: '#FFFFFF05', overflow: 'hidden' },
-  entryMine: { backgroundColor: '#D50A0A14', borderWidth: 1, borderColor: `${color.red}44` },
+  entryMine: { backgroundColor: `${color.action}14`, borderWidth: 1, borderColor: `${color.action}44` },
   entryHead: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -989,7 +990,7 @@ const styles = StyleSheet.create({
     fontFamily: font.label,
     fontSize: 9,
     letterSpacing: tracking.wide,
-    color: color.redBright,
+    color: color.actionBright,
   },
   record: { fontFamily: font.display, fontSize: 14, ...tabular },
   track: { height: 3, borderRadius: 2, backgroundColor: '#FFFFFF0F', overflow: 'hidden' },
@@ -1048,7 +1049,7 @@ const styles = StyleSheet.create({
   retry: {
     marginTop: space.md,
     alignSelf: 'flex-start',
-    backgroundColor: color.red,
+    backgroundColor: color.action,
     borderRadius: radius.sm,
     paddingHorizontal: space.lg,
     minHeight: 44,
@@ -1058,7 +1059,7 @@ const styles = StyleSheet.create({
     fontFamily: font.label,
     fontSize: 13,
     letterSpacing: tracking.wide,
-    color: '#fff',
+    color: color.onAction,
     textTransform: 'uppercase',
   },
-});
+}));

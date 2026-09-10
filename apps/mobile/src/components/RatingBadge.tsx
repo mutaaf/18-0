@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { color, font, radius, tabular, tracking } from '@/theme';
+import { color, font, radius, tabular, themed, tracking } from '@/theme';
 
 /**
  * Ratings carry their own weight: a 99 should look different from an 82 at a
@@ -9,7 +9,7 @@ export function ratingTone(rating: number): { fg: string; bg: string; border: st
   // Deliberately near-white, not gold: a 99 should read as hot, and gold is
   // reserved for an earned 18-0.
   if (rating >= 97) return { fg: '#FFFFFF', bg: '#FFFFFF14', border: '#FFFFFF59' };
-  if (rating >= 93) return { fg: '#7FE3B0', bg: '#3FD68C14', border: '#3FD68C4D' };
+  if (rating >= 93) return { fg: '#7FE3B0', bg: `${color.positive}14`, border: `${color.positive}4D` };
   if (rating >= 88) return { fg: '#8FC4FF', bg: '#4D9DFF14', border: '#4D9DFF40' };
   if (rating >= 80) return { fg: color.text, bg: '#FFFFFF0A', border: color.line };
   return { fg: color.textDim, bg: '#00000033', border: color.line };
@@ -36,7 +36,7 @@ export function RatingBadge({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   badge: {
     borderWidth: 1,
     borderRadius: radius.sm,
@@ -50,4 +50,4 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     ...tabular,
   },
-});
+}));

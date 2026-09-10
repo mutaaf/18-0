@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { DockIcon, type DockIconName } from './DockIcons';
 import { useHasHover } from './useHasHover';
-import { color, elevate, font, radius, space, tracking } from '@/theme';
+import { color, elevate, font, radius, space, themed, tracking } from '@/theme';
 
 /**
  * A dock, for screens wide enough to have somewhere to put one.
@@ -192,7 +192,7 @@ const GLASS = (Platform.OS === 'web'
 /** The height the dock occupies, so a screen can keep its content clear of it. */
 export const DOCK_HEIGHT = 104;
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   stage: {
     position: 'absolute',
     left: 0,
@@ -247,14 +247,14 @@ const styles = StyleSheet.create({
     maxWidth: BASE + space.sm,
     textAlign: 'center',
   },
-  standingOn: { color: color.redBright },
-  dotOn: { backgroundColor: color.redBright },
+  standingOn: { color: color.actionBright },
+  dotOn: { backgroundColor: color.actionBright },
   tipRow: { height: 26, justifyContent: 'flex-end', marginBottom: space.xs },
   tip: {
     paddingHorizontal: space.sm,
     paddingVertical: 3,
     borderRadius: radius.sm,
-    backgroundColor: '#161C28',
+    backgroundColor: color.surfaceRaised,
     borderWidth: 1,
     borderColor: '#FFFFFF1A',
   },
@@ -264,4 +264,4 @@ const styles = StyleSheet.create({
     letterSpacing: tracking.wide,
     color: color.text,
   },
-});
+}));

@@ -3,7 +3,7 @@ import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-nat
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { Image } from 'expo-image';
 import { displayName, era as eraDef, franchise, headshotUrl, type BootCard } from '@18-0/data';
-import { color, elevate, font, positionColor, radius, space, tabular, tracking } from '@/theme';
+import { color, elevate, font, positionColor, radius, space, tabular, themed, tracking } from '@/theme';
 import { useCardTilt } from './useCardTilt';
 import { useCardStats } from '@/features/stat-lines';
 import { useFlag } from '@/features/flags';
@@ -138,11 +138,11 @@ export function CollectibleCard({
           <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
             <Defs>
               <LinearGradient id={`cc-scrim-${card.id}`} x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor="#080B12" stopOpacity="0" />
-                <Stop offset="0.34" stopColor="#080B12" stopOpacity="0.12" />
-                <Stop offset="0.56" stopColor="#080B12" stopOpacity="0.78" />
-                <Stop offset="0.72" stopColor="#080B12" stopOpacity="1" />
-                <Stop offset="1" stopColor="#080B12" stopOpacity="1" />
+                <Stop offset="0" stopColor={color.panelBottom} stopOpacity="0" />
+                <Stop offset="0.34" stopColor={color.panelBottom} stopOpacity="0.12" />
+                <Stop offset="0.56" stopColor={color.panelBottom} stopOpacity="0.78" />
+                <Stop offset="0.72" stopColor={color.panelBottom} stopOpacity="1" />
+                <Stop offset="1" stopColor={color.panelBottom} stopOpacity="1" />
               </LinearGradient>
             </Defs>
             <Rect x="0" y="0" width="100%" height="100%" fill={`url(#cc-scrim-${card.id})`} />
@@ -255,7 +255,7 @@ export function CollectibleCard({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   stage: { alignItems: 'center', gap: space.sm },
   card: {
     // Dragging a card on the web selected its text instead of turning it.
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     aspectRatio: 0.72,
     borderRadius: radius.xl,
     borderWidth: 1,
-    backgroundColor: '#080B12',
+    backgroundColor: color.panelBottom,
     overflow: 'hidden',
   },
   face: { flex: 1, padding: space.md, justifyContent: 'space-between' },
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     // is deliberately not set: with the parent flattened it would treat this
     // face as pointing away and hide it entirely. Opacity does the swap.
     transform: [{ rotateY: '180deg' }],
-    backgroundColor: '#080B12EE',
+    backgroundColor: `${color.panelBottom}EE`,
   },
   backLabel: {
     fontFamily: font.label,
@@ -385,4 +385,4 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: color.textFaint,
   },
-});
+}));

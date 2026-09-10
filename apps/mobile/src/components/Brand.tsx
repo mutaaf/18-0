@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { color, font, tabular, tracking } from '@/theme';
+import { color, font, tabular, themed, tracking } from '@/theme';
 
 /**
  * The wordmark: chrome numerals with a gold edge, split by a gold bar rather
@@ -43,7 +43,7 @@ export function Brand({
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   lockup: { flexDirection: 'row', alignItems: 'center' },
   numeral: {
@@ -65,4 +65,4 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginTop: 3,
   },
-});
+}));

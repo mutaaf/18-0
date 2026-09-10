@@ -3,7 +3,7 @@ import { AccessibilityInfo, Animated, Easing, ScrollView, StyleSheet, Text, View
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { DATASET, franchise, type BootCard } from '@18-0/data';
 import { POSITIONS } from '@18-0/domain';
-import { DECORATIVE, color, font, positionColor, radius, space, tabular, tracking } from '@/theme';
+import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking } from '@/theme';
 
 /**
  * The model's own verdict on the best seasons in the data, scrolling past.
@@ -95,7 +95,7 @@ export function Hall() {
 function HallCard({ card }: { card: BootCard }) {
   const team = franchise(card.franchiseId);
   const accent = positionColor[card.position];
-  const teamColor = team.color || '#3A3F4B';
+  const teamColor = team.color || color.lineBright;
   const gradientId = `hall-${card.id}`;
 
   return (
@@ -127,7 +127,7 @@ function HallCard({ card }: { card: BootCard }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   wrap: { gap: space.sm },
   head: { gap: 2 },
   label: {
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: color.line,
-    backgroundColor: '#0D1017',
+    backgroundColor: color.ink,
     overflow: 'hidden',
     gap: 1,
   },
@@ -166,4 +166,4 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   cardMeta: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint, ...tabular },
-});
+}));

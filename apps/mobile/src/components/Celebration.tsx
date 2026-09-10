@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { DECORATIVE } from '@/theme';
+import { DECORATIVE, color } from '@/theme';
 
 /**
  * The noise a good season deserves.
@@ -28,7 +28,7 @@ interface Piece {
   readonly ratio: number;
 }
 
-const GOLD = ['#FFB400', '#FFD152', '#C98A00', '#FFF1C2', '#FF8A33'];
+const GOLD = [color.gold, color.goldBright, color.goldDeep, '#FFF1C2', color.ignitionBright];
 
 export function Celebration({
   /** 0 is silence, 1 is everything at once. */
@@ -78,7 +78,7 @@ export function Celebration({
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none" {...DECORATIVE}>
-      <Flash color={perfect ? '#FFD152' : colors[0]!} strength={strength} />
+      <Flash color={perfect ? color.goldBright : colors[0]!} strength={strength} />
       {perfect ? <Rings width={width} /> : null}
       {pieces.map((piece) => (
         <Confetto key={piece.key} piece={piece} fallTo={height + 80} />
@@ -147,7 +147,7 @@ function Ring({ delay, width }: { delay: number; width: number }) {
         height: size,
         borderRadius: size / 2,
         borderWidth: 2,
-        borderColor: '#FFD152',
+        borderColor: color.goldBright,
         opacity: value.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 0.5, 0] }),
         transform: [{ scale: value.interpolate({ inputRange: [0, 1], outputRange: [0.3, 2.6] }) }],
       }}

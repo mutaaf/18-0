@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, G, Line, LinearGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { ROSTER_SLOTS, SLOT_POSITION, type RosterSlot } from '@18-0/domain';
 import type { BootCard } from '@18-0/data';
-import { DECORATIVE, color, font, positionColor, radius, space, tabular, tracking, useLayout } from '@/theme';
+import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking, useLayout, useThemeId } from '@/theme';
 
 const SLOT_LABEL: Record<RosterSlot, string> = {
   QB: 'Quarterback',
@@ -39,6 +39,9 @@ const YARD_NUMERALS = [10, 20, 30, 40, 50, 40, 30, 20, 10];
  * the search box above it.
  */
 const Turf = memo(function Turf() {
+  // Memoized and propless: the subscription is the only thing that re-renders
+  // this when the palette changes. See `StadiumBackdrop` for the same note.
+  useThemeId();
   return (
     <Svg
       style={StyleSheet.absoluteFill}
@@ -214,7 +217,7 @@ export function Field({
 
 export const ALL_SLOTS = ROSTER_SLOTS;
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   field: {
     borderRadius: radius.lg,
     overflow: 'hidden',
@@ -243,12 +246,12 @@ const styles = StyleSheet.create({
   slotEmpty: {
     borderStyle: 'dashed',
     borderColor: '#FFFFFF30',
-    backgroundColor: '#050A0FF7',
+    backgroundColor: `${color.inkDeep}F7`,
   },
-  slotTargeted: { borderStyle: 'solid', backgroundColor: '#0A0F14FA' },
+  slotTargeted: { borderStyle: 'solid', backgroundColor: `${color.inkDeep}FA` },
   slotFilled: {
     borderColor: '#FFFFFF26',
-    backgroundColor: '#060A0EFA',
+    backgroundColor: `${color.inkDeep}FA`,
   },
   slotKey: {
     fontFamily: font.label,
@@ -281,4 +284,4 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     opacity: 0.7,
   },
-});
+}));

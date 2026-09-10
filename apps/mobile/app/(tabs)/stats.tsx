@@ -4,7 +4,7 @@ import { eraLabel, franchise } from '@18-0/data';
 import { useMemo } from 'react';
 import { Screen } from '@/components/Screen';
 import { computeStats, useHistoryStore } from '@/state/history';
-import { color, font, radius, space, tabular, tracking, useLayout } from '@/theme';
+import { color, font, radius, space, tabular, themed, tracking, useLayout } from '@/theme';
 
 export default function Stats() {
   const router = useRouter();
@@ -122,7 +122,7 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed(() => StyleSheet.create({
   scroll: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: 120, gap: space.xl },
   title: {
     fontFamily: font.displayBlack,
@@ -170,8 +170,8 @@ const styles = StyleSheet.create({
   blank: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space.md, paddingHorizontal: space.xl, paddingBottom: 120 },
   blankTitle: { fontFamily: font.display, fontSize: 26, color: color.text, textAlign: 'center' },
   blankCopy: { fontFamily: font.bodyRegular, fontSize: 13, color: color.textDim, textAlign: 'center', lineHeight: 19, maxWidth: 340 },
-  blankCta: { backgroundColor: color.red, borderRadius: radius.md, paddingHorizontal: space.xxl, minHeight: 50, justifyContent: 'center' },
-  blankCtaLabel: { fontFamily: font.display, fontSize: 17, letterSpacing: tracking.wide, color: '#fff', textTransform: 'uppercase' },
+  blankCta: { backgroundColor: color.action, borderRadius: radius.md, paddingHorizontal: space.xxl, minHeight: 50, justifyContent: 'center' },
+  blankCtaLabel: { fontFamily: font.display, fontSize: 17, letterSpacing: tracking.wide, color: color.onAction, textTransform: 'uppercase' },
   blankNote: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint, textAlign: 'center' },
   chaseRow: { flexDirection: 'row', gap: space.xxl },
   chaseStat: {},
@@ -197,4 +197,4 @@ const styles = StyleSheet.create({
   },
   rowLabel: { fontFamily: font.bodyRegular, fontSize: 13, color: color.textDim },
   rowValue: { fontFamily: font.body, fontSize: 13, color: color.text, flexShrink: 1, textAlign: 'right' },
-});
+}));
