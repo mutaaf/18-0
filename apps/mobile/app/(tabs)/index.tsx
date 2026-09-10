@@ -17,6 +17,7 @@ import { LeaderboardStrip } from '@/components/LeaderboardStrip';
 import { Panel } from '@/components/Panel';
 import { track } from '@/features/telemetry';
 import { beginRanked } from '@/features/ranked';
+import { useStartGame, withTimeout } from '@/features/start-game';
 import { flag } from '@/features/flags';
 import { fetchGamedaySummary, isBackendConfigured, type GamedaySummary } from '@/services/supabase';
 import { useGameStore, type GameMode } from '@/state/game';
@@ -36,21 +37,6 @@ import {
   useLayout,
   useThemeId,
 } from '@/theme';
-
-/** Resolves to null rather than hanging, so a stalled request cannot trap a screen. */
-async function withTimeout<T>(work: Promise<T>, ms: number): Promise<T | null> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      work,
-      new Promise<null>((resolve) => {
-        timer = setTimeout(() => resolve(null), ms);
-      }),
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
 
 export default function Home() {
   // Subscribes this screen to the palette. React Navigation memoizes the
@@ -85,7 +71,13 @@ export default function Home() {
    * the result screen offers it.
    */
   const [ranked, setRanked] = useState(true);
-  const [opening, setOpening] = useState(false);
+  // Two things can be opening a ranked session: a mode card, which goes
+  // through the shared hook, and the gameday marquee, which does not --
+  // gameday always tries the server whatever the switch says. The switch is
+  // busy while either is in flight.
+  const { start, opening: startingMode } = useStartGame();
+  const [openingGameday, setOpeningGameday] = useState(false);
+  const opening = startingMode || openingGameday;
   /** How today's board is doing, when there is one and a server to ask. */
   const [gameday, setGameday] = useState<GamedaySummary | null>(null);
   const [gamedayNote, setGamedayNote] = useState<string | null>(null);
@@ -114,42 +106,6 @@ export default function Home() {
   const inProgress = game.status !== 'idle' && game.selections.length > 0
     && game.selections.length < ROSTER_SLOTS.length;
 
-  const start = async (mode: GameMode) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    track('play_started', { mode, replacing: inProgress, ranked });
-    game.startGame(mode, { ranked });
-
-    // The session is opened before the first spin, so a player learns that
-    // ranked is unavailable now rather than seven picks from now.
-    //
-    // Wrapped, timed out, and unconditionally followed by the navigation. This
-    // used to be a bare `await` before `router.push`, so anything that threw or
-    // hung left the Play button doing nothing at all — which is exactly what
-    // happened on device, where `crypto.randomUUID` does not exist. Failing to
-    // open a ranked game must cost the leaderboard, never the game.
-    if (ranked) {
-      setOpening(true);
-      try {
-        const opened = await withTimeout(beginRanked(mode), 8000);
-        if (opened?.ok) {
-          game.attachServerSession(opened.value.sessionId, opened.value.idempotencyKey);
-          track('ranked_started', { mode });
-        } else {
-          const reason = opened?.message ?? 'The server did not answer in time.';
-          game.downgrade(reason);
-          track('ranked_downgraded', { reason });
-        }
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : 'Ranked play could not start.';
-        game.downgrade(reason);
-        track('ranked_downgraded', { reason });
-      } finally {
-        setOpening(false);
-      }
-    }
-    router.push('/play');
-  };
-
   /**
    * Into the gameday.
    *
@@ -167,7 +123,7 @@ export default function Home() {
     game.startGame('gameday', { ranked: isBackendConfigured });
 
     if (isBackendConfigured) {
-      setOpening(true);
+      setOpeningGameday(true);
       try {
         const opened = await withTimeout(beginRanked('gameday'), 8000);
         if (opened?.ok) {
@@ -185,7 +141,7 @@ export default function Home() {
         setGamedayNote(`${reason} This season stays on this device.`);
         track('ranked_downgraded', { reason, mode: 'gameday' });
       } finally {
-        setOpening(false);
+        setOpeningGameday(false);
       }
     }
     router.push('/play');
@@ -266,24 +222,24 @@ export default function Home() {
 
       <Reveal delay={140} style={styles.modes}>
         <ModeCard
-          name={MODE_LABEL.player_iq}
-          badge="Blind"
-          copy="A name, a team, a year. Pick on what you know."
-          hero
-          onPress={() => start('player_iq')}
-        />
-        <ModeCard
           name={MODE_LABEL.scout}
           badge="Stats only"
           copy="The stat line, no rating. Read the numbers and judge."
-          onPress={() => start('scout')}
+          hero
+          onPress={() => start('scout', { ranked })}
+        />
+        <ModeCard
+          name={MODE_LABEL.player_iq}
+          badge="Blind"
+          copy="No stat line either. Just a name, a team and a year."
+          onPress={() => start('player_iq', { ranked })}
         />
         <ModeCard
           name={MODE_LABEL.rookie}
           badge="Ratings on"
           copy="Every rating on screen. Learn what the model rewards."
           note={ranked ? 'Does not reach the board.' : undefined}
-          onPress={() => start('rookie')}
+          onPress={() => start('rookie', { ranked })}
         />
       </Reveal>
 
