@@ -71,7 +71,12 @@ export function Dock({
         </View>
       ) : null}
       <View
-        style={[styles.dock, GLASS, elevate(10)]}
+        style={[
+          styles.dock,
+          GLASS,
+          elevate(10),
+          shelf.height > 0 && { borderRadius: shelfRadius(shelf.width, shelf.height) },
+        ]}
         onLayout={(e) => {
           const { width, height } = e.nativeEvent.layout;
           setShelf((prev) =>
@@ -204,16 +209,35 @@ function DockTile({
  * radius all the way round because it is the same rounded rectangle, drawn at
  * the size the shelf measured.
  */
+/**
+ * How round the shelf is, for a shelf of this height.
+ *
+ * A dock is a lozenge, not a card -- just short of a full pill, so the straight
+ * run along the top still reads as a shelf. It has to be a function rather than
+ * a constant because the shelf grows as tiles magnify, and it has to be *the
+ * same* function for the container and the drawing: a fixed `borderRadius` of
+ * 28 against a drawn corner of 43 is what put a second, flatter rounded
+ * rectangle behind the glass with its corners sticking out past it.
+ */
+function shelfRadius(width: number, height: number): number {
+  return Math.min(height * 0.46, width / 2);
+}
+
 function Glass({ width, height }: { width: number; height: number }) {
   if (width === 0 || height === 0) return null;
 
-  // A dock is a lozenge, not a card. Just short of a full pill, so the straight
-  // run along the top still reads as a shelf.
-  const r = Math.min(height * 0.46, width / 2);
+  const r = shelfRadius(width, height);
   const inset = 0.75;
 
   return (
-    <Svg style={StyleSheet.absoluteFill} width={width} height={height} pointerEvents="none">
+    <Svg
+      style={StyleSheet.absoluteFill}
+      width="100%"
+      height="100%"
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+      pointerEvents="none"
+    >
       <Defs>
         <LinearGradient id="dock-ground" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.14" />
@@ -285,6 +309,8 @@ const styles = themed(() => StyleSheet.create({
     paddingHorizontal: space.md,
     paddingTop: 9,
     paddingBottom: 7,
+    // Replaced at runtime by `shelfRadius` once the shelf has been measured;
+    // this is only what the very first frame is drawn with.
     borderRadius: radius.xl,
     // Not hidden: a swelling tile lifts above the shelf, the way a dock icon
     // does, and clipping it to the glass cut the tops off every magnified one.
