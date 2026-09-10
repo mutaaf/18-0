@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { AccountPanel } from '@/components/AccountPanel';
+import { CareerPanel } from '@/components/CareerPanel';
 import { LevelPanel } from '@/components/LevelPanel';
-import { ThemePicker } from '@/components/ThemePicker';
+import { PreferencesPanel } from '@/components/PreferencesPanel';
+import { RhythmPanel } from '@/components/RhythmPanel';
 import {
   fetchLeaderboard,
   identity,
@@ -21,6 +23,11 @@ import { color, font, space, themed, tracking, useLayout, useThemeId } from '@/t
  *
  * The board rank is still fetched here, because the manager card carries it and
  * a card that says nothing about where you stand is a worse card.
+ *
+ * Everything below the manager card comes off one walk of the local history --
+ * `careerReport`, memoised on the store's array, so the three panels that read
+ * it share a single build. Nothing here fetches: the analysis is about seasons
+ * this device already has, and it is the same on a plane.
  */
 export default function Account() {
   // Subscribes this screen to the palette. React Navigation memoizes the
@@ -59,7 +66,9 @@ export default function Account() {
         <View style={styles.body}>
           <LevelPanel />
           <AccountPanel rank={rank} />
-          <ThemePicker />
+          <CareerPanel />
+          <RhythmPanel />
+          <PreferencesPanel />
         </View>
       </ScrollView>
     </Screen>

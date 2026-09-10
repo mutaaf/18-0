@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { fetchLeaderboard, isBackendConfigured, type LeaderboardRow } from '@/services/supabase';
-import { computeStats, useHistoryStore } from '@/state/history';
+import { useHistoryStore } from '@/state/history';
 import { Panel } from './Panel';
 import { color, font, radius, space, tabular, themed, tierColor, tracking, type PressState } from '@/theme';
 
@@ -29,12 +29,9 @@ export function LeaderboardStrip({ onPress }: { onPress: () => void }) {
     };
   }, []);
 
-  const local = useHistoryStore.getState().games;
-  void computeStats;
   const mine = [...games.filter((g) => !g.assisted)]
     .sort((a, b) => b.result.finalRating - a.result.finalRating)
     .slice(0, 3);
-  void local;
 
   const online = isBackendConfigured && !failed && rows !== null && rows.length > 0;
 
