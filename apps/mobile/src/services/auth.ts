@@ -107,6 +107,12 @@ export async function signInWith(
     // want any more.
     anonymous = !switchAccount && auth.session?.user.is_anonymous === true;
 
+    // On web the calls below navigate away, and the failure comes back as
+    // query parameters on the redirect rather than as a return value -- so the
+    // attempt has to leave a note for the page that comes back. Session
+    // storage, not local: an abandoned attempt should not outlive the tab.
+    rememberAttempt(provider, anonymous);
+
     // Linking preserves the account id and everything hanging off it. Signing
     // in fresh is only right when there is nothing to preserve.
     const start = anonymous
@@ -200,6 +206,83 @@ export async function linkedProviders(): Promise<readonly SocialProvider[]> {
   return data.identities
     .map((identity) => identity.provider)
     .filter((p): p is SocialProvider => p === 'apple' || p === 'google');
+}
+
+
+/**
+ * What the browser was in the middle of when it navigated away.
+ *
+ * Web OAuth is not a function call -- it is a page leaving and a different page
+ * arriving. Everything the failure handler needs to know (which provider, and
+ * whether it was a link or a fresh sign-in) is in the frame that no longer
+ * exists, so it is written down before the navigation and read back after.
+ */
+const ATTEMPT = '18-0:auth:attempt';
+
+function rememberAttempt(provider: SocialProvider, anonymous: boolean): void {
+  if (Platform.OS !== 'web' || typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.setItem(ATTEMPT, `${provider}:${anonymous ? 'link' : 'fresh'}`);
+  } catch {
+    // Private browsing refuses. The outcome is a slightly vaguer message.
+  }
+}
+
+/**
+ * The result of a redirect sign-in, if this page load is one.
+ *
+ * **This is the fix for a sign-in that had no way out.** On web, `linkIdentity`
+ * navigates away, and when the identity already belongs to another account
+ * Supabase reports it by redirecting back with `?error=...` -- not by throwing,
+ * and not by returning. Nothing read those parameters, so the player landed on
+ * `/account?error=server_error&error_code=identity_already_exists&...`, saw a
+ * raw URL, and had no prompt offering the one thing that works: signing in to
+ * the account that owns the identity.
+ *
+ * Returns null on an ordinary page load. Clears the parameters either way, so a
+ * reload or a back-navigation does not re-report a failure that has been dealt
+ * with.
+ */
+export function consumeRedirectOutcome():
+  | (SignInOutcome & { provider?: SocialProvider })
+  | null {
+  if (Platform.OS !== 'web' || typeof window === 'undefined') return null;
+
+  const here = new URL(window.location.href);
+  const query = here.searchParams;
+  // Supabase answers in the fragment as well as the query, and which one
+  // carries the description varies by provider.
+  const fragment = new URLSearchParams(here.hash.replace(/^#/, ''));
+
+  const described =
+    query.get('error_description') ??
+    fragment.get('error_description') ??
+    query.get('error') ??
+    fragment.get('error');
+
+  const attempt = readAttempt();
+  if (!described) return null;
+
+  window.history.replaceState(null, '', here.pathname);
+
+  return {
+    ...outcome(described, attempt?.anonymous ?? true),
+    ...(attempt ? { provider: attempt.provider } : {}),
+  };
+}
+
+function readAttempt(): { provider: SocialProvider; anonymous: boolean } | null {
+  if (typeof sessionStorage === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(ATTEMPT);
+    sessionStorage.removeItem(ATTEMPT);
+    if (!raw) return null;
+    const [provider, mode] = raw.split(':');
+    if (provider !== 'apple' && provider !== 'google') return null;
+    return { provider, anonymous: mode === 'link' };
+  } catch {
+    return null;
+  }
 }
 
 function webRedirect(): string {

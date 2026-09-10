@@ -8,6 +8,7 @@ import { ManagerCard } from './ManagerCard';
 import { ProviderButton } from './ProviderButton';
 import { computeStats, useHistoryStore } from '@/state/history';
 import {
+  consumeRedirectOutcome,
   linkedProviders,
   providerLabel,
   signInWith,
@@ -92,6 +93,16 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
     }
   };
+
+  // A web sign-in that failed reports itself by coming back as a URL, not by
+  // returning -- so the page that arrives has to look. Without this the player
+  // sees `?error=identity_already_exists` in the address bar and no prompt.
+  useEffect(() => {
+    const redirected = consumeRedirectOutcome();
+    if (!redirected) return;
+    if (redirected.alreadyLinked && redirected.provider) setElsewhere(redirected.provider);
+    setNote(redirected.error ?? 'Sign-in did not complete.');
+  }, []);
 
   const connect = async (provider: SocialProvider, switchAccount = false) => {
     setBusy(true);

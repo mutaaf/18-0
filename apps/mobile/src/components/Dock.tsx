@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { DockIcon, type DockIconName } from './DockIcons';
+import { GlassPaint, TINT, radiusFor } from './GlassSurface';
 import { useHasHover } from './useHasHover';
 import { color, elevate, font, radius, space, themed, tracking } from '@/theme';
 
@@ -73,7 +73,7 @@ export function Dock({
       <View
         style={[
           styles.dock,
-          GLASS,
+          TINT,
           elevate(10),
           shelf.height > 0 && { borderRadius: shelfRadius(shelf.width, shelf.height) },
         ]}
@@ -84,7 +84,12 @@ export function Dock({
           );
         }}
       >
-        <Glass width={shelf.width} height={shelf.height} />
+        <GlassPaint
+          width={shelf.width}
+          height={shelf.height}
+          radius={shelfRadius(shelf.width, shelf.height)}
+          id="dock"
+        />
         {items.map((item, index) => (
           <Fragment key={item.key}>
             {/* A dock separates the apps from the things that are yours. */}
@@ -193,103 +198,16 @@ function DockTile({
 }
 
 /**
- * The shelf's material.
- *
- * It replaced a `borderWidth` and a separate one-pixel highlight, and the
- * reason is what those two looked like together: a hairline inset twelve points
- * from each end reads as a scratch across a shelf whose corners are rounded by
- * twenty-eight, and a flat 14% white stroke all the way round reads as a box
- * somebody drew rather than an edge catching light. Between two magnified
- * tiles, the bright top edge became a disconnected line segment slicing the row
- * in half.
- *
- * Glass instead: a ground that falls off downwards, a gloss over the top third,
- * and a rim that is brightest where light would actually land -- the top -- and
- * nearly gone by the time it passes behind a magnified icon. It follows the
- * radius all the way round because it is the same rounded rectangle, drawn at
- * the size the shelf measured.
- */
-/**
- * How round the shelf is, for a shelf of this height.
+ * How round the shelf is, at the height it currently is.
  *
  * A dock is a lozenge, not a card -- just short of a full pill, so the straight
  * run along the top still reads as a shelf. It has to be a function rather than
- * a constant because the shelf grows as tiles magnify, and it has to be *the
- * same* function for the container and the drawing: a fixed `borderRadius` of
- * 28 against a drawn corner of 43 is what put a second, flatter rounded
- * rectangle behind the glass with its corners sticking out past it.
+ * a constant because the shelf grows as tiles magnify, and the container and
+ * the drawing have to use the same one: a fixed corner against a computed one
+ * left a second, flatter rounded rectangle behind the glass with its corners
+ * sticking out past it.
  */
-function shelfRadius(width: number, height: number): number {
-  return Math.min(height * 0.46, width / 2);
-}
-
-function Glass({ width, height }: { width: number; height: number }) {
-  if (width === 0 || height === 0) return null;
-
-  const r = shelfRadius(width, height);
-  const inset = 0.75;
-
-  return (
-    <Svg
-      style={StyleSheet.absoluteFill}
-      width="100%"
-      height="100%"
-      viewBox={`0 0 ${width} ${height}`}
-      preserveAspectRatio="none"
-      pointerEvents="none"
-    >
-      <Defs>
-        <LinearGradient id="dock-ground" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.14" />
-          <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity="0.05" />
-          <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0.015" />
-        </LinearGradient>
-        <LinearGradient id="dock-gloss" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.16" />
-          <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
-        </LinearGradient>
-        <LinearGradient id="dock-rim" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.34" />
-          {/* Faint by the height a magnified tile rises through. */}
-          <Stop offset="0.45" stopColor="#FFFFFF" stopOpacity="0.06" />
-          <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0.13" />
-        </LinearGradient>
-      </Defs>
-
-      <Rect x="0" y="0" width={width} height={height} rx={r} fill="url(#dock-ground)" />
-      {/* Clipped by nothing: it fades to zero before the bottom corners, so its
-          own rounding never shows. */}
-      <Rect x="0" y="0" width={width} height={height * 0.55} rx={r} fill="url(#dock-gloss)" />
-      <Rect
-        x={inset}
-        y={inset}
-        width={width - inset * 2}
-        height={height - inset * 2}
-        rx={Math.max(0, r - inset)}
-        fill="none"
-        stroke="url(#dock-rim)"
-        strokeWidth={1.25}
-      />
-    </Svg>
-  );
-}
-
-/**
- * Glass, where the platform has it.
- *
- * A solid slab across the bottom is a second navigation bar; the point of a
- * floating dock is that the content keeps going underneath it. The web can
- * actually blur what is behind it. Native has no backdrop filter without a
- * native module, so it settles for a darker translucency, which reads as
- * smoked rather than frosted but still lets the page through.
- */
-const GLASS = (Platform.OS === 'web'
-  ? {
-      backgroundColor: 'rgba(10, 14, 24, 0.55)',
-      backdropFilter: 'blur(22px) saturate(150%)',
-      WebkitBackdropFilter: 'blur(22px) saturate(150%)',
-    }
-  : { backgroundColor: 'rgba(10, 14, 24, 0.82)' }) as ViewStyle;
+const shelfRadius = (w: number, h: number) => radiusFor(w, h, 0.46, Number.POSITIVE_INFINITY);
 
 /** The height the dock occupies, so a screen can keep its content clear of it. */
 export const DOCK_HEIGHT = 104;
