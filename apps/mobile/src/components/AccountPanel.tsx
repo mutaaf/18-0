@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Linking from 'expo-linking';
@@ -6,7 +6,8 @@ import { PRIVACY_URL } from '@/features/links';
 import { track } from '@/features/telemetry';
 import { ManagerCard } from './ManagerCard';
 import { ProviderButton } from './ProviderButton';
-import { computeStats, useHistoryStore } from '@/state/history';
+import { useHistoryStore } from '@/state/history';
+import { careerReport } from '@/state/career';
 import {
   consumeRedirectOutcome,
   consumeTransfer,
@@ -44,13 +45,9 @@ import { color, font, radius, space, themed, tracking, type PressState } from '@
  */
 export function AccountPanel({ rank }: { rank?: number | null } = {}) {
   const games = useHistoryStore((s) => s.games);
-  const stats = useMemo(() => computeStats(games), [games]);
-  // The oldest season on this device. ProfileStats carries no timestamps, and
-  // this is the only start date the game actually knows.
-  const sinceYear = useMemo(() => {
-    if (games.length === 0) return null;
-    return new Date(Math.min(...games.map((g) => g.completedAt))).getFullYear();
-  }, [games]);
+  // Memoised on the array itself, so this and the career panels below share one
+  // walk of the history rather than each running their own.
+  const career = careerReport(games);
 
   const [me, setMe] = useState<Identity | null>(null);
   const [loading, setLoading] = useState(isBackendConfigured);
@@ -203,7 +200,7 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
 
   return (
     <View style={styles.panel}>
-      <ManagerCard identity={me} stats={stats} providers={linked} rank={rank} sinceYear={sinceYear} />
+      <ManagerCard identity={me} career={career} providers={linked} rank={rank} />
 
       <Text style={styles.label}>Your place on the board</Text>
 

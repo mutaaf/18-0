@@ -34,6 +34,14 @@ import type { HistoryEntry } from './history';
  * lands in. At two rating points per bucket the answer is within a point of the
  * exact one, which is well inside what anybody reads off a screen.
  *
+ * The same argument covers every other quantile, which is why `quantile()` and
+ * `percentileOf()` below take the report rather than the history. Once the
+ * histogram exists it is a sufficient statistic for the whole distribution: p10,
+ * p90 and "what fraction of my seasons did this one beat" are all `O(25)` reads
+ * off twenty-five integers, and none of them may go back to the array. A chart
+ * control that re-walks five hundred seasons every time somebody taps a segment
+ * is the thing this shape exists to make impossible.
+ *
  * ---------------------------------------------------------------------------
  * WHY IT IS CACHED ON THE ARRAY ITSELF
  * ---------------------------------------------------------------------------
@@ -72,6 +80,13 @@ export interface CareerReport {
   readonly averageRating: number | null;
   readonly medianRating: number | null;
   readonly worstRating: number | null;
+  /**
+   * Population standard deviation of the counted ratings.
+   *
+   * The number that separates a player who lands 84 every time from one whose
+   * 84 average is a 96 and a 72. Null until there are two seasons to spread.
+   */
+  readonly ratingSpread: number | null;
 
   readonly perfect: number;
   readonly heartbreak: number;
@@ -90,12 +105,21 @@ export interface CareerReport {
   readonly modes: readonly ModeSplit[];
   readonly topFranchise: string | null;
   readonly topEra: string | null;
+  /** How many picks the favourites account for, and out of how many. */
+  readonly topFranchisePicks: number;
+  readonly topEraPicks: number;
+  readonly picks: number;
   readonly bestCard: HistoryEntry['roster'][number] | null;
 
   /** Consecutive days ending today or yesterday, and the longest ever run. */
   readonly dayStreak: number;
   readonly longestStreak: number;
   readonly daysPlayed: number;
+  /**
+   * Seasons per local weekday, Sunday first. Assisted ones included: this is
+   * when somebody opens the app, not what they are allowed to be proud of.
+   */
+  readonly weekdays: readonly number[];
 
   readonly firstAt: number | null;
   readonly lastAt: number | null;
@@ -104,11 +128,15 @@ export interface CareerReport {
 const EMPTY: CareerReport = {
   total: 0, counted: 0, assisted: 0,
   bestRating: null, bestRecord: null, averageRating: null, medianRating: null, worstRating: null,
+  ratingSpread: null,
   perfect: 0, heartbreak: 0, wins: 0, losses: 0,
   histogram: new Array(BUCKETS).fill(0),
   bucketFloor: FLOOR, bucketSpan: SPAN,
-  form: [], modes: [], topFranchise: null, topEra: null, bestCard: null,
-  dayStreak: 0, longestStreak: 0, daysPlayed: 0, firstAt: null, lastAt: null,
+  form: [], modes: [], topFranchise: null, topEra: null,
+  topFranchisePicks: 0, topEraPicks: 0, picks: 0, bestCard: null,
+  dayStreak: 0, longestStreak: 0, daysPlayed: 0,
+  weekdays: new Array(7).fill(0),
+  firstAt: null, lastAt: null,
 };
 
 const cache = new WeakMap<readonly HistoryEntry[], CareerReport>();
@@ -129,10 +157,18 @@ function build(games: readonly HistoryEntry[]): CareerReport {
   const eras = new Map<string, number>();
   const modes = new Map<string, number>();
   const days = new Set<number>();
+  const weekdays = new Array<number>(7).fill(0);
 
   let counted = 0;
   let assisted = 0;
-  let ratingTotal = 0;
+  let picks = 0;
+  // Welford, rather than accumulating the sum and the sum of squares and
+  // subtracting. Both terms in `E[x²] - E[x]²` sit around 7,200 for ratings in
+  // the eighties and their difference is a variance around 9, which throws
+  // three significant digits away for nothing: the recurrence costs the same
+  // two multiplies and never does that.
+  let mean = 0;
+  let m2 = 0;
   let best: HistoryEntry | null = null;
   let worst = Number.POSITIVE_INFINITY;
   let perfect = 0;
@@ -156,12 +192,15 @@ function build(games: readonly HistoryEntry[]): CareerReport {
     // the server's UTC streak. The two are different numbers on purpose and the
     // screen never presents this one as what the multiplier pays for.
     days.add(dayNumber(game.completedAt));
+    weekdays[new Date(game.completedAt).getDay()]!++;
 
     if (game.assisted) { assisted++; continue; }
     counted++;
 
     const rating = game.result.finalRating;
-    ratingTotal += rating;
+    const delta = rating - mean;
+    mean += delta / counted;
+    m2 += delta * (rating - mean);
     if (rating < worst) worst = rating;
     if (!best || rating > best.result.finalRating) best = game;
     histogram[bucketOf(rating)]!++;
@@ -177,6 +216,7 @@ function build(games: readonly HistoryEntry[]): CareerReport {
 
     bump(modes, game.mode ?? 'rookie');
 
+    picks += game.roster.length;
     for (let j = 0; j < game.roster.length; j++) {
       const pick = game.roster[j]!;
       bump(franchises, pick.franchiseId);
@@ -187,6 +227,8 @@ function build(games: readonly HistoryEntry[]): CareerReport {
 
   form.reverse();
   const streaks = walkStreaks(days);
+  const topFranchise = rank(franchises)[0] ?? null;
+  const topEra = rank(eras)[0] ?? null;
 
   return {
     total: games.length,
@@ -194,9 +236,12 @@ function build(games: readonly HistoryEntry[]): CareerReport {
     assisted,
     bestRating: best?.result.finalRating ?? null,
     bestRecord: best?.result.record ?? null,
-    averageRating: counted > 0 ? ratingTotal / counted : null,
-    medianRating: counted > 0 ? medianOf(histogram, counted) : null,
+    averageRating: counted > 0 ? mean : null,
+    medianRating: counted > 0 ? quantileFrom(histogram, counted, 0.5) : null,
     worstRating: counted > 0 ? worst : null,
+    // One season has no spread, and calling it zero would put a player who has
+    // played once next to one who has landed the same rating forty times.
+    ratingSpread: counted > 1 ? Math.sqrt(m2 / counted) : null,
     perfect,
     heartbreak,
     wins,
@@ -206,15 +251,27 @@ function build(games: readonly HistoryEntry[]): CareerReport {
     bucketSpan: SPAN,
     form,
     modes: rank(modes),
-    topFranchise: rank(franchises)[0]?.mode ?? null,
-    topEra: rank(eras)[0]?.mode ?? null,
+    topFranchise: topFranchise?.mode ?? null,
+    topEra: topEra?.mode ?? null,
+    topFranchisePicks: topFranchise?.count ?? 0,
+    topEraPicks: topEra?.count ?? 0,
+    picks,
     bestCard,
     dayStreak: streaks.current,
     longestStreak: streaks.longest,
     daysPlayed: days.size,
+    weekdays,
     firstAt: Number.isFinite(firstAt) ? firstAt : null,
     lastAt: lastAt || null,
   };
+}
+
+/** How many seasons were played in one mode. At most a handful of entries. */
+export function modeCount(report: CareerReport, mode: string): number {
+  for (let i = 0; i < report.modes.length; i++) {
+    if (report.modes[i]!.mode === mode) return report.modes[i]!.count;
+  }
+  return 0;
 }
 
 function bump(map: Map<string, number>, key: string): void {
@@ -234,25 +291,66 @@ export function bucketOf(rating: number): number {
 }
 
 /**
- * The median, read off the cumulative frequency table.
+ * Any quantile, read off the cumulative frequency table.
  *
- * Walks buckets until it passes the halfway count, then interpolates across the
+ * Walks buckets until it passes the target count, then interpolates across the
  * bucket it stopped in rather than returning the bucket's midpoint -- otherwise
  * the answer is quantised to two rating points and visibly disagrees with the
  * average on small histories.
+ *
+ * `q` is clamped rather than rejected: a caller asking for p100 wants the top
+ * of the distribution, not an exception in the middle of a render.
  */
-function medianOf(histogram: readonly number[], counted: number): number {
-  const half = counted / 2;
+export function quantile(report: CareerReport, q: number): number | null {
+  if (report.counted === 0) return null;
+  return quantileFrom(report.histogram, report.counted, q);
+}
+
+function quantileFrom(histogram: readonly number[], counted: number, q: number): number {
+  const target = counted * Math.min(1, Math.max(0, q));
   let seen = 0;
   for (let i = 0; i < histogram.length; i++) {
     const inBucket = histogram[i]!;
-    if (seen + inBucket >= half) {
-      const within = inBucket === 0 ? 0 : (half - seen) / inBucket;
+    if (seen + inBucket >= target) {
+      const within = inBucket === 0 ? 0 : (target - seen) / inBucket;
       return FLOOR + (i + within) * SPAN;
     }
     seen += inBucket;
   }
   return CEIL;
+}
+
+/**
+ * The share of counted seasons at or below a rating, 0-1.
+ *
+ * The inverse of `quantile`, and the reason the chart can say "better than 94%
+ * of your seasons" without touching the history: the bucket boundaries are
+ * known, so the rating's position inside its own bucket is arithmetic.
+ */
+export function percentileOf(report: CareerReport, rating: number): number | null {
+  if (report.counted === 0) return null;
+  const bucket = bucketOf(rating);
+  let below = 0;
+  for (let i = 0; i < bucket; i++) below += report.histogram[i]!;
+  const within = (rating - (FLOOR + bucket * SPAN)) / SPAN;
+  const inBucket = report.histogram[bucket]! * Math.min(1, Math.max(0, within));
+  return Math.min(1, (below + inBucket) / report.counted);
+}
+
+/**
+ * The histogram as a running total, low to high.
+ *
+ * Twenty-five additions, so the cumulative view of the chart costs one array of
+ * twenty-five numbers rather than a second look at anything.
+ */
+export function cumulative(histogram: readonly number[]): number[] {
+  const out = new Array<number>(histogram.length);
+  let seen = 0;
+  for (let i = 0; i < histogram.length; i++) {
+    seen += histogram[i]!;
+    out[i] = seen;
+  }
+  return out;
 }
 
 /** Whole days since the epoch, in the device's own timezone. */

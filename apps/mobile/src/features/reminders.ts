@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { track } from '@/features/telemetry';
 import { fetchMultiplier } from '@/services/supabase';
@@ -34,6 +35,77 @@ Notifications.setNotificationHandler({
 });
 
 const supported = () => Platform.OS === 'ios' || Platform.OS === 'android';
+
+/**
+ * The player's own switch, separate from the operating system's.
+ *
+ * The OS permission answers "may this app notify me at all" and it is granted
+ * once, in the moment after a season that started a streak. Turning reminders
+ * off afterwards has to be possible without revoking that in Settings -- and
+ * it has to *stick*, which is the part that needs storing: `result.tsx` calls
+ * `scheduleStreakReminder` after every scored season, so a switch that only
+ * cancelled what was pending would put the reminder straight back the next
+ * time somebody played.
+ *
+ * Absent means on. Somebody who has granted permission and never touched this
+ * has already said yes to the only question being asked.
+ */
+const PREFERENCE_KEY = '18-0:reminders';
+
+export type ReminderState =
+  /** Not iOS or Android; nothing can be scheduled. */
+  | 'unsupported'
+  /** Permission refused for good. Only Settings can undo it. */
+  | 'blocked'
+  | 'on'
+  | 'off';
+
+async function wanted(): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(PREFERENCE_KEY)) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+/** What the switch should be showing, without asking for anything. */
+export async function reminderState(): Promise<ReminderState> {
+  if (!supported()) return 'unsupported';
+  try {
+    const permission = await Notifications.getPermissionsAsync();
+    if (!permission.granted) return permission.canAskAgain ? 'off' : 'blocked';
+    return (await wanted()) ? 'on' : 'off';
+  } catch {
+    return 'unsupported';
+  }
+}
+
+/**
+ * Flips it, asking for permission only on the way on.
+ *
+ * Returns the state that actually resulted, which is not always the one that
+ * was asked for: somebody who turns the switch on and then declines the system
+ * prompt gets `off` back, and the switch has to follow rather than lie.
+ */
+export async function setReminders(on: boolean): Promise<ReminderState> {
+  if (!supported()) return 'unsupported';
+
+  if (!on) {
+    await AsyncStorage.setItem(PREFERENCE_KEY, 'off').catch(() => undefined);
+    await clearReminders();
+    track('reminders_toggled', { on: false });
+    return 'off';
+  }
+
+  const granted = await askForReminders();
+  if (!granted) return reminderState();
+  await AsyncStorage.setItem(PREFERENCE_KEY, 'on').catch(() => undefined);
+  track('reminders_toggled', { on: true });
+  // Straight away rather than at the end of the next season: turning it on and
+  // then hearing nothing for a day is indistinguishable from it not working.
+  await scheduleStreakReminder();
+  return 'on';
+}
 
 /**
  * Asks, once, at a moment when the answer means something.
@@ -75,6 +147,10 @@ export async function scheduleStreakReminder(): Promise<void> {
   try {
     const granted = (await Notifications.getPermissionsAsync()).granted;
     if (!granted) return;
+    // Checked here rather than at the call sites: this runs after every scored
+    // season, and it is the one place every path to a scheduled reminder goes
+    // through.
+    if (!(await wanted())) return;
 
     await Notifications.cancelAllScheduledNotificationsAsync();
 

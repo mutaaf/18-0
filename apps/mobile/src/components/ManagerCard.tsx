@@ -3,7 +3,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { era as eraDef, franchise } from '@18-0/data';
 import { Reveal } from './Reveal';
 import { useCardTilt } from './useCardTilt';
-import type { ProfileStats } from '@/state/history';
+import { modeCount, type CareerReport } from '@/state/career';
 import type { Identity } from '@/services/supabase';
 import type { SocialProvider } from '@/services/auth';
 import { color, elevate, font, radius, space, tabular, themed, tierColor, tracking } from '@/theme';
@@ -22,28 +22,27 @@ import { color, elevate, font, radius, space, tabular, themed, tierColor, tracki
  */
 export function ManagerCard({
   identity,
-  stats,
+  career,
   providers,
   rank,
-  sinceYear,
 }: {
   identity: Identity | null;
-  stats: ProfileStats;
+  career: CareerReport;
   providers: readonly SocialProvider[];
   /** Their position on the all-time board, when they are on it. */
   rank?: number | null;
-  /** Year of their first season. Null until they have played one. */
-  sinceYear?: number | null;
 }) {
-  const team = stats.topFranchise ? franchise(stats.topFranchise) : null;
+  const team = career.topFranchise ? franchise(career.topFranchise) : null;
   const teamColor = team?.color || color.navy;
   const teamColor2 = team?.color2 || teamColor;
   const named = identity?.named === true;
-  const tint = stats.bestRating ? tierColor[tierOf(stats.bestRating)] ?? color.gold : color.textFaint;
+  const tint = career.bestRating ? tierColor[tierOf(career.bestRating)] ?? color.gold : color.textFaint;
 
   // The only "member since" this game has: an anonymous account has no signup
   // a player would recognise as a start date, so the first season is the date.
-  const since = sinceYear ?? null;
+  // Taken off the report rather than from `Math.min(...games.map(...))`, which
+  // spread five hundred timestamps into a call frame to learn one of them.
+  const since = career.firstAt === null ? null : new Date(career.firstAt).getFullYear();
 
   // The same object the player cards are, so their own account reads as part of
   // the collection rather than a settings panel with a border.
@@ -110,28 +109,28 @@ export function ManagerCard({
           <View>
             <Text style={styles.headlineLabel}>Best rating</Text>
             <Text style={[styles.rating, { color: tint }]}>
-              {stats.bestRating === null ? '—' : stats.bestRating.toFixed(1)}
+              {career.bestRating === null ? '—' : career.bestRating.toFixed(1)}
             </Text>
           </View>
           <View style={styles.headlineRight}>
             <Text style={styles.headlineLabel}>Best season</Text>
             <Text style={styles.record}>
-              {stats.bestRecord ? `${stats.bestRecord.wins}-${stats.bestRecord.losses}` : '—'}
+              {career.bestRecord ? `${career.bestRecord.wins}-${career.bestRecord.losses}` : '—'}
             </Text>
           </View>
         </View>
 
         <View style={styles.stats}>
-          <Stat label="Seasons" value={stats.played} />
-          <Stat label="Perfect" value={stats.perfectSeasons} tint={stats.perfectSeasons > 0 ? color.gold : undefined} />
-          <Stat label="Heartbreak" value={stats.heartbreaks} />
-          <Stat label="GM Mode" value={stats.playerIqGames} />
+          <Stat label="Seasons" value={career.total} />
+          <Stat label="Perfect" value={career.perfect} tint={career.perfect > 0 ? color.gold : undefined} />
+          <Stat label="Heartbreak" value={career.heartbreak} />
+          <Stat label="GM Mode" value={modeCount(career, 'player_iq')} />
         </View>
 
         <View style={styles.foot}>
           <Text style={styles.footText} numberOfLines={1}>
             {team ? `Builds with ${team.name}` : 'No franchise yet'}
-            {stats.topEra ? ` · ${eraDef(stats.topEra as never)?.label ?? stats.topEra}` : ''}
+            {career.topEra ? ` · ${eraDef(career.topEra as never)?.label ?? career.topEra}` : ''}
           </Text>
           {since ? <Text style={styles.footEst}>EST. {since}</Text> : null}
         </View>

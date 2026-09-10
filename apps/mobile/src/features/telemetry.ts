@@ -39,6 +39,10 @@ export type EventName =
   | 'app_link_opened'
   | 'reminders_prompted'
   | 'reminder_scheduled'
+  // The switch on the account screen, as opposed to the system prompt. A
+  // player turning these off in the app rather than in Settings is the signal
+  // that the reminder itself was unwelcome, not the permission.
+  | 'reminders_toggled'
   | 'challenge_created'
   | 'challenge_accepted'
   | 'ranked_downgraded'

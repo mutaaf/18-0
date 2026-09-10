@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { router, usePathname } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,7 +6,8 @@ import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg'
 import { fetchProgress, identity, isBackendConfigured, type Identity, type Progress } from '@/services/supabase';
 import { identifyPlayer } from '@/features/analytics';
 import { ratingBucket } from '@/features/telemetry';
-import { computeStats, useHistoryStore } from '@/state/history';
+import { useHistoryStore } from '@/state/history';
+import { careerReport } from '@/state/career';
 import { color, font, space, themed, tracking, type PressState } from '@/theme';
 
 const SIZE = 46;
@@ -30,7 +31,11 @@ export function AccountButton() {
   const [me, setMe] = useState<Identity | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
   const games = useHistoryStore((s) => s.games);
-  const stats = useMemo(() => computeStats(games), [games]);
+  // This button is mounted on every tab screen, so whatever it does to the
+  // history it does on every route change. The report is one walk, cached on
+  // the array, and shared with whatever else is on screen.
+  const career = careerReport(games);
+  const favouriteMode = career.modes[0]?.mode;
 
   // Keyed on the route so it picks up a name the moment you claim one, without
   // any of the screens having to know this button exists.
@@ -55,9 +60,10 @@ export function AccountButton() {
             userId: who.userId,
             handle: who.handle,
             named: who.named,
-            seasons: stats.played,
-            bestRatingBucket: stats.bestRating === null ? undefined : ratingBucket(stats.bestRating),
-            favouriteMode: stats.topMode ?? undefined,
+            seasons: career.total,
+            bestRatingBucket:
+              career.bestRating === null ? undefined : ratingBucket(career.bestRating),
+            favouriteMode,
           });
         }
       })
@@ -65,7 +71,7 @@ export function AccountButton() {
     return () => {
       alive = false;
     };
-  }, [pathname, stats.played, stats.bestRating, stats.topMode]);
+  }, [pathname, career.total, career.bestRating, favouriteMode]);
 
   // Nothing to travel to from the screen you are already on.
   if (pathname.endsWith('/account')) return null;

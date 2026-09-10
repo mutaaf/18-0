@@ -1,6 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Line, Pattern, Rect, Stop } from 'react-native-svg';
-import { Panel } from './Panel';
 import { useFlag } from '@/features/flags';
 import { track } from '@/features/telemetry';
 import {
@@ -30,6 +29,9 @@ import {
  *
  * The colours here are read from `THEME_LIST` at render, never from `color`,
  * for the same reason.
+ *
+ * It carries no surface of its own: it is a section of the preferences panel,
+ * and a panel inside a panel reads as a mistake rather than as a grouping.
  */
 export function ThemePicker() {
   const enabled = useFlag('theme_picker');
@@ -40,7 +42,7 @@ export function ThemePicker() {
   if (!enabled) return null;
 
   return (
-    <Panel contentStyle={styles.body}>
+    <View style={styles.body}>
       <Text style={styles.eyebrow}>Appearance</Text>
       <Text style={styles.title}>Pick a look</Text>
       <Text style={styles.copy}>
@@ -60,7 +62,7 @@ export function ThemePicker() {
           />
         ))}
       </View>
-    </Panel>
+    </View>
   );
 }
 
@@ -166,7 +168,16 @@ function Swatch({ theme }: { theme: Theme }) {
 }
 
 const styles = themed(() => StyleSheet.create({
-  body: { padding: space.lg, gap: space.xs },
+  // The rule belongs to this section rather than to the panel above it: the
+  // whole component renders nothing until `theme_picker` is rolled out, and a
+  // divider drawn by the parent would be a line under the last row with
+  // nothing beneath it.
+  body: {
+    gap: space.xs,
+    paddingTop: space.md,
+    borderTopWidth: 1,
+    borderTopColor: color.line,
+  },
   eyebrow: {
     fontFamily: font.label,
     fontSize: 10,
