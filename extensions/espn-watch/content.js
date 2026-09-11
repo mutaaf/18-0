@@ -45,12 +45,19 @@ let picking = false;
  * the whole tree. Anything with fewer than three similar children is not a row.
  */
 function findRows() {
-  const rows = [];
-  const seen = new Set();
+  const found = [];
 
   for (const node of document.querySelectorAll('ul, ol, div, section')) {
-    if (seen.has(node)) continue;
-    const kids = [...node.children].filter((c) => c.getBoundingClientRect().width > 80);
+    // **Our own card is never part of the measurement.** It used to be, and
+    // that was the whole bug: inserting the card changed the row's first child,
+    // the row then measured differently, sometimes failed its own test, and the
+    // card moved to whichever row now sorted first -- where the same thing
+    // happened again. The card flickered between the top two rows at the
+    // debounce interval and could not be clicked, because it was being
+    // destroyed and rebuilt under the pointer.
+    const kids = [...node.children].filter(
+      (c) => c.id !== HOST_ID && c.getBoundingClientRect().width > 80,
+    );
     if (kids.length < 3) continue;
 
     const boxes = kids.slice(0, 6).map((c) => c.getBoundingClientRect());
@@ -62,10 +69,14 @@ function findRows() {
     const evenWidth = boxes.every((b) => Math.abs(b.width - first.width) < 24);
     if (!inLine || !evenWidth) continue;
 
-    seen.add(node);
-    rows.push({ node, label: labelFor(node), tile: kids[0] });
+    found.push({ node, label: labelFor(node), tile: kids[0] });
   }
-  return rows;
+
+  // Innermost only. A carousel is usually a list inside a wrapper inside a
+  // section, and all three can pass the test above -- which gave the picker the
+  // same row three times and made "the first row" mean whichever of the three
+  // happened to be measured first.
+  return found.filter((row) => !found.some((other) => other !== row && row.node.contains(other.node)));
 }
 
 /** The heading a human would use for this row, or a fallback. */
@@ -154,6 +165,7 @@ function place() {
 
   // The cheap guard: already in the right row, nothing to do.
   if (existing && existing.parentElement === row.node) return;
+  if (existing && !existing.isConnected) removeCard();
 
   removeCard();
   const card = buildCard(shapeFrom(row.tile));
@@ -250,11 +262,30 @@ function schedule() {
   }, 400);
 }
 
+/**
+ * Did anything happen that was not us?
+ *
+ * Inserting the card is itself a mutation, so an observer that reacts to every
+ * record re-runs on its own work. Cheap to answer and it halves the wake-ups on
+ * a page that re-renders as much as this one.
+ */
+function theirs(records) {
+  return records.some((record) => {
+    if (record.target?.id === HOST_ID || record.target?.closest?.(`#${HOST_ID}`)) return false;
+    const ours = (nodes) => [...nodes].every((n) => n.id === HOST_ID);
+    if (record.addedNodes.length && ours(record.addedNodes)) return false;
+    if (record.removedNodes.length && ours(record.removedNodes)) return false;
+    return true;
+  });
+}
+
 chrome.storage.local.get({ row: null, matchUi: true, enabled: true }, (stored) => {
   settings = { ...settings, ...stored };
   place();
 
-  new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+  new MutationObserver((records) => {
+    if (theirs(records)) schedule();
+  }).observe(document.body, { childList: true, subtree: true });
   // A single-page app changes the view without a load event.
   window.addEventListener('popstate', schedule);
 });

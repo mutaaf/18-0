@@ -30,6 +30,34 @@ routes to `index.html` so a deep link survives a refresh, and serves `/privacy`
 without the `.html`. Rewrites run only after the filesystem is checked, so real
 files still win.
 
+## The one path that may be framed
+
+`vercel.json` sends `X-Frame-Options: SAMEORIGIN` on everything except
+`/embed`, which answers with `Content-Security-Policy: frame-ancestors` and an
+allowlist instead.
+
+The split is a security decision, not a design one. The obvious way to get the
+game into an iframe is to stop sending the header, and that would also put the
+account screen in a frame — sign-in, handle claiming, and a button that deletes
+an account and every season on it — inside a page whose owner controls exactly
+where the player's cursor lands. Clickjacking is a real attack against precisely
+that button. So the framable surface is play-only, and it is the only one.
+
+Two things about the configuration are easy to get wrong, and both were:
+
+- **Vercel applies every matching header rule.** A plain `/(.*)` catch-all puts
+  `X-Frame-Options` back on `/embed`, and since the two headers disagree the
+  stricter one wins. The catch-all is therefore
+  `/:path((?!embed$).*)` — path-to-regexp syntax, not a bare regex.
+- **`vercel.json` is strict JSON with a schema.** A `"//"` key used as a comment
+  is an unknown property, and the deployment is rejected — silently, as far as
+  the site is concerned: the last good build stays up and nothing turns red. The
+  symptom was a push that appeared to deploy and a bundle that never changed.
+  There is nowhere to put a comment in that file; the reasoning goes here.
+
+`extensions/espn-watch` is the consumer, and its README covers the frame's side
+of the contract.
+
 ## DNS, at Namecheap
 
 | Type | Host | Value |
