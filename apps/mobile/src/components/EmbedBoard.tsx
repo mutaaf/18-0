@@ -74,8 +74,15 @@ export function EmbedBoard() {
     );
   }
 
-  const [first, second, third, ...rest] = rows;
-  const leader = first?.finalRating ?? 0;
+  const podium = rows.slice(0, 3);
+  const rest = rows.slice(3);
+  const leader = rows[0]?.finalRating ?? 0;
+
+  // Second, first, third -- a real podium's arrangement, but only for the
+  // places that exist. A board with two managers on it was drawing an empty
+  // bordered box where third would be, and three boxes of content in a frame
+  // sized for a podium of however many there are.
+  const order = podium.length >= 3 ? [1, 0, 2] : podium.length === 2 ? [0, 1] : [0];
 
   return (
     <View style={styles.root}>
@@ -84,11 +91,14 @@ export function EmbedBoard() {
         <Text style={styles.sub}>Best season, one per manager</Text>
       </View>
 
-      {/* Second, first, third -- the arrangement a real podium has. */}
       <View style={styles.podium}>
-        <Step row={second} place={2} />
-        <Step row={first} place={1} />
-        <Step row={third} place={3} />
+        {order.map((index) => (
+          <Step
+            key={podium[index]!.gameSessionId}
+            row={podium[index]!}
+            place={(index + 1) as 1 | 2 | 3}
+          />
+        ))}
       </View>
 
       {rest.length > 0 ? (
@@ -117,9 +127,7 @@ export function EmbedBoard() {
 }
 
 /** One place on the podium. The winner's step is taller and wears the crown. */
-function Step({ row, place }: { row: LeaderboardRow | undefined; place: 1 | 2 | 3 }) {
-  if (!row) return <View style={[styles.step, place === 1 && styles.stepFirst]} />;
-
+function Step({ row, place }: { row: LeaderboardRow; place: 1 | 2 | 3 }) {
   const won = place === 1;
   const tint = tierColor[row.tier] ?? color.silver;
 
@@ -160,7 +168,11 @@ const styles = themed(() => StyleSheet.create({
 
   podium: { flexDirection: 'row', alignItems: 'flex-end', gap: space.sm },
   step: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    // Zero basis, so three steps divide the frame rather than each asking for
+    // the width of its own longest handle and overflowing it.
+    flexBasis: 0,
     minWidth: 0,
     alignItems: 'center',
     gap: 1,
