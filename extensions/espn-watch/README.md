@@ -23,8 +23,9 @@ The toolbar button has three controls.
 | | |
 |---|---|
 | **Show the card** | Off leaves the page completely untouched. |
-| **Match the Watch UI** | On, the card takes the same box, corner and caption block as its neighbours, so it sits *in* the row. Off, it announces itself. |
-| **Row** | Which row to sit in. Pick from the list, or press **Pick a row on the page** and click one. |
+| **Match the Watch UI** | On, it takes the page's own shape and voice — the same box and corner as its neighbours as a tile, the section-label typography as a band. Off, it announces itself. |
+| **Placement** | **Tile in a row**, or **Inline header** — a band across the full width of the shelf. |
+| **Row** / **Gap** | Where it goes. A tile goes *in* a row. A band goes in a *gap*, named by the row below it — "Above JUST FOR YOU" — because a row name alone is ambiguous about which side of it the band lands on. The last gap has no row below it and is listed as "Below the last row". |
 
 Clicking the card opens the game over the page. Escape closes it.
 
@@ -45,6 +46,37 @@ Rows arrive after first paint and re-render on navigation, so a `MutationObserve
 re-places the card — debounced, and behind a cheap guard that does no work at all
 while the card is still where it belongs. Re-scanning a page like this one on
 every mutation is a page that janks.
+
+**The position is resolved once and then defended.** Re-deriving it on every pass
+means the answer has to be stable on every pass, and it is not: a carousel is a
+list inside a scroller inside a section, all three can look like a row, and
+inserting the card changes the measurements that decide between them. So the card
+moves, which changes the measurements, which moves the card. It resolves once,
+remembers the node, and looks again only when that node has left the document.
+
+Two more things were measured off the live page rather than assumed:
+
+- **A tile goes in the row's second slot.** The first sits under the left edge of
+  a `SECTION.overflow-hidden` and moves with the rail's scroll — it measured at
+  `x=-4` on a fresh load and around `x=-110` a moment later.
+- **The thumbnail is found by shape, not by tag.** Asking for `img, picture,
+  video` returned a `<picture>` measuring 300×19, a lazy image that had not
+  resolved, and the card rendered as a squashed strip. The widest child with a
+  thumbnail's proportions is the artwork, whatever it is made of.
+
+## Testing it
+
+    node extensions/espn-watch/fixture-check.mjs
+
+`fixture.html` is a page shaped like the real one — several rows, each wrapped
+twice, mutating after load — run in headless Chrome. The checks are the symptoms:
+one card, never more, never moved after placement, fully on screen, in both
+placements.
+
+Worth knowing what it does *not* do: it has never reproduced the original
+flicker. No synthetic page I could build resolves rows differently between passes
+the way espn.com does, so the check passes even with the guard removed. It holds
+the property; the bug itself was diagnosed by measuring the live page.
 
 <br>
 

@@ -13,16 +13,29 @@ const matchUi = document.getElementById('matchUi');
 const rowSelect = document.getElementById('row');
 const rowNote = document.getElementById('rowNote');
 const pick = document.getElementById('pick');
+const placement = document.getElementById('placement');
+const whereLabel = document.getElementById('whereLabel');
 
-const DEFAULTS = { row: null, matchUi: true, enabled: true };
+const DEFAULTS = { row: null, matchUi: true, enabled: true, placement: 'tile' };
+
+/** The gap below the last row, which no row can name. */
+const END = '__end';
 
 async function activeTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   return tab;
 }
 
-/** Ask the page what rows it has. Fails quietly on a tab with no content script. */
-async function loadRows(selected) {
+/**
+ * Ask the page what rows it has, and offer them the way the current placement
+ * uses them.
+ *
+ * A tile goes *in* a row, so the options are rows. A band goes in a *gap*, and
+ * a gap is named by the row underneath it -- "Above JUST FOR YOU" -- because
+ * "JUST FOR YOU" on its own would be ambiguous about which side of it the band
+ * lands on. The last gap has no row below it and is named separately.
+ */
+async function loadRows(selected, mode) {
   const tab = await activeTab();
   if (!tab?.id) return;
   let rows = [];
@@ -30,12 +43,20 @@ async function loadRows(selected) {
     const reply = await chrome.tabs.sendMessage(tab.id, { type: 'rows' });
     rows = reply?.rows ?? [];
   } catch {
-    // Not an ESPN Watch tab, or the page has not finished loading.
     rowNote.textContent = 'Open espn.com/watch to choose';
     rowSelect.disabled = true;
     pick.disabled = true;
     return;
   }
+
+  const header = mode === 'header';
+  rowSelect.replaceChildren();
+  whereLabel.childNodes[0].nodeValue = header ? 'Gap' : 'Row';
+
+  const first = document.createElement('option');
+  first.value = '';
+  first.textContent = header ? 'Above the first row' : 'First row';
+  rowSelect.appendChild(first);
 
   // De-duplicated: two rows can share a heading, and a picker with the same
   // word three times is a picker nobody can use.
@@ -45,18 +66,38 @@ async function loadRows(selected) {
     seen.add(label);
     const option = document.createElement('option');
     option.value = label;
-    option.textContent = label.length > 30 ? `${label.slice(0, 29)}…` : label;
+    const shown = label.length > 24 ? `${label.slice(0, 23)}\u2026` : label;
+    option.textContent = header ? `Above ${shown}` : shown;
     rowSelect.appendChild(option);
   }
 
-  if (selected && seen.has(selected)) rowSelect.value = selected;
-  rowNote.textContent = `${seen.size} row${seen.size === 1 ? '' : 's'} on this page`;
+  if (header) {
+    const end = document.createElement('option');
+    end.value = END;
+    end.textContent = 'Below the last row';
+    rowSelect.appendChild(end);
+  }
+
+  if (selected && (seen.has(selected) || selected === END)) rowSelect.value = selected;
+  rowNote.textContent = header
+    ? `${seen.size + 1} gap${seen.size === 0 ? '' : 's'} on this page`
+    : `${seen.size} row${seen.size === 1 ? '' : 's'} on this page`;
+  pick.textContent = header ? 'Pick the row below it' : 'Pick a row on the page';
 }
 
 chrome.storage.local.get(DEFAULTS, (stored) => {
   enabled.checked = stored.enabled;
   matchUi.checked = stored.matchUi;
-  void loadRows(stored.row);
+  placement.value = stored.placement;
+  void loadRows(stored.row, stored.placement);
+});
+
+placement.addEventListener('change', () => {
+  // The stored position is dropped: "above the third row" and "in the third
+  // row" are different places, and carrying one over as the other silently
+  // moves the thing somebody just placed.
+  chrome.storage.local.set({ placement: placement.value, row: null });
+  void loadRows(null, placement.value);
 });
 
 enabled.addEventListener('change', () => {

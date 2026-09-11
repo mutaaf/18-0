@@ -31,7 +31,7 @@ const EMBED_URL = 'https://18-0.co/embed';
 /** Heights the frame is given, by the screen the game says it is on. */
 const FRAME_HEIGHT = { entry: 232, play: 620, result: 760 };
 
-let settings = { row: null, matchUi: true, enabled: true };
+let settings = { row: null, matchUi: true, enabled: true, placement: 'tile' };
 let picking = false;
 
 // ---------------------------------------------------------------------------
@@ -100,7 +100,7 @@ function labelFor(node) {
 
 function chosenRow(rows) {
   if (!rows.length) return null;
-  if (settings.row === null) return rows[0];
+  if (settings.row === null || settings.row === END) return rows[0];
   return rows.find((r) => r.label === settings.row) ?? rows[0];
 }
 
@@ -120,16 +120,40 @@ function shapeFrom(tile) {
   if (!tile) return { width: 232, height: 130, radius: 6 };
   const box = tile.getBoundingClientRect();
   const style = getComputedStyle(tile);
-  const art = tile.querySelector('img, picture, video');
-  const artBox = art?.getBoundingClientRect();
   return {
     width: Math.round(box.width),
-    // The artwork, not the whole tile: a Watch tile is a thumbnail with two
-    // lines of caption under it, and matching the total height would put our
-    // card's bottom edge level with their text.
-    height: Math.round(artBox?.height || box.height),
+    height: artHeight(tile, box.width),
     radius: parseInt(style.borderRadius, 10) || 6,
   };
+}
+
+/**
+ * How tall the thumbnail is, as opposed to the whole tile.
+ *
+ * A Watch tile is a 16:9 thumbnail with two lines of caption under it, so
+ * matching the tile's full height would put our card's bottom edge level with
+ * their text. The first version asked for `img, picture, video` and got a
+ * `<picture>` measuring 300x19 -- a lazy-loaded image that had not resolved yet
+ * -- which is why the card rendered as a thin strip with its artwork squashed
+ * into it.
+ *
+ * So it is found by shape instead of by tag: the widest thing in the tile whose
+ * proportions are a thumbnail's. That rejects the unresolved picture at 15.8:1
+ * and the tile wrappers at 1.25:1, and finds the figure at 1.78:1 regardless of
+ * what it is made of -- these are sometimes a background image rather than an
+ * `<img>` at all.
+ */
+function artHeight(tile, width) {
+  let best = 0;
+  for (const el of tile.querySelectorAll('*')) {
+    const b = el.getBoundingClientRect();
+    if (b.width < width * 0.85 || b.height < 24) continue;
+    const ratio = b.width / b.height;
+    if (ratio < 1.45 || ratio > 2.2) continue;
+    if (b.height > best) best = b.height;
+  }
+  // Nothing plausible: 16:9 of the width is what these rows are.
+  return Math.round(best || (width * 9) / 16);
 }
 
 function buildCard(shape) {
@@ -176,6 +200,61 @@ function buildCard(shape) {
  */
 let placedIn = null;
 
+
+/**
+ * The other placement: a band between the rows rather than a card inside one.
+ *
+ * A tile competes with fifteen thumbnails for a glance. A band does not -- it
+ * gets the full width of the shelf and the reading position a section heading
+ * has, which is the right shape when the game is the point rather than one more
+ * thing on offer.
+ *
+ * Matched, it borrows the heading's own typography: these pages set their
+ * section labels in small, wide, uppercase type, and a band that shouts in a
+ * column of those reads as an advert no matter what it says.
+ */
+function buildHeader() {
+  const band = document.createElement('div');
+  band.id = HOST_ID;
+  band.className = `ez-band${settings.matchUi ? ' ez-match' : ''}`;
+  band.innerHTML = `
+    <span class="ez-weave" aria-hidden="true"></span>
+    <div class="ez-band-text">
+      <p class="ez-band-kicker">Play</p>
+      <p class="ez-band-title">18<span class="ez-dash">-</span>0 — build the perfect roster</p>
+      <p class="ez-band-sub">Seven spins, sixty years of pro football, one undefeated season.</p>
+    </div>
+    <button class="ez-band-go" type="button">Play a season</button>
+  `;
+  band.querySelector('.ez-band-go').addEventListener('click', openPanel);
+  return band;
+}
+
+/**
+ * The shelf a row belongs to — the block that also holds its heading.
+ *
+ * The band goes *before* this, so it sits between one row and the next rather
+ * than between a heading and the rail it labels.
+ */
+/** The sentinel for the gap below the last row. */
+const END = '__end';
+
+/** The last shelf on the page, for the gap that has no row beneath it. */
+function lastShelf() {
+  const rows = findRows();
+  if (!rows.length) return null;
+  return shelfOf(rows[rows.length - 1].node);
+}
+
+function shelfOf(node) {
+  let el = node;
+  for (let depth = 0; depth < 6 && el.parentElement; depth++) {
+    el = el.parentElement;
+    if (el.querySelector('h1, h2, h3')) return el;
+  }
+  return node.parentElement ?? node;
+}
+
 function place() {
   if (!settings.enabled) return removeCard();
 
@@ -195,6 +274,19 @@ function place() {
 
   const row = chosenRow(findRows());
   if (!row) return;
+
+  if (settings.placement === 'header') {
+    // The band goes in a *gap*, and a gap is named by the row below it -- which
+    // is why the picker says "Above JUST FOR YOU" rather than naming a row. The
+    // last gap has no row below it, so it is named separately.
+    const anchor = settings.row === END ? lastShelf() : shelfOf(row.node);
+    if (!anchor) return;
+    placedIn = anchor.parentElement;
+    if (!placedIn) return;
+    if (settings.row === END) placedIn.insertBefore(buildHeader(), anchor.nextElementSibling);
+    else placedIn.insertBefore(buildHeader(), anchor);
+    return;
+  }
 
   placedIn = row.node;
   // **Second, not first.** The first slot of these carousels sits under the
@@ -316,7 +408,7 @@ function theirs(records) {
   });
 }
 
-chrome.storage.local.get({ row: null, matchUi: true, enabled: true }, (stored) => {
+chrome.storage.local.get({ row: null, matchUi: true, enabled: true, placement: 'tile' }, (stored) => {
   settings = { ...settings, ...stored };
   place();
 
@@ -338,7 +430,7 @@ chrome.storage.onChanged.addListener((changes) => {
 
 chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   if (message?.type === 'rows') {
-    respond({ rows: findRows().map((r) => r.label) });
+    respond({ rows: findRows().map((r) => r.label), placement: settings.placement });
     return true;
   }
   if (message?.type === 'pick') {

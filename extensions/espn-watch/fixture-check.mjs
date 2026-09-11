@@ -38,7 +38,7 @@ const profile = resolve(import.meta.dirname, '.fixture-profile');
  * the timeout is treated as a normal ending and the partial output is used.
  * Waiting for a clean exit meant a check that hung instead of reporting.
  */
-function dumpDom() {
+function dumpDom(query = '') {
   const args = [
     '--headless',
     '--disable-gpu',
@@ -46,7 +46,7 @@ function dumpDom() {
     '--virtual-time-budget=9000',
     '--window-size=1280,900',
     '--dump-dom',
-    `file://${fixture}`,
+    `file://${fixture}${query}`,
   ];
   try {
     return execFileSync(CHROME, args, {
@@ -100,6 +100,25 @@ check('its button is present', report.clickable === true);
 // carousel is clipped by the shelf's edge.
 check('it sits fully on screen', report.onScreenX >= 0, `x=${report.onScreenX}`);
 
+// The other placement, driven through the same fixture.
+const bandDom = dumpDom('?placement=header');
+const bandTitle = bandDom.match(/<title>(.*?)<\/title>/s)?.[1];
+let band;
+try {
+  band = JSON.parse(bandTitle.replace(/&quot;/g, '"'));
+} catch {
+  console.error('The header fixture did not report. Title was:', bandTitle);
+  process.exit(1);
+}
+
+console.log('\nAS AN INLINE HEADER');
+check('exactly one band', band.cards === 1, `${band.cards}`);
+check('it is a band, not a tile', band.isBand === true);
+check('it never moved once placed', band.moves === 0, `${band.moves} move(s)`);
+// The whole point of the placement: it sits in the gap above the row, not
+// inside it and not below the rail it is introducing.
+check('it sits above the first row', band.aboveFirstRow === true);
+
 console.log('='.repeat(56));
-console.log(failures === 0 ? 'The card goes in once and stays.' : `${failures} check(s) failed.`);
+console.log(failures === 0 ? 'Both placements go in once and stay.' : `${failures} check(s) failed.`);
 process.exit(failures === 0 ? 0 : 1);

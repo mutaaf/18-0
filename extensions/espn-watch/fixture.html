@@ -76,10 +76,12 @@
 
   // The extension's storage, stubbed. `content.js` is loaded as a plain script
   // below, so this has to exist before it runs.
+  // `?placement=header` lets the same fixture drive the other placement.
+  const wanted = new URLSearchParams(location.search).get('placement') || 'tile';
   window.chrome = {
     storage: {
       local: {
-        get: (defaults, cb) => cb(defaults),
+        get: (defaults, cb) => cb({ ...defaults, placement: wanted }),
         set: () => {},
       },
       onChanged: { addListener: () => {} },
@@ -129,6 +131,8 @@
       moves,
       inFirstRow: card?.parentElement === document.querySelector('.rail'),
       onScreenX: card ? Math.round(card.getBoundingClientRect().x) : null,
+      isBand: Boolean(card?.classList.contains('ez-band')),
+      aboveFirstRow: card ? (card.compareDocumentPosition(document.querySelector('.rail')) & Node.DOCUMENT_POSITION_FOLLOWING) > 0 : false,
       clickable: Boolean(art),
     });
   }, 3200);

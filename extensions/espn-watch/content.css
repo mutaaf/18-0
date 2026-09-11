@@ -216,3 +216,106 @@ body.ez-picking #eighteen-zero-card { pointer-events: none; }
   color: rgba(255, 255, 255, 0.45);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+/* ------------------------------------------------------------------------ */
+/* The band                                                                  */
+/* ------------------------------------------------------------------------ */
+
+/*
+ * The other placement. A tile competes with fifteen thumbnails for a glance;
+ * a band gets the width of the shelf and the reading position a section
+ * heading has, which is the right shape when the game is the point.
+ */
+#eighteen-zero-card.ez-band {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  /* The shelves on this page are inset by the same amount; matching it is what
+     keeps the band aligned with the headings above and below it. */
+  margin: 18px 32px 22px;
+  padding: 18px 22px;
+  border-radius: 10px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 200% at 12% -40%, #1b2e9c 0%, rgba(27, 46, 156, 0) 62%),
+    linear-gradient(100deg, #0b1452 0%, #070e3a 68%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-sizing: border-box;
+}
+
+#eighteen-zero-card.ez-band .ez-band-text { position: relative; min-width: 0; }
+
+#eighteen-zero-card.ez-band .ez-band-kicker {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #5fbb46;
+}
+
+#eighteen-zero-card.ez-band .ez-band-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #fff;
+}
+
+#eighteen-zero-card.ez-band .ez-band-sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+#eighteen-zero-card.ez-band .ez-band-go {
+  position: relative;
+  flex: 0 0 auto;
+  height: 40px;
+  padding: 0 20px;
+  border: 1px solid #7bd35f;
+  border-radius: 999px;
+  background: #5fbb46;
+  color: #06210a;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+}
+
+#eighteen-zero-card.ez-band .ez-band-go:hover { background: #7bd35f; }
+#eighteen-zero-card.ez-band .ez-band-go:focus-visible { outline: 2px solid #ffc531; outline-offset: 2px; }
+
+/*
+ * Matched: the band takes the page's own section-label voice. These shelves set
+ * their headings in small, wide, uppercase type, and a 20px title in a column
+ * of those reads as an advert however carefully it is worded.
+ */
+#eighteen-zero-card.ez-band.ez-match {
+  background: linear-gradient(100deg, rgba(11, 20, 82, 0.92) 0%, rgba(7, 14, 58, 0.92) 70%);
+  border-color: rgba(255, 255, 255, 0.08);
+  padding: 14px 22px;
+}
+
+#eighteen-zero-card.ez-band.ez-match .ez-band-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+#eighteen-zero-card.ez-band.ez-match .ez-band-sub { font-size: 12px; }
+#eighteen-zero-card.ez-band.ez-match .ez-band-go { height: 34px; font-size: 12px; }
+
+@media (max-width: 700px) {
+  #eighteen-zero-card.ez-band {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    margin: 14px 16px 18px;
+  }
+}
