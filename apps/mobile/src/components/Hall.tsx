@@ -3,6 +3,7 @@ import { AccessibilityInfo, Animated, Easing, ScrollView, StyleSheet, Text, View
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { DATASET, franchise, type BootCard } from '@18-0/data';
 import { POSITIONS } from '@18-0/domain';
+import { SectionHead } from './SectionHead';
 import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking } from '@/theme';
 
 /**
@@ -66,10 +67,14 @@ export function Hall() {
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.head}>
-        <Text style={styles.label}>The best seasons in the data</Text>
-        <Text style={styles.note}>Nobody picked these. They fell out of the model.</Text>
-      </View>
+      {/* The same mark every other block on the landing page wears. This one
+          was here first -- a label over a note -- and the rest of the screen
+          was left without one, which is most of why a page of real content
+          read as an undifferentiated stack. */}
+      <SectionHead
+        label="The best seasons in the data"
+        note="Nobody picked these. They fell out of the model."
+      />
 
       {/* Reduce Motion gets the same cards as a strip you scroll yourself — the
           content is the point, the movement is not. */}
@@ -129,16 +134,6 @@ function HallCard({ card }: { card: BootCard }) {
 
 const styles = themed(() => StyleSheet.create({
   wrap: { gap: space.sm },
-  head: { gap: 2 },
-  label: {
-    fontFamily: font.label,
-    fontSize: 10,
-    letterSpacing: tracking.wider,
-    textTransform: 'uppercase',
-    color: color.textFaint,
-  },
-  note: { fontFamily: font.bodyRegular, fontSize: 13, color: color.textDim },
-
   viewport: { overflow: 'hidden' },
   rail: { flexDirection: 'row', gap: GAP },
 

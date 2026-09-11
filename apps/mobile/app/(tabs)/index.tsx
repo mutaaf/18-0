@@ -7,18 +7,20 @@ import Svg, { Path } from 'react-native-svg';
 import { Reveal } from '@/components/Reveal';
 import { ROSTER_SLOTS } from '@18-0/domain';
 import { DATASET, gamedayAt, type Gameday } from '@18-0/data';
+import { Billboard } from '@/components/Billboard';
 import { Brand } from '@/components/Brand';
-import { GamedayHero } from '@/components/GamedayHero';
+import { GamedayHero, gamedayMarqueeDay } from '@/components/GamedayHero';
 import { Crown } from '@/components/Crown';
 import { Hall } from '@/components/Hall';
 import { Screen } from '@/components/Screen';
+import { SectionHead } from '@/components/SectionHead';
 import { GetTheApp } from '@/components/GetTheApp';
 import { LeaderboardStrip } from '@/components/LeaderboardStrip';
 import { Panel } from '@/components/Panel';
 import { track } from '@/features/telemetry';
 import { beginRanked } from '@/features/ranked';
 import { useStartGame, withTimeout } from '@/features/start-game';
-import { flag } from '@/features/flags';
+import { flag, useFlag } from '@/features/flags';
 import { fetchGamedaySummary, isBackendConfigured, type GamedaySummary } from '@/services/supabase';
 import { useGameStore, type GameMode } from '@/state/game';
 import { computeStats, useHistoryStore } from '@/state/history';
@@ -157,16 +159,88 @@ export default function Home() {
     game.abandon();
   };
 
-  const display = layout.roomy ? 78 : layout.wide ? 62 : 38;
+  /**
+   * A gameday marquee is about to sit under the board, and it is three hundred
+   * points of panel with its own way into a game. Two hero-sized objects
+   * stacked on a phone put the mode cards off the bottom of the screen, and the
+   * one thing the front page may not do is bury the way in. So on a gameday the
+   * board gives up its scoreboard rail and a few points of headline: the
+   * marquee is carrying the numbers and the urgency that day, and the billboard
+   * goes back to being a sign.
+   *
+   * `gamedayMarqueeDay` is the marquee's own predicate, imported rather than
+   * reimplemented, so the board cannot shrink on a day the slab does not
+   * appear.
+   *
+   * `useFlag` rather than `flag`, and that is not a style preference. `flag` is
+   * a snapshot: an unresolved flag reads as its fallback, this screen does not
+   * subscribe to the resolution, and the board would keep whichever answer it
+   * happened to get on the first frame forever. It did exactly that in the
+   * exported web build -- `gameday` defaults on, PostHog had not answered yet,
+   * and a landing page with no marquee anywhere on it was missing its
+   * scoreboard rail because it was making room for one. The hook is what
+   * GamedayHero reads, so the two now flip in the same render.
+   */
+  const marquee = useFlag('gameday') && gamedayMarqueeDay() !== null;
+
+  /**
+   * The headline size, measured rather than guessed.
+   *
+   * "Chase perfection." is the longest line and Rajdhani Bold renders it at
+   * almost exactly 7.2 points of width per point of size -- the only number in
+   * this calculation that is not arbitrary, measured in the browser at five
+   * sizes, where it did not move. The board's own padding comes off the column
+   * before the type gets any, so the space the headline actually has on a
+   * narrow screen is the viewport less fifty: the content gutter, less the
+   * bleed the board wins back, less its padding and its border.
+   *
+   * A fixed size per breakpoint was wrong at both ends of the phone range. One
+   * that fits a 390-point screen runs a headline through the wall of bulbs on a
+   * 320-point one; one that fits 320 is timid at 430 and absurd on an 800-point
+   * tablet, which is still the narrow layout. The divisor carries a six per
+   * cent margin, because a face that has not finished loading measures as the
+   * fallback and this runs before that is settled.
+   *
+   * The two wide values are constants because their columns are: between 900
+   * and 1180 the content is one bounded column and the board has about 850
+   * points of type to play with; past 1180 the aside moves alongside and it has
+   * about 610. That is why the headline gets *smaller* as the window crosses
+   * 1180 -- the column it lives in did too.
+   */
+  const display = layout.roomy
+    ? 78
+    : layout.wide
+      ? 92
+      : Math.min(marquee ? 40 : 56, Math.round((layout.width - 50) / 7.65));
 
   const hero = (
     <View style={styles.heroColumn}>
       <Reveal delay={0}>
-        <Text style={styles.kicker}>The pro football history game</Text>
-        <Text style={[styles.headline, { fontSize: display, lineHeight: display * 0.98 }]}>
-          Spin history.{'\n'}Build seven.{'\n'}
-          <Text style={styles.headlineAccent}>Chase perfection.</Text>
-        </Text>
+        <Billboard
+          kicker="The pro football history game"
+          columns={layout.wide ? 4 : 2}
+          bleed={layout.wide ? 0 : space.lg}
+          padding={layout.roomy ? space.xl : space.lg}
+          stats={marquee ? [] : [
+            {
+              value: DATASET.cards.length.toLocaleString(),
+              label: `Rated seasons · ${DATASET.coverage.firstSeason}–${DATASET.coverage.lastSeason}`,
+            },
+            { value: String(DATASET.combos.length), label: 'Franchise-eras' },
+            { value: String(ROSTER_SLOTS.length), label: 'Spins a season' },
+            // The only number on the front page that is a *claim* rather than a
+            // count of the bundled data, and the reason the game exists. It is
+            // a function of the calibration curve: if the card pool grows and
+            // the curve is not refitted, this line quietly stops being true --
+            // see docs/scoring-model.md.
+            { value: '1 in 6,000', label: 'Odds of 18-0', gold: true },
+          ]}
+        >
+          <Text style={[styles.headline, { fontSize: display, lineHeight: display * 0.98 }]}>
+            Spin history.{'\n'}Build seven.{'\n'}
+            <Text style={styles.headlineAccent}>Chase perfection.</Text>
+          </Text>
+        </Billboard>
       </Reveal>
 
 
@@ -220,6 +294,13 @@ export default function Home() {
         </Reveal>
       ) : null}
 
+      <Reveal delay={120}>
+        <SectionHead
+          label="Pick your lens"
+          note="Same wheel, same seven slots, same scoring. What changes is how much the card is willing to tell you."
+        />
+      </Reveal>
+
       <Reveal delay={140} style={styles.modes}>
         <ModeCard
           name={MODE_LABEL.scout}
@@ -259,34 +340,51 @@ export default function Home() {
         </Reveal>
       ) : null}
 
-      {/* Below the choice on purpose. This is the part somebody reads once,
-          and it was pushing the two buttons they came for off a phone screen. */}
-      <Reveal delay={200}>
-        <Text style={[styles.blurb, layout.wide && styles.blurbWide]}>
-          Every spin hands you one franchise and one era. Take a player, fill a slot, and live with
-          it. Seven picks decide your season — no simulation, no luck after the whistle.
-        </Text>
-        <View style={styles.proof}>
-          <Text style={styles.proofValue}>
-            {DATASET.cards.length.toLocaleString()}
-            <Text style={styles.proofLabel}> rated seasons</Text>
-          </Text>
-          <View style={styles.proofDot} />
-          <Text style={styles.proofValue}>
-            {DATASET.combos.length}
-            <Text style={styles.proofLabel}> franchise-eras</Text>
-          </Text>
-          <View style={styles.proofDot} />
-          <Text style={styles.proofValue}>
-            {DATASET.coverage.firstSeason}–{DATASET.coverage.lastSeason}
-          </Text>
-        </View>
-      </Reveal>
     </View>
+  );
+
+  // The three beats, with a heading of their own. They used to sit at the very
+  // bottom of a phone, under five panels of somebody's personal statistics --
+  // which is the wrong order for the one reader who has never played: the
+  // explanation of the loop arrived after the scoreboard of a loop they had not
+  // run. The prose blurb that used to say the same thing up in the hero is gone
+  // into the note below, because saying it twice on one screen made the hero
+  // longer and neither copy more convincing. The counts it sat with are on the
+  // billboard's rail now.
+  const loop = (
+    <>
+      <Reveal delay={150}>
+        <SectionHead
+          label="The loop"
+          note="No simulation, and no luck after the whistle. Seven picks decide the season."
+        />
+      </Reveal>
+      <Reveal delay={170} style={[styles.steps, layout.wide && styles.stepsWide]}>
+        <Step
+          index="01"
+          title="Spin"
+          copy="One franchise, one era. You do not choose it and you cannot reroll it."
+        />
+        <Step
+          index="02"
+          title="Take one"
+          copy="Exactly one player from that spin. The rest of that roster is gone forever."
+        />
+        <Step
+          index="03"
+          title="Live with it"
+          copy="Seven picks, then a rating and a record. Same roster, same season, every time."
+        />
+      </Reveal>
+    </>
   );
 
   const aside = (
     <View style={styles.aside}>
+      <Reveal delay={175}>
+        <SectionHead label="Your seasons" />
+      </Reveal>
+
       <Reveal delay={180} style={styles.statRow}>
         <Stat label="Games" value={String(stats.played)} />
         {/* The rating wears its own tier's colour, so the number and the badge
@@ -351,15 +449,61 @@ export default function Home() {
         <GetTheApp />
       </Reveal>
 
-      <Reveal delay={300} style={styles.footer}>
-        <Text style={styles.footerLabel}>Bundled history</Text>
-        <Text style={styles.footerValue}>Plays offline. Scores locally. Deterministic.</Text>
-        <Text style={styles.footerNote}>
-          Every rating is computed against its own era and stored on this device. No account, no
-          connection required.
-        </Text>
-      </Reveal>
     </View>
+  );
+
+  /**
+   * The end of the build, and the second door.
+   *
+   * A page that opens on a lit billboard and closes on a paragraph of fine
+   * print has told somebody the whole story and then left them at the bottom of
+   * a phone with nothing to press. This is the same call the hero card makes --
+   * Scout, honouring the ranked switch, through the same hook -- put where the
+   * argument finishes. It is *below* everything, so it costs the fold nothing;
+   * the primary way in is still the first card on the screen.
+   */
+  const closer = (
+    <Reveal delay={320} style={styles.closer}>
+      <View style={styles.closerText}>
+        <Text style={styles.closerLine}>Seven spins. One roster.</Text>
+        <Text style={styles.closerLineGold}>One shot at 18-0.</Text>
+      </View>
+      <Pressable
+        onPress={() => start('scout', { ranked })}
+        disabled={opening}
+        accessibilityRole="button"
+        accessibilityLabel={`Start a season in ${MODE_LABEL.scout}`}
+        style={({ pressed, hovered }: PressState) => [
+          styles.closerGo,
+          hovered && styles.closerGoHover,
+          (pressed || opening) && { opacity: 0.85 },
+        ]}
+      >
+        <Text style={styles.closerGoLabel}>Start a season</Text>
+        <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M5 12h13 M13 6l6 6-6 6"
+            stroke={color.onAction}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </Svg>
+      </Pressable>
+    </Reveal>
+  );
+
+  // Full width at the foot of the page rather than the last card in a sidebar,
+  // which is where it ended up when it was part of the aside.
+  const footer = (
+    <Reveal delay={340} style={styles.footer}>
+      <Text style={styles.footerLabel}>Bundled history</Text>
+      <Text style={styles.footerValue}>Plays offline. Scores locally. Deterministic.</Text>
+      <Text style={styles.footerNote}>
+        Every rating is computed against its own era and stored on this device. No account, no
+        connection required.
+      </Text>
+    </Reveal>
   );
 
   return (
@@ -382,6 +526,7 @@ export default function Home() {
             <Reveal delay={110}>
               <Hall />
             </Reveal>
+            {loop}
           </>
         ) : (
           <>
@@ -389,27 +534,13 @@ export default function Home() {
             <Reveal delay={110}>
               <Hall />
             </Reveal>
+            {loop}
             {aside}
           </>
         )}
 
-        <Reveal delay={160} style={[styles.steps, layout.wide && styles.stepsWide]}>
-          <Step
-            index="01"
-            title="Spin"
-            copy="One franchise, one era. You do not choose it and you cannot reroll it."
-          />
-          <Step
-            index="02"
-            title="Take one"
-            copy="Exactly one player from that spin. The rest of that roster is gone forever."
-          />
-          <Step
-            index="03"
-            title="Live with it"
-            copy="Seven picks, then a rating and a record. Same roster, same season, every time."
-          />
-        </Reveal>
+        {closer}
+        {footer}
       </ScrollView>
     </Screen>
   );
@@ -533,48 +664,43 @@ const styles = themed(() => StyleSheet.create({
     borderColor: color.line,
     backgroundColor: `${color.ink}99`,
   },
+  // Big enough to be the beat rather than a caption on one. These are the only
+  // numerals on the page below the billboard, and at thirteen points they read
+  // as a footnote to the title underneath them.
   stepIndex: {
     fontFamily: font.display,
-    fontSize: 13,
+    fontSize: 30,
+    lineHeight: 32,
     color: color.action,
-    letterSpacing: tracking.wide,
+    letterSpacing: tracking.tight,
+    includeFontPadding: false,
     ...tabular,
   },
   stepTitle: { fontFamily: font.heading, fontSize: 21, color: color.text, includeFontPadding: false },
   stepCopy: { fontFamily: font.bodyRegular, fontSize: 13, lineHeight: 19, color: color.textFaint },
 
-  proof: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: space.sm, marginTop: space.md },
-  proofValue: { fontFamily: font.bodyBold, fontSize: 13, color: color.silver, ...tabular },
-  proofLabel: { fontFamily: font.bodyRegular, color: color.textFaint },
-  proofDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: color.line },
-
-  heroColumn: { gap: space.xl, width: '100%' },
+  heroColumn: { gap: space.lg, width: '100%' },
   aside: { gap: space.lg, width: '100%' },
 
-  kicker: {
-    fontFamily: font.label,
-    fontSize: 12,
-    letterSpacing: tracking.wider,
-    color: color.actionBright,
-    textTransform: 'uppercase',
-    marginBottom: space.sm,
-  },
   headline: {
     fontFamily: font.display,
     color: color.text,
     letterSpacing: tracking.tight,
     includeFontPadding: false,
   },
-  headlineAccent: { color: color.silver },
-  blurb: {
-    fontFamily: font.bodyRegular,
-    fontSize: 15,
-    lineHeight: 23,
-    color: color.textDim,
-    marginTop: space.md,
-    maxWidth: 460,
+  /**
+   * The third line is the only gold in the headline, and it is the line that
+   * says "chase". Gold is not a hue in this app, it is the thing being chased,
+   * so it goes on the sentence that names it and on the odds cell in the rail
+   * that says how rarely it happens. It was silver, which read as the quiet
+   * half of the sentence rather than the point of it.
+   */
+  headlineAccent: {
+    color: color.goldBright,
+    textShadowColor: color.goldGlow,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 18,
   },
-  blurbWide: { fontSize: 16, lineHeight: 25 },
 
   resume: {
     borderWidth: 1,
@@ -708,6 +834,56 @@ const styles = themed(() => StyleSheet.create({
   },
   chaseLabel: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textFaint },
   chaseNote: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textFaint, lineHeight: 17 },
+
+  closer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.lg,
+    padding: space.xl,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: color.lineGold,
+    backgroundColor: `${color.ink}CC`,
+  },
+  closerText: { flexShrink: 1, minWidth: 0 },
+  closerLine: {
+    fontFamily: font.display,
+    fontSize: 28,
+    lineHeight: 30,
+    color: color.text,
+    letterSpacing: tracking.tight,
+    includeFontPadding: false,
+  },
+  closerLineGold: {
+    fontFamily: font.display,
+    fontSize: 28,
+    lineHeight: 30,
+    color: color.goldBright,
+    letterSpacing: tracking.tight,
+    includeFontPadding: false,
+  },
+  closerGo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    minHeight: 52,
+    paddingHorizontal: space.xl,
+    borderRadius: radius.pill,
+    backgroundColor: color.action,
+    shadowColor: color.action,
+    shadowOpacity: 0.5,
+    ...elevate(8),
+  },
+  closerGoHover: { shadowOpacity: 0.8, transform: [{ translateY: -2 }] },
+  closerGoLabel: {
+    fontFamily: font.display,
+    fontSize: 17,
+    letterSpacing: tracking.wide,
+    textTransform: 'uppercase',
+    color: color.onAction,
+  },
 
   footer: { gap: 4, borderTopWidth: 1, borderTopColor: color.line, paddingTop: space.lg },
   footerLabel: {
