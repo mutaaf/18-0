@@ -54,6 +54,37 @@
   .link-state { font-size: 13px; margin: 0 0 12px; }
   .link-state b { color: #7bd35f; }
   .warn { border-color: rgba(255,197,49,0.3); }
+  select {
+    width: 100%; box-sizing: border-box;
+    padding: 8px 10px; font: inherit; font-size: 13px; color: #fff;
+    background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 8px;
+  }
+  select:focus { outline: 2px solid #5fbb46; outline-offset: 1px; }
+  /* A row per corner, laid out as the corner it is: name, what stands there,
+     whether it is shown, and the file it points at. */
+  .slot {
+    display: grid;
+    grid-template-columns: 96px 1fr 1fr auto;
+    gap: 0 12px;
+    align-items: end;
+    margin-bottom: 12px;
+  }
+  .slot > .corner { font-size: 12px; font-weight: 600; color: #fff; padding-bottom: 9px; }
+  .slot label { margin: 0; }
+  .slot .on { display: flex; gap: 6px; align-items: center; padding-bottom: 9px; font-size: 12px; }
+  /* Four rows of "Shows" and "Image" is three repetitions of a heading. Hidden
+     rather than dropped: the label is still what names the field to a screen
+     reader, and a select with no accessible name is a select nobody can use. */
+  .slot:not(:first-of-type) label span {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .slot .on input { margin: 0; }
+  .bad { border-color: #ffc531 !important; }
+  .note { margin: 8px 0 0; font-size: 12px; color: #ffc531; min-height: 1em; }
 </style>
 </head>
 <body>
@@ -73,23 +104,95 @@
       <label><span>Logo URL (optional)</span><input type="text" id="sponsorLogo" placeholder="https://…"></label>
     </div>
     <p class="state" data-note="sponsorLogo"></p>
-    <div class="check">
-      <input type="checkbox" id="sponsorBanner">
-      <label for="sponsorBanner" style="margin:0">Show the sponsor line on the card
-        <small>Off keeps the sponsor available to the copy fields but draws no banner.</small>
-      </label>
-    </div>
     <label><span>Sponsor line</span><input type="text" id="copy.sponsorLine"></label>
+    <p class="hint" style="margin:0">
+      Whether the line is drawn at all is the bottom-right slot below. It used to
+      be a switch of its own here, and two switches for one question is one of
+      them somebody turns off looking for the other.
+    </p>
+  </section>
+
+  <section>
+    <h2>Slots</h2>
+    <p class="hint">
+      The four corners of the artwork, in the tile and in the band. A corner is
+      a place and does not move; what stands in it, and whether anything does,
+      is set here. An image is either a file this extension ships —
+      <span class="token">icons/crest.png</span> — or an
+      <span class="token">https://</span> address. Anything else is ignored.
+    </p>
+    <div class="slot">
+      <span class="corner">Top left</span>
+      <label><span>Shows</span>
+        <select id="slots.topLeft.type">
+          <option value="logoImage">Logo</option>
+          <option value="image">Image</option>
+          <option value="pill">Call to action</option>
+          <option value="sponsoredPill">Sponsor line</option>
+        </select>
+      </label>
+      <label><span>Image</span><input type="text" id="slots.topLeft.image" placeholder="icons/crest.png or https://…"></label>
+      <span class="on"><input type="checkbox" id="slots.topLeft.show"><label for="slots.topLeft.show" style="margin:0">On</label></span>
+    </div>
+    <div class="slot">
+      <span class="corner">Top right</span>
+      <label><span>Shows</span>
+        <select id="slots.topRight.type">
+          <option value="logoImage">Logo</option>
+          <option value="image">Image</option>
+          <option value="pill">Call to action</option>
+          <option value="sponsoredPill">Sponsor line</option>
+        </select>
+      </label>
+      <label><span>Image</span><input type="text" id="slots.topRight.image" placeholder="icons/crest.png or https://…"></label>
+      <span class="on"><input type="checkbox" id="slots.topRight.show"><label for="slots.topRight.show" style="margin:0">On</label></span>
+    </div>
+    <div class="slot">
+      <span class="corner">Bottom left</span>
+      <label><span>Shows</span>
+        <select id="slots.bottomLeft.type">
+          <option value="logoImage">Logo</option>
+          <option value="image">Image</option>
+          <option value="pill">Call to action</option>
+          <option value="sponsoredPill">Sponsor line</option>
+        </select>
+      </label>
+      <label><span>Image</span><input type="text" id="slots.bottomLeft.image" placeholder="icons/crest.png or https://…"></label>
+      <span class="on"><input type="checkbox" id="slots.bottomLeft.show"><label for="slots.bottomLeft.show" style="margin:0">On</label></span>
+    </div>
+    <div class="slot">
+      <span class="corner">Bottom right</span>
+      <label><span>Shows</span>
+        <select id="slots.bottomRight.type">
+          <option value="logoImage">Logo</option>
+          <option value="image">Image</option>
+          <option value="pill">Call to action</option>
+          <option value="sponsoredPill">Sponsor line</option>
+        </select>
+      </label>
+      <label><span>Image</span><input type="text" id="slots.bottomRight.image" placeholder="icons/crest.png or https://…"></label>
+      <span class="on"><input type="checkbox" id="slots.bottomRight.show"><label for="slots.bottomRight.show" style="margin:0">On</label></span>
+    </div>
+    <p class="hint" style="margin:12px 0 0">
+      The sponsor line takes its logo from the sponsor field above rather than
+      from its own, so there is one place to change it.
+    </p>
   </section>
 
   <section>
     <h2>Tile copy</h2>
-    <p class="hint">The card that sits in a row.</p>
+    <p class="hint">
+      The card that sits in a row. The tagline sits under the mark; the headline
+      is dropped at this size — three words beside a 300px card's wordmark
+      either wrap into the button or shrink past reading — so it is here for the
+      band to use.
+    </p>
     <div class="two">
       <label><span>Title</span><input type="text" id="copy.tileTitle"></label>
       <label><span>Subtitle</span><input type="text" id="copy.tileSubtitle"></label>
-      <label><span>Button</span><input type="text" id="copy.tileButton"></label>
-      <label><span>Corner badge</span><input type="text" id="copy.tileBadge"></label>
+      <label><span>Call to action</span><input type="text" id="copy.tileButton"></label>
+      <label><span>Tagline</span><input type="text" id="copy.tileTagline"></label>
+      <label><span>Headline</span><input type="text" id="copy.tileHeadline"></label>
     </div>
   </section>
 
@@ -100,7 +203,9 @@
       <label><span>Kicker</span><input type="text" id="copy.bandKicker"></label>
       <label><span>Title</span><input type="text" id="copy.bandTitle"></label>
       <label><span>Subtitle</span><input type="text" id="copy.bandSubtitle"></label>
-      <label><span>Button</span><input type="text" id="copy.bandButton"></label>
+      <label><span>Call to action</span><input type="text" id="copy.bandButton"></label>
+      <label><span>Tagline</span><input type="text" id="copy.bandTagline"></label>
+      <label><span>Headline</span><input type="text" id="copy.bandHeadline"></label>
     </div>
   </section>
 
@@ -124,26 +229,6 @@
     <p class="state" data-note="copy.ctaUrl"></p>
   </section>
 
-  <section>
-    <h2>Logo</h2>
-    <p class="hint">
-      Shown on the tile and on the band. Leave the URL empty for the 18-0 crest
-      that ships with the extension; point it anywhere else and that image is
-      used instead.
-    </p>
-    <div class="check">
-      <input type="checkbox" id="logoOn">
-      <label for="logoOn" style="margin:0">Show a logo
-        <small>Off puts the 18-0 wordmark back in its place on the tile.</small>
-      </label>
-    </div>
-    <label><span>Image URL</span><input type="text" id="logo" placeholder="https://… — empty for the 18-0 crest"></label>
-    <p class="state" data-note="logo"></p>
-    <div class="two">
-      <label><span>Width on the card (px)</span><input type="number" id="logoWidth" min="24" max="240" step="1"></label>
-      <label><span>Opacity (%)</span><input type="number" id="logoOpacity" min="10" max="100" step="1"></label>
-    </div>
-  </section>
 
   <section>
     <h2>Attribution</h2>
@@ -185,6 +270,7 @@
     <button id="reset" class="ghost">Restore defaults</button>
     <span class="saved" id="saved">Saved</span>
   </div>
+  <p class="note" id="note"></p>
 </div>
 
 <script src="config.js"></script>

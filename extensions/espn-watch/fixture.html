@@ -127,8 +127,15 @@
   const query = new URLSearchParams(location.search);
   const legacy = query.get('placement');
   const flag = (name, fallback) => (query.has(name) ? query.get(name) !== '0' : fallback);
+  // `?off=topRight` switches one slot off, which is the state that makes a named
+  // cell load-bearing: with auto-placement the slot after it slides into the
+  // empty cell, and the bottom-left pill appears in the top right. With all four
+  // on, auto-placement and named cells agree -- so the check that matters is
+  // this one.
+  const off = query.get('off');
   const stored = {
     matchUi: flag('match', true),
+    ...(off ? { slots: { [off]: { show: false } } } : {}),
     ...(legacy
       ? { placement: legacy }
       : { placeTile: flag('tile', true), placeBand: flag('band', false) }),
@@ -142,7 +149,20 @@
   const boom = () => { throw new Error('Extension context invalidated.'); };
 
   window.chrome = {
-    // `runtime.id` is how `alive()` decides, so a dead context has none.
+    // `runtime.id` is how `alive()` decides, so a dead context has none -- and
+    // neither does it have `getURL`, which is what a bundled slot image needs.
+    // Calling a method that is not there is the *new* way a dead context can
+    // stop the card being placed, so the stub leaves it out rather than
+    // stubbing it to null.
+    runtime: dead
+      ? {}
+      : {
+          id: 'fixture',
+          // The fixture is loaded from the extension's own folder, so a bundled
+          // path is already the right relative URL.
+          getURL: (path) => path,
+          onMessage: { addListener: () => {} },
+        },
     storage: {
       local: {
         // Callback *or* promise, the way MV3's really is: `ezIdentity` awaits
@@ -158,14 +178,6 @@
       },
       onChanged: { addListener: () => {} },
     },
-    // The default logo is an extension file. Here that resolves to the copy
-    // sitting beside this fixture, so the mask and the image are both real and
-    // the shine can actually be measured.
-    //
-    // `runtime.id` is what `alive()` reads, so a dead context has none.
-    runtime: dead
-      ? { getURL: (path) => path }
-      : { id: 'fixture', onMessage: { addListener: () => {} }, getURL: (path) => path },
   };
 </script>
 
@@ -270,6 +282,18 @@
     }, 1400);
   }
 
+  /*
+   * With the context gone, the panel must still open.
+   *
+   * The control is asked for by id and tag rather than by a style class: the
+   * markup around it is the thing most likely to be rewritten, and a probe
+   * pinned to a class that no longer exists reports "no panel" and "no control"
+   * together -- which is why both are reported, so a missing selector fails the
+   * check instead of quietly testing nothing.
+   */
+  const control = () => document.querySelector(`#${ID.tile} button`);
+  if (dead) setTimeout(() => control()?.click(), 2400);
+
   setTimeout(() => {
     sample();
     const card = document.getElementById(ID.tile);
@@ -335,7 +359,31 @@
         ? (band.compareDocumentPosition(document.querySelector('.rail')) & Node.DOCUMENT_POSITION_FOLLOWING) > 0
         : false,
       clickable: Boolean(art),
-      bandClickable: Boolean(band?.querySelector('.ez-band-go')),
+      bandClickable: Boolean(band?.querySelector('.ez-slot-pill')),
+      deadControl: Boolean(control()),
+      deadPanel: Boolean(document.getElementById('eighteen-zero-panel')),
+      // The four corners: what landed in each named cell, and which quadrant of
+      // the card it actually occupies.
+      //
+      // **Measured, not read off a class.** The class is assigned in JavaScript
+      // and would still be there with the whole grid misplaced -- the failure
+      // this model exists to prevent is a slot switched off letting the next one
+      // slide into the empty cell, and that is only visible in the geometry.
+      slots: (() => {
+        const host = card?.querySelector('.ez-art') ?? band;
+        if (!host) return null;
+        const box = host.getBoundingClientRect();
+        return ['ez-tl', 'ez-tr', 'ez-bl', 'ez-br'].map((cell) => {
+          const node = host.querySelector(`.${cell}`);
+          if (!node) return null;
+          const b = node.getBoundingClientRect();
+          return {
+            type: node.className.split(' ')[1],
+            right: b.left + b.width / 2 > box.left + box.width / 2,
+            bottom: b.top + b.height / 2 > box.top + box.height / 2,
+          };
+        });
+      })(),
       // The two placements are separate elements; one must not be the other's
       // parent, and neither may end up inside the other.
       tangled: Boolean(card && band && (card.contains(band) || band.contains(card))),

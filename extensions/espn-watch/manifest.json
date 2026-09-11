@@ -39,16 +39,16 @@
       "run_at": "document_idle"
     }
   ],
+  "options_page": "options.html",
   "web_accessible_resources": [
     {
       "resources": [
-        "icons/crest.png"
+        "icons/*.png"
       ],
       "matches": [
         "https://www.espn.com/*",
         "https://espn.com/*"
       ]
     }
-  ],
-  "options_page": "options.html"
+  ]
 }

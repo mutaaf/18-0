@@ -44,20 +44,97 @@ The panel holds two views — **Play** and **Leaderboard** — chosen by a segme
 control in its header. They are two URLs on the same route rather than two
 routes; see [What it loads](#what-it-loads) for why that is not a detail.
 
-**Copy, the logo, the call to action and sponsorship** are on the options page —
-right-click the toolbar icon, or press **Copy, logo & sponsorship…** in the
-popup. Every string the card shows is a field, and `{sponsor}` can go in any of
-them:
+**Slots, sponsorship and copy** are on the options page — right-click the
+toolbar icon, or press **Corners, copy & sponsorship…** in the popup.
+
+<br>
+
+## The four corners
+
+The card is a picture with four named corners over it, and each corner is a
+slot: a place, a type, whether it is shown, and — for the image types — a file.
+
+| slot | default | |
+|---|---|---|
+| `topLeft` | `logoImage` | The mark, and the tagline under it |
+| `topRight` | `image` | A file, and the headline beside it |
+| `bottomLeft` | `pill` | The call to action |
+| `bottomRight` | `sponsoredPill` | The sponsor line, and the sponsor's logo |
+
+**The tile and the band build the same four.** They are one composition at two
+sizes, and while each built its own corners the two drifted — the sponsor line
+moved on one and not the other, and the band grew a second answer to a question
+the tile had already answered. Now there is one layer and two grids: the tile
+has two columns and the artwork's height to spend, the band has three — slots,
+copy, slots.
+
+**Every corner names its own cell.** Auto-placement reads fine until a slot is
+switched off, at which point the next one slides into the empty cell and the
+bottom-left pill appears in the top right. A position is the point of a named
+slot; it does not get to depend on its neighbours.
+
+**`logoImage` is not `image`** because it has something to draw with no file
+set: the wordmark is markup, so the default install shows a logo without
+shipping an asset. Point it at a file and the file wins.
+
+**Two lines do not survive the tile.** The headline is dropped at 300×169 —
+three words of 9px type in the part of the card that is not the wordmark either
+wrap into the button below or shrink past reading, and the image alone still
+says what the corner is. The tagline is dropped in the *matched* look only,
+where it is the flourish the corner badge used to be. Both are on the band,
+which has a line's width to put them on.
+
+**An image is an `https://` address or a file this extension ships** —
+`icons/crest.png`. Everything else is refused before it reaches a `src`:
+`javascript:`, `data:`, `//host/path`, and anything climbing out of the folder
+with `..`. It is an allowlist of two schemes rather than a list of what to ban,
+because a denylist is one scheme away from being wrong. A refused path is saved
+and simply not drawn, and the options page says which one and why — an options
+page that silently discards what somebody typed is one they retype it into.
+
+A bundled path is resolved through `chrome.runtime.getURL`, because a relative
+`src` set from a content script resolves against espn.com rather than against
+the extension and 404s in silence. That call is also the first thing to go when
+the extension is reloaded under a page still running it, so a missing one is a
+slot without an image and never a card that fails to be placed.
+
+**The only image shipped is ours** — the crest every launcher icon is generated
+from. No club or league mark is bundled, referenced or defaulted to; the slots
+exist precisely so that pointing one at a file is a local decision made by
+whoever typed the path. See the licence note in the root README.
+
+<br>
+
+## Copy
+
+Every string the card shows is a field, and `{sponsor}` can go in any of them:
 
     Title      18-0 — build the perfect roster
     Subtitle   Seven spins · Plays here
-    Button     Play a season
+    Action     Play a season
+    Tagline    Build · Play · Goat
+    Headline   Can you go perfect?
     Sponsor    Presented by {sponsor}
 
 With no sponsor name set, the token is removed **along with the words holding
 it** — "Presented by {sponsor}" becomes nothing rather than "Presented by", and
 "Seven spins · {sponsor}" becomes "Seven spins". So one set of defaults reads
 correctly sponsored and unsponsored, and nobody maintains two.
+
+The tagline and the headline are copy rather than slots of their own. A slot
+says where something is and what kind of thing it is; what it *says* is the
+thing the copy model already holds, already fills `{sponsor}` into, and already
+edits with one line of HTML on the options page. A second model beside it would
+be a second place to look for a string.
+
+Four settings were absorbed and are still read out of storage, the way
+`placement` is. `sponsorBanner` is now the bottom-right slot's own switch — two
+switches for one question is one of them somebody turns off looking for the
+other. `copy.tileBadge` is the top-right headline, the same few words in the
+same corner. And `logoOn` and `logo` were one image in one place before a
+corner was a slot: they are `topLeft`'s `show` and `image` now, which is the
+same mark in the same corner and can also be moved, retyped or switched off
+with the three beside it.
 
 ### The call to action
 
@@ -73,23 +150,14 @@ options page says which one is in force rather than leaving somebody to guess
 why nothing appeared. `{sponsor}` works in the link as well as the label, since a
 campaign URL usually wants the name in it.
 
-### The logo
+### The light on a mark
 
-An image on the tile and on the band, configured rather than compiled in. The
-default is the game's own crest, which ships in `icons/crest.png`; the URL field
-is there so somebody can point it at their own mark locally. **Nothing here may
-ever default to, bundle or reference a club or league mark** — see the licence
-section of the root README, and `CLAUDE.md`. The statistics are facts; the club
-name is a trademark.
-
-On the tile the logo takes the wordmark's place rather than sitting beside it:
-the crest *is* the wordmark, rendered, and two copies of the same name in one
-corner is worse than either alone. The card still carries "18-0" in its title, so
-a logo pointed somewhere else does not erase the game.
-
-It is lit rather than placed. Three layers read the pointer's position over the
-card — written as two custom properties, everything else is `calc()` — and
-produce one light with three consequences:
+A corner holding an image gets it lit rather than placed — `logoImage` and
+`image` both, because which corner holds a mark is configuration and a
+treatment that only worked in one of them would be a setting that looks broken
+in the other. Three layers read the pointer's position over the card — written
+as two custom properties, everything else is `calc()` — and produce one light
+with three consequences:
 
 | | |
 |---|---|
@@ -176,6 +244,27 @@ inserting the card changes the measurements that decide between them. So the car
 moves, which changes the measurements, which moves the card. It resolves once,
 remembers the node, and looks again only when that node has left the document.
 
+**Still there is not still ours.** The band goes in as the first child of a
+container React hydrates, and React matches a container's existing children to
+its own by position: it claimed our div as the element for the shelf below,
+emptied it, and rendered the whole Featured carousel *inside* it. The node was
+still in the document, still had our id, still had the parent we remembered —
+so "is it settled" answered yes and nothing ever looked again. What the page
+showed was espn.com's own row sitting inside an enormous empty band, until it
+was reloaded.
+
+Two things follow. Ownership is a reference to a node we created, not an id
+anybody can keep. And recovering from it may not call `remove()`: the page's own
+content is inside our node now, so removing it would take the Featured row off
+espn.com to fix our layout bug. The node stays exactly where it is and only our
+claim on it goes — no id, no classes, no margins — leaving an anonymous wrapper
+that lays out like the one React thinks it has. Three of those and the band
+stops asking.
+
+The band also waits for `readyState` to reach `complete` before going in at all,
+which is what stops it being there for hydration to find. `?steal=1` reproduces
+the theft in the fixture.
+
 Three more things were measured off the live page rather than assumed:
 
 - **A tile goes in the row's second slot.** The first sits under the left edge of
@@ -202,6 +291,14 @@ Three things are copied off a real neighbouring tile rather than chosen, and
 they are the difference between a card in the row and a card on top of it: the
 box (width, artwork height, corner, margins), the **transition timing**, and the
 **hover transform**.
+
+The height is the *tallest* tile's, not the anchor's. A real row is not one
+height — measured on espn.com, three neighbours at 217, 224 and 240 — and these
+rails centre their children, so matching the anchor left the card eight pixels
+below the top of the line: the one card in the row sitting slightly low, which
+is exactly the tell that something else put it there. Matching the tallest lines
+it up however the rail aligns, and it cannot push the row down, because it is a
+height the row already has.
 
 The last of those cannot be read with `getComputedStyle` — a `:hover` rule is
 not in the computed style of an element nobody is pointing at — so the page's
@@ -261,6 +358,20 @@ three fail invisibly: a gloss with no mask is a rectangle of light that looks
 deliberate enough nobody files it; a `calc()` the parser rejects drops the whole
 declaration, so the mark just goes flat; and an asset the size it is drawn at is
 only soft on somebody else's screen.
+
+setting from before the rename has to keep meaning what it meant. `?off=topRight`
+switches one slot off, which is the only state in which a named cell can be told
+from auto-placement — with all four on the two agree, and with one off
+auto-placement slides the call to action into the empty corner.
+
+`?dead=1` reproduces a reloaded extension, in which every `chrome.*` call
+throws, and checks that the card is still placed and the panel still opens. Two
+things are guarded there rather than one: `store` refuses a dead context, and
+`openPanel` builds the panel before it counts the open. Removing the ordering
+alone does not fail the check any more — removing both does, which is the code
+as it was when the bug existed. What fails today is an unguarded
+`chrome.runtime.getURL` for a slot's bundled image: the card never reaches the
+row, because placement was made to depend on artwork.
 
 Worth knowing what it does *not* do: it has never reproduced the original
 flicker. No synthetic page I could build resolves rows differently between passes
@@ -332,14 +443,14 @@ finds zero rows rather than silently placing nothing.
 minifier; the scripts are loaded as plain files in the order the manifest lists
 them, and they share one isolated world by convention. That is deliberate for
 something read as much as run, and it is not how you ship a Manifest V3
-extension to a store.
+extension to a store. `web_accessible_resources` names `icons/*.png` and nothing
+else, scoped to espn.com — a slot's bundled image has to be reachable from the
+page, and every file listed there is a file any script on a matched page can
+read.
 
-There is exactly one `web_accessible_resources` entry, for the default crest. An
-extension file is opaque to the page without it and the symptom of leaving it
-out is an image that silently does not render. It names the two ESPN hosts the
-content script already runs on rather than `<all_urls>`, because a resource
-readable from anywhere is a way for any site to detect that this extension is
-installed.
+It names the two ESPN hosts the content script already runs on rather than
+`<all_urls>`, because a resource readable from anywhere is a way for any site to
+detect that this extension is installed.
 
 **The attribution has no pipeline, on purpose.** Counters are written to
 `chrome.storage.local` and read back by the popup. Sending them anywhere adds
