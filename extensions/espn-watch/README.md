@@ -40,19 +40,94 @@ is touched.
 
 Clicking the card opens the game over the page. Escape closes it.
 
-**Sponsorship and copy** are on the options page — right-click the toolbar icon,
-or press **Sponsorship & copy…** in the popup. Every string the card shows is a
-field, and `{sponsor}` can go in any of them:
+**Slots, sponsorship and copy** are on the options page — right-click the
+toolbar icon, or press **Sponsorship & copy…** in the popup.
+
+<br>
+
+## The four corners
+
+The card is a picture with four named corners over it, and each corner is a
+slot: a place, a type, whether it is shown, and — for the image types — a file.
+
+| slot | default | |
+|---|---|---|
+| `topLeft` | `logoImage` | The mark, and the tagline under it |
+| `topRight` | `image` | A file, and the headline beside it |
+| `bottomLeft` | `pill` | The call to action |
+| `bottomRight` | `sponsoredPill` | The sponsor line, and the sponsor's logo |
+
+**The tile and the band build the same four.** They are one composition at two
+sizes, and while each built its own corners the two drifted — the sponsor line
+moved on one and not the other, and the band grew a second answer to a question
+the tile had already answered. Now there is one layer and two grids: the tile
+has two columns and the artwork's height to spend, the band has three — slots,
+copy, slots.
+
+**Every corner names its own cell.** Auto-placement reads fine until a slot is
+switched off, at which point the next one slides into the empty cell and the
+bottom-left pill appears in the top right. A position is the point of a named
+slot; it does not get to depend on its neighbours.
+
+**`logoImage` is not `image`** because it has something to draw with no file
+set: the wordmark is markup, so the default install shows a logo without
+shipping an asset. Point it at a file and the file wins.
+
+**Two lines do not survive the tile.** The headline is dropped at 300×169 —
+three words of 9px type in the part of the card that is not the wordmark either
+wrap into the button below or shrink past reading, and the image alone still
+says what the corner is. The tagline is dropped in the *matched* look only,
+where it is the flourish the corner badge used to be. Both are on the band,
+which has a line's width to put them on.
+
+**An image is an `https://` address or a file this extension ships** —
+`icons/crest.png`. Everything else is refused before it reaches a `src`:
+`javascript:`, `data:`, `//host/path`, and anything climbing out of the folder
+with `..`. It is an allowlist of two schemes rather than a list of what to ban,
+because a denylist is one scheme away from being wrong. A refused path is saved
+and simply not drawn, and the options page says which one and why — an options
+page that silently discards what somebody typed is one they retype it into.
+
+A bundled path is resolved through `chrome.runtime.getURL`, because a relative
+`src` set from a content script resolves against espn.com rather than against
+the extension and 404s in silence. That call is also the first thing to go when
+the extension is reloaded under a page still running it, so a missing one is a
+slot without an image and never a card that fails to be placed.
+
+**The only image shipped is ours** — the crest every launcher icon is generated
+from. No club or league mark is bundled, referenced or defaulted to; the slots
+exist precisely so that pointing one at a file is a local decision made by
+whoever typed the path. See the licence note in the root README.
+
+<br>
+
+## Copy
+
+Every string the card shows is a field, and `{sponsor}` can go in any of them:
 
     Title      18-0 — build the perfect roster
     Subtitle   Seven spins · Plays here
-    Button     Play a season
+    Action     Play a season
+    Tagline    Build · Play · Goat
+    Headline   Can you go perfect?
     Sponsor    Presented by {sponsor}
 
 With no sponsor name set, the token is removed **along with the words holding
 it** — "Presented by {sponsor}" becomes nothing rather than "Presented by", and
 "Seven spins · {sponsor}" becomes "Seven spins". So one set of defaults reads
 correctly sponsored and unsponsored, and nobody maintains two.
+
+The tagline and the headline are copy rather than slots of their own. A slot
+says where something is and what kind of thing it is; what it *says* is the
+thing the copy model already holds, already fills `{sponsor}` into, and already
+edits with one line of HTML on the options page. A second model beside it would
+be a second place to look for a string.
+
+Two settings were absorbed and are still read out of storage, the way
+`placement` is: `sponsorBanner` is now the bottom-right slot's own switch — two
+switches for one question is one of them somebody turns off looking for the
+other — and `copy.tileBadge` is the top-right headline, which is the same few
+words in the same corner.
 
 <br>
 
@@ -189,7 +264,19 @@ rather than against any heading.
 
 `?tile=0&band=1`, `?tile=1&band=1` and `?match=0` drive the placements and the
 two looks. `?placement=header` still works, and is checked, because a stored
-setting from before the rename has to keep meaning what it meant.
+setting from before the rename has to keep meaning what it meant. `?off=topRight`
+switches one slot off, which is the only state in which a named cell can be told
+from auto-placement — with all four on the two agree, and with one off
+auto-placement slides the call to action into the empty corner.
+
+`?dead=1` reproduces a reloaded extension, in which every `chrome.*` call
+throws, and checks that the card is still placed and the panel still opens. Two
+things are guarded there rather than one: `store` refuses a dead context, and
+`openPanel` builds the panel before it counts the open. Removing the ordering
+alone does not fail the check any more — removing both does, which is the code
+as it was when the bug existed. What fails today is an unguarded
+`chrome.runtime.getURL` for a slot's bundled image: the card never reaches the
+row, because placement was made to depend on artwork.
 
 Worth knowing what it does *not* do: it has never reproduced the original
 flicker. No synthetic page I could build resolves rows differently between passes
@@ -248,11 +335,14 @@ rows before the progression test was added. A shipped version wants a
 selector-first path with this as the fallback, and something that reports when it
 finds zero rows rather than silently placing nothing.
 
-**Nothing here is bundled or versioned.** There is no build step, no minifier and
-no `web_accessible_resources`; the scripts are loaded as plain files in the order
-the manifest lists them, and they share one isolated world by convention. That is
-deliberate for something read as much as run, and it is not how you ship a
-Manifest V3 extension to a store.
+**Nothing here is bundled or versioned.** There is no build step and no
+minifier; the scripts are loaded as plain files in the order the manifest lists
+them, and they share one isolated world by convention. That is deliberate for
+something read as much as run, and it is not how you ship a Manifest V3
+extension to a store. `web_accessible_resources` names `icons/*.png` and nothing
+else, scoped to espn.com — a slot's bundled image has to be reachable from the
+page, and every file listed there is a file any script on a matched page can
+read.
 
 **The attribution has no pipeline, on purpose.** Counters are written to
 `chrome.storage.local` and read back by the popup. Sending them anywhere adds

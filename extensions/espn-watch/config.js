@@ -53,7 +53,51 @@ const EZ_DEFAULTS = {
   // forgets to remove before a screenshot.
   sponsor: '',
   sponsorLogo: '',
-  sponsorBanner: true,
+
+  /**
+   * What `slots.bottomRight.show` replaced.
+   *
+   * Kept as a default for the same reason `placement` is: a setting that is not
+   * asked for out of storage cannot be migrated, and an install that had turned
+   * the sponsor line off must not come back showing one. Read in `ezSettings`
+   * and never written.
+   */
+  sponsorBanner: null,
+
+  /**
+   * The four corners of the artwork, as named, positioned, typed slots.
+   *
+   * A corner is a *place* and it does not move: `topLeft` is the top left in
+   * both placements, which is the whole point of naming them -- the tile and
+   * the band are one composition at two sizes, and they drifted apart while
+   * each built its own corners. What stands in a corner is configuration, and
+   * so is whether anything stands there at all.
+   *
+   * The types:
+   *
+   *   logoImage      the game's mark, with a tagline under it. Has something to
+   *                  draw with no file configured -- the wordmark is markup --
+   *                  which is why it is not just `image`.
+   *   image          a configured file, with a headline beside it. Nothing to
+   *                  draw unconfigured, so it renders only its line of copy.
+   *   pill           the call to action. The placement's control in the band,
+   *                  a label inside the tile's own control in the tile.
+   *   sponsoredPill  the sponsor line and the sponsor's logo.
+   *
+   * The text each one shows is not here. It is in `copy` below, keyed by the
+   * placement, because it is copy and the options page already edits copy.
+   *
+   * **No club or league mark is bundled or defaulted to.** The only image this
+   * ships is our own crest. A slot pointed at somebody else's file is a local
+   * choice made by whoever typed the path, which is exactly what the slot is
+   * for -- see the licence note in the root README.
+   */
+  slots: {
+    topLeft: { type: 'logoImage', show: true, image: '' },
+    topRight: { type: 'image', show: true, image: 'icons/crest.png' },
+    bottomLeft: { type: 'pill', show: true, image: '' },
+    bottomRight: { type: 'sponsoredPill', show: true, image: '' },
+  },
 
   /**
    * Every string the card can show.
@@ -65,13 +109,19 @@ const EZ_DEFAULTS = {
   copy: {
     tileTitle: '18-0 — build the perfect roster',
     tileSubtitle: 'Seven spins · Plays here',
-    tileBadge: 'Interactive',
     tileButton: 'Play a season',
+    // The two lines the slots carry: a tagline under the mark and a headline
+    // beside the image. Keyed by placement like every other string here, so the
+    // band can say something longer than a 300px tile has room for.
+    tileTagline: 'Build · Play · Goat',
+    tileHeadline: 'Can you go perfect?',
 
     bandKicker: 'Play',
     bandTitle: '18-0 — build the perfect roster',
     bandSubtitle: 'Seven spins, sixty years of pro football, one undefeated season.',
     bandButton: 'Play a season',
+    bandTagline: 'Build · Play · Goat',
+    bandHeadline: 'Can you go perfect?',
 
     sponsorLine: 'Presented by {sponsor}',
   },
@@ -103,6 +153,50 @@ function ezFill(text, sponsor) {
     .trim();
 }
 
+/** The types a slot may be. Anything else came out of storage and is not one. */
+const EZ_SLOT_TYPES = ['logoImage', 'image', 'pill', 'sponsoredPill'];
+
+/** The corners, in the order they are built. Fixed: a position is not a setting. */
+const EZ_SLOT_NAMES = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'];
+
+/**
+ * A configured URL, classified, or null if it may not be used at all.
+ *
+ * Every path here is typed by whoever set the extension up and every one of
+ * them ends on a `src` or an `href` inside somebody else's page. `javascript:`
+ * on an href is the hole everybody names; `data:` on an img is the one they do
+ * not. So this is an allowlist of two schemes rather than a list of what to
+ * ban -- a denylist is one scheme away from being wrong, and there are more
+ * schemes than anybody remembers.
+ *
+ * The other legal answer is a file this extension ships: a bare relative path,
+ * no scheme, no authority, no parent-directory hop. It is returned tagged
+ * rather than resolved, because resolving it needs `chrome.runtime.getURL` --
+ * a relative `src` set from a content script resolves against espn.com, not
+ * against the extension, and silently 404s.
+ */
+function ezUrl(value) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const url = new URL(raw);
+      return url.protocol === 'http:' || url.protocol === 'https:'
+        ? { kind: 'remote', href: url.href }
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Anything carrying a scheme, an authority or a `..` is not a file of ours,
+  // whatever it looks like. The character class is deliberately narrow: a query
+  // string or a fragment on a bundled path is a path that does not exist.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(raw) || raw.startsWith('/') || raw.includes('..')) return null;
+  return /^[\w.-]+(\/[\w.-]+)*$/.test(raw) ? { kind: 'bundled', href: raw } : null;
+}
+
 /**
  * Merges stored settings over the defaults, one level into `copy`, and reads
  * the retired `placement` as the pair of flags that replaced it.
@@ -115,6 +209,30 @@ function ezFill(text, sponsor) {
 function ezSettings(stored) {
   const merged = { ...EZ_DEFAULTS, ...stored };
   merged.copy = { ...EZ_DEFAULTS.copy, ...(stored?.copy ?? {}) };
+
+  // Two levels, and only the four names we know. A spread would let a stored
+  // slot arrive with no `type` at all -- which is what a half-written storage
+  // write looks like -- and a fifth name would be a corner nothing lays out.
+  merged.slots = {};
+  for (const name of EZ_SLOT_NAMES) {
+    merged.slots[name] = { ...EZ_DEFAULTS.slots[name], ...(stored?.slots?.[name] ?? {}) };
+  }
+
+  // `sponsorBanner` was "draw the sponsor line or do not", which is exactly what
+  // the bottom-right slot's own `show` says now. Read as that, so an install
+  // that had turned the banner off does not come back showing one. The stored
+  // slot wins where there is one: it is the newer answer to the same question.
+  if (stored?.sponsorBanner === false && stored?.slots?.bottomRight?.show === undefined) {
+    merged.slots.bottomRight.show = false;
+  }
+
+  // `tileBadge` was the top-right corner before the corners were slots -- the
+  // same few words in the same place, which is what the headline is now. A
+  // renamed badge that came back as the default would read as the extension
+  // forgetting rather than as a rename.
+  if (stored?.copy?.tileBadge && stored?.copy?.tileHeadline === undefined) {
+    merged.copy.tileHeadline = stored.copy.tileBadge;
+  }
 
   if (stored?.placement === 'tile' || stored?.placement === 'header') {
     const band = stored.placement === 'header';
@@ -133,6 +251,9 @@ function ezSettings(stored) {
 // script, as well as from the content script's isolated world.
 if (typeof globalThis !== 'undefined') {
   globalThis.EZ_DEFAULTS = EZ_DEFAULTS;
+  globalThis.EZ_SLOT_TYPES = EZ_SLOT_TYPES;
+  globalThis.EZ_SLOT_NAMES = EZ_SLOT_NAMES;
   globalThis.ezFill = ezFill;
+  globalThis.ezUrl = ezUrl;
   globalThis.ezSettings = ezSettings;
 }

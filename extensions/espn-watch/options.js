@@ -6,13 +6,24 @@
  * line of HTML and nothing here. The alternative is a list of field names in
  * two places that drift apart, which is how an options page ends up saving
  * something the card never reads.
+ *
+ * The path is walked rather than split into two levels, which is what the slot
+ * fields need: `slots.topRight.image` is three deep and is still one line of
+ * HTML.
  */
 
 const IDENTITY_KEY = 'identity';
 
-const fields = [...document.querySelectorAll('input[id]')];
+// Selects too, since a slot's type is one. They were inputs only, and the first
+// slot select saved nothing at all -- silently, because a field the collector
+// never sees is a field with no error to report.
+const fields = [...document.querySelectorAll('input[id], select[id]')];
 const savedNote = document.getElementById('saved');
+const note = document.getElementById('note');
 const linkState = document.getElementById('linkState');
+
+/** The image fields, which are the only ones that become a `src`. */
+const imageFields = fields.filter((field) => /(^sponsorLogo$|\.image$)/.test(field.id));
 
 /** `copy.tileTitle` -> the value at that path, from the defaults if unset. */
 function read(settings, path) {
@@ -47,9 +58,31 @@ function flash() {
   setTimeout(() => savedNote.classList.remove('on'), 1200);
 }
 
-chrome.storage.local.get(EZ_DEFAULTS, (stored) => show(ezSettings(stored)));
+/**
+ * Says which image paths the card will refuse.
+ *
+ * Saving them anyway is deliberate: the card validates before it uses anything,
+ * so a bad path is inert, and an options page that silently discards what
+ * somebody typed is one they retype the same thing into. This is the only place
+ * that can explain *why* nothing appeared.
+ */
+function checkImages() {
+  const bad = imageFields.filter((field) => field.value.trim() && !ezUrl(field.value));
+  for (const field of imageFields) field.classList.toggle('bad', bad.includes(field));
+  note.textContent = bad.length
+    ? `${bad.length === 1 ? 'One image is' : `${bad.length} images are`} not an https:// address or a file this extension ships, and will not be drawn.`
+    : '';
+}
+
+chrome.storage.local.get(EZ_DEFAULTS, (stored) => {
+  show(ezSettings(stored));
+  checkImages();
+});
+
+for (const field of imageFields) field.addEventListener('input', checkImages);
 
 document.getElementById('save').addEventListener('click', () => {
+  checkImages();
   chrome.storage.local.set(collect(), flash);
 });
 
@@ -60,6 +93,7 @@ document.getElementById('reset').addEventListener('click', () => {
   for (const field of fields) write(restore, field.id, read(EZ_DEFAULTS, field.id));
   chrome.storage.local.set(restore, () => {
     show(ezSettings(restore));
+    checkImages();
     flash();
   });
 });

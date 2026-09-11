@@ -365,25 +365,164 @@ function ladder() {
   return strip;
 }
 
+// ---------------------------------------------------------------------------
+// The four corners
+// ---------------------------------------------------------------------------
+
 /**
- * The sponsorship line, and a logo if one is configured.
+ * A bundled file, as a URL the page can actually load.
  *
- * Its own element rather than more words in the title, because a sponsor that
- * is part of a sentence cannot be turned off without rewriting the sentence --
- * and the first thing anybody does with this is try it both ways.
+ * A relative `src` set from a content script resolves against espn.com, not
+ * against the extension, so it 404s silently and the slot renders an empty
+ * box. `getURL` is the only thing that knows the real address, and it is also
+ * the first thing to go when the extension is reloaded under a page that is
+ * still running -- so a missing one is a slot without an image, never a card
+ * that fails to build. Placement must not depend on artwork.
  */
-function sponsorStrip() {
-  const strip = el('span', 'ez-sponsor');
-  if (settings.sponsorLogo) {
-    const logo = el('img', 'ez-sponsor-logo');
-    logo.src = settings.sponsorLogo;
-    logo.alt = '';
-    logo.referrerPolicy = 'no-referrer';
-    strip.append(logo);
+function bundled(path) {
+  try {
+    return chrome.runtime.getURL(path);
+  } catch {
+    return null;
   }
-  const line = ezFill(settings.copy.sponsorLine, settings.sponsor);
-  if (line) strip.append(el('span', 'ez-sponsor-text', line));
-  return strip;
+}
+
+/**
+ * A slot's image, or null.
+ *
+ * `ezUrl` decides what may be used before anything is assigned, and the result
+ * goes on the `src` *property* rather than through `setAttribute`: these paths
+ * are typed by whoever configured the extension and this is somebody else's
+ * page.
+ */
+function slotImage(source, className) {
+  const url = ezUrl(source);
+  if (!url) return null;
+  const href = url.kind === 'bundled' ? bundled(url.href) : url.href;
+  if (!href) return null;
+  const img = el('img', className);
+  img.src = href;
+  img.alt = '';
+  img.referrerPolicy = 'no-referrer';
+  return img;
+}
+
+/**
+ * What stands in a corner, by type.
+ *
+ * Each one is handed the slot's own configuration and a context describing the
+ * placement it is being built for: `say` reads the copy for that placement,
+ * `dense` is the tile, and `control` says whether this slot may be a real
+ * button.
+ *
+ * A renderer returning null is a corner that draws nothing -- an `image` with
+ * no file and no headline has nothing to be -- and an empty corner is left out
+ * rather than laid out, so a hidden slot cannot leave a gap behind it.
+ */
+const SLOT_RENDERERS = {
+  /**
+   * The game's mark, and the tagline under it.
+   *
+   * `logoImage` rather than `image` because it has something to draw when no
+   * file is set: the wordmark is markup, so the default install shows a logo
+   * without shipping an asset. A configured file replaces it -- it does not sit
+   * beside it, because two logos in one corner is two logos.
+   */
+  logoImage(slot, ctx) {
+    const box = el('div', 'ez-slot ez-slot-logo');
+    box.append(slotImage(slot.image, 'ez-slot-logo-img') ?? mark());
+    const tagline = ctx.say(`${ctx.place}Tagline`);
+    if (tagline) box.append(el('span', 'ez-slot-tagline', tagline));
+    return box;
+  },
+
+  /**
+   * A configured image, and the headline beside it.
+   *
+   * **The headline is dropped on the tile.** Three words of 9px type in the
+   * forty per cent of a 300px card that is not the wordmark either wrap into
+   * the pill below it or shrink past reading. The image alone still says what
+   * the corner is; the sentence belongs where there is a line to put it on.
+   */
+  image(slot, ctx) {
+    const box = el('div', 'ez-slot ez-slot-image');
+    const img = slotImage(slot.image, 'ez-slot-img');
+    if (img) box.append(img);
+    const headline = ctx.dense ? '' : ctx.say(`${ctx.place}Headline`);
+    if (headline) box.append(el('span', 'ez-slot-headline', headline));
+    return box.childElementCount ? box : null;
+  },
+
+  /**
+   * The call to action.
+   *
+   * A `<button>` where the placement has no control of its own, a `<span>`
+   * where it does. The tile's whole artwork is already a button, and a button
+   * inside a button fires `openPanel` twice on one click and hands assistive
+   * technology two overlapping controls for one thing.
+   */
+  pill(slot, ctx) {
+    const text = ctx.say(`${ctx.place}Button`);
+    if (!text) return null;
+    const pill = el(ctx.control ? 'button' : 'span', 'ez-slot ez-slot-pill', text);
+    if (ctx.control) pill.type = 'button';
+    return pill;
+  },
+
+  /**
+   * The sponsor line, and the sponsor's logo.
+   *
+   * Its own corner rather than more words in the title, because a sponsor that
+   * is part of a sentence cannot be turned off without rewriting the sentence,
+   * and the first thing anybody does with this is try it both ways. The logo
+   * comes from `sponsorLogo` rather than from the slot's own `image`: it is
+   * already a field, and a second place to put it is a second place to forget
+   * to change it.
+   */
+  sponsoredPill(slot, ctx) {
+    if (!settings.sponsor) return null;
+    const strip = el('div', 'ez-slot ez-slot-sponsor');
+    const logo = slotImage(settings.sponsorLogo, 'ez-slot-sponsor-logo');
+    if (logo) strip.append(logo);
+    const line = ctx.say('sponsorLine');
+    if (line) strip.append(el('span', 'ez-slot-sponsor-text', line));
+    return strip.childElementCount ? strip : null;
+  },
+};
+
+/** Which cell of the layout each name lands in. The stylesheet places them. */
+const SLOT_CLASS = {
+  topLeft: 'ez-tl',
+  topRight: 'ez-tr',
+  bottomLeft: 'ez-bl',
+  bottomRight: 'ez-br',
+};
+
+/**
+ * The four corners, built once and used by both placements.
+ *
+ * One layer rather than two compositions, because the tile and the band are the
+ * same picture at two sizes and they drifted the moment each built its own
+ * corners: the sponsor line moved on one and stayed on the other, and the band
+ * grew a second answer to the question the tile had already answered.
+ *
+ * Position is fixed and type is not. A corner is a place; what stands in it
+ * comes out of storage, and storage outlives a rename -- so a type nobody
+ * recognises renders nothing instead of throwing on a page we do not own.
+ */
+function buildSlots(ctx) {
+  const layer = el('div', 'ez-slots');
+  for (const name of EZ_SLOT_NAMES) {
+    const slot = settings.slots[name];
+    if (!slot?.show) continue;
+    const render = SLOT_RENDERERS[slot.type];
+    if (!render) continue;
+    const node = render(slot, ctx);
+    if (!node) continue;
+    node.classList.add(SLOT_CLASS[name]);
+    layer.append(node);
+  }
+  return layer;
 }
 
 /**
@@ -571,16 +710,18 @@ function buildCard(shape) {
   // somebody else's page is how a sponsor name becomes a script tag.
   const art = el('button', 'ez-art');
   art.type = 'button';
+  // The name is composed rather than read off the corners: the slot layer can
+  // be configured down to nothing, and a control whose accessible name depends
+  // on what somebody left switched on is a control that can end up unnamed.
   art.setAttribute('aria-label', `${say('tileTitle')}. ${say('tileButton')}.`);
   art.append(
     fieldArt(shape.width, shape.height),
     el('span', 'ez-sheen', '', { 'aria-hidden': 'true' }),
-    mark(),
-    el('span', 'ez-tag', say('tileButton')),
+    // `control: false` -- the artwork is already the button; `dense` -- this is
+    // the 300px box, and the corners drop what does not survive it.
+    buildSlots({ place: 'tile', say, dense: true, control: false }),
+    ladder(),
   );
-  if (say('tileBadge')) art.append(el('span', 'ez-badge', say('tileBadge')));
-  if (settings.sponsor && settings.sponsorBanner) art.append(sponsorStrip());
-  art.append(ladder());
 
   card.append(art, el('p', 'ez-title', say('tileTitle')), el('p', 'ez-meta', say('tileSubtitle')));
 
@@ -657,17 +798,22 @@ function buildBand(motion) {
   if (say('bandKicker')) text.append(el('p', 'ez-band-kicker', say('bandKicker')));
   text.append(el('p', 'ez-band-title', say('bandTitle')));
   if (say('bandSubtitle')) text.append(el('p', 'ez-band-sub', say('bandSubtitle')));
-  if (settings.sponsor && settings.sponsorBanner) text.append(sponsorStrip());
 
-  const go = el('button', 'ez-band-go', say('bandButton'));
-  go.type = 'button';
+  // The same four corners as the tile, at a size that can carry all of them.
+  // `control: true` -- the band has no covering button, so its pill is the
+  // control. `dense: false` -- there is a line's width here for a headline.
+  const slots = buildSlots({ place: 'band', say, dense: false, control: true });
 
   // A nominal box rather than the real one: the band is as wide as the shelf,
   // which is not known until it is in the document, and `slice` crops a wide
   // field rather than stretching the yard lines into stripes.
-  band.append(fieldArt(1200, 96), text, go, ladder());
+  band.append(fieldArt(1200, 96), slots, text, ladder());
 
-  go.addEventListener('click', openPanel);
+  // Whatever the pill turned out to be. A band whose slots are all switched off
+  // has nothing to click, which is a configuration and not a fault -- but it
+  // must not also be a listener attached to null.
+  const go = slots.querySelector('.ez-slot-pill');
+  go?.addEventListener('click', openPanel);
   countImpression();
   return band;
 }
@@ -1002,12 +1148,15 @@ store.get(EZ_DEFAULTS, (stored) => {
 chrome.storage.onChanged.addListener((changes) => {
   for (const [key, { newValue }] of Object.entries(changes)) settings[key] = newValue;
   if (changes.copy) settings.copy = { ...EZ_DEFAULTS.copy, ...changes.copy.newValue };
+  // Two levels deep, and through the same merge the first read used -- a slot
+  // saved with only its `show` touched arrives with no `type` at all.
+  if (changes.slots) settings.slots = ezSettings({ slots: changes.slots.newValue }).slots;
   // A settings change is the one time a placement *should* move -- but only the
   // one that was changed. Rebuilding both means a tile that nobody touched is
   // destroyed and recreated because somebody picked a gap for the band.
   const touched = (keys) => keys.some((key) => key in changes);
-  if (touched(['row', 'placeTile', 'matchUi', 'copy', 'sponsor', 'sponsorLogo', 'sponsorBanner'])) removeAt('tile');
-  if (touched(['gap', 'placeBand', 'matchUi', 'copy', 'sponsor', 'sponsorLogo', 'sponsorBanner'])) removeAt('band');
+  if (touched(['row', 'placeTile', 'matchUi', 'copy', 'slots', 'sponsor', 'sponsorLogo'])) removeAt('tile');
+  if (touched(['gap', 'placeBand', 'matchUi', 'copy', 'slots', 'sponsor', 'sponsorLogo'])) removeAt('band');
   place();
 });
 

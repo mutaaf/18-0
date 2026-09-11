@@ -164,10 +164,53 @@
   box-shadow: 0 0 9px rgba(255, 197, 49, 0.85);
 }
 
-#eighteen-zero-card .ez-mark {
+/* ------------------------------------------------------------------------ */
+/* The four corners                                                          */
+/* ------------------------------------------------------------------------ */
+
+/*
+ * The tile and the band are one composition at two sizes, so the corners are
+ * one layer built once and laid out twice. What changes between them is the
+ * *grid*, not the contents: the tile has two columns and the artwork's height
+ * to spend, the band has three -- a column of slots, the copy, a column of
+ * slots -- and room for the lines the tile has to drop.
+ *
+ * **Every corner names its own cell.** Auto-placement looks right until a slot
+ * is switched off, at which point the one after it slides into the empty cell
+ * and the bottom-left pill appears in the top right. A position is the whole
+ * point of a named slot; it does not get to depend on its neighbours.
+ */
+#eighteen-zero-card .ez-slots {
   position: absolute;
-  left: 14px;
-  top: 12px;
+  /* Clear of the rounded corners and of the ladder along the bottom edge. */
+  inset: 11px 12px 17px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  grid-template-rows: auto auto;
+  align-content: space-between;
+  gap: 8px 10px;
+  /* The artwork is the button. The corners are what it looks like, not four
+     more things to point at -- and a pill that swallowed the click would open
+     nothing, because the listener is on the artwork. */
+  pointer-events: none;
+}
+
+#eighteen-zero-card .ez-tl { grid-area: 1 / 1; justify-self: start; align-self: start; }
+#eighteen-zero-card .ez-tr { grid-area: 1 / 2; justify-self: end; align-self: start; }
+#eighteen-zero-card .ez-bl { grid-area: 2 / 1; justify-self: start; align-self: end; }
+#eighteen-zero-card .ez-br { grid-area: 2 / 2; justify-self: end; align-self: end; }
+
+/* topLeft: the mark, and the tagline under it. */
+#eighteen-zero-card .ez-slot-logo,
+#eighteen-zero-band .ez-slot-logo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+#eighteen-zero-card .ez-mark,
+#eighteen-zero-band .ez-mark {
   font-size: 30px;
   font-weight: 800;
   letter-spacing: -0.5px;
@@ -176,39 +219,114 @@
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
 
+#eighteen-zero-card .ez-slot-logo-img,
+#eighteen-zero-band .ez-slot-logo-img {
+  display: block;
+  height: 32px;
+  width: auto;
+  max-width: 120px;
+  object-fit: contain;
+}
+
+#eighteen-zero-card .ez-slot-tagline,
+#eighteen-zero-band .ez-slot-tagline {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  line-height: 1;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+}
+
 #eighteen-zero-card .ez-dash,
 #eighteen-zero-band .ez-dash { color: var(--ez-gold); }
 
-#eighteen-zero-card .ez-tag {
-  position: absolute;
-  left: 14px;
-  bottom: 13px;
+/* topRight: a configured image, and the headline beside it. */
+#eighteen-zero-card .ez-slot-image,
+#eighteen-zero-band .ez-slot-image {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  min-width: 0;
+  text-align: right;
+}
+
+#eighteen-zero-card .ez-slot-img,
+#eighteen-zero-band .ez-slot-img {
+  display: block;
+  height: 34px;
+  width: auto;
+  max-width: 84px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 7px rgba(0, 0, 0, 0.5));
+}
+
+#eighteen-zero-card .ez-slot-headline,
+#eighteen-zero-band .ez-slot-headline {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: var(--ez-gold);
+  max-width: 16ch;
+}
+
+/* bottomLeft: the call to action. */
+#eighteen-zero-card .ez-slot-pill,
+#eighteen-zero-band .ez-slot-pill {
   display: inline-flex;
   align-items: center;
   height: 26px;
   padding: 0 12px;
+  border: 1px solid var(--ez-green-lit);
   border-radius: 999px;
   background: var(--ez-green);
   color: #06210a;
+  font: inherit;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.6px;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
-#eighteen-zero-card .ez-badge {
-  position: absolute;
-  right: 10px;
-  top: 10px;
-  padding: 2px 7px;
-  border-radius: 3px;
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  color: #ffffff;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
+/* bottomRight: the sponsor line. */
+#eighteen-zero-card .ez-slot-sponsor,
+#eighteen-zero-band .ez-slot-sponsor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+#eighteen-zero-card .ez-slot-sponsor-logo,
+#eighteen-zero-band .ez-slot-sponsor-logo {
+  display: block;
+  height: 14px;
+  width: auto;
+  max-width: 56px;
+  object-fit: contain;
+}
+
+#eighteen-zero-card .ez-slot-sponsor-text,
+#eighteen-zero-band .ez-slot-sponsor-text {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.82);
+  /* The two bottom corners share one line of a 232px card. Whichever of them
+     has to give, it is the sponsor's line and not the button. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #eighteen-zero-card .ez-title {
@@ -232,11 +350,16 @@
  * field is still there, half a stop down, because a flat navy rectangle beside
  * real broadcast thumbnails reads as one that failed to load.
  */
-#eighteen-zero-card.ez-match .ez-badge { display: none; }
 #eighteen-zero-card.ez-match .ez-mark { font-size: 24px; }
 #eighteen-zero-card.ez-match .ez-turf { opacity: 0.72; }
 #eighteen-zero-card.ez-match .ez-ladder { opacity: 0.78; }
-#eighteen-zero-card.ez-match .ez-tag {
+/* **The tagline is the matched tile's one drop.** Matched means sit in the row,
+   and a second line of type under the mark is the flourish the corner badge
+   used to be -- which this look has always taken away. Unmatched it stays,
+   because that look is the one that is supposed to announce itself. */
+#eighteen-zero-card.ez-match .ez-slot-tagline { display: none; }
+#eighteen-zero-card.ez-match .ez-slot-img { height: 28px; max-width: 68px; }
+#eighteen-zero-card.ez-match .ez-slot-pill {
   height: 22px;
   padding: 0 9px;
   font-size: 10px;
@@ -260,7 +383,7 @@
 @media (prefers-reduced-motion: reduce) {
   #eighteen-zero-card .ez-art,
   #eighteen-zero-card .ez-sheen,
-  #eighteen-zero-band .ez-band-go { transition: none; }
+  #eighteen-zero-band .ez-slot-pill { transition: none; }
   #eighteen-zero-card .ez-art:hover,
   #eighteen-zero-card .ez-art:focus-visible { transform: none; }
 }
@@ -362,16 +485,22 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
  */
 #eighteen-zero-band.ez-band {
   position: relative;
-  display: flex;
+  /* Three columns: a column of slots, the copy, a column of slots. The corners
+     are the same four the tile builds -- `.ez-slots` is `display: contents`
+     below, so they become items of this grid rather than a box inside it and a
+     hidden slot leaves an empty cell instead of shifting its neighbour. */
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 24px;
+  column-gap: 24px;
+  row-gap: 12px;
   /* The shelves on this page are inset by the same amount; matching it is what
      keeps the band aligned with the headings above and below it. */
   /* Overridden at build time with the real heading inset; this is the
      fallback for a shelf that has no heading to measure. */
   margin: 18px 24px 22px;
-  padding: 18px 22px 21px;
+  padding: 16px 22px 20px;
   border-radius: 10px;
   overflow: hidden;
   background:
@@ -385,7 +514,18 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
 /* The same field and the same eighteen marks as the tile, because the two
    placements are one thing shown two ways and a band with its own artwork
    reads as a second advert from somebody else. */
-#eighteen-zero-band.ez-band .ez-band-text { position: relative; min-width: 0; }
+#eighteen-zero-band.ez-band .ez-slots { display: contents; }
+
+#eighteen-zero-band .ez-tl { grid-area: 1 / 1; justify-self: start; align-self: start; }
+#eighteen-zero-band .ez-tr { grid-area: 1 / 3; justify-self: end; align-self: start; }
+#eighteen-zero-band .ez-bl { grid-area: 2 / 1; justify-self: start; align-self: end; }
+#eighteen-zero-band .ez-br { grid-area: 2 / 3; justify-self: end; align-self: end; }
+
+#eighteen-zero-band.ez-band .ez-band-text {
+  position: relative;
+  min-width: 0;
+  grid-area: 1 / 2 / span 2 / auto;
+}
 
 #eighteen-zero-band.ez-band .ez-band-kicker {
   margin: 0 0 4px;
@@ -411,28 +551,30 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
   color: rgba(255, 255, 255, 0.62);
 }
 
-#eighteen-zero-band.ez-band .ez-band-go {
+/* Here the pill *is* the control -- the band has no covering button -- so it is
+   the one place the slot grows a cursor and a hover. */
+#eighteen-zero-band.ez-band .ez-slot-pill {
   position: relative;
-  flex: 0 0 auto;
-  height: 40px;
+  height: 36px;
   padding: 0 20px;
-  border: 1px solid var(--ez-green-lit);
-  border-radius: 999px;
-  background: var(--ez-green);
-  color: #06210a;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
+  font-size: 12px;
+  letter-spacing: 0.6px;
   cursor: pointer;
   transition: background var(--ez-motion), transform var(--ez-motion);
 }
 
-#eighteen-zero-band.ez-band .ez-band-go:hover {
+#eighteen-zero-band.ez-band .ez-slot-pill:hover {
   background: var(--ez-green-lit);
   transform: translateY(-1px);
 }
-#eighteen-zero-band.ez-band .ez-band-go:focus-visible { outline: 2px solid var(--ez-gold); outline-offset: 2px; }
+#eighteen-zero-band.ez-band .ez-slot-pill:focus-visible { outline: 2px solid var(--ez-gold); outline-offset: 2px; }
+
+#eighteen-zero-band.ez-band .ez-mark { font-size: 26px; }
+/* The band has the height for it, and the crest is a wide 3:2 -- constrained by
+   height it is only fifty pixels across, which at the tile's 34px is a smudge. */
+#eighteen-zero-band.ez-band .ez-slot-img { height: 44px; max-width: 110px; }
+#eighteen-zero-band.ez-band .ez-slot-sponsor-text { font-size: 11px; }
+#eighteen-zero-band.ez-band .ez-slot-sponsor-logo { height: 16px; max-width: 72px; }
 
 /*
  * Matched: the band takes the page's own section-label voice. These shelves set
@@ -457,73 +599,34 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
 }
 
 #eighteen-zero-band.ez-band.ez-match .ez-band-sub { font-size: 12px; }
-#eighteen-zero-band.ez-band.ez-match .ez-band-go { height: 34px; font-size: 12px; }
+#eighteen-zero-band.ez-band.ez-match .ez-slot-pill { height: 30px; font-size: 11px; }
+#eighteen-zero-band.ez-band.ez-match .ez-mark { font-size: 21px; }
+#eighteen-zero-band.ez-band.ez-match .ez-slot-headline { font-size: 10px; }
 
 @media (prefers-reduced-motion: reduce) {
-  #eighteen-zero-band.ez-band .ez-band-go:hover { transform: none; }
+  #eighteen-zero-band.ez-band .ez-slot-pill:hover { transform: none; }
 }
 
+/* Narrow: one column, corners stacked in the order they were built. Three
+   columns of slots beside a paragraph is four things fighting for 320px. */
 @media (max-width: 700px) {
   #eighteen-zero-band.ez-band {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 14px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    row-gap: 14px;
     margin: 14px 16px 18px;
   }
+  #eighteen-zero-band .ez-tl,
+  #eighteen-zero-band .ez-tr,
+  #eighteen-zero-band .ez-bl,
+  #eighteen-zero-band .ez-br,
+  #eighteen-zero-band.ez-band .ez-band-text {
+    grid-area: auto;
+    justify-self: start;
+    text-align: left;
+  }
+  #eighteen-zero-band .ez-slot-image { align-items: flex-start; text-align: left; }
 }
-
-/* ------------------------------------------------------------------------ */
-/* Sponsorship                                                               */
-/* ------------------------------------------------------------------------ */
-
-/*
- * Its own line rather than words inside the title, so it can be turned off
- * without rewriting a sentence — which is the first thing anybody tries.
- */
-#eighteen-zero-card .ez-sponsor,
-#eighteen-zero-band .ez-sponsor {
-  position: absolute;
-  right: 10px;
-  bottom: 13px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 60%;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-}
-
-#eighteen-zero-card .ez-sponsor-logo,
-#eighteen-zero-band .ez-sponsor-logo {
-  height: 14px;
-  width: auto;
-  max-width: 56px;
-  object-fit: contain;
-  display: block;
-}
-
-#eighteen-zero-card .ez-sponsor-text,
-#eighteen-zero-band .ez-sponsor-text {
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.4px;
-  color: rgba(255, 255, 255, 0.82);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* In the band it sits under the copy rather than over the artwork. */
-#eighteen-zero-band.ez-band .ez-sponsor {
-  position: static;
-  margin-top: 8px;
-  max-width: none;
-}
-
-#eighteen-zero-band.ez-band .ez-sponsor-text { font-size: 11px; }
-#eighteen-zero-band.ez-band .ez-sponsor-logo { height: 16px; max-width: 72px; }
 
 /* ------------------------------------------------------------------------ */
 /* Consent                                                                   */

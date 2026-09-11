@@ -80,6 +80,34 @@ const check = (what, ok, detail = '') => {
   if (!ok) failures++;
 };
 
+/**
+ * The four corners, as what landed in each and where it actually is.
+ *
+ * The quadrant is the assertion that matters. A named cell is only worth having
+ * if switching one slot off leaves the others where they were, and the way that
+ * breaks -- auto-placement sliding the next slot into the empty cell -- leaves
+ * every class name exactly as it was. So this measures.
+ */
+function checkCorners(where, slots) {
+  const want = [
+    ['top left', 'ez-slot-logo', false, false],
+    ['top right', 'ez-slot-image', true, false],
+    ['bottom left', 'ez-slot-pill', false, true],
+  ];
+  for (const [corner, type, right, bottom] of want) {
+    const got = slots?.[want.findIndex((w) => w[0] === corner)];
+    check(
+      `${where}: the ${corner} corner holds its ${type.replace('ez-slot-', '')}`,
+      got?.type === type && got.right === right && got.bottom === bottom,
+      got ? `${got.type} at ${got.bottom ? 'bottom' : 'top'} ${got.right ? 'right' : 'left'}` : 'nothing there',
+    );
+  }
+  // The bottom-right corner is the sponsor, and there is no sponsor by default.
+  // An empty corner is left out rather than laid out: a box with nothing in it
+  // still claims a row's height and pushes the pill off the artwork.
+  check(`${where}: and leaves the unsponsored corner out`, slots?.[3] === null);
+}
+
 console.log('\n18-0 ON WATCH — THE CARD IN A ROW');
 console.log('='.repeat(56));
 
@@ -129,6 +157,10 @@ check(
 );
 check('no band was placed', report.bands === 0, `${report.bands}`);
 
+// The headline is the tile's one drop -- see the `image` renderer -- so the
+// top-right corner here is the image on its own.
+checkCorners('tile', report.slots);
+
 /*
  * The sponsor token, checked directly because it is pure and because its whole
  * job is what happens when there is *no* sponsor: leaving "Presented by" with
@@ -139,6 +171,19 @@ check('no band was placed', report.bands === 0, `${report.bands}`);
  * `chrome` object whose context is gone. Everything through it throws -- and
  * `openPanel` used to record the open *before* building the panel, so the card
  * stayed on the page, the click still fired, and nothing happened.
+ *
+ * **Worth knowing what this does and does not fail on.** Moving `countOpen()`
+ * back to the top of `openPanel` no longer breaks it, because `store` now
+ * refuses to touch a dead context at all -- put the ordering back *and* take
+ * that guard away, which is the code as it stood when the bug existed, and the
+ * panel check goes red. The ordering is belt to the guard's braces, and this
+ * asserts the behaviour rather than either mechanism, so it stays honest if one
+ * of them is ever removed on purpose.
+ *
+ * What it fails on today is the newer version of the same mistake: a slot's
+ * bundled image is resolved with `chrome.runtime.getURL`, which a reloaded
+ * extension does not have. Unguarded, that throws inside `buildCard` and all
+ * three of these go red together -- no card, no control, no panel.
  */
 console.log('\nWITH THE EXTENSION CONTEXT GONE');
 {
@@ -150,10 +195,15 @@ console.log('\nWITH THE EXTENSION CONTEXT GONE');
   } catch {
     dead = null;
   }
+  // Placement must not depend on artwork. A bundled slot image is resolved with
+  // `chrome.runtime.getURL`, which is exactly what a reloaded extension no
+  // longer has -- so an unguarded call there throws inside `buildCard` and the
+  // card never reaches the row at all.
   check('the card is still placed', dead?.cards === 1, `${dead?.cards}`);
-  // TODO: assert the panel still opens here. The probe needs a selector for
-  // whatever the tile's control is, and the tile's markup is being rewritten --
-  // a check pinned to the old class would pass by not finding anything.
+  // Reported separately from the panel so a probe whose selector has gone stale
+  // fails here rather than quietly asserting nothing about the panel.
+  check('its control is still there', dead?.deadControl === true);
+  check('and clicking it still opens the panel', dead?.deadPanel === true);
 }
 
 console.log('\nSPONSOR COPY');
@@ -204,6 +254,68 @@ console.log('\nSPONSOR COPY');
   // time it is touched, and from then on the flags are the only truth.
   const retired = ezSettings({ placement: null, placeTile: false, placeBand: true });
   check('a retired `placement` does not override the flags', retired.placeTile === false && retired.placeBand === true);
+
+  /*
+   * `sponsorBanner` and `tileBadge` were the two settings the slot model
+   * absorbed: "draw the sponsor line" is the bottom-right slot's own `show`,
+   * and the corner badge was the top-right corner's line of type. Both have to
+   * keep meaning what they meant, or the model reads as the extension losing
+   * somebody's configuration.
+   */
+  const quiet = ezSettings({ sponsorBanner: false });
+  check('a stored `sponsorBanner: false` hides the sponsor slot', quiet.slots.bottomRight.show === false);
+  const loud = ezSettings({ sponsorBanner: false, slots: { bottomRight: { show: true } } });
+  check('and a stored slot is the newer answer', loud.slots.bottomRight.show === true);
+  const badged = ezSettings({ copy: { tileBadge: 'Live' } });
+  check('a stored `tileBadge` becomes the headline', badged.copy.tileHeadline === 'Live', badged.copy.tileHeadline);
+
+  // A slot written with one key touched must not arrive without a type.
+  const partial = ezSettings({ slots: { topLeft: { show: false } } });
+  check('a half-written slot keeps its type', partial.slots.topLeft.type === 'logoImage' && partial.slots.topLeft.show === false);
+  // Positions are fixed. A fifth name is a corner nothing lays out.
+  const extra = ezSettings({ slots: { middle: { type: 'pill', show: true } } });
+  check('and an unknown corner is dropped', !('middle' in extra.slots));
+}
+
+/*
+ * The one thing between a typed string and a `src` or an `href`.
+ *
+ * Checked as a table because it is pure and because the interesting cases are
+ * all the ones somebody would not think to try: a scheme that is not a scheme
+ * until it is, an authority-relative URL that looks like a path, and a bundled
+ * path that climbs out of the folder.
+ */
+console.log('\nCONFIGURED URLS');
+{
+  const src = readFileSync(resolve(import.meta.dirname, 'config.js'), 'utf8');
+  const scope = {};
+  new Function('globalThis', `${src}`).call(scope, scope);
+  const { ezUrl } = scope;
+
+  const allowed = [
+    ['https://example.com/logo.png', 'remote'],
+    ['http://example.com/logo.png', 'remote'],
+    ['  https://example.com/logo.png  ', 'remote'],
+    ['icons/crest.png', 'bundled'],
+  ];
+  for (const [input, kind] of allowed) {
+    check(`"${input.trim()}" is a ${kind} image`, ezUrl(input)?.kind === kind, `${ezUrl(input)?.kind}`);
+  }
+
+  const refused = [
+    'javascript:alert(1)',
+    'JaVaScRiPt:alert(1)',
+    'data:image/svg+xml,<svg onload=alert(1)>',
+    // No scheme, and still not ours: this is `//host/path`, which inherits the
+    // page's scheme and fetches from somebody else entirely.
+    '//evil.example/logo.png',
+    '/absolute/path.png',
+    '../../manifest.json',
+    'icons/../../manifest.json',
+  ];
+  for (const input of refused) {
+    check(`"${input}" is refused`, ezUrl(input) === null, `${JSON.stringify(ezUrl(input))}`);
+  }
 }
 
 console.log(`  · card ${report.heights.card}px (min-height ${report.heights.minH}), anchor tile ${report.heights.anchorTile}px, tallest ${report.heights.tallestTile}px, top delta ${report.cardTopDelta}px`);
@@ -217,6 +329,9 @@ check('and there was never more than one', band.maxBands === 1, `peaked at ${ban
 check('it is a band, not a tile', band.isBand === true && band.cards === 0);
 check('it never moved once placed', band.bandMoves === 0, `${band.bandMoves} move(s)`);
 check('its button is present', band.bandClickable === true);
+// The same four, built from the same model and laid out on a different grid.
+// If the two ever stop agreeing, this is where it shows.
+checkCorners('band', band.slots);
 // The whole point of the placement: it sits in the gap above the row, not
 // inside it and not below the rail it is introducing.
 check('it sits above the first row', band.aboveFirstRow === true);
@@ -261,6 +376,25 @@ check(
   'and the tile still lines up with the row',
   both.artTopDelta !== null && Math.abs(both.artTopDelta) <= 1,
   both.artTopDelta === null ? 'nothing to measure' : `${both.artTopDelta}px off`,
+);
+
+/*
+ * One slot switched off.
+ *
+ * This is the whole reason the corners name their own cells. With all four on,
+ * auto-placement and named cells agree and neither can be told from the other --
+ * switch one off and auto-placement slides the next one up, so the call to
+ * action moves to the top right of a card nobody configured that way.
+ */
+const hidden = run('?off=topRight');
+
+console.log('\nWITH A SLOT SWITCHED OFF');
+check('the corner it was in is empty', hidden.slots?.[1] === null, JSON.stringify(hidden.slots?.[1]));
+check(
+  'and the others did not move up into it',
+  hidden.slots?.[0]?.type === 'ez-slot-logo' && hidden.slots[0].right === false && hidden.slots[0].bottom === false
+    && hidden.slots?.[2]?.type === 'ez-slot-pill' && hidden.slots[2].right === false && hidden.slots[2].bottom === true,
+  JSON.stringify(hidden.slots),
 );
 
 // The retired setting, driven end to end: storage holding `header` and nothing
