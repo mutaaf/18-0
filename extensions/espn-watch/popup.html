@@ -47,11 +47,16 @@
   .switch input:focus-visible + .track { outline: 2px solid #ffc531; outline-offset: 2px; }
   footer { margin-top: 12px; font-size: 10px; color: rgba(255,255,255,0.35); line-height: 1.45; }
   .full { width: 100%; margin-top: 8px; text-align: center; }
+  /* Where a placement goes, shown only while that placement is on: an empty
+     row picker under an unticked box is a control for nothing. */
+  .where { padding: 0 0 10px 12px; border-left: 2px solid rgba(255,255,255,0.1); margin-left: 2px; }
+  .where .row { border-top: 0; padding: 4px 0 0; }
+  .where .full { margin-top: 6px; padding: 5px 9px; font-size: 12px; }
 </style>
 </head>
 <body>
   <h1>18<span>-</span>0 on Watch</h1>
-  <p class="sub">A playable card, in the row you choose.</p>
+  <p class="sub">A playable card, where you choose. Either placement, or both.</p>
 
   <div class="row">
     <p>Show the card<small>Off leaves the page untouched</small></p>
@@ -70,19 +75,36 @@
   </div>
 
   <div class="row">
-    <p>Placement<small>A card in a row, or a band between rows</small></p>
-    <select id="placement">
-      <option value="tile">Tile in a row</option>
-      <option value="header">Inline header</option>
-    </select>
+    <p>Tile in a row<small>A card among the thumbnails</small></p>
+    <label class="switch">
+      <input type="checkbox" id="placeTile" checked>
+      <span class="track"></span>
+    </label>
+  </div>
+
+  <div class="where" id="tileWhere">
+    <div class="row">
+      <p>Row<small id="rowNote">First row on the page</small></p>
+      <select id="row"><option value="">First row</option></select>
+    </div>
+    <button class="primary full" id="pickRow">Pick a row on the page</button>
   </div>
 
   <div class="row">
-    <p id="whereLabel">Row<small id="rowNote">First row on the page</small></p>
-    <select id="row"><option value="">First row</option></select>
+    <p>Inline header<small>A band across a gap between rows</small></p>
+    <label class="switch">
+      <input type="checkbox" id="placeBand">
+      <span class="track"></span>
+    </label>
   </div>
 
-  <button class="primary full" id="pick">Pick a row on the page</button>
+  <div class="where" id="bandWhere">
+    <div class="row">
+      <p>Gap<small id="gapNote">Above the first row</small></p>
+      <select id="gap"><option value="">Above the first row</option></select>
+    </div>
+    <button class="primary full" id="pickGap">Pick the row below it</button>
+  </div>
 
   <div class="row" id="statsRow">
     <p>This browser<small id="stats">Nothing counted yet</small></p>
@@ -92,8 +114,8 @@
   <button class="full" id="openOptions" style="margin-top:8px">Sponsorship &amp; copy…</button>
 
   <footer>
-    Loaded unpacked for demos. Adds one card to the page and changes nothing
-    else on it. Attribution is counted here and sent nowhere.
+    Loaded unpacked for demos. Adds at most two elements to the page and
+    changes nothing else on it. Attribution is counted here and sent nowhere.
   </footer>
 
   <script src="config.js"></script>

@@ -23,11 +23,27 @@
  */
 
 const EZ_DEFAULTS = {
-  // Placement
+  // Placement. The two are independent -- both on at once is a real and asked
+  // for state -- and so are their positions: `row` is the row the tile sits
+  // *in*, `gap` the row the band sits *above*. One key holding both meant
+  // choosing where the band went silently moved the tile.
   enabled: true,
   matchUi: true,
-  placement: 'tile',
+  placeTile: true,
+  placeBand: false,
   row: null,
+  gap: null,
+
+  /**
+   * What `placeTile`/`placeBand` replaced.
+   *
+   * Kept as a default so a stored `'tile'` or `'header'` is still *read*, and
+   * migrated in `ezSettings`. Without it an install that had the band selected
+   * came back showing a tile, which looks like the extension forgetting rather
+   * than like a rename. Retired -- written back as null -- the first time the
+   * popup touches a placement.
+   */
+  placement: null,
 
   // Attribution
   countWatch: true,
@@ -87,10 +103,29 @@ function ezFill(text, sponsor) {
     .trim();
 }
 
-/** Merges stored settings over the defaults, one level into `copy`. */
+/**
+ * Merges stored settings over the defaults, one level into `copy`, and reads
+ * the retired `placement` as the pair of flags that replaced it.
+ *
+ * The migration is here rather than at each read site because there are three
+ * of them -- the content script, the popup and the options page -- and two
+ * agreeing about a legacy value while the third does not is an options page
+ * that saves something the card never reads.
+ */
 function ezSettings(stored) {
   const merged = { ...EZ_DEFAULTS, ...stored };
   merged.copy = { ...EZ_DEFAULTS.copy, ...(stored?.copy ?? {}) };
+
+  if (stored?.placement === 'tile' || stored?.placement === 'header') {
+    const band = stored.placement === 'header';
+    merged.placeTile = !band;
+    merged.placeBand = band;
+    // The old single `row` meant whichever of the two that placement used.
+    if (band) {
+      merged.gap = stored.row ?? null;
+      merged.row = null;
+    }
+  }
   return merged;
 }
 

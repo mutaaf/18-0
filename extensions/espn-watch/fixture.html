@@ -22,51 +22,84 @@
   look like a carousel), and a mutation after load, which is what a React page
   does on its own.
 
+  The nesting is not decorative. It is the depth measured off the live page —
+  rail, outer, wrapper, wrapper, section, shelf block, container — with the
+  section label a *direct child of the section* and the programme titles as
+  headings *inside the tiles*. That is what broke the band: "the first ancestor
+  containing a heading" answered with the carousel, because ten tile titles are
+  headings too, and the band went inside the carousel between a label and the
+  rail it labels.
+
   Open it with `node extensions/espn-watch/fixture-check.mjs`.
 -->
 <style>
   body { margin: 0; background: #0b0b0f; color: #fff; font: 14px system-ui; }
-  h2 { margin: 18px 12px 8px; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; }
+  .label { margin: 18px 24px 8px; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
   .scroller { overflow-x: auto; }
   .rail { display: flex; align-items: center; padding: 0 12px 18px; list-style: none; margin: 0; }
   .tile { margin-right: 16px; }
   .tile { flex: 0 0 auto; width: 232px; }
-  h2 { margin-left: 24px; }
   .thumb { position: relative; width: 232px; height: 130px; border-radius: 6px; background: #23232b; overflow: hidden; }
   /* Three overlays covering the same box — same width, same top edge, all wide
      enough to look like tiles in a row. This is what produced 301 false rows on
      the real page. */
   .thumb > i { position: absolute; inset: 0; display: block; }
-  .cap { margin: 8px 0 0; font-size: 13px; }
+  /* A heading, because a programme title is one on the real page — and a
+     heading inside a tile is exactly what the band used to line itself up
+     against. Styled flat so the tile's geometry is the same as it ever was. */
+  h3.cap { margin: 8px 0 0; font-size: 13px; font-weight: 400; line-height: 1.25; }
   .sub { margin: 2px 0 0; font-size: 11px; color: #999; }
+  /* What a real row does under a pointer, and what the card has to copy: a
+     duration, a curve, and a transform that belongs to the page rather than to
+     us. See `timingFrom` and `hoverLift`. */
+  .thumb { transition: transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .tile:hover .thumb { transform: scale(1.07); }
 </style>
 </head>
 <body>
   <div id="page"></div>
 
 <script>
-  // Three rows, each wrapped twice, the way a real shelf is.
+  // Three rows, wrapped the way the live page wraps them.
   const ROWS = ['Just for you', 'Live now', 'Also live'];
   const page = document.getElementById('page');
 
   function buildRow(title, tiles) {
-    const section = document.createElement('section');
-    const heading = document.createElement('h2');
-    heading.textContent = title;
-    const scroller = document.createElement('div');
-    scroller.className = 'scroller';
     const rail = document.createElement('ul');
     rail.className = 'rail';
     for (let i = 0; i < tiles; i++) {
       const li = document.createElement('li');
       li.className = 'tile';
-      const tall = i % 3 === 0 ? '<p class="cap">A rather longer programme title that wraps onto three lines here</p>' : '<p class="cap">A programme</p>';
+      const tall = i % 3 === 0
+        ? '<h3 class="cap">A rather longer programme title that wraps onto three lines here</h3>'
+        : '<h3 class="cap">A programme</h3>';
       li.innerHTML = `<div class="thumb"><i></i><i></i><i></i></div>${tall}<p class="sub">ESPN+</p>`;
       rail.appendChild(li);
     }
-    scroller.appendChild(rail);
+
+    const outer = document.createElement('div');
+    outer.className = 'outer';
+    outer.appendChild(rail);
+    const inner = document.createElement('div');
+    inner.appendChild(outer);
+    const scroller = document.createElement('div');
+    scroller.className = 'scroller';
+    scroller.appendChild(inner);
+
+    // The section label is a direct child of the section, which is the one
+    // thing that tells it apart from the ten headings inside the tiles.
+    const heading = document.createElement('h2');
+    heading.className = 'label';
+    heading.textContent = title;
+    const section = document.createElement('section');
+    section.className = 'carousel';
     section.append(heading, scroller);
-    return section;
+
+    // The shelf block: one rail, and its parent holds all of them.
+    const shelf = document.createElement('div');
+    shelf.className = 'shelf';
+    shelf.appendChild(section);
+    return shelf;
   }
 
   for (const title of ROWS) page.appendChild(buildRow(title, 8));
@@ -87,12 +120,24 @@
 
   // The extension's storage, stubbed. `content.js` is loaded as a plain script
   // below, so this has to exist before it runs.
-  // `?placement=header` lets the same fixture drive the other placement.
-  const wanted = new URLSearchParams(location.search).get('placement') || 'tile';
+  //
+  // `?tile=0&band=1` drives either placement or both at once. `?placement=` is
+  // still understood because the retired setting has to keep working: an
+  // install that stored `header` must still come back as a band.
+  const query = new URLSearchParams(location.search);
+  const legacy = query.get('placement');
+  const flag = (name, fallback) => (query.has(name) ? query.get(name) !== '0' : fallback);
+  const stored = {
+    matchUi: flag('match', true),
+    ...(legacy
+      ? { placement: legacy }
+      : { placeTile: flag('tile', true), placeBand: flag('band', false) }),
+  };
+
   window.chrome = {
     storage: {
       local: {
-        get: (defaults, cb) => cb({ ...defaults, placement: wanted }),
+        get: (defaults, cb) => cb({ ...defaults, ...stored }),
         set: (_v, cb) => cb?.(),
         remove: (_k, cb) => cb?.(),
       },
@@ -115,18 +160,22 @@
    * a card that appeared, moved, and appeared again. A single snapshot after
    * two seconds would have passed while it was flickering.
    */
-  const parents = new Set();
-  let maxCards = 0;
-  let moves = 0;
-  let lastParent = undefined;
+  const seen = {
+    tile: { parents: new Set(), max: 0, moves: 0, last: undefined },
+    band: { parents: new Set(), max: 0, moves: 0, last: undefined },
+  };
+  const ID = { tile: 'eighteen-zero-card', band: 'eighteen-zero-band' };
 
   const sample = () => {
-    const cards = document.querySelectorAll('#eighteen-zero-card');
-    maxCards = Math.max(maxCards, cards.length);
-    for (const card of cards) parents.add(card.parentElement);
-    const now = cards[0]?.parentElement ?? null;
-    if (lastParent !== undefined && now !== lastParent) moves++;
-    lastParent = now;
+    for (const which of ['tile', 'band']) {
+      const found = document.querySelectorAll(`#${ID[which]}`);
+      const state = seen[which];
+      state.max = Math.max(state.max, found.length);
+      for (const node of found) state.parents.add(node.parentElement);
+      const now = found[0]?.parentElement ?? null;
+      if (state.last !== undefined && now !== state.last) state.moves++;
+      state.last = now;
+    }
   };
 
   // Fixed timeouts rather than an interval: under Chrome's virtual clock a
@@ -137,59 +186,73 @@
 
   setTimeout(() => {
     sample();
-    const card = document.querySelector('#eighteen-zero-card');
+    const card = document.getElementById(ID.tile);
+    const band = document.getElementById(ID.band);
     const art = card?.querySelector('.ez-art');
+    const tiles = [...document.querySelectorAll('.rail .tile')];
+    const tallest = tiles.slice().sort(
+      (a, b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height,
+    )[0];
+    const firstShelf = document.querySelector('.shelf');
+    const label = document.querySelector('.label');
+
     document.title = JSON.stringify({
-      cards: document.querySelectorAll('#eighteen-zero-card').length,
-      maxCards,
-      distinctParents: parents.size,
-      moves,
+      cards: document.querySelectorAll(`#${ID.tile}`).length,
+      bands: document.querySelectorAll(`#${ID.band}`).length,
+      maxCards: seen.tile.max,
+      maxBands: seen.band.max,
+      distinctParents: seen.tile.parents.size,
+      moves: seen.tile.moves,
+      bandMoves: seen.band.moves,
       inFirstRow: card?.parentElement === document.querySelector('.rail'),
       onScreenX: card ? Math.round(card.getBoundingClientRect().x) : null,
-      isBand: Boolean(card?.classList.contains('ez-band')),
+      isBand: Boolean(band?.classList.contains('ez-band')),
       rowsFound: window.__ezRows ?? null,
-      heights: (() => {
-        const tiles = [...document.querySelectorAll('.rail .tile')];
-        const tallest = tiles.sort((a, b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height)[0];
-        return {
-          card: card ? Math.round(card.getBoundingClientRect().height) : null,
-          minH: card ? getComputedStyle(card).minHeight : null,
-          tallestTile: tallest ? Math.round(tallest.getBoundingClientRect().height) : null,
-          anchorTile: (() => { const t = document.querySelector('.rail .tile'); return t ? Math.round(t.getBoundingClientRect().height) : null; })(),
-        };
-      })(),
-      cardTopDelta: (() => {
-        const tiles = [...document.querySelectorAll('.rail .tile')];
-        const tallest = tiles.sort((a, b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height)[0];
-        if (!card || !tallest) return null;
-        return Math.round(card.getBoundingClientRect().top - tallest.getBoundingClientRect().top);
-      })(),
-      artInsetInCard: (() => {
-        const art = card?.querySelector('.ez-art');
-        if (!art || !card) return null;
-        return Math.round(art.getBoundingClientRect().top - card.getBoundingClientRect().top);
-      })(),
+
+      // What the card copied off a neighbour, rather than what it chose.
+      motion: card ? card.style.getPropertyValue('--ez-motion').trim() : null,
+      lift: card ? card.style.getPropertyValue('--ez-lift').trim() : null,
+
+      // **The band goes between two shelves, not inside one.** The bug this
+      // catches put it inside the carousel, below the section label and above
+      // the rail — which still "precedes the first rail", so the old check
+      // passed while the band was in the wrong place entirely.
+      bandParentIsPage: band ? band.parentElement === document.getElementById('page') : null,
+      bandInsideShelf: band && firstShelf ? firstShelf.contains(band) : null,
+      bandAboveLabel: band && label
+        ? (band.compareDocumentPosition(label) & Node.DOCUMENT_POSITION_FOLLOWING) > 0
+        : null,
+
+      heights: {
+        card: card ? Math.round(card.getBoundingClientRect().height) : null,
+        minH: card ? getComputedStyle(card).minHeight : null,
+        tallestTile: tallest ? Math.round(tallest.getBoundingClientRect().height) : null,
+        anchorTile: (() => { const t = document.querySelector('.rail .tile'); return t ? Math.round(t.getBoundingClientRect().height) : null; })(),
+      },
+      cardTopDelta: card && tallest
+        ? Math.round(card.getBoundingClientRect().top - tallest.getBoundingClientRect().top)
+        : null,
       artTopDelta: (() => {
-        const art = card?.querySelector('.ez-art');
         // Compared against the *tallest* tile in the row. A centred rail only
         // leaves the tallest item at the top of the line, so a shorter one is
         // legitimately lower and would make this measure nothing.
-        const tiles = [...document.querySelectorAll('.rail .tile')];
-        const tallest = tiles.sort(
-          (a, b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height,
-        )[0];
         const thumb = tallest?.querySelector('.thumb');
         if (!art || !thumb) return null;
         return Math.round(art.getBoundingClientRect().top - thumb.getBoundingClientRect().top);
       })(),
-      bandLeftDelta: (() => {
-        if (!card?.classList.contains('ez-band')) return null;
-        const heading = document.querySelector('h2');
-        if (!heading) return null;
-        return Math.round(card.getBoundingClientRect().left - heading.getBoundingClientRect().left);
-      })(),
-      aboveFirstRow: card ? (card.compareDocumentPosition(document.querySelector('.rail')) & Node.DOCUMENT_POSITION_FOLLOWING) > 0 : false,
+      // Measured against the *section* label. A band that lined itself up with
+      // a programme title inside a tile would land tens of pixels right of it.
+      bandLeftDelta: band && label
+        ? Math.round(band.getBoundingClientRect().left - label.getBoundingClientRect().left)
+        : null,
+      aboveFirstRow: band
+        ? (band.compareDocumentPosition(document.querySelector('.rail')) & Node.DOCUMENT_POSITION_FOLLOWING) > 0
+        : false,
       clickable: Boolean(art),
+      bandClickable: Boolean(band?.querySelector('.ez-band-go')),
+      // The two placements are separate elements; one must not be the other's
+      // parent, and neither may end up inside the other.
+      tangled: Boolean(card && band && (card.contains(band) || band.contains(card))),
     });
   }, 3200);
 </script>
