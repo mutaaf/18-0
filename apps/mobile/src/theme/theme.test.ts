@@ -298,5 +298,34 @@ function contrast(a: string, b: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
+describe('full-bleed artwork', () => {
+  /**
+   * An `<svg>` is a replaced element. CSS resolves `width: auto` on an
+   * absolutely positioned replaced element to its intrinsic size -- 300x150
+   * for an svg that declares none -- and not to the box its insets describe.
+   * So `style={StyleSheet.absoluteFill}` alone draws a 300x150 rectangle in a
+   * corner and leaves the rest of the surface bare.
+   *
+   * It belongs in this file because it is the same class of bug as an unwrapped
+   * stylesheet: invisible in Broadcast, whose gradients all fade to `void` at
+   * their edges, and a hard seam across every screen in Turf, whose weave fills
+   * its rect at a flat opacity. Six components shipped it, and it was found by
+   * measuring the live page rather than by reading any of them.
+   */
+  it('every absolutely filled Svg is given a size', () => {
+    const offenders: string[] = [];
+    for (const file of sourceFiles()) {
+      const source = readFileSync(file, 'utf8');
+      // Each `<Svg ...>` opening tag, however many lines it spans.
+      for (const [tag] of source.matchAll(/<Svg\b[^>]*>/g)) {
+        if (!tag.includes('StyleSheet.absoluteFill')) continue;
+        if (/\bwidth=/.test(tag) && /\bheight=/.test(tag)) continue;
+        offenders.push(relative(APP, file));
+      }
+    }
+    expect(offenders, 'absoluteFill without width/height').toEqual([]);
+  });
+});
+
 /** Referenced so the `Palette` import is load-bearing rather than decorative. */
 export type _Palette = Palette;

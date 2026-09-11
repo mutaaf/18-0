@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Brand } from '@/components/Brand';
 import { EmbedBoard } from '@/components/EmbedBoard';
@@ -68,11 +68,27 @@ export default function Embed() {
     tellHost(view);
   }, [view]);
 
+  /**
+   * The height the host should give this frame.
+   *
+   * Sent on layout rather than once on mount: the board arrives empty, paints a
+   * cached list, then re-paints a fresh one that may be a different length, and
+   * every one of those is a different height. `onLayout` fires for each, so the
+   * frame is the size of what is in it rather than the size of what was
+   * expected to be in it.
+   */
+  const measured = useCallback(
+    (event: LayoutChangeEvent) => tellHost(view, event.nativeEvent.layout.height),
+    [view],
+  );
+
   if (view === 'board') {
     return (
       <View style={styles.root}>
         <StadiumBackdrop />
-        <EmbedBoard />
+        <View onLayout={measured}>
+          <EmbedBoard />
+        </View>
       </View>
     );
   }
@@ -81,7 +97,7 @@ export default function Embed() {
     <View style={styles.root}>
       <StadiumBackdrop />
 
-      <View style={styles.body}>
+      <View style={styles.body} onLayout={measured}>
         <View style={styles.head}>
           <Brand size={20} />
           <Text style={styles.mode}>{MODE_LABEL.scout}</Text>

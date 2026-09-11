@@ -66,13 +66,26 @@ export function homeRoute(): '/embed' | '/(tabs)' {
  * player is actually on, because an entry card and a seven-row roster want very
  * different heights and a frame that fits both fits neither. Nothing is read
  * back, and nothing here is trusted -- the message is a courtesy, not a channel.
+ *
+ * `height` is the screen's own measurement, and the reason it exists is that a
+ * name is not a height. A board of two managers and a board of ten are both
+ * `board`, and the host's table had one number for them -- which drew a podium
+ * of two and then a hundred points of empty navy underneath it. The name stays
+ * because the host needs a height *before* the frame has loaded anything; the
+ * measurement refines it once there is something real to measure.
  */
-export function tellHost(screen: 'entry' | 'play' | 'result' | 'board'): void {
+export function tellHost(
+  screen: 'entry' | 'play' | 'result' | 'board',
+  height?: number,
+): void {
   if (!embedded || typeof window === 'undefined') return;
   try {
     // '*' rather than an origin: the frame does not know who is holding it, and
     // the payload is the name of a screen. There is nothing here to leak.
-    window.parent?.postMessage({ source: '18-0', screen }, '*');
+    window.parent?.postMessage(
+      { source: '18-0', screen, ...(height && height > 0 ? { height: Math.ceil(height) } : null) },
+      '*',
+    );
   } catch {
     // A sandboxed frame with no parent access. The host gets a fixed height.
   }

@@ -155,7 +155,10 @@ function Step({ row, place }: { row: LeaderboardRow; place: 1 | 2 | 3 }) {
 }
 
 const styles = themed(() => StyleSheet.create({
-  root: { flex: 1, padding: space.lg, gap: space.md },
+  // Not `flex: 1`. The frame is sized from what this measures, so a root that
+  // stretched to whatever height the host had already guessed would measure the
+  // guess and report it straight back.
+  root: { padding: space.lg, gap: space.md },
   head: { gap: 1 },
   title: {
     fontFamily: font.label,
@@ -235,7 +238,7 @@ const styles = themed(() => StyleSheet.create({
     ...tabular,
   },
 
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space.lg, gap: 4 },
+  empty: { minHeight: 150, alignItems: 'center', justifyContent: 'center', padding: space.lg, gap: 4 },
   emptyText: { fontFamily: font.heading, fontSize: 15, color: color.text, textAlign: 'center' },
   emptySub: {
     fontFamily: font.bodyRegular,

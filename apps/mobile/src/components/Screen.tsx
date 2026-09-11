@@ -12,6 +12,16 @@ import { DECORATIVE, color, themed, useLayout, useThemeId } from '@/theme';
  * change never reaches it through its parent -- there are no props to change.
  * The subscription is what re-renders it, and without it the app switches to a
  * navy identity while the backdrop behind everything stays black.
+ *
+ * `width`/`height` are not redundant next to `absoluteFill`. An `<svg>` is a
+ * replaced element, and CSS resolves `width: auto` on an absolutely positioned
+ * replaced element to its *intrinsic* size -- for an svg with no width, the
+ * 300x150 default -- rather than to the box the insets describe. So the
+ * backdrop drew a 300x150 rectangle in the top-left corner of every screen and
+ * left the rest of the page on the bare ground colour. It went unnoticed under
+ * Broadcast, whose gradients all fade to `void` at their edges; Turf's weave
+ * fills its rect at a flat opacity, so the same bug arrived as a hard seam down
+ * the middle of the app the day Turf became the default.
  */
 export const StadiumBackdrop = memo(function StadiumBackdrop() {
   const theme = useThemeId();
@@ -19,6 +29,8 @@ export const StadiumBackdrop = memo(function StadiumBackdrop() {
   return (
     <Svg
       style={StyleSheet.absoluteFill}
+      width="100%"
+      height="100%"
       pointerEvents="none"
       {...DECORATIVE}
     >

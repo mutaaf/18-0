@@ -65,7 +65,7 @@ export const PlayerCard = memo(function PlayerCard({
         ]}
       >
         {/* The team's own colours, washed across the card. */}
-        <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
           <Defs>
             <LinearGradient id={`tc-${card.id}`} x1="0" y1="0" x2="1" y2="0">
               <Stop offset="0" stopColor={teamColor} stopOpacity="0.42" />

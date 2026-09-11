@@ -183,8 +183,8 @@
    * two seconds would have passed while it was flickering.
    */
   const seen = {
-    tile: { parents: new Set(), max: 0, moves: 0, last: undefined },
-    band: { parents: new Set(), max: 0, moves: 0, last: undefined },
+    tile: { parents: new Set(), max: 0, moves: 0, seenIn: null },
+    band: { parents: new Set(), max: 0, moves: 0, seenIn: null },
   };
   const ID = { tile: 'eighteen-zero-card', band: 'eighteen-zero-band' };
 
@@ -194,9 +194,13 @@
       const state = seen[which];
       state.max = Math.max(state.max, found.length);
       for (const node of found) state.parents.add(node.parentElement);
+      // A *move* is "it was in A and now it is in B", not "it was not here and
+      // now it is". Counting the appearance made the band fail the moment it
+      // started waiting for the page to finish loading -- which is the fix for
+      // a real bug, reported by this check as a regression it is not.
       const now = found[0]?.parentElement ?? null;
-      if (state.last !== undefined && now !== state.last) state.moves++;
-      state.last = now;
+      if (now && state.seenIn && now !== state.seenIn) state.moves++;
+      if (now) state.seenIn = now;
     }
   };
 
@@ -236,6 +240,34 @@
 
       node?.remove();
     }, 300);
+  }
+
+  /*
+   * `?steal=1` -- the page taking one of ours over.
+   *
+   * This is what espn.com actually did, and it is not a hypothetical: the band
+   * goes in as the first child of a container React hydrates, React matches a
+   * container's existing children to its own by position, and it claimed our
+   * div as the element for the shelf below -- emptied it and rendered the whole
+   * carousel inside it. The node was still there, still had our id, still had
+   * the parent we remembered, so every check said "settled" and the row sat
+   * inside an enormous empty band until the page was reloaded.
+   *
+   * The two things that matter afterwards are asserted below: the shelf is
+   * still on the page (deleting our node would have taken espn.com's own row
+   * with it), and there is one band again, holding its own content.
+   */
+  const steal = {};
+  if (new URLSearchParams(location.search).get('steal') === '1') {
+    setTimeout(() => {
+      const band = document.getElementById(ID.band);
+      const shelf = band?.nextElementSibling;
+      steal.ran = Boolean(band && shelf);
+      if (!band || !shelf) return;
+      steal.node = band;
+      band.textContent = '';
+      band.appendChild(shelf);
+    }, 1400);
   }
 
   setTimeout(() => {
@@ -371,6 +403,20 @@
         };
       })(),
       bandLogo: Boolean(band?.querySelector('.ez-logo img.ez-logo-img')),
+
+      steal: steal.ran === undefined ? null : {
+        ran: steal.ran,
+        // espn.com's own row, which must survive us letting go of the node it
+        // now lives in.
+        shelfAlive: document.querySelectorAll('.shelf').length,
+        // The node the page took is no longer ours, and is still in the page.
+        disowned: steal.node ? !steal.node.id && !steal.node.className : null,
+        stillInPage: steal.node ? steal.node.isConnected : null,
+        // And there is a band again, with its own content and no shelf in it.
+        bands: document.querySelectorAll(`#${ID.band}`).length,
+        bandHoldsShelf: band ? band.querySelectorAll('.shelf').length : null,
+        bandHasCopy: Boolean(band?.textContent.trim()),
+      },
     });
   }, 3200);
 </script>

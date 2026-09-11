@@ -38,7 +38,7 @@ export const ShareCard = forwardRef<View, {
 
   return (
     <View ref={ref} collapsable={false} style={[styles.card, perfect && styles.cardPerfect]}>
-      <Svg style={StyleSheet.absoluteFill} viewBox="0 0 540 675" preserveAspectRatio="none">
+      <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" viewBox="0 0 540 675" preserveAspectRatio="none">
         <Defs>
           <LinearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
             <Stop offset="0" stopColor={perfect ? color.ink : color.ink} />

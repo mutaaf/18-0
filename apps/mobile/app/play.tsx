@@ -501,7 +501,7 @@ export default function Play() {
         style={[styles.hero, team ? { borderColor: `${team.color}73` } : null, { opacity: heroOpacity }]}
       >
         {team ? (
-          <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
             <Defs>
               <LinearGradient id="heroWash" x1="0" y1="0" x2="1" y2="1">
                 <Stop offset="0" stopColor={team.color} stopOpacity="0.34" />

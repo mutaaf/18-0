@@ -429,6 +429,21 @@ check(
 // Opening it must not have disturbed the card underneath.
 check('and the tile underneath never moved', panel.moves === 0 && panel.cards === 1, `${panel.moves} move(s), ${panel.cards} tile(s)`);
 
+// The page taking one of ours over, and what happens next. `?steal=1` empties
+// the band and moves the shelf into it, which is what React hydration did on
+// espn.com.
+const stolen = run('?band=1&tile=0&steal=1');
+console.log('\nWHEN THE PAGE CLAIMS THE BAND');
+check('the theft happened', stolen.steal?.ran === true);
+// The one that matters most. Our node now holds espn.com's row, so `remove()`
+// would take the Featured carousel off the page to fix our own layout bug.
+check('espn.com keeps its row', stolen.steal?.shelfAlive >= 1, `${stolen.steal?.shelfAlive} shelf/shelves`);
+check('the claimed node is left where it is', stolen.steal?.stillInPage === true);
+check('and we stop claiming it', stolen.steal?.disowned === true);
+check('there is a band again', stolen.steal?.bands === 1, `${stolen.steal?.bands}`);
+check('with its own content in it', stolen.steal?.bandHasCopy === true);
+check('and no shelf inside it', stolen.steal?.bandHoldsShelf === 0, `${stolen.steal?.bandHoldsShelf}`);
+
 // The retired setting, driven end to end: storage holding `header` and nothing
 // else must still put a band on the page.
 const legacy = run('?placement=header');

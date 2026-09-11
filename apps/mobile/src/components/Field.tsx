@@ -45,6 +45,8 @@ const Turf = memo(function Turf() {
   return (
     <Svg
       style={StyleSheet.absoluteFill}
+      width="100%"
+      height="100%"
       viewBox="0 0 300 260"
       preserveAspectRatio="none"
       {...DECORATIVE}

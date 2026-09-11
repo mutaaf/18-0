@@ -68,13 +68,24 @@ function parts(placement) {
   };
 }
 
-/** The rows on the page, asked for once and offered to both pickers. */
+/**
+ * The rows on the page, asked for once and offered to both pickers.
+ *
+ * Timed out, because `sendMessage` to a content script that never answers does
+ * not reject -- it waits. On a watch page mid-render, answering means measuring
+ * every candidate rail on it, and the popup sat blank for as long as that took
+ * and forever if the script's context had been invalidated by a reload. A
+ * picker that says "open espn.com/watch" is wrong in a way somebody can act on;
+ * a popup that shows nothing is not.
+ */
 async function pageRows() {
   const tab = await activeTab();
   if (!tab?.id) return null;
   try {
-    const reply = await chrome.tabs.sendMessage(tab.id, { type: 'rows' });
-    return reply?.rows ?? [];
+    return await Promise.race([
+      chrome.tabs.sendMessage(tab.id, { type: 'rows' }).then((reply) => reply?.rows ?? []),
+      new Promise((resolve) => setTimeout(() => resolve(null), 2000)),
+    ]);
   } catch {
     return null;
   }
@@ -88,6 +99,10 @@ function fillPicker(placement, rows, selected) {
     pick.disabled = true;
     return;
   }
+
+  // Both were disabled while the page was being asked; the answer is here.
+  select.disabled = false;
+  pick.disabled = false;
 
   select.replaceChildren();
   const first = document.createElement('option');
@@ -120,45 +135,65 @@ function fillPicker(placement, rows, selected) {
   pick.textContent = placement.pickLabel;
 }
 
+/**
+ * The popup draws itself from storage, and only the row list waits.
+ *
+ * Every switch in here is answered by `chrome.storage.local`, which is local
+ * and instant. The row list is the one thing that has to ask the page. Holding
+ * the whole render behind that ask -- which is what this did -- meant the
+ * popup opened *empty*, switches included, for as long as a busy watch page
+ * took to measure its rails, and stayed empty when it never answered at all.
+ * So: draw everything, then fill the two pickers when the page replies.
+ */
 chrome.storage.local.get(EZ_DEFAULTS, (stored) => {
   const settings = ezSettings(stored);
   enabled.checked = settings.enabled;
   matchUi.checked = settings.matchUi;
 
-  void pageRows().then((rows) => {
-    for (const placement of PLACEMENTS) {
-      const { box, where, select, pick } = parts(placement);
-      box.checked = settings[placement.flag];
+  for (const placement of PLACEMENTS) {
+    const { box, where, select, pick } = parts(placement);
+    box.checked = settings[placement.flag];
+    where.hidden = !box.checked;
+    waiting(placement);
+
+    box.addEventListener('change', () => {
       where.hidden = !box.checked;
-      fillPicker(placement, rows, settings[placement.key]);
+      // `placement: null` retires the setting these two flags replaced. Left
+      // in storage it is read as a migration on every load and puts the flag
+      // somebody just changed back where it was.
+      chrome.storage.local.set({ [placement.flag]: box.checked, placement: null });
+    });
 
-      box.addEventListener('change', () => {
-        where.hidden = !box.checked;
-        // `placement: null` retires the setting these two flags replaced. Left
-        // in storage it is read as a migration on every load and puts the flag
-        // somebody just changed back where it was.
-        chrome.storage.local.set({ [placement.flag]: box.checked, placement: null });
-      });
+    select.addEventListener('change', () => {
+      chrome.storage.local.set({ [placement.key]: select.value || null });
+    });
 
-      select.addEventListener('change', () => {
-        chrome.storage.local.set({ [placement.key]: select.value || null });
-      });
+    pick.addEventListener('click', async () => {
+      const tab = await activeTab();
+      if (!tab?.id) return;
+      try {
+        await chrome.tabs.sendMessage(tab.id, { type: 'pick', for: placement.which });
+        // The popup has to close, or the click that chooses a row lands on
+        // the popup instead of the page.
+        window.close();
+      } catch {
+        pick.textContent = 'Open espn.com/watch first';
+      }
+    });
+  }
 
-      pick.addEventListener('click', async () => {
-        const tab = await activeTab();
-        if (!tab?.id) return;
-        try {
-          await chrome.tabs.sendMessage(tab.id, { type: 'pick', for: placement.which });
-          // The popup has to close, or the click that chooses a row lands on
-          // the popup instead of the page.
-          window.close();
-        } catch {
-          pick.textContent = 'Open espn.com/watch first';
-        }
-      });
-    }
+  void pageRows().then((rows) => {
+    for (const placement of PLACEMENTS) fillPicker(placement, rows, settings[placement.key]);
   });
 });
+
+/** What a picker says while the page is still being asked. */
+function waiting(placement) {
+  const { select, note, pick } = parts(placement);
+  select.disabled = true;
+  pick.disabled = true;
+  note.textContent = 'Reading the page\u2026';
+}
 
 enabled.addEventListener('change', () => {
   chrome.storage.local.set({ enabled: enabled.checked });

@@ -44,6 +44,9 @@ const EMBED_URL = 'https://18-0.co/embed';
 
 /** Heights the frame is given, by the screen the game says it is on. */
 const FRAME_HEIGHT = { entry: 232, play: 620, result: 760, board: 520 };
+/** What a measured height is allowed to be. A frame is a guest in a row. */
+const FRAME_MIN = 150;
+const FRAME_MAX = 760;
 
 /**
  * What the panel can show, and what each view asks the embed for.
@@ -777,15 +780,81 @@ const placed = { tile: null, band: null };
 
 const ID_OF = { tile: TILE_ID, band: BAND_ID };
 
-/** Is this placement still exactly where we put it? */
+/**
+ * How many times the page has taken a placement over. See `disown`.
+ *
+ * Bounded, because the recovery is "put it back" and a page that claims it
+ * again every time would have us in a loop -- which is the precise failure this
+ * whole section exists to prevent, arriving by a different door.
+ */
+const adoptions = { tile: 0, band: 0 };
+const GIVE_UP_AFTER = 3;
+
+/**
+ * A node of our own, inside a placement, held as a reference.
+ *
+ * This is how "still ours" is answered, and it is a reference rather than a
+ * selector because the markup inside a placement is free to change and this
+ * check is not about markup.
+ */
+function ownMark() {
+  const mark = document.createElement('span');
+  mark.hidden = true;
+  return mark;
+}
+
+/**
+ * Is this placement still exactly where we put it -- and still ours?
+ *
+ * The second half is not paranoia. The band goes in as the first child of a
+ * container React hydrates, and React matches a container's existing children
+ * to its own by position: it claimed our div as the element for the shelf
+ * below, emptied it, and rendered the whole carousel inside it. The node was
+ * still there, still had our id, still had the parent we remembered -- so the
+ * old check said "settled" and nothing ever looked again. What the user saw was
+ * a row sitting inside an enormous empty band, permanently.
+ */
 function settledAt(which) {
+  const at = placed[which];
+  if (!at) return false;
   const node = document.getElementById(ID_OF[which]);
-  return Boolean(node && placed[which]?.isConnected && node.parentElement === placed[which]);
+  if (!node || !at.host.isConnected || node.parentElement !== at.host) return false;
+  return at.mark.isConnected && at.mark.parentElement === node;
+}
+
+/** Is this node still holding our own content? */
+function stillOurs(which, node) {
+  const at = placed[which];
+  return Boolean(at && at.mark.isConnected && at.mark.parentElement === node);
 }
 
 function removeAt(which) {
-  document.getElementById(ID_OF[which])?.remove();
+  const node = document.getElementById(ID_OF[which]);
+  const ours = node && stillOurs(which, node);
   placed[which] = null;
+  if (!node) return;
+  if (ours) return node.remove();
+  adoptions[which] += 1;
+  disown(which, node);
+}
+
+/**
+ * Hand a node back to the page instead of deleting it.
+ *
+ * Once React has adopted one of ours, the page's own content is *inside* it --
+ * the Featured row, in the case that was reported. `remove()` would take the
+ * row off espn.com with it, which is not a thing an extension gets to do to fix
+ * its own layout bug. So the node stays exactly where it is and only our claim
+ * on it goes: no id, no classes, no inline margins, leaving an anonymous
+ * wrapper div that lays out like the one React thinks it has.
+ */
+function disown(which, node) {
+  node.removeAttribute('id');
+  node.removeAttribute('class');
+  node.removeAttribute('style');
+  if (adoptions[which] >= GIVE_UP_AFTER) {
+    console.warn(`[18-0] the page keeps claiming the ${which}; leaving it out.`);
+  }
 }
 
 /** Everything of ours off the page, for the toggle that leaves it untouched. */
@@ -935,8 +1004,16 @@ function place() {
   if (!settings.placeTile) removeAt('tile');
   if (!settings.placeBand) removeAt('band');
 
-  const needTile = settings.placeTile && !settledAt('tile');
-  const needBand = settings.placeBand && !settledAt('band');
+  const needTile = settings.placeTile && adoptions.tile < GIVE_UP_AFTER && !settledAt('tile');
+  // The band waits for the page to finish building itself. It goes in as the
+  // first child of a container React hydrates, and a node that is already there
+  // when hydration runs is a node hydration can claim -- see `disown`. Waiting
+  // is what stops that happening; `disown` is what survives it when it does.
+  const needBand =
+    settings.placeBand &&
+    adoptions.band < GIVE_UP_AFTER &&
+    document.readyState === 'complete' &&
+    !settledAt('band');
   // Still where we put them: done. No querying, no measuring, no work at all --
   // which matters, because this runs behind a MutationObserver on a page that
   // never stops re-rendering.
@@ -955,7 +1032,6 @@ function place() {
 function insertTile(rows) {
   const row = chosenRow(rows, settings.row);
   if (!row) return;
-  placed.tile = row.node;
   // **Second, not first.** The first slot of these carousels sits under the
   // left edge of a `SECTION.overflow-hidden` and moves as the rail scrolls, so
   // a card placed there is clipped -- measured at x=-4 on a fresh load and
@@ -963,7 +1039,11 @@ function insertTile(rows) {
   // looked like from the outside. The second slot is fully on screen at every
   // scroll position a page arrives in.
   const after = row.node.children[0];
-  row.node.insertBefore(buildCard(shapeFrom(row.tile)), after?.nextElementSibling ?? null);
+  const card = buildCard(shapeFrom(row.tile));
+  const mark = ownMark();
+  card.appendChild(mark);
+  placed.tile = { host: row.node, mark };
+  row.node.insertBefore(card, after?.nextElementSibling ?? null);
 }
 
 function insertBand(rows) {
@@ -979,8 +1059,10 @@ function insertBand(rows) {
   const into = shelf.parentElement;
   if (!into) return;
 
-  placed.band = into;
   const band = buildBand(timingFrom(artOf(row.tile) ?? row.tile));
+  const mark = ownMark();
+  band.appendChild(mark);
+  placed.band = { host: into, mark };
   // Aligned to the heading it sits between rather than to a number. The shelves
   // here are inset 24px, not the 32 a first guess used, and that inset moves
   // with the viewport -- so it is read off the real heading.
@@ -1128,14 +1210,27 @@ async function consentRow() {
  * Origin-checked before anything is read. A page can post whatever it likes to
  * its own window, and a message shaped like ours from anywhere else is exactly
  * what this check is for -- even though the worst it could do is resize a box.
+ *
+ * The frame may send a measured height with the screen's name, and it is
+ * preferred when it arrives: the table has one number for `board`, and a board
+ * of two managers is not the height of a board of ten -- which is what drew a
+ * podium and then a hundred pixels of empty navy under it. It is still clamped,
+ * because a number from a frame is a number from a page.
  */
 window.addEventListener('message', (event) => {
   if (event.origin !== 'https://18-0.co') return;
   const screen = event.data?.source === '18-0' ? event.data.screen : null;
   if (!screen || !(screen in FRAME_HEIGHT)) return;
   const frame = document.querySelector(`#${PANEL_ID} .ez-frame`);
-  if (frame) frame.style.height = `${FRAME_HEIGHT[screen]}px`;
+  if (frame) frame.style.height = `${frameHeight(screen, event.data.height)}px`;
 });
+
+/** The height for a screen: what it measured if that is sane, else the table. */
+function frameHeight(screen, asked) {
+  const n = Number(asked);
+  if (!Number.isFinite(n) || n <= 0) return FRAME_HEIGHT[screen];
+  return Math.min(FRAME_MAX, Math.max(FRAME_MIN, Math.round(n)));
+}
 
 // ---------------------------------------------------------------------------
 // Picking a row by clicking it
@@ -1206,6 +1301,8 @@ store.get(EZ_DEFAULTS, (stored) => {
   }).observe(document.body, { childList: true, subtree: true });
   // A single-page app changes the view without a load event.
   window.addEventListener('popstate', schedule);
+  // And the band is held back until there *has* been one. See `place`.
+  if (document.readyState !== 'complete') window.addEventListener('load', schedule, { once: true });
 });
 
 chrome.storage.onChanged.addListener((changes) => {
