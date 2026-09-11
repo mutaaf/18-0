@@ -82,6 +82,28 @@ const CTA_COPY: Record<
   },
 };
 
+/**
+ * The day this marquee would draw, if it draws at all.
+ *
+ * Exported because the home screen has to know whether the slab is about to
+ * appear *before* it lays out the billboard above it -- a lit board with a
+ * scoreboard rail and a gameday marquee underneath it puts the mode cards off
+ * the bottom of a phone, and the one thing the front page may not do is bury
+ * the way in. Every caller has to ask the same question, so there is one place
+ * that answers it rather than two copies of a horizon check that drift.
+ *
+ * The flag is deliberately *not* read here. `gameday` is read where it is used,
+ * and a predicate that quietly reported an exposure every time somebody laid
+ * out the home screen would be the wrong place for it.
+ */
+export function gamedayMarqueeDay(now = Date.now(), horizonDays = 8): Gameday | null {
+  const live = gamedayAt(new Date(now));
+  if (live) return live;
+  const next = nextGamedayAfter(new Date(now));
+  if (!next) return null;
+  return Date.parse(next.opensAt) - now > horizonDays * 86_400_000 ? null : next;
+}
+
 /** `Dallas at Philadelphia`, because a city is a place and a club is a mark. */
 const fixture = (game: Gameday['games'][number]): string =>
   `${franchise(game.away).nick} at ${franchise(game.home).nick}`;
@@ -132,8 +154,9 @@ export function GamedayHero({
   }, []);
 
   const live = useMemo(() => gamedayAt(new Date(now)), [now]);
-  const next = useMemo(() => (live ? null : nextGamedayAfter(new Date(now))), [live, now]);
-  const day = live ?? next;
+  // The same question the home screen asked before it sized the billboard, so
+  // the two cannot disagree about whether this slab is on screen.
+  const day = useMemo(() => gamedayMarqueeDay(now, horizonDays), [now, horizonDays]);
 
   const [motion, setMotion] = useState(true);
   useEffect(() => {
@@ -178,10 +201,9 @@ export function GamedayHero({
   }, [live, motion]);
 
   if (!enabled || !day) return null;
-  if (!live && Date.parse(day.opensAt) - now > horizonDays * 86_400_000) return null;
 
   const closing = live ? until(live.closesAt, now) : null;
-  const opening = next ? until(next.opensAt, now) : null;
+  const opening = live ? null : until(day.opensAt, now);
   const shown = day.games.slice(0, 3);
   const hidden = day.games.length - shown.length;
 
