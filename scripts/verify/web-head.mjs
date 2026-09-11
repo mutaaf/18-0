@@ -11,7 +11,27 @@
  * So this reads the file that actually ships.
  */
 import { readFile, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+
+/**
+ * The ground the app ships with, read from the palette rather than copied.
+ *
+ * The manifest and the `theme-color` meta are painted by the browser and by the
+ * installed app's splash *before* React mounts, so they have to agree with the
+ * default theme or every cold start flashes the wrong colour. A hardcoded hex
+ * here agreed with the app right up until the default moved from Broadcast to
+ * Turf, and then failed the deploy for being correct.
+ */
+async function shippedGround() {
+  const src = await readFile(
+    resolve(import.meta.dirname, '../../apps/mobile/src/theme/palettes.ts'),
+    'utf8',
+  );
+  const id = src.match(/DEFAULT_THEME: ThemeId = '(\w+)'/)?.[1];
+  if (!id) return null;
+  const block = src.slice(src.indexOf(`id: '${id}'`));
+  return block.match(/void: '(#[0-9A-Fa-f]{6})'/)?.[1]?.toUpperCase() ?? null;
+}
 
 const dist = process.argv[2] ?? 'dist';
 const html = await readFile(join(dist, 'index.html'), 'utf8');
@@ -82,8 +102,22 @@ if (manifestRaw) {
   // installed app that opens on an error page.
   check('it starts inside its own scope', String(manifest.start_url ?? '').startsWith(manifest.scope ?? '\u0000'),
     `${manifest.start_url} in ${manifest.scope}`);
-  check('the ground matches the app', manifest.background_color === '#06080F' && manifest.theme_color === '#06080F',
-    `${manifest.background_color} / ${manifest.theme_color}`);
+  const ground = await shippedGround();
+  const manifestGround = (c) => String(c ?? '').toUpperCase() === ground;
+  check(
+    'the ground matches the app',
+    Boolean(ground) && manifestGround(manifest.background_color) && manifestGround(manifest.theme_color),
+    `${manifest.background_color} / ${manifest.theme_color}, app ships ${ground ?? '?'}`,
+  );
+
+  // The same colour, in the file the browser paints from before any of this
+  // loads. It was never checked, so the two could disagree silently.
+  const metaGround = html.match(/<meta\s+name="theme-color"\s+content="([^"]+)"/i)?.[1];
+  check(
+    'and so does the page the browser paints first',
+    Boolean(ground) && String(metaGround ?? '').toUpperCase() === ground,
+    `${metaGround ?? 'missing'} in index.html`,
+  );
 
   const icons = Array.isArray(manifest.icons) ? manifest.icons : [];
   check('it ships a 192 and a 512', icons.some((i) => i.sizes === '192x192') && icons.some((i) => i.sizes === '512x512'),
