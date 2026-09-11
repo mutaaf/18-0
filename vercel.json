@@ -33,11 +33,24 @@
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },
     {
-      "source": "/(.*)",
+      "//": "The one framable surface. `/embed` is play-only -- no sign-in, no handle, no account deletion -- which is what makes putting it in somebody else's page acceptable: clickjacking needs a control worth stealing a click on. X-Frame-Options cannot express an allowlist and would deny outright, so this path is excluded from the rule below and answers with frame-ancestors instead.",
+      "source": "/embed",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://www.espn.com https://espn.com" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
+        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
+      ]
+    },
+    {
+      "//": "Everything else refuses to be framed at all. The negative lookahead is what keeps this rule off /embed -- Vercel applies every matching block, so a plain catch-all would put X-Frame-Options back on the one path that must not have it.",
+      "source": "/((?!embed$).*)",
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self'" },
         { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
         { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
       ]

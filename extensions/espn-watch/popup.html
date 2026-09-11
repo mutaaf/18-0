@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: dark; }
+  body {
+    width: 268px;
+    margin: 0;
+    padding: 14px;
+    background: #070e3a;
+    color: #fff;
+    font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  h1 { margin: 0 0 2px; font-size: 15px; letter-spacing: -0.2px; }
+  h1 span { color: #ffc531; }
+  .sub { margin: 0 0 14px; font-size: 11px; color: rgba(255,255,255,0.5); }
+  .row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 9px 0;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .row p { margin: 0; }
+  .row small { display: block; font-size: 10.5px; color: rgba(255,255,255,0.45); margin-top: 1px; }
+  select, button {
+    font: inherit; color: #fff;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 8px; padding: 6px 9px; cursor: pointer;
+  }
+  select { max-width: 130px; }
+  button.primary { background: #5fbb46; color: #06210a; border-color: #7bd35f; font-weight: 600; }
+  .switch { position: relative; width: 40px; height: 23px; flex: 0 0 auto; }
+  .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+  .track {
+    position: absolute; inset: 0; border-radius: 999px;
+    background: rgba(255,255,255,0.16); transition: background 160ms;
+    pointer-events: none;
+  }
+  .track::after {
+    content: ""; position: absolute; top: 3px; left: 3px;
+    width: 17px; height: 17px; border-radius: 50%;
+    background: #fff; transition: transform 160ms;
+  }
+  .switch input:checked + .track { background: #5fbb46; }
+  .switch input:checked + .track::after { transform: translateX(17px); }
+  .switch input:focus-visible + .track { outline: 2px solid #ffc531; outline-offset: 2px; }
+  footer { margin-top: 12px; font-size: 10px; color: rgba(255,255,255,0.35); line-height: 1.45; }
+  .full { width: 100%; margin-top: 8px; text-align: center; }
+</style>
+</head>
+<body>
+  <h1>18<span>-</span>0 on Watch</h1>
+  <p class="sub">A playable card, in the row you choose.</p>
+
+  <div class="row">
+    <p>Show the card<small>Off leaves the page untouched</small></p>
+    <label class="switch">
+      <input type="checkbox" id="enabled" checked>
+      <span class="track"></span>
+    </label>
+  </div>
+
+  <div class="row">
+    <p>Match the Watch UI<small>Same box and corner as its neighbours</small></p>
+    <label class="switch">
+      <input type="checkbox" id="matchUi" checked>
+      <span class="track"></span>
+    </label>
+  </div>
+
+  <div class="row">
+    <p>Row<small id="rowNote">First row on the page</small></p>
+    <select id="row"><option value="">First row</option></select>
+  </div>
+
+  <button class="primary full" id="pick">Pick a row on the page</button>
+
+  <footer>
+    Loaded unpacked for demos. Adds one card to the page and changes nothing
+    else on it.
+  </footer>
+
+  <script src="popup.js"></script>
+</body>
+</html>

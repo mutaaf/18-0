@@ -11,6 +11,7 @@ import { Celebration } from '@/components/Celebration';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
 import { ShareCard, type ShareRosterRow } from '@/components/ShareCard';
+import { homeRoute, tellHost } from '@/features/embed';
 import { shareResult } from '@/features/share';
 import { askForReminders, scheduleStreakReminder } from '@/features/reminders';
 import { hideSeason } from '@/services/supabase';
@@ -64,6 +65,9 @@ export default function Result() {
   // as a repainted picker sitting inside a screen still wearing the old
   // colours. `theme.test.ts` asserts every route does this.
   useThemeId();
+  // The host frame sizes itself to the screen: a seven-row roster and the
+  // analysis panels are several times the height of the entry card.
+  useEffect(() => tellHost('result'), []);
   const router = useRouter();
   const layout = useLayout();
   const game = useGameStore();
@@ -170,7 +174,7 @@ export default function Result() {
   }, [result?.finalRating, line.settled]);
 
   useEffect(() => {
-    if (!result) router.replace('/(tabs)');
+    if (!result) router.replace(homeRoute());
   }, [result]);
 
   if (!result) {
@@ -509,7 +513,7 @@ export default function Result() {
         <Layer t={line.t} at={CUE.plate} distance={0} style={styles.header}>
           <Brand size={22} tint={perfect ? color.goldBright : undefined} />
           <Pressable
-            onPress={() => router.replace('/(tabs)')}
+            onPress={() => router.replace(homeRoute())}
             accessibilityRole="button"
             accessibilityLabel="Done"
           >

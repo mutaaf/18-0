@@ -22,6 +22,7 @@ import { PlayerCard } from '@/components/PlayerCard';
 import { Screen } from '@/components/Screen';
 import { MODE_LABEL, lookupCard, showsRating, slotsForCard, useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
+import { tellHost } from '@/features/embed';
 import { ratingBucket, track } from '@/features/telemetry';
 import { rankedComplete, rankedSelect, rankedSpin } from '@/features/ranked';
 import { DECORATIVE, color, elevate, font, positionColor, radius, space, tabular, themed, tracking, type PressState, useLayout, useThemeId } from '@/theme';
@@ -37,6 +38,7 @@ export default function Play() {
   // as a repainted picker sitting inside a screen still wearing the old
   // colours. `theme.test.ts` asserts every route does this.
   useThemeId();
+  useEffect(() => tellHost('play'), []);
   const router = useRouter();
   const layout = useLayout();
   const game = useGameStore();

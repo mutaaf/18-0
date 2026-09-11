@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "18-0 on Watch",
+  "version": "1.0.0",
+  "description": "Puts a playable 18-0 card into a row on ESPN's Watch page. A placement demo, loaded unpacked — not a published extension.",
+  "icons": { "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "18-0 on Watch",
+    "default_icon": { "48": "icons/icon-48.png", "128": "icons/icon-128.png" }
+  },
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.espn.com/watch*", "https://espn.com/watch*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.espn.com/watch*", "https://espn.com/watch*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
