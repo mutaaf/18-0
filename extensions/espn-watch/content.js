@@ -162,13 +162,54 @@ function chosenRow(rows, label) {
  * open in front of them". Neither is a guess about attention, and both are
  * written where only this browser can read them -- see the note in `config.js`.
  */
+
+/**
+ * Is the extension still behind this script?
+ *
+ * Reloading an extension does not reload the pages it is already running in.
+ * The old content script stays in the DOM with a `chrome` object whose context
+ * is gone, and every call through it throws `Extension context invalidated`.
+ *
+ * That is how "the panel does not pop up any more" happens: the card is still
+ * on the page, the click handler still fires, and the first thing it did was
+ * record the open -- which threw, so the panel was never built. A counter must
+ * never be the reason a control stops working.
+ */
+function alive() {
+  try {
+    return Boolean(chrome.runtime?.id);
+  } catch {
+    return false;
+  }
+}
+
+/** Storage that cannot throw into a caller that has something better to do. */
+const store = {
+  get(defaults, then) {
+    if (!alive()) return then(defaults);
+    try {
+      chrome.storage.local.get(defaults, (got) => then(got ?? defaults));
+    } catch {
+      then(defaults);
+    }
+  },
+  set(values) {
+    if (!alive()) return;
+    try {
+      chrome.storage.local.set(values);
+    } catch {
+      // The page outlived the extension. Nothing to do and nothing to break.
+    }
+  },
+};
+
 const STATS_KEY = 'stats';
 
 let stats = { watchSeconds: 0, playSeconds: 0, impressions: 0, opens: 0, since: null };
 let ticker = null;
 
 function loadStats(then) {
-  chrome.storage.local.get({ [STATS_KEY]: null }, (got) => {
+  store.get({ [STATS_KEY]: null }, (got) => {
     stats = got[STATS_KEY] ?? { ...stats, since: Date.now() };
     then?.();
   });
@@ -183,7 +224,7 @@ function saveStats() {
 function flushStats() {
   if (!statsDirty) return;
   statsDirty = false;
-  chrome.storage.local.set({ [STATS_KEY]: stats });
+  store.set({ [STATS_KEY]: stats });
 }
 
 function watching() {
@@ -785,7 +826,6 @@ function insertBand(rows) {
 
 function openPanel() {
   if (document.getElementById(PANEL_ID)) return;
-  countOpen();
 
   const panel = document.createElement('div');
   panel.id = PANEL_ID;
@@ -813,6 +853,8 @@ function openPanel() {
   document.addEventListener('keydown', onKey);
 
   document.body.appendChild(panel);
+  // After it is on screen, never before: see `alive()`.
+  countOpen();
 
   // Asked after the panel is up, so the game is already loading behind it and
   // the question is not the first thing between somebody and playing.
@@ -855,13 +897,15 @@ async function consentRow() {
   const no = el('button', 'ez-consent-no', 'Not now');
   no.type = 'button';
 
-  yes.addEventListener('click', async () => {
-    await ezGrantIdentity();
+  yes.addEventListener('click', () => {
     row.replaceChildren(el('p', 'ez-consent-done', 'Linked. Your seasons can rank on the shared board.'));
+    void ezGrantIdentity().catch(() => {});
   });
-  no.addEventListener('click', async () => {
-    await chrome.storage.local.set({ [EZ_IDENTITY_KEY]: { linked: false, declined: true, at: Date.now() } });
+  no.addEventListener('click', () => {
+    // Removed first. Recording the decline is bookkeeping, and a dead extension
+    // context must not leave the prompt on screen after it has been answered.
     row.remove();
+    store.set({ [EZ_IDENTITY_KEY]: { linked: false, declined: true, at: Date.now() } });
   });
 
   actions.append(yes, no);
@@ -907,7 +951,7 @@ function onPick(event) {
   const key = picking === 'band' ? 'gap' : 'row';
   const which = picking === 'band' ? 'band' : 'tile';
   settings[key] = hit.label;
-  chrome.storage.local.set({ [key]: hit.label });
+  store.set({ [key]: hit.label });
   setPicking(null);
   removeAt(which);
   place();
@@ -943,7 +987,7 @@ function theirs(records) {
   });
 }
 
-chrome.storage.local.get(EZ_DEFAULTS, (stored) => {
+store.get(EZ_DEFAULTS, (stored) => {
   settings = ezSettings(stored);
   startCounting();
   place();
@@ -979,7 +1023,7 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   }
   if (message?.type === 'resetStats') {
     stats = { watchSeconds: 0, playSeconds: 0, impressions: 0, opens: 0, since: Date.now() };
-    chrome.storage.local.set({ [STATS_KEY]: stats });
+    store.set({ [STATS_KEY]: stats });
     respond({ ok: true });
     return true;
   }

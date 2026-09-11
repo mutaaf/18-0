@@ -134,6 +134,28 @@ check('no band was placed', report.bands === 0, `${report.bands}`);
  * job is what happens when there is *no* sponsor: leaving "Presented by" with
  * nothing after it, or a dangling separator, is worse than having no line.
  */
+/*
+ * A reloaded extension leaves its old content script in every open page with a
+ * `chrome` object whose context is gone. Everything through it throws -- and
+ * `openPanel` used to record the open *before* building the panel, so the card
+ * stayed on the page, the click still fired, and nothing happened.
+ */
+console.log('\nWITH THE EXTENSION CONTEXT GONE');
+{
+  const deadDom = dumpDom('?dead=1');
+  const deadTitle = deadDom.match(/<title>(.*?)<\/title>/s)?.[1];
+  let dead;
+  try {
+    dead = JSON.parse(deadTitle.replace(/&quot;/g, '"'));
+  } catch {
+    dead = null;
+  }
+  check('the card is still placed', dead?.cards === 1, `${dead?.cards}`);
+  // TODO: assert the panel still opens here. The probe needs a selector for
+  // whatever the tile's control is, and the tile's markup is being rewritten --
+  // a check pinned to the old class would pass by not finding anything.
+}
+
 console.log('\nSPONSOR COPY');
 {
   const src = readFileSync(resolve(import.meta.dirname, 'config.js'), 'utf8');

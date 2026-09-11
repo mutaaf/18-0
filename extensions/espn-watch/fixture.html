@@ -134,16 +134,24 @@
       : { placeTile: flag('tile', true), placeBand: flag('band', false) }),
   };
 
+  // `?dead=1` reproduces a reloaded extension: the script is still in the page,
+  // but its context is gone and every `chrome.*` call throws. That is the state
+  // in which the panel stopped opening, because recording the open ran before
+  // the panel was built.
+  const dead = query.get('dead') === '1';
+  const boom = () => { throw new Error('Extension context invalidated.'); };
+
   window.chrome = {
+    // `runtime.id` is how `alive()` decides, so a dead context has none.
+    runtime: dead ? {} : { id: 'fixture', onMessage: { addListener: () => {} } },
     storage: {
       local: {
-        get: (defaults, cb) => cb({ ...defaults, ...stored }),
-        set: (_v, cb) => cb?.(),
-        remove: (_k, cb) => cb?.(),
+        get: (defaults, cb) => (dead ? boom() : cb({ ...defaults, ...stored })),
+        set: (_v, cb) => (dead ? boom() : cb?.()),
+        remove: (_k, cb) => (dead ? boom() : cb?.()),
       },
       onChanged: { addListener: () => {} },
     },
-    runtime: { onMessage: { addListener: () => {} } },
   };
 </script>
 
