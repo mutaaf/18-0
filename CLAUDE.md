@@ -119,11 +119,20 @@ then move. Until then: **stage by path, never `git add -A`**, and read
 ```bash
 pnpm -r typecheck
 pnpm -r test
+pnpm verify:builds        # web, iOS and Android, from a clean prebuild
 ```
 
-Both must pass. For a change to the server layer,
+All three must pass. For a change to the server layer,
 `node scripts/verify/e2e.mjs` against a live instance is the real check — it
-plays a ranked game and then tries to cheat it every way that matters.
+plays a ranked game and then tries to cheat it every way that matters, and it is
+what caught 0021 dropping a board filter it was supposed to be restating.
+
+`verify:builds` exports the web bundle, regenerates both native projects and
+builds them. Nothing in CI does: a native build is the one thing that breaks
+without anything going red. It exports `DEVELOPER_DIR` and `ANDROID_HOME`
+itself, because `expo prebuild --clean` deletes `android/local.properties` with
+the rest of the directory and Gradle's only other way to find the SDK is that
+variable — the failure reads as a broken project and is a missing export.
 
 Comments in this codebase explain *why*, usually by naming the thing that went
 wrong without them. Match that. A comment restating the code is worse than no

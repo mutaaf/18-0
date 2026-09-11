@@ -16,8 +16,8 @@ same record, so every choice is yours.
 [![CI](https://github.com/mutaaf/18-0/actions/workflows/ci.yml/badge.svg)](https://github.com/mutaaf/18-0/actions/workflows/ci.yml)
 [![Deploy](https://github.com/mutaaf/18-0/actions/workflows/pages.yml/badge.svg)](https://github.com/mutaaf/18-0/actions/workflows/pages.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Tests](https://img.shields.io/badge/tests-171%20passing-3FD68C)
-![Server checks](https://img.shields.io/badge/server%20checks-119%20passing-3FD68C)
+![Tests](https://img.shields.io/badge/tests-240%20passing-3FD68C)
+![Server checks](https://img.shields.io/badge/server%20checks-142%20passing-3FD68C)
 ![Platforms](https://img.shields.io/badge/iOS%20%C2%B7%20Android%20%C2%B7%20Web-one%20codebase-D50A0A)
 
 <br>
@@ -159,30 +159,33 @@ that names `18-0.co` as its canonical address.
 </td>
 <td width="33%" valign="top">
 
-**iPhone**
+**iPhone & iPad**
 
-```bash
-cd apps/mobile
-pnpm ios:device
-```
+[Join the TestFlight beta](https://testflight.apple.com/join/Q79YnwEs)
 
-Signed with a personal Apple team — no paid membership.
+A public link — no invitation needed. The App Store build is in review.
 
 </td>
 <td width="33%" valign="top">
 
-**Android**
+**Install it**
 
-```bash
-cd apps/mobile
-pnpm android:device
-```
+Any browser that offers it: full screen, plays offline, keeps every season.
 
-Installs to a device or a running emulator.
+Android is coming to Google Play; until then the installed web app is the
+same game.
 
 </td>
 </tr>
 </table>
+
+Building to a device yourself, if you have the toolchain:
+
+```bash
+cd apps/mobile
+pnpm ios:device        # signed with a personal Apple team, no paid membership
+pnpm android:device    # a device or a running emulator
+```
 
 The haptics and the three-finger spin only land properly on a real device.
 
@@ -200,13 +203,18 @@ game. The calendar is generated from nflverse's schedule and bundled, so the
 front page knows when the lights come on with no connection at all.
 [`docs/gameday.md`](docs/gameday.md) has the design.
 
-**Player IQ** hides every rating and stat line — a name, a team, a year, and
-nothing else. You pick on what you actually know about football, and the numbers
-arrive with your record. The list is ordered by position and name, never by
-rating, because a rating-sorted list tells you the ratings even when they are
-hidden.
+**Scout** is the mode the front page leads with. It takes the ratings off but
+leaves the stat line, so the question is a judgement about football rather than a
+memory test — 1,695 rushing yards on 313 carries, and you decide what that was
+worth.
 
-**Rookie** shows everything, and is labelled as the beginner path.
+**GM Mode** takes the stat line away too: a name, a team, a year, and nothing
+else. You pick on what you actually know, and the numbers arrive with your
+record. In both modes the list is ordered by position and name, never by rating,
+because a rating-sorted list tells you the ratings even when they are hidden.
+
+**Rookie** shows everything, and is labelled as the beginner path. It does not
+reach the leaderboard.
 
 **The three-finger spin.** Hold three fingers while tapping Spin — or
 Shift-click on a pointer device — and the wheel lands on whichever franchise-era
@@ -215,6 +223,42 @@ holds the best card still available for a slot you have not filled.
 It is a cheat and the game says so. Any run that uses it is flagged, cannot set
 a record, and is excluded from every leaderboard *at the database level* rather
 than by the client's good manners.
+
+</details>
+
+<details>
+<summary><b>Ranked play, levels, and the account you do not need</b></summary>
+
+<br>
+
+**Ranked is what happens unless it cannot.** The server deals every spin and
+scores the roster, and if it does not answer in eight seconds the game starts
+anyway and says plainly that the season will not reach the board. Failing to open
+a ranked game costs the leaderboard, never the game.
+
+**A season can be taken off the board, never put on it.** Hiding one is offered
+after the score is known, because it can only ever cost you. Opting *in*
+afterwards is not disallowed so much as impossible: a casual season's spins were
+never issued by the server, so there is nothing to verify.
+
+**Levels are a pure function of points** — `1000 × (n-1)^1.6` — rather than a
+stored column that could drift out of step with the total it describes. Points
+are the sum of every season, multiplied by what that season was stamped with when
+it was scored. Streak multipliers are stamped at completion and never recomputed,
+because the scoring function is evaluated on read: a multiplier expressed there
+would not reward a streak, it would silently rewrite every past total each time a
+board was queried.
+
+**Your seasons can follow you.** Signing in with an identity that already belongs
+to another account is ordinary — it is what happens on a second device — and the
+ranked seasons played anonymously on this one can be carried over. A casual
+season cannot, for the same reason it cannot reach a board.
+
+**Two themes.** Broadcast is a night game: navy-black, live red, silver type.
+Turf is a one o'clock kickoff: deep navy, field green, soft pills. Both are the
+same components — the palette and the shape scale are tokens, and
+[`docs/theming.md`](docs/theming.md) explains the one trap that makes a second
+theme hard.
 
 </details>
 
@@ -277,7 +321,7 @@ deletion exists from the same day accounts do.
 </details>
 
 `scripts/verify/e2e.mjs` plays a full ranked game against a live instance and
-then tries to cheat it every way that matters: **119 checks**, every forgery
+then tries to cheat it every way that matters: **122 checks**, every forgery
 refused, every spin and pick on the trail, the trail immutable under the service
 role, and an account able to delete itself and take its games with it.
 
@@ -287,11 +331,17 @@ role, and an account able to delete itself and take its games with it.
 
 ```bash
 pnpm install
-pnpm -r test                                    # 171 tests
+pnpm -r test                                    # 240 tests
 pnpm -r typecheck
+pnpm verify:builds                              # web, iOS and Android, from clean
 
 cd apps/mobile && pnpm web                      # or: device / ios:device / android:device
 ```
+
+`verify:builds` is the one that catches what the others cannot. Nothing in CI
+builds a native binary, `ios/` and `android/` are gitignored output, and a stale
+one goes on building long after the config that produced it stopped being right
+— which is how a release once shipped the wrong Android applicationId.
 
 <details>
 <summary><b>Rebuilding the dataset and the model</b></summary>
