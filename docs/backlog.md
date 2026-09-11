@@ -353,6 +353,13 @@ it so the next restatement has a list to copy rather than a memory to trust.
   `X-Frame-Options` back on `/embed`, and the stricter of two disagreeing headers
   wins. The catch-all is `/:path((?!embed$).*)` -- path-to-regexp, not a bare
   regex.
+- **Headless Chrome clamps the viewport to 500px wide.** `--window-size=430,340`
+  renders at `500x288` and *crops* the screenshot to 430 — so every "phone
+  width" check below 500 is really a 500-wide render with the right-hand side
+  cut off, and content that looks like it overflows is usually content that is
+  simply outside the crop. This cost an afternoon chasing a podium that was
+  laid out correctly. Verify a real phone width with a device, a simulator, or
+  by measuring `innerWidth` in the page rather than by eye.
 - **`expo prebuild --clean` deletes `android/local.properties`.** Gradle's only
   other way to find the SDK is `ANDROID_HOME`, and without it the build fails
   with "SDK location not found" -- which reads as a broken project and is a
