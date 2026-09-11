@@ -13,6 +13,17 @@ import { color, font, space, themed, tracking, type PressState } from '@/theme';
 const SIZE = 46;
 
 /**
+ * The width of the top-right corner this disc owns, measured in from the
+ * screen's right edge and including the gap nothing else should cross.
+ *
+ * The disc floats over every tab screen, so a screen that wants a control of
+ * its own up there has to know how much room is already spoken for. Games did
+ * not: its Quick Play pill was drawn straight under the disc, which covered the
+ * word "PLAY" and left two overlapping tap targets in the same corner.
+ */
+export const ACCOUNT_DOCK_WIDTH = space.lg + SIZE + space.sm;
+
+/**
  * You, floating in the top right corner.
  *
  * Your account was a sixth tab, which put the one thing on the shelf that is
