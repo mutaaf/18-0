@@ -274,7 +274,15 @@ packages/data      The historical dataset and the ingest that produces it.
 apps/mobile        Expo Router client: iOS, Android and web from one codebase.
 supabase           Schema, RLS, Edge Functions, and the audit trail.
 scripts/verify     End-to-end verification of the server's threat model.
+extensions         A demo that places the game inside another site's page.
 ```
+
+**The game can also sit in a frame.** `/embed` is a play-only surface — no
+sign-in, no handle, no account deletion — and it is the only path on the site
+that may be framed. Everything else refuses, because opening framing site-wide
+would put a button that deletes an account inside a page whose owner controls
+where the cursor lands. [`docs/hosting.md`](docs/hosting.md) has the header
+split; [`extensions/espn-watch`](extensions/espn-watch) is the consumer.
 
 **The game is fully playable offline.** The dataset is bundled and the scoring is
 local, so a spin, an eligible list and a final rating never touch the network. No

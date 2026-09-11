@@ -177,3 +177,46 @@ loaded unpacked rather than sitting in the Chrome Web Store, and why the manifes
 asks for `espn.com/watch` and nothing wider.
 
 18-0 is unaffiliated with, and not endorsed by, ESPN or any league or club.
+
+<br>
+
+## Handing it to a team that will ship it
+
+Everything here works. What follows is where a demo and a product differ, written
+down so it is not rediscovered.
+
+**The row detection is a heuristic, and it is the fragile part.** It is
+structural rather than selector-based, which is the right trade for something
+that must survive ESPN's deploys — but "children of even width that advance
+across the page" is a description of a carousel, not a contract. It found 301
+rows before the progression test was added. A shipped version wants a
+selector-first path with this as the fallback, and something that reports when it
+finds zero rows rather than silently placing nothing.
+
+**Nothing here is bundled or versioned.** There is no build step, no minifier and
+no `web_accessible_resources`; the scripts are loaded as plain files in the order
+the manifest lists them, and they share one isolated world by convention. That is
+deliberate for something read as much as run, and it is not how you ship a
+Manifest V3 extension to a store.
+
+**The attribution has no pipeline, on purpose.** Counters are written to
+`chrome.storage.local` and read back by the popup. Sending them anywhere adds
+consent, retention, an endpoint, and a schema the game's own telemetry already
+has opinions about — see `apps/mobile/src/features/telemetry.ts`, which is the
+natural shape to reuse rather than invent a second one.
+
+**The ESPN link is demo-grade in exactly one way.** The consent flow, the
+hashing and the delete-on-unlink are all real. What is missing is that a
+per-install salt is the only thing between a SHA-256 and a rainbow table of every
+SWID in circulation, and a published extension needs a server-side pepper, a
+privacy policy naming SWID, and a stated lawful basis.
+
+**The frame contract is the one thing outside this folder.** `/embed` is
+framable and nothing else on `18-0.co` is; `vercel.json` names the origins, and
+[`docs/hosting.md`](../../docs/hosting.md) explains why the split exists and the
+two ways its configuration silently fails. Adding an origin means editing that
+file, and a deployment that quietly does not happen is what a mistake there looks
+like.
+
+**`version` in the manifest is `1.0.0` and has never moved.** Nothing reads it
+yet; a store listing will.

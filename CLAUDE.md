@@ -109,6 +109,7 @@ then move. Until then: **stage by path, never `git add -A`**, and read
 | [`docs/gameday.md`](docs/gameday.md) | The gameday mode, and the tiers of what a live event may change |
 | [`docs/feature-flags.md`](docs/feature-flags.md) | Flags and experiments |
 | [`docs/theming.md`](docs/theming.md) | The two themes, and the rules that keep a third cheap |
+| [`extensions/espn-watch`](extensions/espn-watch) | The game placed in another site's page, and the `/embed` frame contract it depends on |
 | [`docs/RUNNING.md`](docs/RUNNING.md) | Running it, deploying it, regenerating the model |
 | [`docs/hosting.md`](docs/hosting.md) | The domain, the two deployments, and everything outside git that holds the address |
 | [`docs/android-release.md`](docs/android-release.md) | Getting onto Google Play, and the verifications that gate it |

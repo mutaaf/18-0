@@ -3,11 +3,13 @@
 Open work, with enough context to pick it up cold. Each item says what it is,
 why it matters, what has already been decided, and how to know when it is done.
 
-Last reviewed **2026-09-04**. Items 3, 4, 7, 8 and 9 are closed — 3 by deciding
-it rather than changing it, 7 by filing both store forms. Item 6 is the last one
-that can stop a public binary, and it is a decision rather than a task. This repository moves quickly — before acting on
-an item, check the "still true?" line, because several things listed here in the
-past were fixed by the time anybody read them.
+Last reviewed **2026-09-11**. Items 3, 4, 7, 8, 9, 10 and 11 are closed — 3 by
+deciding it rather than changing it, 7 by filing both store forms, 11 by two
+migrations and the harness that caught it. Item 6 is still the last one that can
+stop a public binary, and it is a decision rather than a task. This repository
+moves quickly — before acting on an item, check the "still true?" line, because
+several things listed here in the past were fixed by the time anybody read
+them.
 
 Read first: [`CLAUDE.md`](../CLAUDE.md) for the invariants,
 [`docs/gameday.md`](gameday.md) and [`docs/feature-flags.md`](feature-flags.md)
@@ -259,7 +261,58 @@ same moment.
 what they have before moving. Until they do, the old rules still apply there —
 stage by path, never `git add -A`.
 
-## 10. Smaller things
+## 10. The embed and the extension are a demo, not a product
+
+**Shipped 11 September 2026.** `/embed` is a play-only surface and the only
+framable path on the site; `extensions/espn-watch` places the game into a row or
+a gap on ESPN's Watch page, with configurable copy, a sponsor token, local
+attribution counters and an opt-in ESPN account link. It is loaded unpacked and
+is explicitly for internal demos — a team will take it from here.
+
+`extensions/espn-watch/README.md` has the handoff section. The four things that
+separate it from something publishable:
+
+- **Row detection is a heuristic.** Structural rather than selector-based, which
+  is right for surviving ESPN's deploys, but "even-width children that advance
+  across the page" is a description and not a contract. It found 301 rows before
+  the progression test existed. A shipped version wants a selector-first path
+  with this as fallback, and a signal when it finds none.
+- **No build step.** Plain scripts in manifest order sharing one isolated world.
+  Deliberate for something read as much as run; not how a store extension ships.
+- **Attribution has no pipeline, on purpose.** Counters stay in
+  `chrome.storage.local`. Sending them anywhere adds consent, retention and an
+  endpoint, and `features/telemetry.ts` is the shape to reuse rather than invent
+  a second one.
+- **The SWID link needs a server-side pepper.** Consent, hashing and
+  delete-on-unlink are real; a per-install salt is the only thing between a
+  SHA-256 and a rainbow table of every SWID in circulation.
+
+## 11. Two board filters were dropped by a migration that restated them
+
+**Fixed 11 September 2026,** in 0023 and 0024, and worth keeping written down
+because it is the *second* time.
+
+0021 restated `leaderboard_rating`, `leaderboard_scout` and `leaderboard_points`
+to add `hidden_at` and the points multiplier, and restated them from the version
+its author remembered. 0019's `gameday_key is null` was not in that memory, so
+gameday seasons -- built on a wheel of as few as two franchises -- ranked against
+seasons drawn from all thirty-two until it was caught. `my_progress` had the same
+blind spot, so a player's level on their own account screen could sit several
+levels above the level beside their name on the board.
+
+Checking those three turned up a fourth: 0021 taught rating, scout and points
+about `hidden_at` and left `leaderboard_perfect` alone, so a hidden season still
+counted towards perfect-season and heartbreak totals.
+
+`e2e.mjs` caught the first. The check was written when gameday was built and
+asserts a gameday season is on that day's board *and no other* -- which is the
+entire reason it was found before anybody's board went visibly wrong.
+
+CLAUDE.md already said to read the version being replaced rather than the one you
+remember. It is right, and 0023 now carries every filter with the reason beside
+it so the next restatement has a list to copy rather than a memory to trust.
+
+## 12. Smaller things
 
 - **One PostHog project takes everything** — local dev, the e2e harness and live
   traffic all write to 402075. Fine today; if funnels get muddy, make a dev
@@ -290,3 +343,17 @@ stage by path, never `git add -A`.
   skipped, and the run still passes — read the output, not the exit code.
 - **Do not commit another author's in-flight hunks.** This tree regularly holds
   two people's work in the same files; stage by path.
+- **`vercel.json` is strict JSON against a schema.** A `"//"` key used as a
+  comment is an unknown property and the deployment is *rejected* -- silently, as
+  far as the site is concerned: the last good build stays up and nothing turns
+  red. The symptom is a push that looks deployed and a bundle that never changes.
+  There is nowhere to put a comment in that file; the reasoning goes in
+  `docs/hosting.md`.
+- **Vercel applies every matching header rule.** A plain `/(.*)` catch-all puts
+  `X-Frame-Options` back on `/embed`, and the stricter of two disagreeing headers
+  wins. The catch-all is `/:path((?!embed$).*)` -- path-to-regexp, not a bare
+  regex.
+- **`expo prebuild --clean` deletes `android/local.properties`.** Gradle's only
+  other way to find the SDK is `ANDROID_HOME`, and without it the build fails
+  with "SDK location not found" -- which reads as a broken project and is a
+  missing export. `pnpm verify:builds` sets it, and `DEVELOPER_DIR`, itself.
