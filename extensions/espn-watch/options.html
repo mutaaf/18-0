@@ -24,13 +24,19 @@
   .hint { margin: 0 0 14px; font-size: 12px; color: rgba(255,255,255,0.45); }
   label { display: block; margin: 0 0 12px; font-size: 12px; color: rgba(255,255,255,0.7); }
   label span { display: block; margin-bottom: 4px; }
-  input[type=text] {
+  input[type=text], input[type=number] {
     width: 100%; box-sizing: border-box;
     padding: 8px 10px; font: inherit; font-size: 13px; color: #fff;
     background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.14);
     border-radius: 8px;
   }
-  input[type=text]:focus { outline: 2px solid #5fbb46; outline-offset: 1px; }
+  input[type=text]:focus, input[type=number]:focus { outline: 2px solid #5fbb46; outline-offset: 1px; }
+  /* What a URL field will actually do, said before anything is saved: an empty
+     one and a mistyped one both draw nothing at all on the card, and a field
+     whose two failure modes are silent is one somebody fills in wrongly twice. */
+  .state { margin: -4px 0 12px; font-size: 12px; line-height: 1.4; color: rgba(255,255,255,0.45); }
+  .state:empty { display: none; }
+  .state.bad { color: #ffc531; }
   .check { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; font-size: 13px; color: rgba(255,255,255,0.82); }
   .check input { margin: 2px 0 0; }
   .check small { display: block; color: rgba(255,255,255,0.45); font-size: 12px; }
@@ -66,6 +72,7 @@
       <label><span>Sponsor name</span><input type="text" id="sponsor" placeholder="e.g. a brand"></label>
       <label><span>Logo URL (optional)</span><input type="text" id="sponsorLogo" placeholder="https://…"></label>
     </div>
+    <p class="state" data-note="sponsorLogo"></p>
     <div class="check">
       <input type="checkbox" id="sponsorBanner">
       <label for="sponsorBanner" style="margin:0">Show the sponsor line on the card
@@ -94,6 +101,47 @@
       <label><span>Title</span><input type="text" id="copy.bandTitle"></label>
       <label><span>Subtitle</span><input type="text" id="copy.bandSubtitle"></label>
       <label><span>Button</span><input type="text" id="copy.bandButton"></label>
+    </div>
+  </section>
+
+  <section>
+    <h2>Call to action</h2>
+    <p class="hint">
+      A link out, beside the copy on the tile and the band and in the panel's
+      footer. Never the main action — that is playing — and it opens in a new
+      tab. <span class="token">{sponsor}</span> works in both fields.
+    </p>
+    <div class="check">
+      <input type="checkbox" id="cta">
+      <label for="cta" style="margin:0">Show a call to action
+        <small>Off leaves the label and the link set but draws nothing.</small>
+      </label>
+    </div>
+    <div class="two">
+      <label><span>Label</span><input type="text" id="copy.ctaLabel" placeholder="e.g. How it works"></label>
+      <label><span>Link</span><input type="text" id="copy.ctaUrl" placeholder="https://…"></label>
+    </div>
+    <p class="state" data-note="copy.ctaUrl"></p>
+  </section>
+
+  <section>
+    <h2>Logo</h2>
+    <p class="hint">
+      Shown on the tile and on the band. Leave the URL empty for the 18-0 crest
+      that ships with the extension; point it anywhere else and that image is
+      used instead.
+    </p>
+    <div class="check">
+      <input type="checkbox" id="logoOn">
+      <label for="logoOn" style="margin:0">Show a logo
+        <small>Off puts the 18-0 wordmark back in its place on the tile.</small>
+      </label>
+    </div>
+    <label><span>Image URL</span><input type="text" id="logo" placeholder="https://… — empty for the 18-0 crest"></label>
+    <p class="state" data-note="logo"></p>
+    <div class="two">
+      <label><span>Width on the card (px)</span><input type="number" id="logoWidth" min="24" max="240" step="1"></label>
+      <label><span>Opacity (%)</span><input type="number" id="logoOpacity" min="10" max="100" step="1"></label>
     </div>
   </section>
 

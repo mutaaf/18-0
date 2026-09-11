@@ -32,14 +32,62 @@ function show(settings) {
     if (field.type === 'checkbox') field.checked = Boolean(value);
     else field.value = value ?? '';
   }
+  for (const id of Object.keys(URL_NOTES)) sayWhatItDoes(id);
 }
 
 function collect() {
   const next = {};
   for (const field of fields) {
-    write(next, field.id, field.type === 'checkbox' ? field.checked : field.value.trim());
+    if (field.type === 'checkbox') write(next, field.id, field.checked);
+    // Stored as a number, because the card clamps it and `'76' < 24` is false
+    // for the wrong reason. An emptied field keeps the default rather than
+    // becoming a zero-width logo.
+    else if (field.type === 'number') write(next, field.id, ezNumber(field.value, Number(field.min), Number(field.max), read(EZ_DEFAULTS, field.id)));
+    else write(next, field.id, field.value.trim());
   }
   return next;
+}
+
+/**
+ * What each URL field will do, said on the page.
+ *
+ * Both of the ways a URL field fails are silent on the card: an empty call to
+ * action draws no link, and a mistyped one draws no link either. The options
+ * page is the only place that can tell the difference between "off" and "typed
+ * wrong", so it does -- the alternative is a dead button, or worse, nothing and
+ * no explanation.
+ */
+const URL_NOTES = {
+  'copy.ctaUrl': {
+    empty: 'Empty: no call to action on the tile, the band or the panel.',
+    bad: 'Not a link. It has to start with https:// or http:// — nothing will be shown.',
+    ok: (url) => `Opens ${url} in a new tab.`,
+  },
+  logo: {
+    empty: 'Empty: the 18-0 crest that ships with the extension.',
+    bad: 'Not an image URL. It has to start with https:// — the crest will be used instead.',
+    ok: (url) => `Loads ${url}.`,
+  },
+  sponsorLogo: {
+    empty: '',
+    bad: 'Not an image URL. It has to start with https:// — no sponsor logo will be shown.',
+    ok: () => '',
+  },
+};
+
+function sayWhatItDoes(id) {
+  const note = document.querySelector(`[data-note="${id}"]`);
+  const field = document.getElementById(id);
+  if (!note || !field) return;
+  const notes = URL_NOTES[id];
+  const raw = field.value.trim();
+  const href = ezUrl(raw);
+  note.classList.toggle('bad', Boolean(raw) && !href);
+  note.textContent = !raw ? notes.empty : href ? notes.ok(href) : notes.bad;
+}
+
+for (const id of Object.keys(URL_NOTES)) {
+  document.getElementById(id)?.addEventListener('input', () => sayWhatItDoes(id));
 }
 
 function flash() {
