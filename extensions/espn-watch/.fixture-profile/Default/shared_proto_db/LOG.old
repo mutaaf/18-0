@@ -1,2 +1,3 @@
-2026/09/11-13:13:18.920 2f8e2fd Creating DB /Users/mutaafaziz/Desktop/projects/18-0/extensions/espn-watch/.fixture-profile/Default/shared_proto_db since it was missing.
-2026/09/11-13:13:19.059 2f8e2fd Reusing MANIFEST /Users/mutaafaziz/Desktop/projects/18-0/extensions/espn-watch/.fixture-profile/Default/shared_proto_db/MANIFEST-000001
+2026/09/11-13:25:09.116 2f938a9 Reusing MANIFEST /Users/mutaafaziz/Desktop/projects/18-0/extensions/espn-watch/.fixture-profile/Default/shared_proto_db/MANIFEST-000001
+2026/09/11-13:25:09.122 2f938a9 Recovering log #3
+2026/09/11-13:25:09.122 2f938a9 Reusing old log /Users/mutaafaziz/Desktop/projects/18-0/extensions/espn-watch/.fixture-profile/Default/shared_proto_db/000003.log 

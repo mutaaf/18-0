@@ -15,8 +15,9 @@ const rowNote = document.getElementById('rowNote');
 const pick = document.getElementById('pick');
 const placement = document.getElementById('placement');
 const whereLabel = document.getElementById('whereLabel');
-
-const DEFAULTS = { row: null, matchUi: true, enabled: true, placement: 'tile' };
+const statsNote = document.getElementById('stats');
+const resetStats = document.getElementById('resetStats');
+const openOptions = document.getElementById('openOptions');
 
 /** The gap below the last row, which no row can name. */
 const END = '__end';
@@ -85,7 +86,7 @@ async function loadRows(selected, mode) {
   pick.textContent = header ? 'Pick the row below it' : 'Pick a row on the page';
 }
 
-chrome.storage.local.get(DEFAULTS, (stored) => {
+chrome.storage.local.get(EZ_DEFAULTS, (stored) => {
   enabled.checked = stored.enabled;
   matchUi.checked = stored.matchUi;
   placement.value = stored.placement;
@@ -124,3 +125,43 @@ pick.addEventListener('click', async () => {
     pick.textContent = 'Open espn.com/watch first';
   }
 });
+
+
+// --- what the card has been worth ------------------------------------------
+
+/** `754` -> `12m 34s`. Minutes first, because that is the unit a pitch uses. */
+function clock(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+async function loadStats() {
+  const tab = await activeTab();
+  if (!tab?.id) return;
+  try {
+    const reply = await chrome.tabs.sendMessage(tab.id, { type: 'stats' });
+    const s = reply?.stats;
+    if (!s) return;
+    statsNote.textContent =
+      `${clock(s.watchSeconds)} watched · ${clock(s.playSeconds)} played · `
+      + `${s.impressions} shown, ${s.opens} opened`;
+  } catch {
+    statsNote.textContent = 'Counted while you are on espn.com/watch';
+  }
+}
+
+void loadStats();
+
+resetStats.addEventListener('click', async () => {
+  const tab = await activeTab();
+  if (!tab?.id) return;
+  try {
+    await chrome.tabs.sendMessage(tab.id, { type: 'resetStats' });
+    statsNote.textContent = 'Nothing counted yet';
+  } catch {
+    // Not an ESPN tab; nothing to reset.
+  }
+});
+
+openOptions.addEventListener('click', () => chrome.runtime.openOptionsPage());

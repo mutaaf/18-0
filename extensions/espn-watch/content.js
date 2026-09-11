@@ -31,7 +31,7 @@ const EMBED_URL = 'https://18-0.co/embed';
 /** Heights the frame is given, by the screen the game says it is on. */
 const FRAME_HEIGHT = { entry: 232, play: 620, result: 760 };
 
-let settings = { row: null, matchUi: true, enabled: true, placement: 'tile' };
+let settings = ezSettings(null);
 let picking = false;
 
 // ---------------------------------------------------------------------------
@@ -116,9 +116,128 @@ function chosenRow(rows) {
   return rows.find((r) => r.label === settings.row) ?? rows[0];
 }
 
+
+// ---------------------------------------------------------------------------
+// Attribution
+// ---------------------------------------------------------------------------
+
+/**
+ * Minutes watched, minutes played, and how often the card was seen.
+ *
+ * Counted in one-second ticks against three conditions, all of which have to
+ * hold: the tab is visible, the page is not hidden, and the thing being counted
+ * is actually happening. A timer that keeps running in a background tab reports
+ * an afternoon of engagement for a window somebody forgot about, which is worse
+ * than reporting nothing.
+ *
+ * Watch time is "a video on this page is playing". Play time is "the game is
+ * open in front of them". Neither is a guess about attention, and both are
+ * written where only this browser can read them -- see the note in `config.js`.
+ */
+const STATS_KEY = 'stats';
+
+let stats = { watchSeconds: 0, playSeconds: 0, impressions: 0, opens: 0, since: null };
+let ticker = null;
+
+function loadStats(then) {
+  chrome.storage.local.get({ [STATS_KEY]: null }, (got) => {
+    stats = got[STATS_KEY] ?? { ...stats, since: Date.now() };
+    then?.();
+  });
+}
+
+/** Written on a debounce: a storage write every second is a write nobody needs. */
+let statsDirty = false;
+function saveStats() {
+  statsDirty = true;
+}
+
+function flushStats() {
+  if (!statsDirty) return;
+  statsDirty = false;
+  chrome.storage.local.set({ [STATS_KEY]: stats });
+}
+
+function watching() {
+  if (!settings.countWatch) return false;
+  for (const video of document.querySelectorAll('video')) {
+    if (!video.paused && !video.ended && video.readyState > 2) return true;
+  }
+  return false;
+}
+
+function playing() {
+  return settings.countPlay && Boolean(document.getElementById(PANEL_ID));
+}
+
+function startCounting() {
+  if (ticker) return;
+  loadStats();
+  ticker = setInterval(() => {
+    if (document.visibilityState !== 'visible') return;
+    let moved = false;
+    if (watching()) { stats.watchSeconds++; moved = true; }
+    if (playing()) { stats.playSeconds++; moved = true; }
+    if (moved) saveStats();
+  }, 1000);
+  // Five seconds of counting is worth one write.
+  setInterval(flushStats, 5000);
+  window.addEventListener('pagehide', flushStats);
+  document.addEventListener('visibilitychange', flushStats);
+}
+
+function countImpression() {
+  stats.impressions++;
+  saveStats();
+}
+
+function countOpen() {
+  stats.opens++;
+  saveStats();
+  flushStats();
+}
+
 // ---------------------------------------------------------------------------
 // The card
 // ---------------------------------------------------------------------------
+
+
+/** A styled element with text, without reaching for innerHTML. */
+function el(tag, className, text = '', attrs = {}) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text) node.textContent = text;
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  return node;
+}
+
+/** The wordmark, which is the one piece of markup that is genuinely ours. */
+function mark() {
+  const span = el('span', 'ez-mark', '18');
+  span.append(el('span', 'ez-dash', '-'), document.createTextNode('0'));
+  return span;
+}
+
+/**
+ * The sponsorship line, and a logo if one is configured.
+ *
+ * Its own element rather than more words in the title, because a sponsor that
+ * is part of a sentence cannot be turned off without rewriting the sentence --
+ * and the first thing anybody does with this is try it both ways.
+ */
+function sponsorStrip() {
+  const strip = el('span', 'ez-sponsor');
+  if (settings.sponsorLogo) {
+    const logo = el('img', 'ez-sponsor-logo');
+    logo.src = settings.sponsorLogo;
+    logo.alt = '';
+    logo.referrerPolicy = 'no-referrer';
+    strip.append(logo);
+  }
+  const line = ezFill(settings.copy.sponsorLine, settings.sponsor);
+  if (line) strip.append(el('span', 'ez-sponsor-text', line));
+  return strip;
+}
 
 /**
  * Copies a neighbour's shape, when asked to.
@@ -191,18 +310,26 @@ function buildCard(shape) {
   card.style.setProperty('--ez-ml', `${shape.marginLeft}px`);
   card.style.setProperty('--ez-mr', `${shape.marginRight}px`);
 
-  card.innerHTML = `
-    <button class="ez-art" type="button" aria-label="Play 18-0, a pro football history game">
-      <span class="ez-weave" aria-hidden="true"></span>
-      <span class="ez-mark">18<span class="ez-dash">-</span>0</span>
-      <span class="ez-tag">Play a season</span>
-      <span class="ez-badge">Interactive</span>
-    </button>
-    <p class="ez-title">18-0 — build the perfect roster</p>
-    <p class="ez-meta">Seven spins · Plays here</p>
-  `;
+  const say = (key) => ezFill(settings.copy[key], settings.sponsor);
 
-  card.querySelector('.ez-art').addEventListener('click', openPanel);
+  // Built rather than interpolated. Every string below is typed by whoever
+  // configured the extension, and dropping user text into `innerHTML` inside
+  // somebody else's page is how a sponsor name becomes a script tag.
+  const art = el('button', 'ez-art');
+  art.type = 'button';
+  art.setAttribute('aria-label', `${say('tileTitle')}. ${say('tileButton')}.`);
+  art.append(
+    el('span', 'ez-weave', '', { 'aria-hidden': 'true' }),
+    mark(),
+    el('span', 'ez-tag', say('tileButton')),
+  );
+  if (say('tileBadge')) art.append(el('span', 'ez-badge', say('tileBadge')));
+  if (settings.sponsor && settings.sponsorBanner) art.append(sponsorStrip());
+
+  card.append(art, el('p', 'ez-title', say('tileTitle')), el('p', 'ez-meta', say('tileSubtitle')));
+
+  art.addEventListener('click', openPanel);
+  countImpression();
   return card;
 }
 
@@ -244,16 +371,21 @@ function buildHeader() {
   const band = document.createElement('div');
   band.id = HOST_ID;
   band.className = `ez-band${settings.matchUi ? ' ez-match' : ''}`;
-  band.innerHTML = `
-    <span class="ez-weave" aria-hidden="true"></span>
-    <div class="ez-band-text">
-      <p class="ez-band-kicker">Play</p>
-      <p class="ez-band-title">18<span class="ez-dash">-</span>0 — build the perfect roster</p>
-      <p class="ez-band-sub">Seven spins, sixty years of pro football, one undefeated season.</p>
-    </div>
-    <button class="ez-band-go" type="button">Play a season</button>
-  `;
-  band.querySelector('.ez-band-go').addEventListener('click', openPanel);
+  const say = (key) => ezFill(settings.copy[key], settings.sponsor);
+
+  const text = el('div', 'ez-band-text');
+  if (say('bandKicker')) text.append(el('p', 'ez-band-kicker', say('bandKicker')));
+  text.append(el('p', 'ez-band-title', say('bandTitle')));
+  if (say('bandSubtitle')) text.append(el('p', 'ez-band-sub', say('bandSubtitle')));
+  if (settings.sponsor && settings.sponsorBanner) text.append(sponsorStrip());
+
+  const go = el('button', 'ez-band-go', say('bandButton'));
+  go.type = 'button';
+
+  band.append(el('span', 'ez-weave', '', { 'aria-hidden': 'true' }), text, go);
+
+  go.addEventListener('click', openPanel);
+  countImpression();
   return band;
 }
 
@@ -362,6 +494,7 @@ function removeCard() {
 
 function openPanel() {
   if (document.getElementById(PANEL_ID)) return;
+  countOpen();
 
   const panel = document.createElement('div');
   panel.id = PANEL_ID;
@@ -389,6 +522,60 @@ function openPanel() {
   document.addEventListener('keydown', onKey);
 
   document.body.appendChild(panel);
+
+  // Asked after the panel is up, so the game is already loading behind it and
+  // the question is not the first thing between somebody and playing.
+  void consentRow().then((row) => {
+    if (!row) return;
+    const sheet = panel.querySelector('.ez-sheet');
+    const frame = panel.querySelector('.ez-frame');
+    if (sheet && frame) sheet.insertBefore(row, frame);
+  });
+}
+
+
+/**
+ * The one-time ask, inside the panel and above the game.
+ *
+ * Shown only when there is a SWID to read -- a signed-out visitor is asked
+ * nothing, because there is nothing to consent to -- and only until it has been
+ * answered either way. Declining is a real answer and is not asked again.
+ */
+async function consentRow() {
+  const existing = await ezIdentity();
+  if (existing?.linked || existing?.declined) return null;
+  if (!ezSwidPresent()) return null;
+
+  const row = el('div', 'ez-consent');
+  row.append(
+    el('p', 'ez-consent-title', 'Link your ESPN account?'),
+    el(
+      'p',
+      'ez-consent-body',
+      'Your seasons would carry your ESPN identity so they can rank on a shared '
+        + 'leaderboard. Your identifier is hashed on this device and never stored '
+        + 'or sent as-is. You can undo this any time in the extension options.',
+    ),
+  );
+
+  const actions = el('div', 'ez-consent-actions');
+  const yes = el('button', 'ez-consent-yes', 'Link my account');
+  yes.type = 'button';
+  const no = el('button', 'ez-consent-no', 'Not now');
+  no.type = 'button';
+
+  yes.addEventListener('click', async () => {
+    await ezGrantIdentity();
+    row.replaceChildren(el('p', 'ez-consent-done', 'Linked. Your seasons can rank on the shared board.'));
+  });
+  no.addEventListener('click', async () => {
+    await chrome.storage.local.set({ [EZ_IDENTITY_KEY]: { linked: false, declined: true, at: Date.now() } });
+    row.remove();
+  });
+
+  actions.append(yes, no);
+  row.append(actions);
+  return row;
 }
 
 /**
@@ -461,8 +648,9 @@ function theirs(records) {
   });
 }
 
-chrome.storage.local.get({ row: null, matchUi: true, enabled: true, placement: 'tile' }, (stored) => {
-  settings = { ...settings, ...stored };
+chrome.storage.local.get(EZ_DEFAULTS, (stored) => {
+  settings = ezSettings(stored);
+  startCounting();
   place();
 
   new MutationObserver((records) => {
@@ -474,6 +662,7 @@ chrome.storage.local.get({ row: null, matchUi: true, enabled: true, placement: '
 
 chrome.storage.onChanged.addListener((changes) => {
   for (const [key, { newValue }] of Object.entries(changes)) settings[key] = newValue;
+  if (changes.copy) settings.copy = { ...EZ_DEFAULTS.copy, ...changes.copy.newValue };
   // A settings change is the one time the card *should* move, so the remembered
   // row is dropped rather than defended.
   removeCard();
@@ -484,6 +673,17 @@ chrome.storage.onChanged.addListener((changes) => {
 chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   if (message?.type === 'rows') {
     respond({ rows: findRows().map((r) => r.label), placement: settings.placement });
+    return true;
+  }
+  if (message?.type === 'stats') {
+    flushStats();
+    respond({ stats });
+    return true;
+  }
+  if (message?.type === 'resetStats') {
+    stats = { watchSeconds: 0, playSeconds: 0, impressions: 0, opens: 0, since: Date.now() };
+    chrome.storage.local.set({ [STATS_KEY]: stats });
+    respond({ ok: true });
     return true;
   }
   if (message?.type === 'pick') {

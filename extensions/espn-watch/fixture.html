@@ -93,7 +93,8 @@
     storage: {
       local: {
         get: (defaults, cb) => cb({ ...defaults, placement: wanted }),
-        set: () => {},
+        set: (_v, cb) => cb?.(),
+        remove: (_k, cb) => cb?.(),
       },
       onChanged: { addListener: () => {} },
     },
@@ -101,6 +102,8 @@
   };
 </script>
 
+<script src="config.js"></script>
+<script src="identity.js"></script>
 <script src="content.js"></script>
 <script>window.__ezRows = (typeof findRows === 'function') ? findRows().length : null;</script>
 

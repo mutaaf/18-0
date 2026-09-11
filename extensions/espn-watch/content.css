@@ -330,3 +330,110 @@ body.ez-picking #eighteen-zero-card { pointer-events: none; }
     margin: 14px 16px 18px;
   }
 }
+
+/* ------------------------------------------------------------------------ */
+/* Sponsorship                                                               */
+/* ------------------------------------------------------------------------ */
+
+/*
+ * Its own line rather than words inside the title, so it can be turned off
+ * without rewriting a sentence — which is the first thing anybody tries.
+ */
+#eighteen-zero-card .ez-sponsor {
+  position: absolute;
+  right: 10px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 60%;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+#eighteen-zero-card .ez-sponsor-logo {
+  height: 14px;
+  width: auto;
+  max-width: 56px;
+  object-fit: contain;
+  display: block;
+}
+
+#eighteen-zero-card .ez-sponsor-text {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  color: rgba(255, 255, 255, 0.82);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* In the band it sits under the copy rather than over the artwork. */
+#eighteen-zero-card.ez-band .ez-sponsor {
+  position: static;
+  margin-top: 8px;
+  max-width: none;
+}
+
+#eighteen-zero-card.ez-band .ez-sponsor-text { font-size: 11px; }
+#eighteen-zero-card.ez-band .ez-sponsor-logo { height: 16px; max-width: 72px; }
+
+/* ------------------------------------------------------------------------ */
+/* Consent                                                                   */
+/* ------------------------------------------------------------------------ */
+
+/*
+ * Above the game, not over it. A consent prompt that covers the thing somebody
+ * just asked for is a prompt they will dismiss without reading.
+ */
+#eighteen-zero-panel .ez-consent {
+  padding: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 197, 49, 0.06);
+}
+
+#eighteen-zero-panel .ez-consent-title {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+
+#eighteen-zero-panel .ez-consent-body,
+#eighteen-zero-panel .ez-consent-done {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+#eighteen-zero-panel .ez-consent-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+#eighteen-zero-panel .ez-consent-yes,
+#eighteen-zero-panel .ez-consent-no {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 13px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+#eighteen-zero-panel .ez-consent-yes {
+  background: #5fbb46;
+  color: #06210a;
+  border: 1px solid #7bd35f;
+}
+
+#eighteen-zero-panel .ez-consent-no {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}

@@ -15,7 +15,7 @@
  * zeroes for all of it.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const CHROME = [
@@ -112,6 +112,45 @@ check(
   report.artTopDelta !== null && Math.abs(report.artTopDelta) <= 1,
   report.artTopDelta === null ? 'nothing to measure' : `${report.artTopDelta}px off`,
 );
+
+/*
+ * The sponsor token, checked directly because it is pure and because its whole
+ * job is what happens when there is *no* sponsor: leaving "Presented by" with
+ * nothing after it, or a dangling separator, is worse than having no line.
+ */
+console.log('\nSPONSOR COPY');
+{
+  const src = readFileSync(resolve(import.meta.dirname, 'config.js'), 'utf8');
+  const scope = {};
+  new Function('globalThis', `${src}`).call(scope, scope);
+  const { ezFill, EZ_DEFAULTS } = scope;
+
+  const cases = [
+    ['Presented by {sponsor}', 'A Brand', 'Presented by A Brand'],
+    ['Presented by {sponsor}', '', ''],
+    ['Seven spins · {sponsor}', '', 'Seven spins'],
+    ['{sponsor} · Seven spins', '', 'Seven spins'],
+    // The trailing comma goes too: a dangling separator is the thing this is
+    // for, not something to preserve.
+    ['18-0, with {sponsor}', '', '18-0'],
+    ['Play a season', '', 'Play a season'],
+    ['{sponsor}', 'Brand', 'Brand'],
+  ];
+  for (const [input, sponsor, want] of cases) {
+    const got = ezFill(input, sponsor);
+    check(
+      `"${input}" + ${sponsor ? `"${sponsor}"` : 'no sponsor'}`,
+      got === want,
+      `got "${got}"`,
+    );
+  }
+
+  // Every default must survive having no sponsor, which is the shipping state.
+  const empty = Object.entries(EZ_DEFAULTS.copy)
+    .filter(([key]) => key !== 'sponsorLine')
+    .filter(([, text]) => !ezFill(text, '').trim());
+  check('every default reads with no sponsor set', empty.length === 0, empty.map(([k]) => k).join(', '));
+}
 
 // The other placement, driven through the same fixture.
 const bandDom = dumpDom('?placement=header');

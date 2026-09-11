@@ -1,2 +1,3 @@
-2026/09/11-13:13:17.904 2f8e307 Creating DB /Users/mutaafaziz/Desktop/projects/18-0/extensions/espn-watch/.fixture-profile/Default/Sync Data/LevelDB since it was missing.
-2026/09/11-13:13:17.953 2f8e307 Reusing MANIFEST /Users/mutaafaziz/Desktop/projects/18-0/extensions/espn-watch/.fixture-profile/Default/Sync Data/LevelDB/MANIFEST-000001
+2026/09/11-13:25:08.245 2f9389b Reusing MANIFEST /Users/mutaafaziz/Desktop/projects/18-0/extensions/espn-watch/.fixture-profile/Default/Sync Data/LevelDB/MANIFEST-000001
+2026/09/11-13:25:08.268 2f9389b Recovering log #3
+2026/09/11-13:25:08.268 2f9389b Reusing old log /Users/mutaafaziz/Desktop/projects/18-0/extensions/espn-watch/.fixture-profile/Default/Sync Data/LevelDB/000003.log 

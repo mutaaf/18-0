@@ -1,2 +1,3 @@
-2026/09/11-13:13:17.934 2f8e305 Creating DB /Users/mutaafaziz/Desktop/projects/18-0/extensions/espn-watch/.fixture-profile/Default/Site Characteristics Database since it was missing.
-2026/09/11-13:13:17.953 2f8e305 Reusing MANIFEST /Users/mutaafaziz/Desktop/projects/18-0/extensions/espn-watch/.fixture-profile/Default/Site Characteristics Database/MANIFEST-000001
+2026/09/11-13:25:08.269 2f938aa Reusing MANIFEST /Users/mutaafaziz/Desktop/projects/18-0/extensions/espn-watch/.fixture-profile/Default/Site Characteristics Database/MANIFEST-000001
+2026/09/11-13:25:08.274 2f938aa Recovering log #3
+2026/09/11-13:25:08.274 2f938aa Reusing old log /Users/mutaafaziz/Desktop/projects/18-0/extensions/espn-watch/.fixture-profile/Default/Site Characteristics Database/000003.log 

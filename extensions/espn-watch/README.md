@@ -29,6 +29,64 @@ The toolbar button has three controls.
 
 Clicking the card opens the game over the page. Escape closes it.
 
+**Sponsorship and copy** are on the options page — right-click the toolbar icon,
+or press **Sponsorship & copy…** in the popup. Every string the card shows is a
+field, and `{sponsor}` can go in any of them:
+
+    Title      18-0 — build the perfect roster
+    Subtitle   Seven spins · Plays here
+    Button     Play a season
+    Sponsor    Presented by {sponsor}
+
+With no sponsor name set, the token is removed **along with the words holding
+it** — "Presented by {sponsor}" becomes nothing rather than "Presented by", and
+"Seven spins · {sponsor}" becomes "Seven spins". So one set of defaults reads
+correctly sponsored and unsponsored, and nobody maintains two.
+
+<br>
+
+## What it counts
+
+The popup shows, for this browser:
+
+    12m 30s watched · 3m 05s played · 11 shown, 3 opened
+
+**Watched** counts while a video on the page is playing. **Played** counts while
+the game is open. Both require the tab to be in front — a timer that keeps
+running in a background tab reports an afternoon of engagement for a window
+somebody forgot about.
+
+**None of it leaves the machine.** There is no endpoint, no request, and no
+identifier attached. That is a deliberate default rather than an unfinished
+feature: the numbers a pitch needs are exactly as convincing measured on one
+laptop, and measuring them on one laptop collects nothing about anybody. Turning
+it into a pipeline is a separate decision with consent and retention attached,
+and not one a default should make quietly.
+
+<br>
+
+## Linking an ESPN account
+
+SWID is the identifier ESPN sets for a signed-in fan. It is stable, unique to a
+person, and readable by any script on the page — which makes it trivial to take
+and exactly the sort of thing that should not be taken quietly.
+
+So it is asked for, once, in the panel, and only when there is a signed-in fan to
+ask: *"Your seasons would carry your ESPN identity so they can rank on a shared
+leaderboard."* Declining is a real answer and is not asked twice.
+
+On yes, the SWID is hashed with a per-install random salt and **the raw value is
+never stored or sent**. The result is stable enough to be the same fan tomorrow
+and useless to anyone who sees it — it cannot be reversed, and it cannot be
+matched against anybody else's copy of the same fan. Unlinking deletes the hash
+*and the salt*, so a later yes produces a different identity with nothing joining
+the two.
+
+If this ever became something people install from a store rather than a demo
+loaded unpacked, it would need a privacy policy naming it and a lawful basis —
+and the salt should not be the only thing between a hash and a rainbow table of
+every SWID in circulation.
+
 <br>
 
 ## How it finds a row

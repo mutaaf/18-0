@@ -84,11 +84,19 @@
 
   <button class="primary full" id="pick">Pick a row on the page</button>
 
+  <div class="row" id="statsRow">
+    <p>This browser<small id="stats">Nothing counted yet</small></p>
+    <button id="resetStats" title="Reset counters">Reset</button>
+  </div>
+
+  <button class="full" id="openOptions" style="margin-top:8px">Sponsorship &amp; copy…</button>
+
   <footer>
     Loaded unpacked for demos. Adds one card to the page and changes nothing
-    else on it.
+    else on it. Attribution is counted here and sent nowhere.
   </footer>
 
+  <script src="config.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

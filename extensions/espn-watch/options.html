@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>18-0 on Watch — options</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 32px 24px 60px;
+    background: #060a24; color: #fff;
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -0.3px; }
+  h1 span { color: #ffc531; }
+  .lede { margin: 0 0 28px; color: rgba(255,255,255,0.5); font-size: 13px; }
+  section {
+    margin: 0 0 20px; padding: 18px 20px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 12px;
+  }
+  h2 { margin: 0 0 3px; font-size: 14px; letter-spacing: 0.3px; }
+  .hint { margin: 0 0 14px; font-size: 12px; color: rgba(255,255,255,0.45); }
+  label { display: block; margin: 0 0 12px; font-size: 12px; color: rgba(255,255,255,0.7); }
+  label span { display: block; margin-bottom: 4px; }
+  input[type=text] {
+    width: 100%; box-sizing: border-box;
+    padding: 8px 10px; font: inherit; font-size: 13px; color: #fff;
+    background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 8px;
+  }
+  input[type=text]:focus { outline: 2px solid #5fbb46; outline-offset: 1px; }
+  .check { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; font-size: 13px; color: rgba(255,255,255,0.82); }
+  .check input { margin: 2px 0 0; }
+  .check small { display: block; color: rgba(255,255,255,0.45); font-size: 12px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  button {
+    font: inherit; font-size: 13px; font-weight: 600;
+    padding: 9px 16px; border-radius: 8px; cursor: pointer;
+    background: #5fbb46; color: #06210a; border: 1px solid #7bd35f;
+  }
+  button.ghost { background: rgba(255,255,255,0.08); color: #fff; border-color: rgba(255,255,255,0.18); }
+  .bar { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+  .saved { font-size: 12px; color: #7bd35f; opacity: 0; transition: opacity 160ms; }
+  .saved.on { opacity: 1; }
+  .token { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: rgba(255,255,255,0.1); padding: 1px 5px; border-radius: 4px; }
+  .link-state { font-size: 13px; margin: 0 0 12px; }
+  .link-state b { color: #7bd35f; }
+  .warn { border-color: rgba(255,197,49,0.3); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>18<span>-</span>0 on Watch</h1>
+  <p class="lede">Defaults are set for a demo. Everything here is optional.</p>
+
+  <section>
+    <h2>Sponsorship</h2>
+    <p class="hint">
+      Put <span class="token">{sponsor}</span> anywhere in the copy below and it
+      is filled in. Leave the name empty and the token — and the words holding
+      it — disappear, so the copy reads correctly either way.
+    </p>
+    <div class="two">
+      <label><span>Sponsor name</span><input type="text" id="sponsor" placeholder="e.g. a brand"></label>
+      <label><span>Logo URL (optional)</span><input type="text" id="sponsorLogo" placeholder="https://…"></label>
+    </div>
+    <div class="check">
+      <input type="checkbox" id="sponsorBanner">
+      <label for="sponsorBanner" style="margin:0">Show the sponsor line on the card
+        <small>Off keeps the sponsor available to the copy fields but draws no banner.</small>
+      </label>
+    </div>
+    <label><span>Sponsor line</span><input type="text" id="copy.sponsorLine"></label>
+  </section>
+
+  <section>
+    <h2>Tile copy</h2>
+    <p class="hint">The card that sits in a row.</p>
+    <div class="two">
+      <label><span>Title</span><input type="text" id="copy.tileTitle"></label>
+      <label><span>Subtitle</span><input type="text" id="copy.tileSubtitle"></label>
+      <label><span>Button</span><input type="text" id="copy.tileButton"></label>
+      <label><span>Corner badge</span><input type="text" id="copy.tileBadge"></label>
+    </div>
+  </section>
+
+  <section>
+    <h2>Header copy</h2>
+    <p class="hint">The band that sits between rows.</p>
+    <div class="two">
+      <label><span>Kicker</span><input type="text" id="copy.bandKicker"></label>
+      <label><span>Title</span><input type="text" id="copy.bandTitle"></label>
+      <label><span>Subtitle</span><input type="text" id="copy.bandSubtitle"></label>
+      <label><span>Button</span><input type="text" id="copy.bandButton"></label>
+    </div>
+  </section>
+
+  <section>
+    <h2>Attribution</h2>
+    <p class="hint">
+      Counted on this machine and written to local storage. Nothing is sent
+      anywhere — there is no endpoint to send it to.
+    </p>
+    <div class="check">
+      <input type="checkbox" id="countWatch">
+      <label for="countWatch" style="margin:0">Time watched
+        <small>Counts while a video on the page is playing and the tab is in front.</small>
+      </label>
+    </div>
+    <div class="check">
+      <input type="checkbox" id="countPlay">
+      <label for="countPlay" style="margin:0">Time played
+        <small>Counts while the game is open and the tab is in front.</small>
+      </label>
+    </div>
+  </section>
+
+  <section class="warn">
+    <h2>Your ESPN account</h2>
+    <p class="hint">
+      Linking lets a season carry your ESPN identity so it can rank on a shared
+      leaderboard. Your identifier is hashed with a random salt on this device;
+      the value itself is never stored or sent, and the hash cannot be turned
+      back into it. Unlinking deletes both, so linking again produces a
+      different identity with nothing joining the two.
+    </p>
+    <p class="link-state" id="linkState">Not linked.</p>
+    <div class="bar">
+      <button id="unlink" class="ghost">Unlink and delete</button>
+    </div>
+  </section>
+
+  <div class="bar">
+    <button id="save">Save</button>
+    <button id="reset" class="ghost">Restore defaults</button>
+    <span class="saved" id="saved">Saved</span>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="options.js"></script>
+</body>
+</html>
