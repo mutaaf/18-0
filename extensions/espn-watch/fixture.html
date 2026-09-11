@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <title>fixture</title>
+<!-- The extension's own stylesheet. Without this the fixture exercised the
+     placement logic against an unstyled card, so every alignment assertion was
+     measuring nothing. -->
+<link rel="stylesheet" href="content.css">
 <!--
   A page shaped like the one the extension runs on, so the row-finding can be
   tested without espn.com.
@@ -24,9 +28,15 @@
   body { margin: 0; background: #0b0b0f; color: #fff; font: 14px system-ui; }
   h2 { margin: 18px 12px 8px; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; }
   .scroller { overflow-x: auto; }
-  .rail { display: flex; gap: 12px; padding: 0 12px 18px; list-style: none; margin: 0; }
+  .rail { display: flex; align-items: center; padding: 0 12px 18px; list-style: none; margin: 0; }
+  .tile { margin-right: 16px; }
   .tile { flex: 0 0 auto; width: 232px; }
-  .thumb { width: 232px; height: 130px; border-radius: 6px; background: #23232b; }
+  h2 { margin-left: 24px; }
+  .thumb { position: relative; width: 232px; height: 130px; border-radius: 6px; background: #23232b; overflow: hidden; }
+  /* Three overlays covering the same box — same width, same top edge, all wide
+     enough to look like tiles in a row. This is what produced 301 false rows on
+     the real page. */
+  .thumb > i { position: absolute; inset: 0; display: block; }
   .cap { margin: 8px 0 0; font-size: 13px; }
   .sub { margin: 2px 0 0; font-size: 11px; color: #999; }
 </style>
@@ -50,7 +60,8 @@
     for (let i = 0; i < tiles; i++) {
       const li = document.createElement('li');
       li.className = 'tile';
-      li.innerHTML = '<div class="thumb"></div><p class="cap">A programme</p><p class="sub">ESPN+</p>';
+      const tall = i % 3 === 0 ? '<p class="cap">A rather longer programme title that wraps onto three lines here</p>' : '<p class="cap">A programme</p>';
+      li.innerHTML = `<div class="thumb"><i></i><i></i><i></i></div>${tall}<p class="sub">ESPN+</p>`;
       rail.appendChild(li);
     }
     scroller.appendChild(rail);
@@ -91,6 +102,7 @@
 </script>
 
 <script src="content.js"></script>
+<script>window.__ezRows = (typeof findRows === 'function') ? findRows().length : null;</script>
 
 <script>
   /*
@@ -132,6 +144,47 @@
       inFirstRow: card?.parentElement === document.querySelector('.rail'),
       onScreenX: card ? Math.round(card.getBoundingClientRect().x) : null,
       isBand: Boolean(card?.classList.contains('ez-band')),
+      rowsFound: window.__ezRows ?? null,
+      heights: (() => {
+        const tiles = [...document.querySelectorAll('.rail .tile')];
+        const tallest = tiles.sort((a, b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height)[0];
+        return {
+          card: card ? Math.round(card.getBoundingClientRect().height) : null,
+          minH: card ? getComputedStyle(card).minHeight : null,
+          tallestTile: tallest ? Math.round(tallest.getBoundingClientRect().height) : null,
+          anchorTile: (() => { const t = document.querySelector('.rail .tile'); return t ? Math.round(t.getBoundingClientRect().height) : null; })(),
+        };
+      })(),
+      cardTopDelta: (() => {
+        const tiles = [...document.querySelectorAll('.rail .tile')];
+        const tallest = tiles.sort((a, b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height)[0];
+        if (!card || !tallest) return null;
+        return Math.round(card.getBoundingClientRect().top - tallest.getBoundingClientRect().top);
+      })(),
+      artInsetInCard: (() => {
+        const art = card?.querySelector('.ez-art');
+        if (!art || !card) return null;
+        return Math.round(art.getBoundingClientRect().top - card.getBoundingClientRect().top);
+      })(),
+      artTopDelta: (() => {
+        const art = card?.querySelector('.ez-art');
+        // Compared against the *tallest* tile in the row. A centred rail only
+        // leaves the tallest item at the top of the line, so a shorter one is
+        // legitimately lower and would make this measure nothing.
+        const tiles = [...document.querySelectorAll('.rail .tile')];
+        const tallest = tiles.sort(
+          (a, b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height,
+        )[0];
+        const thumb = tallest?.querySelector('.thumb');
+        if (!art || !thumb) return null;
+        return Math.round(art.getBoundingClientRect().top - thumb.getBoundingClientRect().top);
+      })(),
+      bandLeftDelta: (() => {
+        if (!card?.classList.contains('ez-band')) return null;
+        const heading = document.querySelector('h2');
+        if (!heading) return null;
+        return Math.round(card.getBoundingClientRect().left - heading.getBoundingClientRect().left);
+      })(),
       aboveFirstRow: card ? (card.compareDocumentPosition(document.querySelector('.rail')) & Node.DOCUMENT_POSITION_FOLLOWING) > 0 : false,
       clickable: Boolean(art),
     });

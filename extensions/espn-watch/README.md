@@ -73,9 +73,14 @@ twice, mutating after load — run in headless Chrome. The checks are the sympto
 one card, never more, never moved after placement, fully on screen, in both
 placements.
 
+The fixture carries the decoys that actually fooled it: tiles whose children are
+absolutely-positioned overlays, and captions of differing length in a rail that
+centres its children. It also loads `content.css` — it did not at first, so every
+alignment assertion was measuring an unstyled card and passing on nothing.
+
 Worth knowing what it does *not* do: it has never reproduced the original
 flicker. No synthetic page I could build resolves rows differently between passes
-the way espn.com does, so the check passes even with the guard removed. It holds
+the way espn.com does, so that check passes even with the guard removed. It holds
 the property; the bug itself was diagnosed by measuring the live page.
 
 <br>

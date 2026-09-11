@@ -64,19 +64,31 @@ function findRows() {
     const first = boxes[0];
     if (first.height < 60 || first.height > 420) continue;
 
-    // Laid out in a line: every child shares a top edge, and widths agree.
-    const inLine = boxes.every((b) => Math.abs(b.top - first.top) < 8);
+    // Laid out in a line, tested by vertical *overlap* rather than by a shared
+    // top edge. These rails are `align-items: center`, so a tile with a
+    // three-line caption sits higher than one with a single line and the tops
+    // disagree by tens of pixels -- a row is children side by side on the same
+    // line, which is what this asks.
+    const inLine = boxes.every((b) => {
+      const overlap = Math.min(b.bottom, first.bottom) - Math.max(b.top, first.top);
+      return overlap > Math.min(b.height, first.height) * 0.5;
+    });
     const evenWidth = boxes.every((b) => Math.abs(b.width - first.width) < 24);
     if (!inLine || !evenWidth) continue;
+
+    // **The children advance across the page.** Everything above is also true
+    // of a stack of overlays -- a tile's artwork, its gradient and its link
+    // cover the same box, share a top edge and are the same width -- and that
+    // is what made this find three hundred and one "rows" on the real page and
+    // offer the picker a list of programme titles. A row's children start where
+    // the previous one ended; an overlay starts where its sibling started.
+    const advances = boxes.every((b, i) => i === 0 || b.left >= boxes[i - 1].right - 2);
+    if (!advances) continue;
 
     found.push({ node, label: labelFor(node), tile: kids[0] });
   }
 
-  // Innermost only. A carousel is usually a list inside a wrapper inside a
-  // section, and all three can pass the test above -- which gave the picker the
-  // same row three times and made "the first row" mean whichever of the three
-  // happened to be measured first.
-  return found.filter((row) => !found.some((other) => other !== row && row.node.contains(other.node)));
+  return found;
 }
 
 /** The heading a human would use for this row, or a fallback. */
@@ -117,13 +129,25 @@ function chosenRow(rows) {
  * whether it sits in the row like a tile or announces itself like an advert.
  */
 function shapeFrom(tile) {
-  if (!tile) return { width: 232, height: 130, radius: 6 };
+  if (!tile) return { width: 232, height: 130, total: 190, radius: 6, marginLeft: 0, marginRight: 12 };
   const box = tile.getBoundingClientRect();
   const style = getComputedStyle(tile);
   return {
     width: Math.round(box.width),
     height: artHeight(tile, box.width),
+    // The tile's *whole* height, which our card matches. These rails are
+    // `align-items: center`, so two boxes only line up if they are the same
+    // height -- and both put their artwork at the top. Forcing `flex-start`
+    // instead looked right where our card was shorter and wrong where it was
+    // taller, because then ours defined the line and pushed the tiles down.
+    total: Math.round(box.height),
     radius: parseInt(style.borderRadius, 10) || 6,
+    // **Copied, not guessed.** This rail has no `gap` at all -- the gutter is
+    // the tiles' own margin -- so a hardcoded 12px gave our card no space on
+    // its left and twice as much on its right. Whatever the row spaces its
+    // children with, we use the same.
+    marginLeft: parseFloat(style.marginLeft) || 0,
+    marginRight: parseFloat(style.marginRight) || 0,
   };
 }
 
@@ -163,6 +187,9 @@ function buildCard(shape) {
   card.style.setProperty('--ez-w', `${shape.width}px`);
   card.style.setProperty('--ez-h', `${shape.height}px`);
   card.style.setProperty('--ez-r', `${shape.radius}px`);
+  card.style.setProperty('--ez-th', `${shape.total}px`);
+  card.style.setProperty('--ez-ml', `${shape.marginLeft}px`);
+  card.style.setProperty('--ez-mr', `${shape.marginRight}px`);
 
   card.innerHTML = `
     <button class="ez-art" type="button" aria-label="Play 18-0, a pro football history game">
@@ -236,6 +263,24 @@ function buildHeader() {
  * The band goes *before* this, so it sits between one row and the next rather
  * than between a heading and the rail it labels.
  */
+/**
+ * How far a shelf's heading is inset from the container the band goes in.
+ *
+ * Returns null when there is no heading to line up with, in which case the
+ * stylesheet's own margin stands -- a band that guesses an alignment is worse
+ * than one that keeps a consistent default.
+ */
+function headingInset(shelf, container) {
+  const heading = shelf.querySelector('h1, h2, h3');
+  if (!heading) return null;
+  const h = heading.getBoundingClientRect();
+  const c = container.getBoundingClientRect();
+  const inset = Math.round(h.left - c.left);
+  // A heading that is centred, or one we have mismeasured, should not push the
+  // band halfway across the page.
+  return inset >= 0 && inset < c.width / 3 ? inset : null;
+}
+
 /** The sentinel for the gap below the last row. */
 const END = '__end';
 
@@ -283,8 +328,16 @@ function place() {
     if (!anchor) return;
     placedIn = anchor.parentElement;
     if (!placedIn) return;
-    if (settings.row === END) placedIn.insertBefore(buildHeader(), anchor.nextElementSibling);
-    else placedIn.insertBefore(buildHeader(), anchor);
+    const band = buildHeader();
+    // Aligned to the heading it sits between rather than to a number. The
+    // shelves here are inset 24px, not the 32 a first guess used, and that
+    // inset moves with the viewport -- so it is read off the real heading.
+    const inset = headingInset(anchor, placedIn);
+    if (inset !== null) {
+      band.style.marginLeft = `${inset}px`;
+      band.style.marginRight = `${inset}px`;
+    }
+    placedIn.insertBefore(band, settings.row === END ? anchor.nextElementSibling : anchor);
     return;
   }
 

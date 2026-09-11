@@ -95,10 +95,23 @@ check(
 // what it does a lot of is *move*.
 check('and never moved once placed', report.moves === 0, `${report.moves} move(s)`);
 check('it landed in the first row', report.inFirstRow === true);
+// Four rails on the fixture page. Anything more means the detector is counting
+// tiles -- which it did on the real page, offering a picker 301 "rows" of
+// programme titles.
+// Three rails exist when the script first runs; two more arrive later.
+check('it found rails, not tiles', report.rowsFound === 3, `${report.rowsFound} row(s)`);
 check('its button is present', report.clickable === true);
 // Placed, but placed where somebody can reach it: the first slot of a real
 // carousel is clipped by the shelf's edge.
 check('it sits fully on screen', report.onScreenX >= 0, `x=${report.onScreenX}`);
+// These rails centre their children, and our card is shorter than a tile with
+// three lines of caption -- so it was being centred and its artwork sat fifteen
+// pixels below every other thumbnail in the row.
+check(
+  'its artwork lines up with the row',
+  report.artTopDelta !== null && Math.abs(report.artTopDelta) <= 1,
+  report.artTopDelta === null ? 'nothing to measure' : `${report.artTopDelta}px off`,
+);
 
 // The other placement, driven through the same fixture.
 const bandDom = dumpDom('?placement=header');
@@ -111,6 +124,8 @@ try {
   process.exit(1);
 }
 
+console.log(`  · card ${report.heights.card}px (min-height ${report.heights.minH}), anchor tile ${report.heights.anchorTile}px, tallest ${report.heights.tallestTile}px, top delta ${report.cardTopDelta}px`);
+
 console.log('\nAS AN INLINE HEADER');
 check('exactly one band', band.cards === 1, `${band.cards}`);
 check('it is a band, not a tile', band.isBand === true);
@@ -118,6 +133,11 @@ check('it never moved once placed', band.moves === 0, `${band.moves} move(s)`);
 // The whole point of the placement: it sits in the gap above the row, not
 // inside it and not below the rail it is introducing.
 check('it sits above the first row', band.aboveFirstRow === true);
+check(
+  'it lines up with the section heading',
+  band.bandLeftDelta !== null && Math.abs(band.bandLeftDelta) <= 1,
+  band.bandLeftDelta === null ? 'nothing to measure' : `${band.bandLeftDelta}px off`,
+);
 
 console.log('='.repeat(56));
 console.log(failures === 0 ? 'Both placements go in once and stay.' : `${failures} check(s) failed.`);

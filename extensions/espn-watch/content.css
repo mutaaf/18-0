@@ -22,7 +22,16 @@
 
   flex: 0 0 auto;
   width: var(--ez-w);
-  margin-right: 12px;
+  /* Copied off a neighbour at build time; see `shapeFrom`. */
+  margin-left: var(--ez-ml, 0);
+  margin-right: var(--ez-mr, 12px);
+  /* **The same height as a tile, and centred like one.** These rails are
+     `align-items: center`, so two boxes line up only if they are the same
+     height; both put their artwork at the top, so matching the height aligns
+     the artwork. Forcing `align-self: flex-start` instead is only right while
+     our card is the shorter of the two -- the moment it is taller it defines
+     the line and pushes every real tile down. */
+  min-height: var(--ez-th, auto);
   font-family: inherit;
   box-sizing: border-box;
 }
@@ -234,7 +243,9 @@ body.ez-picking #eighteen-zero-card { pointer-events: none; }
   gap: 24px;
   /* The shelves on this page are inset by the same amount; matching it is what
      keeps the band aligned with the headings above and below it. */
-  margin: 18px 32px 22px;
+  /* Overridden at build time with the real heading inset; this is the
+     fallback for a shelf that has no heading to measure. */
+  margin: 18px 24px 22px;
   padding: 18px 22px;
   border-radius: 10px;
   overflow: hidden;
