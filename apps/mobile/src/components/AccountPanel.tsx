@@ -10,7 +10,9 @@ import { useHistoryStore } from '@/state/history';
 import { careerReport } from '@/state/career';
 import {
   consumeRedirectOutcome,
-  consumeTransfer,
+  clearTransfer,
+  peekTransfer,
+  whenSignedIn,
   linkedProviders,
   providerLabel,
   rememberTransfer,
@@ -120,18 +122,48 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
     // A sign-in that succeeded may have a ticket waiting from the account it
     // left. Claimed here rather than inside `connect`, because on web the
     // navigation means `connect` never returns.
-    const ticket = consumeTransfer();
+    //
+    // The ticket is only *peeked* at, and the claim waits for the session to
+    // actually exist. Both of those are the same bug: this runs as the screen
+    // mounts, the web session is still being parsed out of the redirect at that
+    // moment, and the first version claimed immediately and deleted the ticket
+    // whatever happened. It failed with no `auth.uid()` and left the seasons
+    // stranded on an account nobody could sign into any more.
+    const ticket = peekTransfer();
     if (!ticket) return;
-    void claimSeasonTransfer(ticket).then(async (moved) => {
-      if (moved === null) {
-        setNote('Those seasons could not be carried over.');
+
+    let abandoned = false;
+    void (async () => {
+      const ready = await whenSignedIn();
+      if (abandoned) return;
+      if (!ready) {
+        // Deliberately keeps the ticket. It is good for half an hour, and
+        // reopening this screen tries again.
+        setNote('Signed in. Your seasons have not moved across yet — reopen this screen to retry.');
         return;
       }
-      if (moved > 0) {
-        setNote(`${moved} ${moved === 1 ? 'season' : 'seasons'} carried over.`);
+
+      const result = await claimSeasonTransfer(ticket);
+      if (abandoned) return;
+
+      if (result.ok) {
+        clearTransfer();
+        setNote(
+          result.moved > 0
+            ? `${result.moved} ${result.moved === 1 ? 'season' : 'seasons'} carried over.`
+            : 'Those seasons were already on this account.',
+        );
         await refresh();
+        return;
       }
-    });
+
+      if (!result.retryable) clearTransfer();
+      setNote(result.message);
+    })();
+
+    return () => {
+      abandoned = true;
+    };
   }, [refresh]);
 
   const connect = async (provider: SocialProvider, switchAccount = false, carry = false) => {
@@ -156,12 +188,21 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
       track('signed_in', { provider, switched: switchAccount });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       // Native returns here; on web the page navigated and the effect above
-      // does this instead.
-      const ticket = consumeTransfer();
+      // does this instead. The same peek-claim-then-clear shape, because a
+      // ticket that survives a failure is worth just as much on a phone.
+      const ticket = peekTransfer();
       if (ticket) {
-        const moved = await claimSeasonTransfer(ticket);
-        if (moved && moved > 0) {
-          setNote(`${moved} ${moved === 1 ? 'season' : 'seasons'} carried over.`);
+        const carried = await claimSeasonTransfer(ticket);
+        if (carried.ok) {
+          clearTransfer();
+          if (carried.moved > 0) {
+            setNote(
+              `${carried.moved} ${carried.moved === 1 ? 'season' : 'seasons'} carried over.`,
+            );
+          }
+        } else {
+          if (!carried.retryable) clearTransfer();
+          setNote(carried.message);
         }
       }
       await refresh();

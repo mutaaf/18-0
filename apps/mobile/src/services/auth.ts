@@ -305,16 +305,70 @@ export function rememberTransfer(ticket: string): void {
   }
 }
 
-/** The ticket to claim, if a transfer was offered before this sign-in. */
-export function consumeTransfer(): string | null {
+/**
+ * The ticket to claim, if a transfer was offered before this sign-in.
+ *
+ * Reading and clearing are separate on purpose. They used to be one call, and
+ * that lost people their seasons: the claim runs as the account screen mounts,
+ * the web session is still being parsed out of the redirect at that moment, so
+ * the first attempt failed with no `auth.uid()` -- and the ticket had already
+ * been deleted. It stays until something definitive happens to it.
+ */
+export function peekTransfer(): string | null {
   if (typeof sessionStorage === 'undefined') return null;
   try {
-    const ticket = sessionStorage.getItem(TICKET);
-    sessionStorage.removeItem(TICKET);
-    return ticket;
+    return sessionStorage.getItem(TICKET);
   } catch {
     return null;
   }
+}
+
+export function clearTransfer(): void {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.removeItem(TICKET);
+  } catch {
+    // Nothing to do; the ticket expires on its own in half an hour.
+  }
+}
+
+/**
+ * Resolves once a real, signed-in session exists.
+ *
+ * `detectSessionInUrl` means that on web the session arrives some time *after*
+ * the page that carries it has mounted, and anything that needs `auth.uid()` in
+ * that first moment is racing it. Waits for a non-anonymous user specifically:
+ * the anonymous session being replaced is still current for part of this, and
+ * claiming a transfer onto the account that minted it is refused.
+ *
+ * Resolves false rather than hanging, so a sign-in that never completes costs a
+ * message rather than a screen.
+ */
+export function whenSignedIn(timeoutMs = 15000): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!supabase) return resolve(false);
+
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      subscription?.unsubscribe();
+      resolve(ok);
+    };
+
+    const consider = (session: { user?: { is_anonymous?: boolean } } | null) => {
+      if (session?.user && session.user.is_anonymous !== true) finish(true);
+    };
+
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => consider(session));
+    const subscription = data.subscription;
+
+    // Also checked directly: if the session had already landed before this was
+    // called, no further state change is coming.
+    void supabase.auth.getSession().then(({ data: now }) => consider(now.session));
+  });
 }
 
 function webRedirect(): string {

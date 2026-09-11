@@ -843,10 +843,32 @@ export async function offerSeasonTransfer(): Promise<string | null> {
   return typeof data === 'string' ? data : null;
 }
 
-/** How many seasons actually moved. Null when the ticket was refused. */
-export async function claimSeasonTransfer(ticket: string): Promise<number | null> {
-  if (!supabase) return null;
+/**
+ * The outcome of a claim, in enough detail to know whether to try again.
+ *
+ * A bare `null` was not enough. The single most likely failure is calling this
+ * before the session exists -- on web the redirect is parsed asynchronously, so
+ * the first attempt after signing in can arrive with no `auth.uid()` at all --
+ * and that is a *retryable* failure sitting next to permanent ones like an
+ * expired ticket. Collapsing the two threw away a ticket that was still good
+ * for another twenty-nine minutes.
+ */
+export type ClaimOutcome =
+  | { readonly ok: true; readonly moved: number }
+  | { readonly ok: false; readonly retryable: boolean; readonly message: string };
+
+export async function claimSeasonTransfer(ticket: string): Promise<ClaimOutcome> {
+  if (!supabase) {
+    return { ok: false, retryable: false, message: 'No backend is configured.' };
+  }
   const { data, error } = await supabase.rpc('claim_season_transfer', { p_ticket: ticket });
-  if (error) return null;
-  return Number(data ?? 0);
+  if (!error) return { ok: true, moved: Number(data ?? 0) };
+
+  // Everything the server answered with is final -- it looked at the ticket and
+  // refused it. Only never reaching the server, or reaching it without a
+  // session, is worth another attempt.
+  const retryable = /unauthenticated|jwt|network|fetch|timeout/i.test(
+    `${error.message} ${error.code ?? ''}`,
+  );
+  return { ok: false, retryable, message: error.message };
 }

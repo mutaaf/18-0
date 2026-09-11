@@ -215,6 +215,24 @@ console.log('\nWHAT A TICKET MAY NOT DO');
   check('an invented ticket is refused', Boolean(error), error?.message ?? 'no error');
 }
 
+console.log('\nTHE RACE THE CLIENT HAS TO SURVIVE');
+{
+  // On web the session is parsed out of the redirect *after* the account screen
+  // mounts, so the first claim can arrive with no `auth.uid()` at all. The
+  // client keeps the ticket and retries when that happens, and it decides which
+  // failures are worth retrying by reading the message -- so the message is
+  // part of the contract, not an implementation detail.
+  const stranger = createClient(url, anon, { auth: { persistSession: false } });
+  const { error } = await stranger.rpc('claim_season_transfer', {
+    p_ticket: '00000000-0000-0000-0000-000000000000',
+  });
+  check(
+    'a claim with no session says so, so the client knows to try again',
+    /unauthenticated/i.test(error?.message ?? ''),
+    error?.message ?? 'no error',
+  );
+}
+
 console.log('\nTHE TABLE ITSELF');
 {
   const { error } = await bob.sb.from('season_transfers').select('id').limit(1);
