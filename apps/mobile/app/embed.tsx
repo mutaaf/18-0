@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Brand } from '@/components/Brand';
+import { EmbedBoard } from '@/components/EmbedBoard';
 import { StadiumBackdrop } from '@/components/Screen';
 import { useStartGame } from '@/features/start-game';
 import { tellHost } from '@/features/embed';
@@ -21,13 +22,31 @@ import {
 } from '@/theme';
 
 /**
+ * Which of the two things a frame can be showing.
+ *
+ * Read from the URL once, because the host chooses it when it sets the frame's
+ * `src` -- a segmented control in the panel changes the address rather than
+ * talking to the frame, so there is one way in and no message to keep in step.
+ */
+function initialView(): 'entry' | 'board' {
+  if (typeof window === 'undefined') return 'entry';
+  try {
+    return new URLSearchParams(window.location.search).get('view') === 'board'
+      ? 'board'
+      : 'entry';
+  } catch {
+    return 'entry';
+  }
+}
+
+/**
  * The game in a card, for a frame in somebody else's page.
  *
- * Deliberately one screen and one button. A frame on a watch page is a hundred
- * and thirty pixels tall in a row of thumbnails, and the thing it has to do is
- * be obviously playable at a glance -- not reproduce a home screen. Everything
- * that makes the full app a *product* rather than a game is gone: no dock, no
- * leaderboard, no sign-in, no install prompt.
+ * Two views and no more: an entry card that starts a season, and a board.
+ * A frame on a watch page is a couple of hundred points tall, and the thing it
+ * has to do is be obviously playable at a glance -- not reproduce a home
+ * screen. Everything that makes the full app a *product* rather than a game is
+ * gone: no dock, no sign-in, no install prompt, no account.
  *
  * Scout, because that is what the front page leads with and because a frame is
  * the worst possible place to explain three modes.
@@ -43,10 +62,20 @@ export default function Embed() {
   const { start, opening } = useStartGame();
   const games = useHistoryStore((s) => s.games);
   const career = careerReport(games);
+  const [view] = useState(initialView);
 
   useEffect(() => {
-    tellHost('entry');
-  }, []);
+    tellHost(view);
+  }, [view]);
+
+  if (view === 'board') {
+    return (
+      <View style={styles.root}>
+        <StadiumBackdrop />
+        <EmbedBoard />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root}>

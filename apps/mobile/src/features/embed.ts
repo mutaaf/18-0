@@ -67,7 +67,7 @@ export function homeRoute(): '/embed' | '/(tabs)' {
  * different heights and a frame that fits both fits neither. Nothing is read
  * back, and nothing here is trusted -- the message is a courtesy, not a channel.
  */
-export function tellHost(screen: 'entry' | 'play' | 'result'): void {
+export function tellHost(screen: 'entry' | 'play' | 'result' | 'board'): void {
   if (!embedded || typeof window === 'undefined') return;
   try {
     // '*' rather than an origin: the frame does not know who is holding it, and
