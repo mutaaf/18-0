@@ -137,13 +137,22 @@
   window.chrome = {
     storage: {
       local: {
-        get: (defaults, cb) => cb({ ...defaults, ...stored }),
-        set: (_v, cb) => cb?.(),
-        remove: (_k, cb) => cb?.(),
+        // Callback *or* promise, the way MV3's really is: `ezIdentity` awaits
+        // it, and a stub that only takes a callback threw inside the panel's
+        // consent row instead of answering it.
+        get: (defaults, cb) => (cb ? cb({ ...defaults, ...stored }) : Promise.resolve({ ...defaults, ...stored })),
+        set: (_v, cb) => (cb ? cb() : Promise.resolve()),
+        remove: (_k, cb) => (cb ? cb() : Promise.resolve()),
       },
       onChanged: { addListener: () => {} },
     },
-    runtime: { onMessage: { addListener: () => {} } },
+    // The default logo is an extension file. Here that resolves to the copy
+    // sitting beside this fixture, so the mask and the image are both real and
+    // the shine can actually be measured.
+    runtime: {
+      onMessage: { addListener: () => {} },
+      getURL: (path) => path,
+    },
   };
 </script>
 
@@ -183,6 +192,38 @@
   // waits for idle. The harness hung rather than failed, which is the worst
   // kind of test.
   for (let at = 200; at <= 3000; at += 100) setTimeout(sample, at);
+
+  /*
+   * The panel, opened and then taken away again.
+   *
+   * Its frame points at the real embed, which this page must never wait for --
+   * the harness passes `--host-resolver-rules` so that load fails instantly,
+   * and the panel is removed long before the report so nothing is still
+   * pending when Chrome decides the page is idle.
+   */
+  const panel = {};
+  if (new URLSearchParams(location.search).get('panel')) {
+    setTimeout(() => {
+      openPanel('board');
+      const node = document.getElementById('eighteen-zero-panel');
+      const frame = node?.querySelector('.ez-frame');
+      const tabs = [...(node?.querySelectorAll('.ez-tab') ?? [])];
+      const cta = node?.querySelector('a.ez-panel-cta');
+
+      panel.tabs = tabs.map((t) => t.textContent);
+      panel.openedOn = frame?.getAttribute('src') ?? null;
+      panel.openedHeight = frame?.style.height ?? null;
+      panel.selected = tabs.find((t) => t.classList.contains('on'))?.textContent ?? null;
+      panel.cta = cta ? { href: cta.href, target: cta.target, rel: cta.rel } : null;
+
+      tabs.find((t) => t.textContent === 'Play')?.click();
+      panel.switchedOn = frame?.getAttribute('src') ?? null;
+      panel.switchedHeight = frame?.style.height ?? null;
+      panel.switchedSelected = tabs.find((t) => t.classList.contains('on'))?.textContent ?? null;
+
+      node?.remove();
+    }, 300);
+  }
 
   setTimeout(() => {
     sample();
@@ -253,6 +294,70 @@
       // The two placements are separate elements; one must not be the other's
       // parent, and neither may end up inside the other.
       tangled: Boolean(card && band && (card.contains(band) || band.contains(card))),
+
+      // The frame contract, read off the table rather than restated here.
+      frameHeights: typeof FRAME_HEIGHT === 'object' ? FRAME_HEIGHT : null,
+      views: typeof VIEWS === 'object' ? VIEWS.map((v) => [v.key, v.url, v.height]) : null,
+      panel,
+
+      /*
+       * The call to action, everywhere it can be.
+       *
+       * `insideButton` is the one that matters: the tile's play action is a
+       * `<button>` and the artwork is all of it, so a link placed inside would
+       * open the panel and follow the link on the same click.
+       */
+      tileCta: (() => {
+        const a = card?.querySelector('a.ez-cta');
+        if (!a) return null;
+        return {
+          text: a.textContent,
+          href: a.href,
+          target: a.target,
+          rel: a.rel,
+          insideButton: Boolean(a.closest('button')),
+        };
+      })(),
+      bandCta: (() => {
+        const a = band?.querySelector('a.ez-band-cta');
+        return a ? { href: a.href, target: a.target, rel: a.rel } : null;
+      })(),
+
+      /*
+       * The logo and the shine on it.
+       *
+       * `masked` is the whole treatment: without the mask the gloss is a
+       * rectangle of light over a transparent PNG, which is a pane of glass in
+       * front of the card rather than light on the mark. `natural` is the other
+       * half -- the asset has to be several times the size it is drawn at or
+       * the mark is soft on a 2x screen, and nothing else on the page would
+       * ever notice.
+       */
+      tileLogo: (() => {
+        const slot = card?.querySelector('.ez-logo');
+        const img = slot?.querySelector('img.ez-logo-img');
+        const gloss = slot?.querySelector('.ez-logo-gloss');
+        if (!slot || !img || !gloss) return null;
+        const style = getComputedStyle(gloss);
+        const slotStyle = getComputedStyle(slot);
+        return {
+          src: img.getAttribute('src'),
+          natural: img.naturalWidth,
+          width: Math.round(slot.getBoundingClientRect().width),
+          masked: (style.webkitMaskImage || style.maskImage || 'none') !== 'none',
+          blend: style.mixBlendMode,
+          // Both of these are built out of `calc()` on the pointer variables,
+          // and a `calc()` the parser rejects drops the whole declaration
+          // silently -- the logo simply goes flat and nothing says why.
+          lifted: slotStyle.filter.includes('drop-shadow'),
+          tilted: slotStyle.transform !== 'none',
+          sweeping: style.backgroundImage.includes('gradient'),
+          // The crest is the wordmark drawn, so it replaces it rather than
+          // sitting next to a second copy of the same name.
+          wordmark: Boolean(card.querySelector('.ez-mark')),
+        };
+      })(),
+      bandLogo: Boolean(band?.querySelector('.ez-logo img.ez-logo-img')),
     });
   }, 3200);
 </script>

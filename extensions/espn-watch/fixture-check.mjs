@@ -38,13 +38,26 @@ const profile = resolve(import.meta.dirname, '.fixture-profile');
  * the timeout is treated as a normal ending and the partial output is used.
  * Waiting for a clean exit meant a check that hung instead of reporting.
  */
-function dumpDom(query = '') {
+function dumpDom(query = '', extra = []) {
   const args = [
     '--headless',
     '--disable-gpu',
     `--user-data-dir=${profile}`,
     '--virtual-time-budget=9000',
     '--window-size=1280,900',
+    /*
+     * **The fixture is offline, and must be unable to wait.**
+     *
+     * It opens the panel, and the panel's frame points at the real embed.
+     * Virtual time pauses while a fetch is outstanding, so on a machine where
+     * that request hangs rather than refuses, the page never goes idle, the
+     * report is never written and the harness times out with nothing on stdout
+     * -- a test that hangs instead of failing. Refusing to resolve any host at
+     * all makes the frame fail immediately and states what the fixture is:
+     * every file it needs sits beside it.
+     */
+    '--host-resolver-rules=MAP * ~NOTFOUND',
+    ...extra,
     '--dump-dom',
     `file://${fixture}${query}`,
   ];
@@ -61,8 +74,8 @@ function dumpDom(query = '') {
   }
 }
 
-function run(query = '') {
-  const dom = dumpDom(query);
+function run(query = '', extra = []) {
+  const dom = dumpDom(query, extra);
   const title = dom.match(/<title>(.*?)<\/title>/s)?.[1];
   try {
     return JSON.parse(title.replace(/&quot;/g, '"'));
@@ -130,6 +143,70 @@ check(
 check('no band was placed', report.bands === 0, `${report.bands}`);
 
 /*
+ * The logo, and the shine.
+ *
+ * The treatment is CSS, so what is worth asserting is the two things that go
+ * silently wrong. A gloss with no mask is a rectangle of light over a
+ * transparent PNG -- a pane of glass in front of the card rather than light on
+ * the mark -- and it looks deliberate enough that nobody files it. An asset the
+ * size it is drawn at looks correct on the machine it was built on and soft on
+ * every retina screen.
+ */
+console.log('\nTHE LOGO');
+{
+  const logo = report.tileLogo;
+  check('the tile carries a logo', Boolean(logo), logo ? logo.src : 'none');
+  check('it defaults to the crest that ships here', logo?.src === 'icons/crest.png', `${logo?.src}`);
+  check(
+    'the artwork is bigger than the slot, so it is crisp at 2x',
+    Boolean(logo) && logo.natural >= logo.width * 2,
+    `${logo?.natural}px asset in a ${logo?.width}px slot`,
+  );
+  check('the shine is masked with the logo itself', logo?.masked === true);
+  check('and lights it rather than covering it', logo?.blend === 'screen', `mix-blend-mode: ${logo?.blend}`);
+  check('the mark is lifted off the artwork', logo?.lifted === true, 'drop-shadow on the slot');
+  check('and tilted above it', logo?.tilted === true, 'a transform on the slot');
+  check('and it replaces the wordmark rather than crowding it', logo?.wordmark === false);
+}
+
+/*
+ * Reduce Motion, driven for real rather than read.
+ *
+ * The requirement is the awkward half of the preference: the shine has to
+ * *settle*, not vanish. A media query that turns the whole treatment off is the
+ * easy thing to write and it leaves somebody who asked for less movement
+ * looking at a flat sticker, so what is asserted is that the movement is gone
+ * and the light is still there.
+ */
+const still = run('', ['--force-prefers-reduced-motion']);
+
+console.log('\nWITH REDUCE MOTION');
+check('the logo is still drawn', Boolean(still.tileLogo));
+check('the tilt is gone', still.tileLogo?.tilted === false, `transform ${still.tileLogo?.tilted ? 'still applied' : 'none'}`);
+check('the highlight is not', still.tileLogo?.sweeping === true, 'the gloss still has its gradient');
+check('and it is still lit and shadowed', still.tileLogo?.lifted === true);
+check('the card is still placed once and left alone', still.cards === 1 && still.moves === 0);
+
+console.log('\nTHE CALL TO ACTION');
+{
+  const cta = report.tileCta;
+  check('the tile carries one', Boolean(cta), cta ? `"${cta.text}"` : 'none');
+  check('it points at the configured link', cta?.href === 'https://18-0.co/', `${cta?.href}`);
+  check('it opens in a new tab', cta?.target === '_blank');
+  // Without `noopener` the page it opens gets a handle on the ESPN tab it came
+  // from; `noreferrer` because that site has no business knowing which page it
+  // was clicked on.
+  check(
+    'with noopener and noreferrer',
+    Boolean(cta) && cta.rel.includes('noopener') && cta.rel.includes('noreferrer'),
+    `rel="${cta?.rel}"`,
+  );
+  // The tile's play action is a `<button>` covering the whole artwork. A link
+  // inside it would open the panel *and* follow the link on the same click.
+  check('and it is outside the play button, not inside it', cta?.insideButton === false);
+}
+
+/*
  * The sponsor token, checked directly because it is pure and because its whole
  * job is what happens when there is *no* sponsor: leaving "Presented by" with
  * nothing after it, or a dangling separator, is worse than having no line.
@@ -139,7 +216,7 @@ console.log('\nSPONSOR COPY');
   const src = readFileSync(resolve(import.meta.dirname, 'config.js'), 'utf8');
   const scope = {};
   new Function('globalThis', `${src}`).call(scope, scope);
-  const { ezFill, ezSettings, EZ_DEFAULTS } = scope;
+  const { ezFill, ezUrl, ezNumber, ezSettings, EZ_DEFAULTS } = scope;
 
   const cases = [
     ['Presented by {sponsor}', 'A Brand', 'Presented by A Brand'],
@@ -182,6 +259,43 @@ console.log('\nSPONSOR COPY');
   // time it is touched, and from then on the flags are the only truth.
   const retired = ezSettings({ placement: null, placeTile: false, placeBand: true });
   check('a retired `placement` does not override the flags', retired.placeTile === false && retired.placeBand === true);
+
+  /*
+   * The URLs, which are typed into a field and then become an `href`, a `src`
+   * and a CSS `url()`.
+   *
+   * `javascript:` in the call to action is the hole: an href on espn.com built
+   * from a value we did not write. It is refused by parsing rather than by
+   * pattern, because a blocklist is a list somebody adds `vbscript:` to later.
+   */
+  console.log('\nURLS');
+  for (const hostile of [
+    'javascript:alert(1)',
+    'JavaScript:alert(1)',
+    '  javascript:alert(1)  ',
+    'data:text/html,<script>alert(1)</script>',
+    'vbscript:msgbox',
+    'chrome-extension://abc/x.png',
+    'not a url',
+    '',
+    '   ',
+  ]) {
+    check(`refused: ${JSON.stringify(hostile)}`, ezUrl(hostile) === '', `got "${ezUrl(hostile)}"`);
+  }
+  check('an https link survives', ezUrl('https://18-0.co/x?a=1') === 'https://18-0.co/x?a=1');
+  check('an http link survives', ezUrl(' http://example.test/ ') === 'http://example.test/');
+  // The logo's shine is a CSS mask built as `url("…")` around this value, so the
+  // quote that would close it early has to be gone before it gets there.
+  check(
+    'a quote in a URL cannot close a CSS url()',
+    !ezUrl('https://18-0.co/a") ;background:red;x:("').includes('"'),
+    ezUrl('https://18-0.co/a") ;background:red;x:("'),
+  );
+  check('the shipped call to action is a real link', ezUrl(EZ_DEFAULTS.copy.ctaUrl) !== '');
+  // An emptied number field is not a zero: a zero-width logo is invisible and
+  // reads as the image having failed to load.
+  check('an emptied number field falls back', ezNumber('', 24, 240, 76) === 76);
+  check('and a silly one is clamped', ezNumber('9000', 24, 240, 76) === 240 && ezNumber('1', 24, 240, 76) === 24);
 }
 
 console.log(`  · card ${report.heights.card}px (min-height ${report.heights.minH}), anchor tile ${report.heights.anchorTile}px, tallest ${report.heights.tallestTile}px, top delta ${report.cardTopDelta}px`);
@@ -216,6 +330,14 @@ check(
   band.bandLeftDelta !== null && Math.abs(band.bandLeftDelta) <= 1,
   band.bandLeftDelta === null ? 'nothing to measure' : `${band.bandLeftDelta}px off`,
 );
+check('it carries the logo too', band.bandLogo === true);
+// A link beside the button rather than a second button: two pills side by side
+// is two primary actions and a choice nobody asked to make.
+check(
+  'and a call to action that is a link, not a second button',
+  Boolean(band.bandCta) && band.bandCta.target === '_blank' && band.bandCta.rel.includes('noopener'),
+  band.bandCta ? `${band.bandCta.href} rel="${band.bandCta.rel}"` : 'none',
+);
 
 /*
  * Both at once, which is what the placements being independent is for.
@@ -240,6 +362,50 @@ check(
   both.artTopDelta !== null && Math.abs(both.artTopDelta) <= 1,
   both.artTopDelta === null ? 'nothing to measure' : `${both.artTopDelta}px off`,
 );
+
+/*
+ * The panel, and the two views it can hold.
+ *
+ * The board is a view on `/embed` rather than a second path, because `/embed`
+ * is the only path on the site that may be framed -- `vercel.json` scopes
+ * `frame-ancestors` to it. So what is checked is the exact URL: a board that
+ * quietly moved to `/leaderboard` would open a panel that refuses to render
+ * and there would be nothing in the extension to point at.
+ *
+ * The heights are the other half of the contract. `board` has to be in the
+ * table or the frame's own message about which screen it is on is dropped by
+ * the listener, and the panel stays whatever height it was.
+ */
+const panel = run('?panel=1');
+
+console.log('\nTHE PANEL, AND THE BOARD');
+check('the frame table names the board', panel.frameHeights?.board === 520, `board: ${panel.frameHeights?.board}`);
+check(
+  'and still names the game\'s own screens',
+  panel.frameHeights?.entry === 232 && panel.frameHeights?.play === 620 && panel.frameHeights?.result === 760,
+);
+check('the header offers both views', JSON.stringify(panel.panel?.tabs) === '["Play","Leaderboard"]', JSON.stringify(panel.panel?.tabs));
+check(
+  'opening on the board loads the board',
+  panel.panel?.openedOn === 'https://18-0.co/embed?view=board',
+  `${panel.panel?.openedOn}`,
+);
+check('sized for it before the frame reports', panel.panel?.openedHeight === '520px', `${panel.panel?.openedHeight}`);
+check('and the board is the selected view', panel.panel?.selected === 'Leaderboard');
+check(
+  'switching to Play changes the frame\'s src',
+  panel.panel?.switchedOn === 'https://18-0.co/embed',
+  `${panel.panel?.switchedOn}`,
+);
+check('and its height with it', panel.panel?.switchedHeight === '232px', `${panel.panel?.switchedHeight}`);
+check('and moves the selection', panel.panel?.switchedSelected === 'Play');
+check(
+  'the panel carries the call to action too',
+  Boolean(panel.panel?.cta) && panel.panel.cta.rel.includes('noopener'),
+  panel.panel?.cta ? `${panel.panel.cta.href} rel="${panel.panel.cta.rel}"` : 'none',
+);
+// Opening it must not have disturbed the card underneath.
+check('and the tile underneath never moved', panel.moves === 0 && panel.cards === 1, `${panel.moves} move(s), ${panel.cards} tile(s)`);
 
 // The retired setting, driven end to end: storage holding `header` and nothing
 // else must still put a band on the page.

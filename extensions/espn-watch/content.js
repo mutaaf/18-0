@@ -43,7 +43,25 @@ const PANEL_ID = 'eighteen-zero-panel';
 const EMBED_URL = 'https://18-0.co/embed';
 
 /** Heights the frame is given, by the screen the game says it is on. */
-const FRAME_HEIGHT = { entry: 232, play: 620, result: 760 };
+const FRAME_HEIGHT = { entry: 232, play: 620, result: 760, board: 520 };
+
+/**
+ * What the panel can show, and what each view asks the embed for.
+ *
+ * The board is a *view on the embed route* rather than a second path, because
+ * `/embed` is the only path on the site that may be framed -- `vercel.json`
+ * scopes `frame-ancestors` to it and everything else still refuses outright.
+ * A `/leaderboard` frame would need that file changed and would fail silently
+ * as a blank panel if the deployment did not happen.
+ *
+ * The height is taken from the table on switching rather than waited for: the
+ * frame reports its screen only once it has loaded, and a panel that sits at
+ * its previous height until then reads as a view that did not open.
+ */
+const VIEWS = [
+  { key: 'play', label: 'Play', url: EMBED_URL, height: FRAME_HEIGHT.entry },
+  { key: 'board', label: 'Leaderboard', url: `${EMBED_URL}?view=board`, height: FRAME_HEIGHT.board },
+];
 
 let settings = ezSettings(null);
 let picking = false;
@@ -333,9 +351,13 @@ function ladder() {
  */
 function sponsorStrip() {
   const strip = el('span', 'ez-sponsor');
-  if (settings.sponsorLogo) {
+  // Through `ezUrl` like every other typed URL. An `img` cannot be made to run
+  // a `javascript:` src, but the field is next to two that can and the one that
+  // is exempt today is the one somebody copies the pattern from tomorrow.
+  const src = ezUrl(settings.sponsorLogo);
+  if (src) {
     const logo = el('img', 'ez-sponsor-logo');
-    logo.src = settings.sponsorLogo;
+    logo.src = src;
     logo.alt = '';
     logo.referrerPolicy = 'no-referrer';
     strip.append(logo);
@@ -343,6 +365,122 @@ function sponsorStrip() {
   const line = ezFill(settings.copy.sponsorLine, settings.sponsor);
   if (line) strip.append(el('span', 'ez-sponsor-text', line));
   return strip;
+}
+
+/**
+ * The call to action, or nothing at all.
+ *
+ * Nothing is a first-class state rather than a disabled button: an unset URL, a
+ * mistyped one, a `javascript:` one and the switch being off all produce no
+ * element. A link that goes nowhere is worse than an absent one, because it is
+ * the only thing on the card that can disappoint somebody who clicked it.
+ *
+ * `noopener` because the destination gets a handle on this window otherwise,
+ * and `noreferrer` because the destination is somebody else's site and has no
+ * business learning which page on espn.com the click came from.
+ */
+function ctaLink(className) {
+  if (!settings.cta) return null;
+  const href = ezUrl(ezFill(settings.copy.ctaUrl, settings.sponsor));
+  const label = ezFill(settings.copy.ctaLabel, settings.sponsor);
+  if (!href || !label) return null;
+
+  const link = el('a', className, label);
+  link.href = href;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  return link;
+}
+
+/** The configured image, or the crest that ships with the extension. */
+function logoSource() {
+  const configured = ezUrl(settings.logo);
+  if (configured) return configured;
+  // Reachable from the page only because the manifest lists it in
+  // `web_accessible_resources`; without that a `chrome-extension://` URL is
+  // opaque to espn.com and the image silently does not render.
+  return chrome.runtime?.getURL ? chrome.runtime.getURL('icons/crest.png') : '';
+}
+
+/**
+ * The logo, and the light on it.
+ *
+ * Three layers: the image, a gloss masked *with that same image*, and a shadow
+ * cast by its alpha channel. The mask is the whole trick -- an unmasked sheen
+ * over a transparent PNG reads as a pane of glass in front of the card, and a
+ * masked one reads as light on the object.
+ *
+ * The image URL therefore has to reach CSS as a value, which is why `ezUrl`
+ * hands back a parsed `href`: the quote that would close `url("…")` early is
+ * percent-encoded by the URL serialiser, and a raw field value here would be
+ * CSS injection.
+ *
+ * Sized in a custom property rather than an attribute so the matched look can
+ * take a fraction of it, the same way it takes a smaller wordmark.
+ */
+function logoSlot() {
+  if (!settings.logoOn) return null;
+  const src = logoSource();
+  if (!src) return null;
+
+  const slot = el('span', 'ez-logo', '', { 'aria-hidden': 'true' });
+  slot.style.setProperty('--ez-logo-w', `${ezNumber(settings.logoWidth, 24, 240, 76)}px`);
+  slot.style.setProperty('--ez-logo-o', String(ezNumber(settings.logoOpacity, 10, 100, 100) / 100));
+  slot.style.setProperty('--ez-logo-src', `url("${src}")`);
+
+  const img = el('img', 'ez-logo-img');
+  img.src = src;
+  img.alt = '';
+  img.decoding = 'async';
+  img.referrerPolicy = 'no-referrer';
+  slot.append(img, el('span', 'ez-logo-gloss', '', { 'aria-hidden': 'true' }));
+  return slot;
+}
+
+/** Reduce Motion, asked once. */
+const STILL = window.matchMedia?.('(prefers-reduced-motion: reduce)') ?? { matches: false };
+
+/**
+ * Where the pointer is over a card, as two numbers between 0 and 1.
+ *
+ * That is the listener's entire job. The sweep's position, the tilt and the
+ * direction the shadow falls are all `calc()` off these two, so one light
+ * source produces three consequences and the thing reads as an object rather
+ * than as a gradient -- and none of it is JavaScript that runs per frame.
+ *
+ * Throttled to a frame because `pointermove` fires far faster than anything can
+ * be painted, and not attached at all under Reduce Motion, where the stylesheet
+ * pins the highlight to a fixed angle and tracking would be work whose result
+ * is thrown away.
+ */
+function trackShine(node) {
+  if (STILL.matches) return;
+
+  let frame = 0;
+  node.addEventListener('pointermove', (event) => {
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      const box = node.getBoundingClientRect();
+      if (!box.width || !box.height) return;
+      const x = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
+      const y = Math.min(1, Math.max(0, (event.clientY - box.top) / box.height));
+      node.style.setProperty('--ez-px', x.toFixed(3));
+      node.style.setProperty('--ez-py', y.toFixed(3));
+      // The sweep's angle, so the highlight runs across the mark the way it
+      // would if the light were where the cursor is, rather than always
+      // arriving from the top-left however the card is approached.
+      node.style.setProperty('--ez-shine', `${Math.round(70 + x * 50)}deg`);
+    });
+  });
+
+  // Back to the card's own light -- the one the artwork's gradient is lit by --
+  // rather than leaving the highlight wherever the pointer left the card.
+  node.addEventListener('pointerleave', () => {
+    node.style.removeProperty('--ez-px');
+    node.style.removeProperty('--ez-py');
+    node.style.removeProperty('--ez-shine');
+  });
 }
 
 /**
@@ -531,19 +669,42 @@ function buildCard(shape) {
   const art = el('button', 'ez-art');
   art.type = 'button';
   art.setAttribute('aria-label', `${say('tileTitle')}. ${say('tileButton')}.`);
+  // The crest *is* the wordmark, rendered. Drawing both puts the same name
+  // twice in the same corner, so the logo takes the mark's place rather than
+  // crowding in beside it -- and the card still says "18-0" in its title either
+  // way, which is what stops a pointed-elsewhere logo from erasing the game.
+  const logo = logoSlot();
   art.append(
     fieldArt(shape.width, shape.height),
     el('span', 'ez-sheen', '', { 'aria-hidden': 'true' }),
-    mark(),
+    logo ?? mark(),
     el('span', 'ez-tag', say('tileButton')),
   );
   if (say('tileBadge')) art.append(el('span', 'ez-badge', say('tileBadge')));
   if (settings.sponsor && settings.sponsorBanner) art.append(sponsorStrip());
   art.append(ladder());
 
-  card.append(art, el('p', 'ez-title', say('tileTitle')), el('p', 'ez-meta', say('tileSubtitle')));
+  /**
+   * The subtitle and the call to action share one line.
+   *
+   * Not a line of its own, which is the obvious shape and the wrong one: the
+   * card's height is the row's -- `min-height` is a neighbour's total height and
+   * these rails centre their children -- so a card that grows past the tallest
+   * tile stops matching the row and starts defining it, pushing every real
+   * thumbnail down. A second 11px line is enough to do that on a row whose
+   * captions are one line. Beside the subtitle it costs nothing.
+   */
+  const caption = el('div', 'ez-caption');
+  caption.append(el('p', 'ez-meta', say('tileSubtitle')));
+  const cta = ctaLink('ez-cta');
+  if (cta) caption.append(cta);
 
-  art.addEventListener('click', openPanel);
+  card.append(art, el('p', 'ez-title', say('tileTitle')), caption);
+
+  // Wrapped, because a listener is handed the event as its first argument and
+  // `openPanel` reads that argument as the view to open.
+  art.addEventListener('click', () => openPanel());
+  if (logo) trackShine(art);
   countImpression();
   return card;
 }
@@ -621,12 +782,23 @@ function buildBand(motion) {
   const go = el('button', 'ez-band-go', say('bandButton'));
   go.type = 'button';
 
+  // Two actions, and only one of them is a button. The band has the room a tile
+  // does not, so the call to action can sit beside the primary one -- as a link,
+  // because two pills side by side is two primary actions and a choice nobody
+  // asked for.
+  const actions = el('div', 'ez-band-actions');
+  actions.append(go);
+  const cta = ctaLink('ez-band-cta');
+  if (cta) actions.append(cta);
+
   // A nominal box rather than the real one: the band is as wide as the shelf,
   // which is not known until it is in the document, and `slice` crops a wide
   // field rather than stretching the yard lines into stripes.
-  band.append(fieldArt(1200, 96), text, go, ladder());
+  const logo = logoSlot();
+  band.append(fieldArt(1200, 96), ...(logo ? [logo] : []), text, actions, ladder());
 
-  go.addEventListener('click', openPanel);
+  go.addEventListener('click', () => openPanel());
+  if (logo) trackShine(band);
   countImpression();
   return band;
 }
@@ -783,24 +955,61 @@ function insertBand(rows) {
 // The panel
 // ---------------------------------------------------------------------------
 
-function openPanel() {
+function openPanel(view = 'play') {
   if (document.getElementById(PANEL_ID)) return;
   countOpen();
 
   const panel = document.createElement('div');
   panel.id = PANEL_ID;
   panel.className = 'ez-panel';
+  // Static markup only. Every string here is ours; anything typed on the
+  // options page is appended as a text node below.
   panel.innerHTML = `
     <div class="ez-sheet" role="dialog" aria-label="18-0">
       <div class="ez-sheet-head">
         <span class="ez-sheet-mark">18<span class="ez-dash">-</span>0</span>
+        <div class="ez-tabs" role="tablist" aria-label="18-0"></div>
         <button class="ez-close" type="button" aria-label="Close">&times;</button>
       </div>
-      <iframe class="ez-frame" title="18-0" src="${EMBED_URL}"
+      <iframe class="ez-frame" title="18-0"
         allow="clipboard-write" referrerpolicy="no-referrer"></iframe>
-      <p class="ez-note">Added by the 18-0 browser extension. Not part of ESPN.</p>
+      <div class="ez-foot">
+        <p class="ez-note">Added by the 18-0 browser extension. Not part of ESPN.</p>
+      </div>
     </div>
   `;
+
+  const frame = panel.querySelector('.ez-frame');
+  const tabs = panel.querySelector('.ez-tabs');
+
+  /**
+   * Switching views is switching documents: the game is in an iframe and the
+   * board is another URL on the same route, so `src` is the control. Assigned
+   * as a property from our own table -- there is no configured text anywhere
+   * near this.
+   */
+  const buttons = new Map();
+  const show = (key) => {
+    const chosen = VIEWS.find((v) => v.key === key) ?? VIEWS[0];
+    frame.src = chosen.url;
+    frame.style.height = `${chosen.height}px`;
+    for (const [at, button] of buttons) {
+      const on = at === chosen.key;
+      button.classList.toggle('on', on);
+      button.setAttribute('aria-selected', on ? 'true' : 'false');
+    }
+  };
+
+  for (const v of VIEWS) {
+    const button = el('button', 'ez-tab', v.label, { type: 'button', role: 'tab' });
+    button.addEventListener('click', () => show(v.key));
+    buttons.set(v.key, button);
+    tabs.append(button);
+  }
+  show(view);
+
+  const cta = ctaLink('ez-panel-cta');
+  if (cta) panel.querySelector('.ez-foot').append(cta);
 
   const close = () => {
     panel.remove();
@@ -962,8 +1171,13 @@ chrome.storage.onChanged.addListener((changes) => {
   // one that was changed. Rebuilding both means a tile that nobody touched is
   // destroyed and recreated because somebody picked a gap for the band.
   const touched = (keys) => keys.some((key) => key in changes);
-  if (touched(['row', 'placeTile', 'matchUi', 'copy', 'sponsor', 'sponsorLogo', 'sponsorBanner'])) removeAt('tile');
-  if (touched(['gap', 'placeBand', 'matchUi', 'copy', 'sponsor', 'sponsorLogo', 'sponsorBanner'])) removeAt('band');
+  // Everything the two are *built* from, which is why the list is long and why
+  // adding a setting means adding it here: a field that is not named is one
+  // that appears to save and then does nothing until the page is reloaded.
+  const LOOK = ['matchUi', 'copy', 'sponsor', 'sponsorLogo', 'sponsorBanner',
+    'cta', 'logoOn', 'logo', 'logoWidth', 'logoOpacity'];
+  if (touched(['row', 'placeTile', ...LOOK])) removeAt('tile');
+  if (touched(['gap', 'placeBand', ...LOOK])) removeAt('band');
   place();
 });
 

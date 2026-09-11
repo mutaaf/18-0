@@ -40,9 +40,14 @@ is touched.
 
 Clicking the card opens the game over the page. Escape closes it.
 
-**Sponsorship and copy** are on the options page — right-click the toolbar icon,
-or press **Sponsorship & copy…** in the popup. Every string the card shows is a
-field, and `{sponsor}` can go in any of them:
+The panel holds two views — **Play** and **Leaderboard** — chosen by a segmented
+control in its header. They are two URLs on the same route rather than two
+routes; see [What it loads](#what-it-loads) for why that is not a detail.
+
+**Copy, the logo, the call to action and sponsorship** are on the options page —
+right-click the toolbar icon, or press **Copy, logo & sponsorship…** in the
+popup. Every string the card shows is a field, and `{sponsor}` can go in any of
+them:
 
     Title      18-0 — build the perfect roster
     Subtitle   Seven spins · Plays here
@@ -53,6 +58,54 @@ With no sponsor name set, the token is removed **along with the words holding
 it** — "Presented by {sponsor}" becomes nothing rather than "Presented by", and
 "Seven spins · {sponsor}" becomes "Seven spins". So one set of defaults reads
 correctly sponsored and unsponsored, and nobody maintains two.
+
+### The call to action
+
+A label and a link, on the tile beside the subtitle, on the band beside the
+button, and in the panel's footer. It is a **link in all three**, never a second
+button: the primary action is playing, and on the tile that is the whole
+artwork — a pill beside it would be two primary actions and a decision nobody
+asked to make.
+
+Empty link means no call to action anywhere, and the switch above it means the
+same while keeping the link configured. Both are silent on the card, so the
+options page says which one is in force rather than leaving somebody to guess
+why nothing appeared. `{sponsor}` works in the link as well as the label, since a
+campaign URL usually wants the name in it.
+
+### The logo
+
+An image on the tile and on the band, configured rather than compiled in. The
+default is the game's own crest, which ships in `icons/crest.png`; the URL field
+is there so somebody can point it at their own mark locally. **Nothing here may
+ever default to, bundle or reference a club or league mark** — see the licence
+section of the root README, and `CLAUDE.md`. The statistics are facts; the club
+name is a trademark.
+
+On the tile the logo takes the wordmark's place rather than sitting beside it:
+the crest *is* the wordmark, rendered, and two copies of the same name in one
+corner is worse than either alone. The card still carries "18-0" in its title, so
+a logo pointed somewhere else does not erase the game.
+
+It is lit rather than placed. Three layers read the pointer's position over the
+card — written as two custom properties, everything else is `calc()` — and
+produce one light with three consequences:
+
+| | |
+|---|---|
+| the gloss | a highlight that moves toward the cursor, **masked with the logo's own image** so it travels *through* the mark. Unmasked it is a rectangle of shine over a transparent PNG, which reads as a pane of glass in front of the card rather than as light on the thing. |
+| the tilt | a small perspective rotation away from the cursor, so the mark is an object above the artwork and not a sticker printed on it. |
+| the shadow | `drop-shadow`, not `box-shadow`: cast by the alpha channel, so a crest with a crown casts the crown. It falls opposite the highlight, which is the part the eye checks. |
+
+Under `prefers-reduced-motion` the light **settles rather than vanishing** — a
+fixed sweep across the top-left of the mark, where the card's own light comes
+from, with the shadow it would cast from there. Turning the treatment off
+entirely is the easy thing to write and it leaves somebody who asked for less
+movement looking at a flat sticker.
+
+The shipped crest is 320px wide and drawn at around 60, because an asset the
+size it is drawn at looks correct on the machine it was built on and soft on
+every retina screen after that. The check asserts the ratio.
 
 <br>
 
@@ -189,7 +242,25 @@ rather than against any heading.
 
 `?tile=0&band=1`, `?tile=1&band=1` and `?match=0` drive the placements and the
 two looks. `?placement=header` still works, and is checked, because a stored
-setting from before the rename has to keep meaning what it meant.
+setting from before the rename has to keep meaning what it meant. `?panel=1`
+opens the panel on the board, reads the frame's `src` and its height, clicks
+through to Play and reads both again — then takes the panel away, because its
+frame points at the real embed and the fixture must never be able to wait for
+the network. `--host-resolver-rules=MAP * ~NOTFOUND` is what guarantees that:
+virtual time pauses while a fetch is outstanding, so a request that hangs rather
+than refuses is a harness that times out with nothing on stdout, which is a test
+that hangs instead of failing. Every file the fixture needs sits beside it.
+
+One run is made with `--force-prefers-reduced-motion`, and it asserts the
+awkward half of that preference: the tilt is gone **and the light is still
+there**. A media query that turns the whole treatment off passes "respects
+Reduce Motion" and fails the person who set it.
+
+Three things about the shine are checked rather than looked at, because all
+three fail invisibly: a gloss with no mask is a rectangle of light that looks
+deliberate enough nobody files it; a `calc()` the parser rejects drops the whole
+declaration, so the mark just goes flat; and an asset the size it is drawn at is
+only soft on somebody else's screen.
 
 Worth knowing what it does *not* do: it has never reproduced the original
 flicker. No synthetic page I could build resolves rows differently between passes
@@ -211,10 +282,19 @@ cursor lands. Clickjacking is a real attack against precisely that button. So
 `vercel.json` scopes `frame-ancestors` to `/embed` and names the origins allowed
 to hold it; everything else still refuses to be framed at all.
 
-The frame reports which screen it is on — entry, play, result — with
+The frame reports which screen it is on — entry, play, result, board — with
 `postMessage`, so the panel can size itself to a two-line card or a seven-row
 roster. It is one-way and advisory, the listener checks the origin before
-reading anything, and the payload is the name of a screen.
+reading anything, and the payload is the name of a screen. A screen the height
+table does not name is dropped, so **adding a view to the embed means adding it
+to `FRAME_HEIGHT`** or the panel silently stays whatever height it was.
+
+The leaderboard is `https://18-0.co/embed?view=board` — a *view on the embed
+route*, not a second path, and that is the security decision above rather than a
+naming preference. `vercel.json` scopes `frame-ancestors` to `/embed`; a
+`/leaderboard` frame would need that file changed, and a deployment that quietly
+did not happen is what a mistake there looks like — a panel that opens on a page
+refusing to be framed. The check asserts the exact URL for this reason.
 
 <br>
 
@@ -248,11 +328,18 @@ rows before the progression test was added. A shipped version wants a
 selector-first path with this as the fallback, and something that reports when it
 finds zero rows rather than silently placing nothing.
 
-**Nothing here is bundled or versioned.** There is no build step, no minifier and
-no `web_accessible_resources`; the scripts are loaded as plain files in the order
-the manifest lists them, and they share one isolated world by convention. That is
-deliberate for something read as much as run, and it is not how you ship a
-Manifest V3 extension to a store.
+**Nothing here is bundled or versioned.** There is no build step and no
+minifier; the scripts are loaded as plain files in the order the manifest lists
+them, and they share one isolated world by convention. That is deliberate for
+something read as much as run, and it is not how you ship a Manifest V3
+extension to a store.
+
+There is exactly one `web_accessible_resources` entry, for the default crest. An
+extension file is opaque to the page without it and the symptom of leaving it
+out is an image that silently does not render. It names the two ESPN hosts the
+content script already runs on rather than `<all_urls>`, because a resource
+readable from anywhere is a way for any site to detect that this extension is
+installed.
 
 **The attribution has no pipeline, on purpose.** Counters are written to
 `chrome.storage.local` and read back by the popup. Sending them anywhere adds

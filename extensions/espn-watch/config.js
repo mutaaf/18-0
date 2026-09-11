@@ -56,6 +56,36 @@ const EZ_DEFAULTS = {
   sponsorBanner: true,
 
   /**
+   * The call to action, which is never the primary action.
+   *
+   * The primary action is playing, everywhere the card appears. This is the
+   * secondary one -- a link out to whatever the demo is meant to send people to
+   * -- so it is a text link beside the copy rather than a second button
+   * competing with the first.
+   *
+   * `cta` off keeps the URL configured but draws nothing, the same way
+   * `sponsorBanner` does, because the first thing anybody does before a
+   * screenshot is turn it off and the second is turn it back on. An empty
+   * `copy.ctaUrl` also means nothing is drawn -- there is no dead button state.
+   */
+  cta: true,
+
+  /**
+   * The logo slot: an image, sized and faded.
+   *
+   * Empty is the game's own crest, which ships in `icons/`. It is configurable
+   * precisely so somebody can point it at their own mark locally; what the repo
+   * ships is ours, and nothing here may ever default to a club or league mark.
+   *
+   * Width is the tile's, in pixels, and the band uses the same. Opacity is
+   * 10-100 rather than 0-1 because it is typed into a number field by a human.
+   */
+  logoOn: true,
+  logo: '',
+  logoWidth: 76,
+  logoOpacity: 100,
+
+  /**
    * Every string the card can show.
    *
    * `{sponsor}` may appear in any of them. With no sponsor set the token and the
@@ -74,6 +104,11 @@ const EZ_DEFAULTS = {
     bandButton: 'Play a season',
 
     sponsorLine: 'Presented by {sponsor}',
+
+    // The call to action. A URL is a copy field like any other so that
+    // `{sponsor}` works in it -- a campaign link usually wants the name in it.
+    ctaLabel: 'How it works',
+    ctaUrl: 'https://18-0.co/',
   },
 };
 
@@ -101,6 +136,44 @@ function ezFill(text, sponsor) {
     // A string that was nothing but the sponsor leaves an empty separator.
     .replace(/^[·\-–—|,]\s*|\s*[·\-–—|,]$/g, '')
     .trim();
+}
+
+/**
+ * A typed-in URL, or nothing.
+ *
+ * Every URL on the options page ends up as an `href` or a `src` in somebody
+ * else's page, and `javascript:` in a field that becomes an `href` is script
+ * execution on espn.com from a value we did not write. So it is parsed rather
+ * than pattern-matched -- a blocklist of schemes is a list somebody adds
+ * `vbscript:` to later -- and only the two schemes that can be a link survive.
+ *
+ * The parsed `href` comes back rather than the input, which matters in one
+ * non-obvious place: the logo's shine is a CSS mask built as `url("…")`, and the
+ * URL serialiser percent-encodes the quote that would otherwise close it early.
+ */
+function ezUrl(value) {
+  if (typeof value !== 'string') return '';
+  const text = value.trim();
+  if (!text) return '';
+  try {
+    const url = new URL(text);
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : '';
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * A number a human typed, held to a range.
+ *
+ * Fields come back as strings, and an empty one is not a zero -- `Number('')`
+ * is, which is how a cleared width field turned the logo into nothing visible
+ * rather than into the default.
+ */
+function ezNumber(value, low, high, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || value === '' || value === null) return fallback;
+  return Math.min(high, Math.max(low, n));
 }
 
 /**
@@ -134,5 +207,7 @@ function ezSettings(stored) {
 if (typeof globalThis !== 'undefined') {
   globalThis.EZ_DEFAULTS = EZ_DEFAULTS;
   globalThis.ezFill = ezFill;
+  globalThis.ezUrl = ezUrl;
+  globalThis.ezNumber = ezNumber;
   globalThis.ezSettings = ezSettings;
 }

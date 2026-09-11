@@ -219,8 +219,24 @@
   color: #ffffff;
 }
 
+/*
+ * The subtitle and the call to action on one line.
+ *
+ * Not two lines. The card's height is the row's -- `min-height` is a
+ * neighbour's total height and these rails centre their children -- so a card
+ * that grows past the tallest tile stops matching the row and starts defining
+ * it, which pushes every real thumbnail down. One extra 11px line is enough.
+ */
+#eighteen-zero-card .ez-caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 #eighteen-zero-card .ez-meta {
   margin: 2px 0 0;
+  min-width: 0;
   font-size: 11px;
   line-height: 1.3;
   color: rgba(255, 255, 255, 0.6);
@@ -234,6 +250,10 @@
  */
 #eighteen-zero-card.ez-match .ez-badge { display: none; }
 #eighteen-zero-card.ez-match .ez-mark { font-size: 24px; }
+/* The logo comes down with the wordmark it stands in for, and by the same
+   fraction, so the matched card is the unmatched one turned quieter rather
+   than a second composition. */
+#eighteen-zero-card.ez-match .ez-logo { width: calc(var(--ez-logo-w, 76px) * 0.8); }
 #eighteen-zero-card.ez-match .ez-turf { opacity: 0.72; }
 #eighteen-zero-card.ez-match .ez-ladder { opacity: 0.78; }
 #eighteen-zero-card.ez-match .ez-tag {
@@ -313,6 +333,45 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
   letter-spacing: -0.3px;
 }
 
+/* The gold dash, which the panel was missing: `--ez-gold` is declared on the
+   card and the band, and the panel is neither, so `var(--ez-gold)` resolved to
+   nothing here and the one coloured character in the wordmark came out white. */
+#eighteen-zero-panel .ez-sheet-mark .ez-dash { color: #ffc531; }
+
+/*
+ * Play and Leaderboard, as one control rather than two buttons.
+ *
+ * They are two views of the same frame, and a segmented control is the shape
+ * that says so -- two separate buttons read as two things you can do, and one
+ * of them is already the reason the panel is open.
+ */
+#eighteen-zero-panel .ez-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+#eighteen-zero-panel .ez-tab {
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  padding: 5px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.58);
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+#eighteen-zero-panel .ez-tab:hover { color: rgba(255, 255, 255, 0.9); }
+#eighteen-zero-panel .ez-tab.on { background: #5fbb46; color: #06210a; }
+#eighteen-zero-panel .ez-tab:focus-visible { outline: 2px solid #ffc531; outline-offset: 2px; }
+
 #eighteen-zero-panel .ez-close {
   width: 28px;
   height: 28px;
@@ -342,14 +401,36 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
  * point of the demo -- but anything that opens a window over somebody's page
  * should say who put it there.
  */
+#eighteen-zero-panel .ez-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 #eighteen-zero-panel .ez-note {
   margin: 0;
-  padding: 8px 14px 10px;
   font-size: 10px;
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.45);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+/* In the footer with the attribution rather than beside the tabs: the panel is
+   open because somebody wanted to play, and the way out to something else
+   belongs at the end of that, not in front of it. */
+#eighteen-zero-panel .ez-panel-cta {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: #7bd35f;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+#eighteen-zero-panel .ez-panel-cta:hover { text-decoration: underline; }
+#eighteen-zero-panel .ez-panel-cta:focus-visible { outline: 2px solid #ffc531; outline-offset: 2px; border-radius: 3px; }
 
 /* ------------------------------------------------------------------------ */
 /* The band                                                                  */
@@ -385,7 +466,10 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
 /* The same field and the same eighteen marks as the tile, because the two
    placements are one thing shown two ways and a band with its own artwork
    reads as a second advert from somebody else. */
-#eighteen-zero-band.ez-band .ez-band-text { position: relative; min-width: 0; }
+/* Grows into whatever the logo and the actions leave, so the actions end up
+   against the right edge rather than being spaced away from a centred column
+   the way three `space-between` children would be. */
+#eighteen-zero-band.ez-band .ez-band-text { position: relative; flex: 1 1 auto; min-width: 0; }
 
 #eighteen-zero-band.ez-band .ez-band-kicker {
   margin: 0 0 4px;
@@ -409,6 +493,14 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
   font-size: 13px;
   line-height: 1.35;
   color: rgba(255, 255, 255, 0.62);
+}
+
+#eighteen-zero-band.ez-band .ez-band-actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 16px;
 }
 
 #eighteen-zero-band.ez-band .ez-band-go {
@@ -524,6 +616,183 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
 
 #eighteen-zero-band.ez-band .ez-sponsor-text { font-size: 11px; }
 #eighteen-zero-band.ez-band .ez-sponsor-logo { height: 16px; max-width: 72px; }
+
+/* ------------------------------------------------------------------------ */
+/* The call to action                                                        */
+/* ------------------------------------------------------------------------ */
+
+/*
+ * A link, never a button, in all three placements.
+ *
+ * The primary action is playing, and on the tile that is the whole artwork. A
+ * second pill beside it is two primary actions and a decision nobody asked to
+ * make, so this is typography: the same green the pill uses, at caption size,
+ * where a "more about this" belongs.
+ */
+#eighteen-zero-card .ez-cta {
+  flex: 0 0 auto;
+  max-width: 52%;
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ez-green-lit);
+  text-decoration: none;
+  /* Bounded on both axes: a long label is clipped rather than wrapped, because
+     wrapping is the one thing that makes the card taller than its row. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#eighteen-zero-card .ez-cta:hover { text-decoration: underline; }
+#eighteen-zero-card .ez-cta:focus-visible {
+  outline: 2px solid var(--ez-gold);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+#eighteen-zero-band.ez-band .ez-band-cta {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.72);
+  text-decoration: none;
+  white-space: nowrap;
+  padding-bottom: 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.26);
+  transition: color var(--ez-motion), border-color var(--ez-motion);
+}
+
+#eighteen-zero-band.ez-band .ez-band-cta:hover {
+  color: #fff;
+  border-bottom-color: rgba(255, 255, 255, 0.6);
+}
+
+#eighteen-zero-band.ez-band .ez-band-cta:focus-visible {
+  outline: 2px solid var(--ez-gold);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
+#eighteen-zero-band.ez-band.ez-match .ez-band-cta { font-size: 11.5px; }
+
+/* ------------------------------------------------------------------------ */
+/* The logo                                                                  */
+/* ------------------------------------------------------------------------ */
+
+/*
+ * A configured image with light on it.
+ *
+ * Three layers doing three jobs, all reading the same two numbers -- `--ez-px`
+ * and `--ez-py`, the pointer's position over the card, written by `trackShine`.
+ * One light source with three consequences is the difference between depth and
+ * a gradient:
+ *
+ *   the gloss   a highlight that moves toward the cursor, masked with the
+ *               logo's own image so it travels *through* the mark. Unmasked it
+ *               is a rectangle of shine over a transparent PNG, which reads as
+ *               a pane of glass in front of the card rather than as light on
+ *               the thing.
+ *   the tilt    a small perspective rotation away from the cursor, so the mark
+ *               is an object sitting above the artwork and not a sticker
+ *               printed on it.
+ *   the shadow  `drop-shadow`, not `box-shadow`: it is cast by the alpha
+ *               channel, so a crest with a crown casts the crown. It falls
+ *               opposite the highlight, which is the part the eye checks.
+ *
+ * The defaults here are the card's own light -- up and to the left, where the
+ * artwork's radial gradient comes from -- so the untouched state is already
+ * lit, and the pointer moves a light that was always there.
+ */
+#eighteen-zero-card .ez-logo,
+#eighteen-zero-band .ez-logo {
+  --ez-px: 0.5;
+  --ez-py: 0.18;
+  --ez-shine: 100deg;
+
+  display: block;
+  width: var(--ez-logo-w, 76px);
+  flex: 0 0 auto;
+  line-height: 0;
+  /* It is artwork over a button. Events belong to what is underneath it. */
+  pointer-events: none;
+  transform:
+    perspective(600px)
+    rotateY(calc((var(--ez-px) - 0.5) * -10deg))
+    rotateX(calc((var(--ez-py) - 0.5) * 8deg))
+    translate3d(calc((var(--ez-px) - 0.5) * -5px), calc((var(--ez-py) - 0.5) * -4px), 0);
+  filter:
+    drop-shadow(calc((0.5 - var(--ez-px)) * 10px) calc((0.5 - var(--ez-py)) * 8px + 4px) 9px rgba(0, 0, 0, 0.55))
+    drop-shadow(0 0 16px rgba(255, 197, 49, 0.16));
+  transition: transform var(--ez-motion), filter var(--ez-motion);
+}
+
+#eighteen-zero-card .ez-logo { position: absolute; left: 12px; top: 10px; }
+#eighteen-zero-band .ez-logo { position: relative; }
+
+#eighteen-zero-card .ez-logo-img,
+#eighteen-zero-band .ez-logo-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  opacity: var(--ez-logo-o, 1);
+}
+
+#eighteen-zero-card .ez-logo-gloss,
+#eighteen-zero-band .ez-logo-gloss {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Masked with the logo itself. `--ez-logo-src` is a `url()` built around a
+     parsed URL's `href`, so the quote that would close it early is already
+     percent-encoded -- a raw field value here would be CSS injection. */
+  -webkit-mask-image: var(--ez-logo-src);
+  mask-image: var(--ez-logo-src);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  /* A narrow band with a warm edge, in a box two and a half times the mark, so
+     moving the background position sweeps it right across rather than fading it
+     up and down in place. */
+  background-image: linear-gradient(
+    var(--ez-shine),
+    rgba(255, 255, 255, 0) 34%,
+    rgba(255, 255, 255, 0.24) 44%,
+    rgba(255, 255, 255, 0.9) 50%,
+    rgba(255, 244, 206, 0.38) 56%,
+    rgba(255, 255, 255, 0) 66%
+  );
+  background-size: 260% 260%;
+  background-position: calc(var(--ez-px) * 100%) calc(var(--ez-py) * 100%);
+  /* Contained by the `filter` above, which is its own stacking context, so the
+     blend lights the mark and never the field behind it. */
+  mix-blend-mode: screen;
+}
+
+/*
+ * Reduce Motion settles the light rather than removing it.
+ *
+ * A still highlight across the top-left of the mark -- where the card's own
+ * light comes from -- with the shadow it would cast from there. Taking the
+ * sweep away entirely leaves a flat sticker, which is a worse picture than a
+ * still one, and the point of the preference is that nothing moves.
+ */
+@media (prefers-reduced-motion: reduce) {
+  #eighteen-zero-card .ez-logo,
+  #eighteen-zero-band .ez-logo {
+    transform: none;
+    transition: none;
+    filter:
+      drop-shadow(3px 6px 9px rgba(0, 0, 0, 0.55))
+      drop-shadow(0 0 14px rgba(255, 197, 49, 0.16));
+  }
+  #eighteen-zero-card .ez-logo-gloss,
+  #eighteen-zero-band .ez-logo-gloss {
+    background-size: 210% 210%;
+    background-position: 26% 20%;
+  }
+}
 
 /* ------------------------------------------------------------------------ */
 /* Consent                                                                   */
