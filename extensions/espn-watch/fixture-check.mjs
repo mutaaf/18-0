@@ -61,16 +61,18 @@ function dumpDom(query = '') {
   }
 }
 
-const dom = dumpDom();
-
-const title = dom.match(/<title>(.*?)<\/title>/s)?.[1];
-let report;
-try {
-  report = JSON.parse(title.replace(/&quot;/g, '"'));
-} catch {
-  console.error('The fixture did not report. Title was:', title);
-  process.exit(1);
+function run(query = '') {
+  const dom = dumpDom(query);
+  const title = dom.match(/<title>(.*?)<\/title>/s)?.[1];
+  try {
+    return JSON.parse(title.replace(/&quot;/g, '"'));
+  } catch {
+    console.error(`The fixture did not report for "${query || 'the default'}". Title was:`, title);
+    process.exit(1);
+  }
 }
+
+const report = run();
 
 let failures = 0;
 const check = (what, ok, detail = '') => {
@@ -112,6 +114,20 @@ check(
   report.artTopDelta !== null && Math.abs(report.artTopDelta) <= 1,
   report.artTopDelta === null ? 'nothing to measure' : `${report.artTopDelta}px off`,
 );
+// A tile that does not move while its neighbours lift is the tell that it was
+// put there by something else. Both of these are read out of the page's own
+// stylesheets rather than chosen, so this asserts the fixture's values exactly.
+check(
+  'it moves on the row\'s clock',
+  report.motion === '0.14s cubic-bezier(0.2, 0.8, 0.2, 1)',
+  `--ez-motion: ${report.motion || 'unset'}`,
+);
+check(
+  'and lifts the way the row lifts',
+  report.lift === 'scale(1.07)',
+  `--ez-lift: ${report.lift || 'unset'}`,
+);
+check('no band was placed', report.bands === 0, `${report.bands}`);
 
 /*
  * The sponsor token, checked directly because it is pure and because its whole
@@ -123,7 +139,7 @@ console.log('\nSPONSOR COPY');
   const src = readFileSync(resolve(import.meta.dirname, 'config.js'), 'utf8');
   const scope = {};
   new Function('globalThis', `${src}`).call(scope, scope);
-  const { ezFill, EZ_DEFAULTS } = scope;
+  const { ezFill, ezSettings, EZ_DEFAULTS } = scope;
 
   const cases = [
     ['Presented by {sponsor}', 'A Brand', 'Presented by A Brand'],
@@ -150,33 +166,86 @@ console.log('\nSPONSOR COPY');
     .filter(([key]) => key !== 'sponsorLine')
     .filter(([, text]) => !ezFill(text, '').trim());
   check('every default reads with no sponsor set', empty.length === 0, empty.map(([k]) => k).join(', '));
-}
 
-// The other placement, driven through the same fixture.
-const bandDom = dumpDom('?placement=header');
-const bandTitle = bandDom.match(/<title>(.*?)<\/title>/s)?.[1];
-let band;
-try {
-  band = JSON.parse(bandTitle.replace(/&quot;/g, '"'));
-} catch {
-  console.error('The header fixture did not report. Title was:', bandTitle);
-  process.exit(1);
+  /*
+   * `placement` was one setting meaning "tile or band"; it is now two flags and
+   * two positions. An install that stored `header` must still come back as a
+   * band in the gap it chose, or the rename reads as the extension forgetting.
+   */
+  const migrated = ezSettings({ placement: 'header', row: 'Live now' });
+  check('a stored `header` still means a band', migrated.placeBand === true && migrated.placeTile === false);
+  check('and its row is read as a gap', migrated.gap === 'Live now' && migrated.row === null, `gap=${migrated.gap}`);
+  const tile = ezSettings({ placement: 'tile', row: 'Live now' });
+  check('a stored `tile` still means a tile', tile.placeTile === true && tile.placeBand === false);
+  check('and its row is still a row', tile.row === 'Live now' && tile.gap === null, `row=${tile.row}`);
+  // Retired rather than deleted: the popup writes `placement: null` the first
+  // time it is touched, and from then on the flags are the only truth.
+  const retired = ezSettings({ placement: null, placeTile: false, placeBand: true });
+  check('a retired `placement` does not override the flags', retired.placeTile === false && retired.placeBand === true);
 }
 
 console.log(`  · card ${report.heights.card}px (min-height ${report.heights.minH}), anchor tile ${report.heights.anchorTile}px, tallest ${report.heights.tallestTile}px, top delta ${report.cardTopDelta}px`);
 
+// The other placement, driven through the same fixture.
+const band = run('?tile=0&band=1');
+
 console.log('\nAS AN INLINE HEADER');
-check('exactly one band', band.cards === 1, `${band.cards}`);
-check('it is a band, not a tile', band.isBand === true);
-check('it never moved once placed', band.moves === 0, `${band.moves} move(s)`);
+check('exactly one band', band.bands === 1, `${band.bands}`);
+check('and there was never more than one', band.maxBands === 1, `peaked at ${band.maxBands}`);
+check('it is a band, not a tile', band.isBand === true && band.cards === 0);
+check('it never moved once placed', band.bandMoves === 0, `${band.bandMoves} move(s)`);
+check('its button is present', band.bandClickable === true);
 // The whole point of the placement: it sits in the gap above the row, not
 // inside it and not below the rail it is introducing.
 check('it sits above the first row', band.aboveFirstRow === true);
+/*
+ * **The gap is between two shelves, not inside one.**
+ *
+ * `shelfOf` used to answer with the first ancestor containing any heading, and
+ * on the real page that is the carousel — which holds ten headings, all of them
+ * programme titles. The band was inserted inside it, between the section label
+ * and the rail that label introduces. It still "precedes the first rail", which
+ * is why the old check passed on a band in entirely the wrong place, so these
+ * three ask where it actually is.
+ */
+check('it is a sibling of the shelves, not a child of one', band.bandParentIsPage === true);
+check('it is outside the shelf it sits above', band.bandInsideShelf === false);
+check('and above that shelf\'s own label', band.bandAboveLabel === true);
 check(
   'it lines up with the section heading',
   band.bandLeftDelta !== null && Math.abs(band.bandLeftDelta) <= 1,
   band.bandLeftDelta === null ? 'nothing to measure' : `${band.bandLeftDelta}px off`,
 );
+
+/*
+ * Both at once, which is what the placements being independent is for.
+ *
+ * The thing worth checking is not that two elements exist — it is that neither
+ * disturbed the other. They are resolved separately and remembered separately,
+ * and the failure mode of getting that wrong is the tile being torn out and
+ * rebuilt every time the band is re-placed, which is the flicker again.
+ */
+const both = run('?tile=1&band=1');
+
+console.log('\nBOTH AT ONCE');
+check('one tile and one band', both.cards === 1 && both.bands === 1, `${both.cards} tile(s), ${both.bands} band(s)`);
+check('and never more than one of either', both.maxCards === 1 && both.maxBands === 1);
+check('neither contains the other', both.tangled === false);
+check('the tile never moved', both.moves === 0, `${both.moves} move(s)`);
+check('the band never moved', both.bandMoves === 0, `${both.bandMoves} move(s)`);
+check('the tile is still in the first row', both.inFirstRow === true);
+check('the band is still in the gap above it', both.bandParentIsPage === true && both.bandInsideShelf === false);
+check(
+  'and the tile still lines up with the row',
+  both.artTopDelta !== null && Math.abs(both.artTopDelta) <= 1,
+  both.artTopDelta === null ? 'nothing to measure' : `${both.artTopDelta}px off`,
+);
+
+// The retired setting, driven end to end: storage holding `header` and nothing
+// else must still put a band on the page.
+const legacy = run('?placement=header');
+console.log('\nA STORED `PLACEMENT`');
+check('`header` still places a band and no tile', legacy.bands === 1 && legacy.cards === 0, `${legacy.bands} band(s), ${legacy.cards} tile(s)`);
 
 console.log('='.repeat(56));
 console.log(failures === 0 ? 'Both placements go in once and stay.' : `${failures} check(s) failed.`);

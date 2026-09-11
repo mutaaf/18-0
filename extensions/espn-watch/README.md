@@ -18,14 +18,25 @@ It is loaded unpacked on purpose and is not published. See
 
 ## Use it
 
-The toolbar button has three controls.
+The toolbar button has four controls.
 
 | | |
 |---|---|
 | **Show the card** | Off leaves the page completely untouched. |
-| **Match the Watch UI** | On, it takes the page's own shape and voice — the same box and corner as its neighbours as a tile, the section-label typography as a band. Off, it announces itself. |
-| **Placement** | **Tile in a row**, or **Inline header** — a band across the full width of the shelf. |
-| **Row** / **Gap** | Where it goes. A tile goes *in* a row. A band goes in a *gap*, named by the row below it — "Above JUST FOR YOU" — because a row name alone is ambiguous about which side of it the band lands on. The last gap has no row below it and is listed as "Below the last row". |
+| **Match the Watch UI** | On, it takes the page's own shape and voice — the same box, corner and hover as its neighbours as a tile, the section-label typography as a band. Off, it announces itself. |
+| **Tile in a row** | A card among the thumbnails, in the **Row** you choose. |
+| **Inline header** | A band across the full width of the shelf, in the **Gap** you choose. |
+
+**The two placements are independent, and both can be on at once.** Each has its
+own position, because they are different kinds of answer: a tile goes *in* a
+row, and a band goes in a *gap*, named by the row below it — "Above JUST FOR
+YOU" — because a row name alone is ambiguous about which side of it the band
+lands on. The last gap has no row below it and is listed as "Below the last row".
+
+They were one **Placement** setting with one shared position. An install from
+then still works: a stored `tile` or `header` is read as the flags that replaced
+it, along with the row it had chosen, and retired the first time either switch
+is touched.
 
 Clicking the card opens the game over the page. Escape closes it.
 
@@ -112,7 +123,7 @@ inserting the card changes the measurements that decide between them. So the car
 moves, which changes the measurements, which moves the card. It resolves once,
 remembers the node, and looks again only when that node has left the document.
 
-Two more things were measured off the live page rather than assumed:
+Three more things were measured off the live page rather than assumed:
 
 - **A tile goes in the row's second slot.** The first sits under the left edge of
   a `SECTION.overflow-hidden` and moves with the rail's scroll — it measured at
@@ -121,20 +132,64 @@ Two more things were measured off the live page rather than assumed:
   video` returned a `<picture>` measuring 300×19, a lazy image that had not
   resolved, and the card rendered as a squashed strip. The widest child with a
   thumbnail's proportions is the artwork, whatever it is made of.
+- **A shelf is not "the first ancestor with a heading in it".** That is what
+  `shelfOf` used to ask, and on the real page the answer is
+  `DIV.Carousel__Outer` — which contains *ten* headings, because a programme
+  title is an `h3`. The band went inside the carousel, between a section label
+  and the rail that label introduces, and then lined itself up against a
+  programme name. What is actually true, climbing from the rail: every wrapper
+  up to the shelf holds exactly one rail, and the first ancestor holding several
+  is the container of all the shelves. So the shelf is the last element on that
+  climb still holding one, and the section label is the heading that is *not*
+  inside a rail. Both are structural in the same way `findRows` is.
+
+## How it looks like it belongs
+
+Three things are copied off a real neighbouring tile rather than chosen, and
+they are the difference between a card in the row and a card on top of it: the
+box (width, artwork height, corner, margins), the **transition timing**, and the
+**hover transform**.
+
+The last of those cannot be read with `getComputedStyle` — a `:hover` rule is
+not in the computed style of an element nobody is pointing at — so the page's
+stylesheets are walked for a hover rule that describes the tile or something
+inside it, and its transform is taken. `cssRules` throws on a cross-origin
+sheet, which is most of a CDN's, so a sheet that will not open is skipped; the
+walk is budgeted, because it counts rules rather than elements.
+
+The artwork itself is the game's: the field the app's own `Field` component
+draws — chalk yard lines, hash marks, mowing stripes at one and a half per cent
+— with the season along the bottom edge as eighteen marks, seventeen in chalk
+and the eighteenth in gold. Nothing is fetched; it is inline SVG and CSS, and
+there are no gradient ids, because a fixed id resolves against the whole
+document and a second card would silently blank the first.
 
 ## Testing it
 
     node extensions/espn-watch/fixture-check.mjs
 
-`fixture.html` is a page shaped like the real one — several rows, each wrapped
-twice, mutating after load — run in headless Chrome. The checks are the symptoms:
-one card, never more, never moved after placement, fully on screen, in both
-placements.
+`fixture.html` is a page shaped like the real one — several rows, wrapped as
+deep as the live page wraps them, mutating after load — run in headless Chrome.
+The checks are the symptoms: one card, never more, never moved after placement,
+fully on screen, in either placement and in both at once.
 
 The fixture carries the decoys that actually fooled it: tiles whose children are
-absolutely-positioned overlays, and captions of differing length in a rail that
-centres its children. It also loads `content.css` — it did not at first, so every
-alignment assertion was measuring an unstyled card and passing on nothing.
+absolutely-positioned overlays, captions of differing length in a rail that
+centres its children, and programme titles that are `h3` headings inside the
+tiles — which is what sent the band into the carousel. It also loads
+`content.css` — it did not at first, so every alignment assertion was measuring
+an unstyled card and passing on nothing.
+
+Three of its checks exist because an earlier version passed while the band was
+in entirely the wrong place: a band *inside* a carousel still precedes the first
+rail, so "it sits above the first row" was true of it. They ask where it
+actually is — a sibling of the shelves, outside the shelf below it, above that
+shelf's own label — and the alignment is measured against the section label
+rather than against any heading.
+
+`?tile=0&band=1`, `?tile=1&band=1` and `?match=0` drive the placements and the
+two looks. `?placement=header` still works, and is checked, because a stored
+setting from before the rename has to keep meaning what it meant.
 
 Worth knowing what it does *not* do: it has never reproduced the original
 flicker. No synthetic page I could build resolves rows differently between passes
@@ -165,10 +220,10 @@ reading anything, and the payload is the name of a screen.
 
 ## What this is, and is not
 
-**It is** a demo. It runs on the machine you load it on, it adds one card to a
-page, and it changes nothing else on it. The panel that opens says who put it
-there, in both looks, because something that opens a window over somebody's page
-should say so.
+**It is** a demo. It runs on the machine you load it on, it adds a card and a
+band to a page — one, the other, or both — and it changes nothing else on it.
+The panel that opens says who put it there, in both looks, because something
+that opens a window over somebody's page should say so.
 
 **It is not** an integration, an endorsement, or anything to publish. Injecting
 UI into a site you do not own is fine for showing an idea to your own team and is

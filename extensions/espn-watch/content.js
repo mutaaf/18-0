@@ -22,9 +22,23 @@
  * on a debounce and against a cheap guard: if our card is still in the row we
  * chose, nothing is queried at all. A MutationObserver that re-scans the
  * document on every mutation of a page like this one is a page that janks.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THERE ARE TWO OF EVERYTHING
+ * ---------------------------------------------------------------------------
+ *
+ * The tile and the band can both be on at once, so each is its own element with
+ * its own id, its own remembered parent and its own stored position. They are
+ * not two views of one card: "in the third row" and "above the third row" are
+ * different places, and a single `row` setting standing for both silently moved
+ * whichever one was not being looked at.
  */
 
-const HOST_ID = 'eighteen-zero-card';
+const TILE_ID = 'eighteen-zero-card';
+const BAND_ID = 'eighteen-zero-band';
+/** Both placements, for the many places that mean "anything of ours". */
+const OURS = new Set([TILE_ID, BAND_ID]);
+const OURS_SELECTOR = `#${TILE_ID}, #${BAND_ID}`;
 const PANEL_ID = 'eighteen-zero-panel';
 const EMBED_URL = 'https://18-0.co/embed';
 
@@ -56,7 +70,7 @@ function findRows() {
     // debounce interval and could not be clicked, because it was being
     // destroyed and rebuilt under the pointer.
     const kids = [...node.children].filter(
-      (c) => c.id !== HOST_ID && c.getBoundingClientRect().width > 80,
+      (c) => !OURS.has(c.id) && c.getBoundingClientRect().width > 80,
     );
     if (kids.length < 3) continue;
 
@@ -93,27 +107,41 @@ function findRows() {
 
 /** The heading a human would use for this row, or a fallback. */
 function labelFor(node) {
-  // Walk up a few levels looking for the section heading that precedes it.
+  // Walk up looking for the section heading that precedes it. Six levels
+  // because that is how deep the live page wraps a rail before the section
+  // that labels it -- outer, two anonymous divs, wrapper, section.
   let scope = node;
-  for (let depth = 0; depth < 4 && scope; depth++) {
+  for (let depth = 0; depth < 6 && scope; depth++) {
     let sibling = scope.previousElementSibling;
     while (sibling) {
       const text = (sibling.textContent || '').trim();
       if (text && text.length < 60) return text.split('\n')[0].trim();
       sibling = sibling.previousElementSibling;
     }
-    const heading = scope.querySelector?.('h1, h2, h3');
-    if (heading?.textContent?.trim()) return heading.textContent.trim();
+    // **Not any heading -- one outside the rail.** A programme title is an
+    // `h3` on this page, so asking for the first heading in scope names the row
+    // after whatever happens to be in its first tile.
+    const heading = [...(scope.querySelectorAll?.('h1, h2, h3') ?? [])].find(
+      (h) => !node.contains(h) && (h.textContent || '').trim(),
+    );
+    if (heading) return heading.textContent.trim();
     scope = scope.parentElement;
   }
   const label = (node.getAttribute('aria-label') || '').trim();
   return label || 'Row';
 }
 
-function chosenRow(rows) {
+/**
+ * The row a stored setting names, or the first one.
+ *
+ * The label is passed in rather than read off `settings`, because the tile and
+ * the band store different ones and a shared read is how the band ended up
+ * following the tile's row around.
+ */
+function chosenRow(rows, label) {
   if (!rows.length) return null;
-  if (settings.row === null || settings.row === END) return rows[0];
-  return rows.find((r) => r.label === settings.row) ?? rows[0];
+  if (label === null || label === undefined || label === END) return rows[0];
+  return rows.find((r) => r.label === label) ?? rows[0];
 }
 
 
@@ -218,6 +246,84 @@ function mark() {
   return span;
 }
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+/** `el`, for the other namespace. `createElement('rect')` renders nothing. */
+function svgEl(tag, attrs = {}) {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, String(v));
+  return node;
+}
+
+/**
+ * The ground: a field, drawn the way the game draws one.
+ *
+ * This used to be a navy gradient with a pinstripe over it, and beside real
+ * broadcast thumbnails that reads as a box somebody has not finished. The app's
+ * own `Field` is chalk on a dark ground -- yard lines, hash ticks, mowing
+ * stripes at one per cent -- and the same marks at this size give the card
+ * something to be a picture *of*.
+ *
+ * No gradients and no `<defs>`: a gradient needs an id, and a fixed id resolves
+ * against the whole document, so a second card would silently blank the first.
+ * The ground itself stays in CSS, where the two looks can disagree about it.
+ *
+ * The viewBox is the card's real pixel size, so nothing is scaled and a
+ * one-pixel line stays one pixel. The band passes a nominal wide box instead
+ * and crops, because its width is the shelf's and is not known until it lands.
+ */
+function fieldArt(w, h) {
+  const svg = svgEl('svg', {
+    class: 'ez-turf',
+    viewBox: `0 0 ${w} ${h}`,
+    preserveAspectRatio: 'xMidYMid slice',
+    'aria-hidden': 'true',
+    focusable: 'false',
+  });
+  const chalk = (attrs) => svg.append(svgEl('rect', { fill: '#ffffff', ...attrs }));
+
+  // **Spaced in pixels, not in tenths.** A fixed ten lines put them 23px apart
+  // on the tile and 120px apart across the band, and at 120px they stop reading
+  // as a field and start reading as stripes somebody drew on a panel. The two
+  // placements have to be the same picture at two sizes.
+  const count = Math.max(6, Math.round(w / 24));
+  const yard = w / count;
+  const mid = Math.round(count / 2);
+
+  for (let i = 0; i < count; i += 10) {
+    chalk({ x: i * yard, y: 0, width: yard * 5, height: h, opacity: 0.016 });
+  }
+  for (let i = 1; i < count; i++) {
+    // Midfield is the one line a broadcast draws heavier.
+    chalk({ x: Math.round(i * yard), y: 0, width: 1, height: h, opacity: i === mid ? 0.2 : 0.085 });
+  }
+  // Hash marks at a fixed pitch for the same reason the lines are.
+  const hash = Math.max(yard, 40);
+  for (let x = hash / 2; x < w; x += hash) {
+    for (const y of [h * 0.34, h * 0.62]) {
+      chalk({ x: Math.round(x), y: Math.round(y), width: 1, height: 5, opacity: 0.075 });
+    }
+  }
+  for (const y of [Math.round(h * 0.13), Math.round(h * 0.87)]) {
+    chalk({ x: 0, y, width: w, height: 1, opacity: 0.06 });
+  }
+  return svg;
+}
+
+/**
+ * The season, as eighteen marks along the bottom edge.
+ *
+ * Seventeen in chalk and the eighteenth in gold, because gold is what the app
+ * reserves for the perfect record and this is the only place the card spends
+ * it. It is the one piece of the artwork that says what the game is without
+ * needing a sentence to do it, and it survives being shrunk to a strip.
+ */
+function ladder() {
+  const strip = el('span', 'ez-ladder', '', { 'aria-hidden': 'true' });
+  for (let i = 0; i < 18; i++) strip.append(el('i', i === 17 ? 'ez-tick ez-chase' : 'ez-tick'));
+  return strip;
+}
+
 /**
  * The sponsorship line, and a logo if one is configured.
  *
@@ -248,12 +354,20 @@ function sponsorStrip() {
  * whether it sits in the row like a tile or announces itself like an advert.
  */
 function shapeFrom(tile) {
-  if (!tile) return { width: 232, height: 130, total: 190, radius: 6, marginLeft: 0, marginRight: 12 };
+  if (!tile) {
+    return { width: 232, height: 130, total: 190, radius: 6, marginLeft: 0, marginRight: 12, motion: null, lift: null };
+  }
   const box = tile.getBoundingClientRect();
   const style = getComputedStyle(tile);
+  const art = artOf(tile);
   return {
     width: Math.round(box.width),
-    height: artHeight(tile, box.width),
+    height: Math.round(art?.getBoundingClientRect().height || (box.width * 9) / 16),
+    // How the row behaves under a pointer, copied for the same reason the box
+    // is. A tile that does not move while its neighbours lift is the tell that
+    // it was put there by something else.
+    motion: timingFrom(art ?? tile),
+    lift: hoverLift(tile),
     // The tile's *whole* height, which our card matches. These rails are
     // `align-items: center`, so two boxes only line up if they are the same
     // height -- and both put their artwork at the top. Forcing `flex-start`
@@ -285,23 +399,120 @@ function shapeFrom(tile) {
  * and the tile wrappers at 1.25:1, and finds the figure at 1.78:1 regardless of
  * what it is made of -- these are sometimes a background image rather than an
  * `<img>` at all.
+ *
+ * Returned as the element rather than as a height, because the thumbnail is
+ * also the thing carrying the row's hover transition -- the tile around it
+ * usually transitions nothing.
  */
-function artHeight(tile, width) {
-  let best = 0;
-  for (const el of tile.querySelectorAll('*')) {
-    const b = el.getBoundingClientRect();
+function artOf(tile) {
+  const width = tile.getBoundingClientRect().width;
+  let best = null;
+  for (const node of tile.querySelectorAll('*')) {
+    const b = node.getBoundingClientRect();
     if (b.width < width * 0.85 || b.height < 24) continue;
     const ratio = b.width / b.height;
     if (ratio < 1.45 || ratio > 2.2) continue;
-    if (b.height > best) best = b.height;
+    if (!best || b.height > best.getBoundingClientRect().height) best = node;
   }
-  // Nothing plausible: 16:9 of the width is what these rows are.
-  return Math.round(best || (width * 9) / 16);
+  return best;
+}
+
+/**
+ * The first item of a comma-separated CSS list.
+ *
+ * `transition-timing-function` reports `cubic-bezier(0.4, 0, 0.2, 1)`, which
+ * has commas inside it -- splitting on every comma produced `cubic-bezier(0.4`,
+ * an invalid declaration, and a card that snapped instead of moving.
+ */
+function firstValue(list) {
+  const match = String(list ?? '').match(/^\s*([a-z-]+\([^()]*\)|[^,]+)/i);
+  return match ? match[1].trim() : '';
+}
+
+/**
+ * How long a neighbour takes, and on what curve.
+ *
+ * Read off the real tile rather than chosen. A hardcoded 200ms ease next to a
+ * row that moves in 120ms reads as a heavier, slower thing than everything
+ * around it, which is exactly the tell that it is not one of them.
+ *
+ * Only the timing is taken, not the shorthand: a row whose tiles transition
+ * `opacity` and nothing else would hand us a transition list with no
+ * `transform` in it and our lift would jump.
+ */
+function timingFrom(node) {
+  const style = getComputedStyle(node);
+  const duration = firstValue(style.transitionDuration);
+  if (!duration || duration === '0s') return null;
+  return `${duration} ${firstValue(style.transitionTimingFunction) || 'ease'}`;
+}
+
+/**
+ * The transform a neighbour takes on hover.
+ *
+ * `getComputedStyle` cannot answer this -- a `:hover` rule is not in the
+ * computed style of an element nobody is pointing at -- so the stylesheets are
+ * read instead, for a hover rule that describes this tile or something inside
+ * it. `cssRules` throws on a cross-origin sheet, which is most of a CDN's, so a
+ * sheet that will not open is skipped rather than fatal.
+ *
+ * Budgeted, because this walks rules rather than elements: the Watch page ships
+ * tens of thousands and a full walk is not something to do behind a
+ * MutationObserver. It runs only when a placement is being resolved.
+ */
+function hoverLift(tile) {
+  let budget = 4000;
+
+  const search = (rules) => {
+    for (const rule of rules) {
+      if (budget-- < 0) return null;
+      if (rule.cssRules) {
+        const nested = search(rule.cssRules);
+        if (nested) return nested;
+      }
+      const selector = rule.selectorText;
+      if (!selector || !selector.includes(':hover')) continue;
+      const transform = rule.style?.transform;
+      if (!transform || transform === 'none') continue;
+      if (describes(tile, selector)) return transform;
+    }
+    return null;
+  };
+
+  for (const sheet of document.styleSheets) {
+    let rules;
+    try {
+      rules = sheet.cssRules;
+    } catch {
+      continue;
+    }
+    const found = search(rules);
+    if (found) return found;
+  }
+  return null;
+}
+
+/** Does a `:hover` selector describe this tile, or something inside it? */
+function describes(tile, selector) {
+  // The hover state is dropped and what is left is asked of the tile and its
+  // subtree, because the rule fires when the tile is pointed at whichever of
+  // them it actually styles. A selector the browser will not parse -- a vendor
+  // pseudo-class, say -- is not one of ours.
+  const plain = selector.replace(/:hover/g, '');
+  return plain.split(',').some((part) => {
+    const sel = part.trim();
+    if (!sel) return false;
+    try {
+      return tile.matches(sel) || tile.querySelector(sel) !== null;
+    } catch {
+      return false;
+    }
+  });
 }
 
 function buildCard(shape) {
   const card = document.createElement('div');
-  card.id = HOST_ID;
+  card.id = TILE_ID;
   card.className = `ez-card${settings.matchUi ? ' ez-match' : ''}`;
   card.style.setProperty('--ez-w', `${shape.width}px`);
   card.style.setProperty('--ez-h', `${shape.height}px`);
@@ -309,6 +520,8 @@ function buildCard(shape) {
   card.style.setProperty('--ez-th', `${shape.total}px`);
   card.style.setProperty('--ez-ml', `${shape.marginLeft}px`);
   card.style.setProperty('--ez-mr', `${shape.marginRight}px`);
+  if (shape.motion) card.style.setProperty('--ez-motion', shape.motion);
+  if (shape.lift) card.style.setProperty('--ez-lift', shape.lift);
 
   const say = (key) => ezFill(settings.copy[key], settings.sponsor);
 
@@ -319,12 +532,14 @@ function buildCard(shape) {
   art.type = 'button';
   art.setAttribute('aria-label', `${say('tileTitle')}. ${say('tileButton')}.`);
   art.append(
-    el('span', 'ez-weave', '', { 'aria-hidden': 'true' }),
+    fieldArt(shape.width, shape.height),
+    el('span', 'ez-sheen', '', { 'aria-hidden': 'true' }),
     mark(),
     el('span', 'ez-tag', say('tileButton')),
   );
   if (say('tileBadge')) art.append(el('span', 'ez-badge', say('tileBadge')));
   if (settings.sponsor && settings.sponsorBanner) art.append(sponsorStrip());
+  art.append(ladder());
 
   card.append(art, el('p', 'ez-title', say('tileTitle')), el('p', 'ez-meta', say('tileSubtitle')));
 
@@ -351,8 +566,31 @@ function buildCard(shape) {
  * So: resolve once, remember the node, and only look again when that node has
  * actually left the document. A React re-render replacing the shelf is the one
  * case that should move the card, and it is the one case this re-resolves for.
+ *
+ * One entry per placement, held separately. The two are in different parts of
+ * the page and are replaced at different times; a shared memo would re-resolve
+ * -- and therefore move -- the one that was perfectly happy where it was.
  */
-let placedIn = null;
+const placed = { tile: null, band: null };
+
+const ID_OF = { tile: TILE_ID, band: BAND_ID };
+
+/** Is this placement still exactly where we put it? */
+function settledAt(which) {
+  const node = document.getElementById(ID_OF[which]);
+  return Boolean(node && placed[which]?.isConnected && node.parentElement === placed[which]);
+}
+
+function removeAt(which) {
+  document.getElementById(ID_OF[which])?.remove();
+  placed[which] = null;
+}
+
+/** Everything of ours off the page, for the toggle that leaves it untouched. */
+function removeBoth() {
+  removeAt('tile');
+  removeAt('band');
+}
 
 
 /**
@@ -367,10 +605,11 @@ let placedIn = null;
  * section labels in small, wide, uppercase type, and a band that shouts in a
  * column of those reads as an advert no matter what it says.
  */
-function buildHeader() {
+function buildBand(motion) {
   const band = document.createElement('div');
-  band.id = HOST_ID;
+  band.id = BAND_ID;
   band.className = `ez-band${settings.matchUi ? ' ez-match' : ''}`;
+  if (motion) band.style.setProperty('--ez-motion', motion);
   const say = (key) => ezFill(settings.copy[key], settings.sponsor);
 
   const text = el('div', 'ez-band-text');
@@ -382,7 +621,10 @@ function buildHeader() {
   const go = el('button', 'ez-band-go', say('bandButton'));
   go.type = 'button';
 
-  band.append(el('span', 'ez-weave', '', { 'aria-hidden': 'true' }), text, go);
+  // A nominal box rather than the real one: the band is as wide as the shelf,
+  // which is not known until it is in the document, and `slice` crops a wide
+  // field rather than stretching the yard lines into stripes.
+  band.append(fieldArt(1200, 96), text, go, ladder());
 
   go.addEventListener('click', openPanel);
   countImpression();
@@ -390,11 +632,59 @@ function buildHeader() {
 }
 
 /**
- * The shelf a row belongs to — the block that also holds its heading.
+ * The shelf block a row belongs to -- the child of the container that holds
+ * every shelf, so inserting before it lands between two rows.
  *
- * The band goes *before* this, so it sits between one row and the next rather
- * than between a heading and the rail it labels.
+ * **Not "the first ancestor with a heading in it".** That is what this asked
+ * before, and on the real page it answers `DIV.Carousel__Outer`, which contains
+ * *ten* headings -- the tile titles. The band was inserted inside the carousel,
+ * between a section label and the rail it labels, and the alignment was then
+ * measured against a programme name.
+ *
+ * What is actually true, measured by climbing from the rail: every wrapper from
+ * the rail up to the shelf contains exactly one rail, and the first ancestor
+ * that contains several is the container of all the shelves. So the shelf is
+ * the last element on that climb still holding one rail. That is structural in
+ * the same way `findRows` is, and it does not care what a heading is or where
+ * one lives.
+ *
+ * The rails are passed in rather than re-derived: this is called from `place`,
+ * which has just computed them, and asking a page a second question it has
+ * already answered is how the card used to move.
  */
+function shelfOf(node, rails) {
+  const holds = (candidate) => rails.reduce((n, rail) => n + (candidate.contains(rail) ? 1 : 0), 0);
+
+  let el = node;
+  // Six deep on espn.com; the headroom is for a page that wraps one more time.
+  for (let depth = 0; depth < 12; depth++) {
+    const parent = el.parentElement;
+    if (!parent) break;
+    if (holds(el) === 1 && holds(parent) > 1) return el;
+    if (parent === document.body || parent === document.documentElement) break;
+    el = parent;
+  }
+  // One rail on the whole page: nothing above it holds several, so the answer
+  // is simply the outermost wrapper that is still about this row.
+  return el;
+}
+
+/**
+ * The label above a shelf -- the section heading, not a programme name.
+ *
+ * The distinguishing fact is that it is outside the rail: the tile titles that
+ * used to be found instead are all inside one. Asking for the first `h2` in the
+ * shelf finds whichever comes first in document order, and on a shelf whose
+ * heading sits after its rail in the source that is a tile.
+ */
+function shelfHeading(shelf, rails) {
+  for (const heading of shelf.querySelectorAll('h1, h2, h3')) {
+    if (rails.some((rail) => rail.contains(heading))) continue;
+    if ((heading.textContent || '').trim()) return heading;
+  }
+  return null;
+}
+
 /**
  * How far a shelf's heading is inset from the container the band goes in.
  *
@@ -402,8 +692,8 @@ function buildHeader() {
  * stylesheet's own margin stands -- a band that guesses an alignment is worse
  * than one that keeps a consistent default.
  */
-function headingInset(shelf, container) {
-  const heading = shelf.querySelector('h1, h2, h3');
+function headingInset(shelf, container, rails) {
+  const heading = shelfHeading(shelf, rails);
   if (!heading) return null;
   const h = heading.getBoundingClientRect();
   const c = container.getBoundingClientRect();
@@ -416,64 +706,43 @@ function headingInset(shelf, container) {
 /** The sentinel for the gap below the last row. */
 const END = '__end';
 
-/** The last shelf on the page, for the gap that has no row beneath it. */
-function lastShelf() {
-  const rows = findRows();
-  if (!rows.length) return null;
-  return shelfOf(rows[rows.length - 1].node);
-}
-
-function shelfOf(node) {
-  let el = node;
-  for (let depth = 0; depth < 6 && el.parentElement; depth++) {
-    el = el.parentElement;
-    if (el.querySelector('h1, h2, h3')) return el;
-  }
-  return node.parentElement ?? node;
-}
-
+/**
+ * Both placements, each resolved at most once.
+ *
+ * The two are independent all the way down: separate guards, separate memos,
+ * separate stored positions. Only a placement that actually needs resolving is
+ * taken out of the document before the measurement, so turning the band on does
+ * not lift a tile that was already sitting happily in its row -- taking it out
+ * and putting it back is a *move*, which is the thing all of this exists to
+ * prevent.
+ */
 function place() {
-  if (!settings.enabled) return removeCard();
+  if (!settings.enabled) return removeBoth();
 
-  const existing = document.getElementById(HOST_ID);
+  if (!settings.placeTile) removeAt('tile');
+  if (!settings.placeBand) removeAt('band');
 
-  // Still where we put it, and that row is still on the page: done. No
-  // querying, no measuring, no work at all -- which matters, because this runs
-  // behind a MutationObserver on a page that never stops re-rendering.
-  if (existing && placedIn?.isConnected && existing.parentElement === placedIn) return;
+  const needTile = settings.placeTile && !settledAt('tile');
+  const needBand = settings.placeBand && !settledAt('band');
+  // Still where we put them: done. No querying, no measuring, no work at all --
+  // which matters, because this runs behind a MutationObserver on a page that
+  // never stops re-rendering.
+  if (!needTile && !needBand) return;
 
-  // The row we chose is gone (a re-render replaced it), or we have never
-  // placed. Either way the question is worth asking again -- and it is asked
-  // with the card out of the document, so the measurements describe the page
-  // rather than describing our own effect on it.
-  removeCard();
-  placedIn = null;
+  if (needTile) removeAt('tile');
+  if (needBand) removeAt('band');
 
-  const row = chosenRow(findRows());
+  const rows = findRows();
+  if (!rows.length) return;
+
+  if (needTile) insertTile(rows);
+  if (needBand) insertBand(rows);
+}
+
+function insertTile(rows) {
+  const row = chosenRow(rows, settings.row);
   if (!row) return;
-
-  if (settings.placement === 'header') {
-    // The band goes in a *gap*, and a gap is named by the row below it -- which
-    // is why the picker says "Above JUST FOR YOU" rather than naming a row. The
-    // last gap has no row below it, so it is named separately.
-    const anchor = settings.row === END ? lastShelf() : shelfOf(row.node);
-    if (!anchor) return;
-    placedIn = anchor.parentElement;
-    if (!placedIn) return;
-    const band = buildHeader();
-    // Aligned to the heading it sits between rather than to a number. The
-    // shelves here are inset 24px, not the 32 a first guess used, and that
-    // inset moves with the viewport -- so it is read off the real heading.
-    const inset = headingInset(anchor, placedIn);
-    if (inset !== null) {
-      band.style.marginLeft = `${inset}px`;
-      band.style.marginRight = `${inset}px`;
-    }
-    placedIn.insertBefore(band, settings.row === END ? anchor.nextElementSibling : anchor);
-    return;
-  }
-
-  placedIn = row.node;
+  placed.tile = row.node;
   // **Second, not first.** The first slot of these carousels sits under the
   // left edge of a `SECTION.overflow-hidden` and moves as the rail scrolls, so
   // a card placed there is clipped -- measured at x=-4 on a fresh load and
@@ -484,8 +753,30 @@ function place() {
   row.node.insertBefore(buildCard(shapeFrom(row.tile)), after?.nextElementSibling ?? null);
 }
 
-function removeCard() {
-  document.getElementById(HOST_ID)?.remove();
+function insertBand(rows) {
+  // The band goes in a *gap*, and a gap is named by the row below it -- which
+  // is why the picker says "Above JUST FOR YOU" rather than naming a row. The
+  // last gap has no row below it, so it is named separately.
+  const atEnd = settings.gap === END;
+  const row = atEnd ? rows[rows.length - 1] : chosenRow(rows, settings.gap);
+  if (!row) return;
+
+  const rails = rows.map((r) => r.node);
+  const shelf = shelfOf(row.node, rails);
+  const into = shelf.parentElement;
+  if (!into) return;
+
+  placed.band = into;
+  const band = buildBand(timingFrom(artOf(row.tile) ?? row.tile));
+  // Aligned to the heading it sits between rather than to a number. The shelves
+  // here are inset 24px, not the 32 a first guess used, and that inset moves
+  // with the viewport -- so it is read off the real heading.
+  const inset = headingInset(shelf, into, rails);
+  if (inset !== null) {
+    band.style.marginLeft = `${inset}px`;
+    band.style.marginRight = `${inset}px`;
+  }
+  into.insertBefore(band, atEnd ? shelf.nextElementSibling : shelf);
 }
 
 // ---------------------------------------------------------------------------
@@ -597,10 +888,11 @@ window.addEventListener('message', (event) => {
 // Picking a row by clicking it
 // ---------------------------------------------------------------------------
 
-function setPicking(on) {
-  picking = on;
-  document.body.classList.toggle('ez-picking', on);
-  if (on) document.addEventListener('click', onPick, true);
+/** Which placement the click is choosing for: 'tile' or 'band'. */
+function setPicking(which) {
+  picking = which;
+  document.body.classList.toggle('ez-picking', Boolean(which));
+  if (which) document.addEventListener('click', onPick, true);
   else document.removeEventListener('click', onPick, true);
 }
 
@@ -610,11 +902,14 @@ function onPick(event) {
   if (!hit) return;
   event.preventDefault();
   event.stopPropagation();
-  settings.row = hit.label;
-  chrome.storage.local.set({ row: hit.label });
-  setPicking(false);
-  removeCard();
-  placedIn = null;
+  // The tile stores which row it is *in*; the band stores which row it is
+  // *above*. One key holding both is what made choosing a gap move the tile.
+  const key = picking === 'band' ? 'gap' : 'row';
+  const which = picking === 'band' ? 'band' : 'tile';
+  settings[key] = hit.label;
+  chrome.storage.local.set({ [key]: hit.label });
+  setPicking(null);
+  removeAt(which);
   place();
 }
 
@@ -640,8 +935,8 @@ function schedule() {
  */
 function theirs(records) {
   return records.some((record) => {
-    if (record.target?.id === HOST_ID || record.target?.closest?.(`#${HOST_ID}`)) return false;
-    const ours = (nodes) => [...nodes].every((n) => n.id === HOST_ID);
+    if (OURS.has(record.target?.id) || record.target?.closest?.(OURS_SELECTOR)) return false;
+    const ours = (nodes) => [...nodes].every((n) => OURS.has(n.id));
     if (record.addedNodes.length && ours(record.addedNodes)) return false;
     if (record.removedNodes.length && ours(record.removedNodes)) return false;
     return true;
@@ -663,16 +958,18 @@ chrome.storage.local.get(EZ_DEFAULTS, (stored) => {
 chrome.storage.onChanged.addListener((changes) => {
   for (const [key, { newValue }] of Object.entries(changes)) settings[key] = newValue;
   if (changes.copy) settings.copy = { ...EZ_DEFAULTS.copy, ...changes.copy.newValue };
-  // A settings change is the one time the card *should* move, so the remembered
-  // row is dropped rather than defended.
-  removeCard();
-  placedIn = null;
+  // A settings change is the one time a placement *should* move -- but only the
+  // one that was changed. Rebuilding both means a tile that nobody touched is
+  // destroyed and recreated because somebody picked a gap for the band.
+  const touched = (keys) => keys.some((key) => key in changes);
+  if (touched(['row', 'placeTile', 'matchUi', 'copy', 'sponsor', 'sponsorLogo', 'sponsorBanner'])) removeAt('tile');
+  if (touched(['gap', 'placeBand', 'matchUi', 'copy', 'sponsor', 'sponsorLogo', 'sponsorBanner'])) removeAt('band');
   place();
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   if (message?.type === 'rows') {
-    respond({ rows: findRows().map((r) => r.label), placement: settings.placement });
+    respond({ rows: findRows().map((r) => r.label) });
     return true;
   }
   if (message?.type === 'stats') {
@@ -687,7 +984,7 @@ chrome.runtime.onMessage.addListener((message, _sender, respond) => {
     return true;
   }
   if (message?.type === 'pick') {
-    setPicking(true);
+    setPicking(message.for === 'band' ? 'band' : 'tile');
     respond({ ok: true });
   }
   return undefined;

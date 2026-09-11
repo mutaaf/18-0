@@ -1,27 +1,48 @@
 /*
- * Two looks for one card.
+ * Two placements, two looks each, one set of colours.
  *
- * The default is the game's own: a navy tile with a weave and a red call to
- * action, which reads as something placed *on* the page. `.ez-match` is the
- * other one -- the same box as its neighbours, the same corner, the same
- * caption block underneath -- so it sits in the row rather than on top of it.
+ * The tile (`#eighteen-zero-card`) and the band (`#eighteen-zero-band`) are
+ * separate elements with separate ids because both can be on the page at once.
+ * Rules that apply to either name both ids rather than a shared class: the
+ * specificity of an id is what keeps ESPN's own stylesheet from reaching in,
+ * and a class would lose that.
+ *
+ * `.ez-match` is the quieter look -- the same box as its neighbours, the same
+ * corner, the same caption block underneath -- so it sits in the row rather
+ * than on top of it. Without it the card announces itself.
+ *
+ * The palette is the app's own `turf` theme: a deep navy ground, field green
+ * for anything you press, and gold spent in exactly one place -- the
+ * eighteenth mark of the ladder, which is the record the game is about.
  *
  * Everything is prefixed `ez-` and nothing is a bare element selector, because
  * this stylesheet is injected into a page that has its own and the one thing it
  * must not do is change how ESPN's own tiles look.
  */
 
+#eighteen-zero-card.ez-card,
+#eighteen-zero-band.ez-band {
+  --ez-navy: #070e3a;
+  --ez-navy-lit: #16247a;
+  --ez-green: #5fbb46;
+  --ez-green-lit: #7bd35f;
+  --ez-gold: #ffc531;
+  /* Copied off a neighbouring tile at build time -- see `timingFrom` -- so the
+     card moves on the row's clock rather than on one of ours. These two are the
+     fallback for a row that animates nothing readable. */
+  --ez-motion: 170ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  --ez-lift: scale(1.045);
+}
+
 #eighteen-zero-card.ez-card {
   --ez-w: 232px;
   --ez-h: 130px;
   --ez-r: 6px;
-  --ez-navy: #070e3a;
-  --ez-navy-lit: #16247a;
-  --ez-red: #d50a0a;
-  --ez-green: #5fbb46;
 
   flex: 0 0 auto;
   width: var(--ez-w);
+  /* So a lifted card is over its neighbours rather than under the next one. */
+  position: relative;
   /* Copied off a neighbour at build time; see `shapeFrom`. */
   margin-left: var(--ez-ml, 0);
   margin-right: var(--ez-mr, 12px);
@@ -36,6 +57,8 @@
   box-sizing: border-box;
 }
 
+#eighteen-zero-card.ez-card:hover { z-index: 3; }
+
 #eighteen-zero-card .ez-art {
   position: relative;
   display: block;
@@ -46,26 +69,99 @@
   border-radius: var(--ez-r);
   overflow: hidden;
   cursor: pointer;
+  /* The stadium light, thrown from off the top-left corner the way the app's
+     own backdrop throws it, over a floor that darkens toward the bottom so the
+     pill and the ladder have something to sit on. The field itself is drawn in
+     SVG over all of it. */
   background:
-    radial-gradient(120% 140% at 15% -10%, #1b2e9c 0%, rgba(27, 46, 156, 0) 60%),
-    linear-gradient(160deg, #0b1452 0%, var(--ez-navy) 70%);
+    linear-gradient(0deg, rgba(2, 5, 22, 0.45) 0%, rgba(2, 5, 22, 0) 44%),
+    radial-gradient(130% 150% at 12% -18%, #24369f 0%, rgba(27, 46, 156, 0) 58%),
+    linear-gradient(168deg, #0b1452 0%, var(--ez-navy) 72%);
   /* The tile is a button; the page's button styles must not reach it. */
   appearance: none;
   -webkit-appearance: none;
   text-align: left;
+  transform-origin: center;
+  transition:
+    transform var(--ez-motion),
+    box-shadow var(--ez-motion),
+    filter var(--ez-motion);
 }
 
-#eighteen-zero-card .ez-art:hover { filter: brightness(1.12); }
-#eighteen-zero-card .ez-art:focus-visible { outline: 2px solid #ffc531; outline-offset: 2px; }
+/* **The lift is the row's, not ours.** `--ez-lift` is whatever transform a
+   neighbour's own `:hover` rule uses, read out of the page's stylesheets; the
+   fallback only applies when none could be read. A tile that stays still while
+   everything beside it moves is the tell that it was put there by something
+   else. */
+#eighteen-zero-card .ez-art:hover,
+#eighteen-zero-card .ez-art:focus-visible {
+  transform: var(--ez-lift);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+}
 
-/* The pinstripe the app's own ground carries. Barely there by design. */
-#eighteen-zero-card .ez-weave {
+#eighteen-zero-card .ez-art:focus-visible { outline: 2px solid var(--ez-gold); outline-offset: 2px; }
+
+/* The field: chalk on the ground, drawn in `fieldArt` at the card's real pixel
+   size so a one-pixel yard line is one pixel. */
+#eighteen-zero-card .ez-turf,
+#eighteen-zero-band .ez-turf {
   position: absolute;
   inset: 0;
-  background-image: repeating-linear-gradient(
-    -45deg, rgba(255, 255, 255, 0.035) 0 3px, transparent 3px 14px
-  );
+  width: 100%;
+  height: 100%;
   pointer-events: none;
+}
+
+/*
+ * What real tiles do on hover and ours did not: an overlay fades in. Opacity
+ * rather than a filter, so it is still feedback when motion is turned off.
+ */
+#eighteen-zero-card .ez-sheen {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ez-motion);
+  background:
+    radial-gradient(66% 96% at 80% 18%, rgba(255, 197, 49, 0.2) 0%, rgba(255, 197, 49, 0) 64%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 46%);
+}
+
+#eighteen-zero-card .ez-art:hover .ez-sheen,
+#eighteen-zero-card .ez-art:focus-visible .ez-sheen { opacity: 1; }
+
+/*
+ * The season, along the bottom edge: seventeen chalk marks and one gold.
+ *
+ * Eighteen flex children rather than a repeating gradient, because the
+ * eighteenth has to be a different colour and carry a glow, and a gradient
+ * cannot be pointed at one of its own stops.
+ */
+#eighteen-zero-card .ez-ladder,
+#eighteen-zero-band .ez-ladder {
+  position: absolute;
+  /* Inset rather than flush to the edge: at `left: 0` the rounded corner cuts
+     the eighteenth mark in half, which is the one mark that has to be legible. */
+  left: 10px;
+  right: 10px;
+  bottom: 7px;
+  display: flex;
+  gap: 2px;
+  height: 3px;
+  pointer-events: none;
+}
+
+#eighteen-zero-card .ez-tick,
+#eighteen-zero-band .ez-tick {
+  flex: 1 1 0;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+#eighteen-zero-card .ez-chase,
+#eighteen-zero-band .ez-chase {
+  background: var(--ez-gold);
+  box-shadow: 0 0 9px rgba(255, 197, 49, 0.85);
 }
 
 #eighteen-zero-card .ez-mark {
@@ -80,12 +176,13 @@
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
 }
 
-#eighteen-zero-card .ez-dash { color: #ffc531; }
+#eighteen-zero-card .ez-dash,
+#eighteen-zero-band .ez-dash { color: var(--ez-gold); }
 
 #eighteen-zero-card .ez-tag {
   position: absolute;
   left: 14px;
-  bottom: 12px;
+  bottom: 13px;
   display: inline-flex;
   align-items: center;
   height: 26px;
@@ -131,19 +228,47 @@
 
 /*
  * Matched: the tile keeps the game's colours -- it is our card and it says so --
- * but drops the standalone flourishes so the box reads as one of the row.
+ * but drops the standalone flourishes so the box reads as one of the row. The
+ * field is still there, half a stop down, because a flat navy rectangle beside
+ * real broadcast thumbnails reads as one that failed to load.
  */
 #eighteen-zero-card.ez-match .ez-badge { display: none; }
 #eighteen-zero-card.ez-match .ez-mark { font-size: 24px; }
+#eighteen-zero-card.ez-match .ez-turf { opacity: 0.72; }
+#eighteen-zero-card.ez-match .ez-ladder { opacity: 0.78; }
 #eighteen-zero-card.ez-match .ez-tag {
   height: 22px;
   padding: 0 9px;
   font-size: 10px;
 }
 
+/* Unmatched, it announces itself: a gold hairline around the artwork that no
+   tile in the row has. */
+#eighteen-zero-card:not(.ez-match) .ez-art {
+  box-shadow: inset 0 0 0 1px rgba(255, 197, 49, 0.3);
+}
+#eighteen-zero-card:not(.ez-match) .ez-art:hover,
+#eighteen-zero-card:not(.ez-match) .ez-art:focus-visible {
+  box-shadow: inset 0 0 0 1px rgba(255, 197, 49, 0.55), 0 12px 28px rgba(0, 0, 0, 0.5);
+}
+
+/*
+ * Reduce Motion takes the movement away and leaves the feedback: the sheen and
+ * the shadow still say the pointer is on it. A hover that does nothing at all
+ * is worse than one that does not move.
+ */
+@media (prefers-reduced-motion: reduce) {
+  #eighteen-zero-card .ez-art,
+  #eighteen-zero-card .ez-sheen,
+  #eighteen-zero-band .ez-band-go { transition: none; }
+  #eighteen-zero-card .ez-art:hover,
+  #eighteen-zero-card .ez-art:focus-visible { transform: none; }
+}
+
 /* Picking a row: outline every candidate so the click is an informed one. */
 body.ez-picking [class] { cursor: crosshair !important; }
-body.ez-picking #eighteen-zero-card { pointer-events: none; }
+body.ez-picking #eighteen-zero-card,
+body.ez-picking #eighteen-zero-band { pointer-events: none; }
 
 /* ------------------------------------------------------------------------ */
 /* The panel                                                                 */
@@ -235,7 +360,7 @@ body.ez-picking #eighteen-zero-card { pointer-events: none; }
  * a band gets the width of the shelf and the reading position a section
  * heading has, which is the right shape when the game is the point.
  */
-#eighteen-zero-card.ez-band {
+#eighteen-zero-band.ez-band {
   position: relative;
   display: flex;
   align-items: center;
@@ -246,28 +371,32 @@ body.ez-picking #eighteen-zero-card { pointer-events: none; }
   /* Overridden at build time with the real heading inset; this is the
      fallback for a shelf that has no heading to measure. */
   margin: 18px 24px 22px;
-  padding: 18px 22px;
+  padding: 18px 22px 21px;
   border-radius: 10px;
   overflow: hidden;
   background:
-    radial-gradient(120% 200% at 12% -40%, #1b2e9c 0%, rgba(27, 46, 156, 0) 62%),
-    linear-gradient(100deg, #0b1452 0%, #070e3a 68%);
+    radial-gradient(90% 220% at 10% -60%, #24369f 0%, rgba(27, 46, 156, 0) 60%),
+    linear-gradient(100deg, #0b1452 0%, var(--ez-navy) 68%);
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-sizing: border-box;
+  font-family: inherit;
 }
 
-#eighteen-zero-card.ez-band .ez-band-text { position: relative; min-width: 0; }
+/* The same field and the same eighteen marks as the tile, because the two
+   placements are one thing shown two ways and a band with its own artwork
+   reads as a second advert from somebody else. */
+#eighteen-zero-band.ez-band .ez-band-text { position: relative; min-width: 0; }
 
-#eighteen-zero-card.ez-band .ez-band-kicker {
+#eighteen-zero-band.ez-band .ez-band-kicker {
   margin: 0 0 4px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.4px;
   text-transform: uppercase;
-  color: #5fbb46;
+  color: var(--ez-green);
 }
 
-#eighteen-zero-card.ez-band .ez-band-title {
+#eighteen-zero-band.ez-band .ez-band-title {
   margin: 0;
   font-size: 20px;
   font-weight: 700;
@@ -275,55 +404,67 @@ body.ez-picking #eighteen-zero-card { pointer-events: none; }
   color: #fff;
 }
 
-#eighteen-zero-card.ez-band .ez-band-sub {
+#eighteen-zero-band.ez-band .ez-band-sub {
   margin: 4px 0 0;
   font-size: 13px;
   line-height: 1.35;
   color: rgba(255, 255, 255, 0.62);
 }
 
-#eighteen-zero-card.ez-band .ez-band-go {
+#eighteen-zero-band.ez-band .ez-band-go {
   position: relative;
   flex: 0 0 auto;
   height: 40px;
   padding: 0 20px;
-  border: 1px solid #7bd35f;
+  border: 1px solid var(--ez-green-lit);
   border-radius: 999px;
-  background: #5fbb46;
+  background: var(--ez-green);
   color: #06210a;
   font: inherit;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.4px;
   cursor: pointer;
+  transition: background var(--ez-motion), transform var(--ez-motion);
 }
 
-#eighteen-zero-card.ez-band .ez-band-go:hover { background: #7bd35f; }
-#eighteen-zero-card.ez-band .ez-band-go:focus-visible { outline: 2px solid #ffc531; outline-offset: 2px; }
+#eighteen-zero-band.ez-band .ez-band-go:hover {
+  background: var(--ez-green-lit);
+  transform: translateY(-1px);
+}
+#eighteen-zero-band.ez-band .ez-band-go:focus-visible { outline: 2px solid var(--ez-gold); outline-offset: 2px; }
 
 /*
  * Matched: the band takes the page's own section-label voice. These shelves set
  * their headings in small, wide, uppercase type, and a 20px title in a column
- * of those reads as an advert however carefully it is worded.
+ * of those reads as an advert however carefully it is worded. The field goes
+ * down with it rather than away -- a flat panel is the thing this replaced.
  */
-#eighteen-zero-card.ez-band.ez-match {
+#eighteen-zero-band.ez-band.ez-match {
   background: linear-gradient(100deg, rgba(11, 20, 82, 0.92) 0%, rgba(7, 14, 58, 0.92) 70%);
   border-color: rgba(255, 255, 255, 0.08);
-  padding: 14px 22px;
+  padding: 14px 22px 17px;
 }
 
-#eighteen-zero-card.ez-band.ez-match .ez-band-title {
+#eighteen-zero-band.ez-band.ez-match .ez-turf { opacity: 0.6; }
+#eighteen-zero-band.ez-band.ez-match .ez-ladder { opacity: 0.75; }
+
+#eighteen-zero-band.ez-band.ez-match .ez-band-title {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 1.2px;
   text-transform: uppercase;
 }
 
-#eighteen-zero-card.ez-band.ez-match .ez-band-sub { font-size: 12px; }
-#eighteen-zero-card.ez-band.ez-match .ez-band-go { height: 34px; font-size: 12px; }
+#eighteen-zero-band.ez-band.ez-match .ez-band-sub { font-size: 12px; }
+#eighteen-zero-band.ez-band.ez-match .ez-band-go { height: 34px; font-size: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  #eighteen-zero-band.ez-band .ez-band-go:hover { transform: none; }
+}
 
 @media (max-width: 700px) {
-  #eighteen-zero-card.ez-band {
+  #eighteen-zero-band.ez-band {
     flex-direction: column;
     align-items: flex-start;
     gap: 14px;
@@ -339,10 +480,11 @@ body.ez-picking #eighteen-zero-card { pointer-events: none; }
  * Its own line rather than words inside the title, so it can be turned off
  * without rewriting a sentence — which is the first thing anybody tries.
  */
-#eighteen-zero-card .ez-sponsor {
+#eighteen-zero-card .ez-sponsor,
+#eighteen-zero-band .ez-sponsor {
   position: absolute;
   right: 10px;
-  bottom: 12px;
+  bottom: 13px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -353,7 +495,8 @@ body.ez-picking #eighteen-zero-card { pointer-events: none; }
   border: 1px solid rgba(255, 255, 255, 0.16);
 }
 
-#eighteen-zero-card .ez-sponsor-logo {
+#eighteen-zero-card .ez-sponsor-logo,
+#eighteen-zero-band .ez-sponsor-logo {
   height: 14px;
   width: auto;
   max-width: 56px;
@@ -361,7 +504,8 @@ body.ez-picking #eighteen-zero-card { pointer-events: none; }
   display: block;
 }
 
-#eighteen-zero-card .ez-sponsor-text {
+#eighteen-zero-card .ez-sponsor-text,
+#eighteen-zero-band .ez-sponsor-text {
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0.4px;
@@ -372,14 +516,14 @@ body.ez-picking #eighteen-zero-card { pointer-events: none; }
 }
 
 /* In the band it sits under the copy rather than over the artwork. */
-#eighteen-zero-card.ez-band .ez-sponsor {
+#eighteen-zero-band.ez-band .ez-sponsor {
   position: static;
   margin-top: 8px;
   max-width: none;
 }
 
-#eighteen-zero-card.ez-band .ez-sponsor-text { font-size: 11px; }
-#eighteen-zero-card.ez-band .ez-sponsor-logo { height: 16px; max-width: 72px; }
+#eighteen-zero-band.ez-band .ez-sponsor-text { font-size: 11px; }
+#eighteen-zero-band.ez-band .ez-sponsor-logo { height: 16px; max-width: 72px; }
 
 /* ------------------------------------------------------------------------ */
 /* Consent                                                                   */

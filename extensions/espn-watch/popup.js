@@ -10,14 +10,44 @@
 
 const enabled = document.getElementById('enabled');
 const matchUi = document.getElementById('matchUi');
-const rowSelect = document.getElementById('row');
-const rowNote = document.getElementById('rowNote');
-const pick = document.getElementById('pick');
-const placement = document.getElementById('placement');
-const whereLabel = document.getElementById('whereLabel');
 const statsNote = document.getElementById('stats');
 const resetStats = document.getElementById('resetStats');
 const openOptions = document.getElementById('openOptions');
+
+/**
+ * The two placements, each with its own switch, its own position and its own
+ * picker.
+ *
+ * A table rather than two copies of the same code: they differ in four strings
+ * and in which key they write, and the version that had a branch per difference
+ * grew one that was only right for the tile.
+ */
+const PLACEMENTS = [
+  {
+    which: 'tile',
+    flag: 'placeTile',
+    key: 'row',
+    // A tile goes *in* a row, so the options are rows.
+    name: (label) => label,
+    firstOption: 'First row',
+    counted: (n) => `${n} row${n === 1 ? '' : 's'} on this page`,
+    pickLabel: 'Pick a row on the page',
+    end: false,
+  },
+  {
+    which: 'band',
+    flag: 'placeBand',
+    key: 'gap',
+    // A band goes in a *gap*, and a gap is named by the row underneath it --
+    // because "JUST FOR YOU" on its own is ambiguous about which side of it the
+    // band lands on. The last gap has no row below it and is named separately.
+    name: (label) => `Above ${label}`,
+    firstOption: 'Above the first row',
+    counted: (n) => `${n + 1} gap${n === 0 ? '' : 's'} on this page`,
+    pickLabel: 'Pick the row below it',
+    end: true,
+  },
+];
 
 /** The gap below the last row, which no row can name. */
 const END = '__end';
@@ -27,37 +57,43 @@ async function activeTab() {
   return tab;
 }
 
-/**
- * Ask the page what rows it has, and offer them the way the current placement
- * uses them.
- *
- * A tile goes *in* a row, so the options are rows. A band goes in a *gap*, and
- * a gap is named by the row underneath it -- "Above JUST FOR YOU" -- because
- * "JUST FOR YOU" on its own would be ambiguous about which side of it the band
- * lands on. The last gap has no row below it and is named separately.
- */
-async function loadRows(selected, mode) {
+/** Everything about one placement, found by convention from its name. */
+function parts(placement) {
+  return {
+    box: document.getElementById(placement.flag),
+    where: document.getElementById(`${placement.which}Where`),
+    select: document.getElementById(placement.key),
+    note: document.getElementById(`${placement.key}Note`),
+    pick: document.getElementById(placement.which === 'band' ? 'pickGap' : 'pickRow'),
+  };
+}
+
+/** The rows on the page, asked for once and offered to both pickers. */
+async function pageRows() {
   const tab = await activeTab();
-  if (!tab?.id) return;
-  let rows = [];
+  if (!tab?.id) return null;
   try {
     const reply = await chrome.tabs.sendMessage(tab.id, { type: 'rows' });
-    rows = reply?.rows ?? [];
+    return reply?.rows ?? [];
   } catch {
-    rowNote.textContent = 'Open espn.com/watch to choose';
-    rowSelect.disabled = true;
+    return null;
+  }
+}
+
+function fillPicker(placement, rows, selected) {
+  const { select, note, pick } = parts(placement);
+  if (rows === null) {
+    note.textContent = 'Open espn.com/watch to choose';
+    select.disabled = true;
     pick.disabled = true;
     return;
   }
 
-  const header = mode === 'header';
-  rowSelect.replaceChildren();
-  whereLabel.childNodes[0].nodeValue = header ? 'Gap' : 'Row';
-
+  select.replaceChildren();
   const first = document.createElement('option');
   first.value = '';
-  first.textContent = header ? 'Above the first row' : 'First row';
-  rowSelect.appendChild(first);
+  first.textContent = placement.firstOption;
+  select.appendChild(first);
 
   // De-duplicated: two rows can share a heading, and a picker with the same
   // word three times is a picker nobody can use.
@@ -68,37 +104,60 @@ async function loadRows(selected, mode) {
     const option = document.createElement('option');
     option.value = label;
     const shown = label.length > 24 ? `${label.slice(0, 23)}\u2026` : label;
-    option.textContent = header ? `Above ${shown}` : shown;
-    rowSelect.appendChild(option);
+    option.textContent = placement.name(shown);
+    select.appendChild(option);
   }
 
-  if (header) {
+  if (placement.end) {
     const end = document.createElement('option');
     end.value = END;
     end.textContent = 'Below the last row';
-    rowSelect.appendChild(end);
+    select.appendChild(end);
   }
 
-  if (selected && (seen.has(selected) || selected === END)) rowSelect.value = selected;
-  rowNote.textContent = header
-    ? `${seen.size + 1} gap${seen.size === 0 ? '' : 's'} on this page`
-    : `${seen.size} row${seen.size === 1 ? '' : 's'} on this page`;
-  pick.textContent = header ? 'Pick the row below it' : 'Pick a row on the page';
+  if (selected && (seen.has(selected) || selected === END)) select.value = selected;
+  note.textContent = placement.counted(seen.size);
+  pick.textContent = placement.pickLabel;
 }
 
 chrome.storage.local.get(EZ_DEFAULTS, (stored) => {
-  enabled.checked = stored.enabled;
-  matchUi.checked = stored.matchUi;
-  placement.value = stored.placement;
-  void loadRows(stored.row, stored.placement);
-});
+  const settings = ezSettings(stored);
+  enabled.checked = settings.enabled;
+  matchUi.checked = settings.matchUi;
 
-placement.addEventListener('change', () => {
-  // The stored position is dropped: "above the third row" and "in the third
-  // row" are different places, and carrying one over as the other silently
-  // moves the thing somebody just placed.
-  chrome.storage.local.set({ placement: placement.value, row: null });
-  void loadRows(null, placement.value);
+  void pageRows().then((rows) => {
+    for (const placement of PLACEMENTS) {
+      const { box, where, select, pick } = parts(placement);
+      box.checked = settings[placement.flag];
+      where.hidden = !box.checked;
+      fillPicker(placement, rows, settings[placement.key]);
+
+      box.addEventListener('change', () => {
+        where.hidden = !box.checked;
+        // `placement: null` retires the setting these two flags replaced. Left
+        // in storage it is read as a migration on every load and puts the flag
+        // somebody just changed back where it was.
+        chrome.storage.local.set({ [placement.flag]: box.checked, placement: null });
+      });
+
+      select.addEventListener('change', () => {
+        chrome.storage.local.set({ [placement.key]: select.value || null });
+      });
+
+      pick.addEventListener('click', async () => {
+        const tab = await activeTab();
+        if (!tab?.id) return;
+        try {
+          await chrome.tabs.sendMessage(tab.id, { type: 'pick', for: placement.which });
+          // The popup has to close, or the click that chooses a row lands on
+          // the popup instead of the page.
+          window.close();
+        } catch {
+          pick.textContent = 'Open espn.com/watch first';
+        }
+      });
+    }
+  });
 });
 
 enabled.addEventListener('change', () => {
@@ -107,23 +166,6 @@ enabled.addEventListener('change', () => {
 
 matchUi.addEventListener('change', () => {
   chrome.storage.local.set({ matchUi: matchUi.checked });
-});
-
-rowSelect.addEventListener('change', () => {
-  chrome.storage.local.set({ row: rowSelect.value || null });
-});
-
-pick.addEventListener('click', async () => {
-  const tab = await activeTab();
-  if (!tab?.id) return;
-  try {
-    await chrome.tabs.sendMessage(tab.id, { type: 'pick' });
-    // The popup has to close, or the click that chooses a row lands on the
-    // popup instead of the page.
-    window.close();
-  } catch {
-    pick.textContent = 'Open espn.com/watch first';
-  }
 });
 
 

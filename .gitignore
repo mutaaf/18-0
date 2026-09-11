@@ -42,6 +42,10 @@ supabase/.branches/
 # it deploys a page whose og:image 404s — which renders as a broken frame rather
 # than falling back to no image at all.
 !apps/mobile/public/*.png
+# The extension's toolbar icons, which its manifest names. Swept up by the
+# blanket rule above, so they lived in one checkout only and `Load unpacked`
+# from a fresh clone failed on a manifest pointing at files that were not there.
+!extensions/espn-watch/icons/*.png
 
 # Local secrets, never committed
 # No trailing slash, deliberately. Each of these is a directory in this
@@ -61,3 +65,8 @@ apps/mobile/play-service-account.json
 apps/mobile/ios/
 apps/mobile/android/
 .vercel
+
+# The throwaway Chrome profile `fixture-check.mjs` runs the extension fixture
+# in. 377 files of it were committed and every test run dirtied a few dozen, so
+# `git status` described a browser's cache rather than anybody's work.
+extensions/espn-watch/.fixture-profile/
