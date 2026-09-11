@@ -1,8 +1,9 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, G, Line, LinearGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { ROSTER_SLOTS, SLOT_POSITION, type RosterSlot } from '@18-0/domain';
 import type { BootCard } from '@18-0/data';
+import { SLOT_HEIGHT, TOUCHLINE, formation } from './field-geometry';
 import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking, useLayout, useThemeId } from '@/theme';
 
 const SLOT_LABEL: Record<RosterSlot, string> = {
@@ -97,11 +98,13 @@ interface SlotProps {
   highlighted: boolean;
   targeted: boolean;
   blind: boolean;
+  /** Measured on the field, not assumed. See `Field`. */
+  width: number;
   scale: number;
   onPress?: (slot: RosterSlot) => void;
 }
 
-function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, scale, onPress }: SlotProps) {
+function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, width, scale, onPress }: SlotProps) {
   const accent = positionColor[SLOT_POSITION[slot]];
   const filled = card !== undefined;
 
@@ -119,7 +122,7 @@ function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, scale, 
       onPress={onPress ? () => onPress(slot) : undefined}
       style={({ pressed }) => [
         styles.slot,
-        { width: 96 * scale, minHeight: 62 * scale },
+        { width, minHeight: SLOT_HEIGHT * scale },
         filled ? styles.slotFilled : styles.slotEmpty,
         highlighted && { borderColor: accent, shadowColor: accent, shadowOpacity: 0.55 },
         targeted && styles.slotTargeted,
@@ -182,6 +185,14 @@ export function Field({
   const layout = useLayout();
   // A desktop window has the room for a bigger lineup graphic; a phone does not.
   const scale = layout.roomy ? 1.35 : layout.wide ? 1.2 : 1;
+
+  /**
+   * The formation is sized from the field it is drawn on, rather than from a
+   * number that was right on one screen. See `field-geometry.ts`.
+   */
+  const [formationWidth, setFormationWidth] = useState(0);
+  const { slotWidth, backsInset } = formation(formationWidth, scale);
+
   const highlighted = new Set(highlight ?? []);
   const slot = (key: RosterSlot) => (
     <Slot
@@ -192,21 +203,25 @@ export function Field({
       highlighted={highlighted.has(key)}
       targeted={target === key}
       blind={blind === true}
+      width={slotWidth}
       scale={scale}
       {...(onSlotPress ? { onPress: onSlotPress } : {})}
     />
   );
 
   return (
-    <View style={[styles.field, { paddingVertical: space.md * scale }]}>
+    <View style={[styles.field, { paddingVertical: TOUCHLINE * scale }]}>
       <Turf />
-      <View style={styles.formation}>
+      <View
+        style={styles.formation}
+        onLayout={(e) => setFormationWidth(e.nativeEvent.layout.width)}
+      >
         <View style={styles.row}>{slot('QB')}</View>
-        <View style={[styles.row, styles.rowSpread]}>
+        <View style={[styles.row, styles.rowInset, { paddingHorizontal: TOUCHLINE + backsInset }]}>
           {slot('RB1')}
           {slot('RB2')}
         </View>
-        <View style={[styles.row, styles.rowWide]}>
+        <View style={[styles.row, styles.rowInset]}>
           {slot('WR1')}
           {slot('TE1')}
           {slot('WR2')}
@@ -223,16 +238,19 @@ const styles = themed(() => StyleSheet.create({
   field: {
     borderRadius: radius.lg,
     overflow: 'hidden',
-    paddingVertical: space.md,
+    paddingVertical: TOUCHLINE,
     paddingHorizontal: space.sm,
   },
   formation: { gap: space.sm },
   row: { flexDirection: 'row', justifyContent: 'center', gap: space.sm },
-  rowSpread: { paddingHorizontal: '18%', justifyContent: 'space-between' },
-  rowWide: { justifyContent: 'space-between', paddingHorizontal: 2 },
+  /** The rows that reach for the sidelines, held off them by one rule. */
+  rowInset: { justifyContent: 'space-between', paddingHorizontal: TOUCHLINE },
   slot: {
     borderRadius: radius.md,
+    // A backstop for the frame before `onLayout` reports: measured or not, a
+    // slot gives up width rather than crossing the chalk.
     flexShrink: 1,
+    minWidth: 0,
     borderWidth: 1,
     paddingHorizontal: 7,
     paddingTop: 5,

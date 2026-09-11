@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { franchise } from '@18-0/data';
+import { ACCOUNT_DOCK_WIDTH } from '@/components/AccountButton';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
 import Svg, { Path } from 'react-native-svg';
@@ -174,9 +175,22 @@ function GameCard({
 }
 
 const styles = themed(() => StyleSheet.create({
-  header: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.md },
-  headerRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  headerText: { flex: 1, minWidth: 0 },
+  // Right padding is the account disc's corner, not a margin: the disc is
+  // absolutely positioned over this screen and nothing here may be drawn under
+  // it. See `ACCOUNT_DOCK_WIDTH`.
+  header: {
+    paddingLeft: space.lg,
+    paddingRight: ACCOUNT_DOCK_WIDTH,
+    paddingTop: space.lg,
+    paddingBottom: space.md,
+  },
+  // Wraps rather than squeezes. With the disc's corner reserved there is no
+  // longer room on a 320pt screen for the title and the pill side by side, and
+  // the thing that gave way was the word "Games" -- broken across two lines by
+  // a shrink that had nothing left to take. The floor is the width of the word
+  // itself: below it the pill takes the next line instead.
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, flexWrap: 'wrap' },
+  headerText: { flex: 1, minWidth: 110 },
   quick: {
     flexDirection: 'row',
     alignItems: 'center',
