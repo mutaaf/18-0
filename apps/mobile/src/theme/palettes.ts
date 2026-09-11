@@ -272,10 +272,24 @@ const turf: Theme = {
 
 export const THEMES: Record<ThemeId, Theme> = { broadcast, turf };
 
-/** The order the picker shows them in. Broadcast first: it is what ships. */
-export const THEME_LIST: readonly Theme[] = [broadcast, turf];
+/** The order the picker shows them in. The shipped default leads. */
+export const THEME_LIST: readonly Theme[] = [turf, broadcast];
 
-export const DEFAULT_THEME: ThemeId = 'broadcast';
+/**
+ * What the app is, before anybody chooses.
+ *
+ * Turf. Broadcast was first and is the more restrained of the two, but a game
+ * about chasing an undefeated season should not open looking like a results
+ * service -- the navy ground and the green button read as an invitation, and the
+ * black one reads as a scoreboard. The palette that ships is the one that sets
+ * the expectation.
+ *
+ * Moving this moves what an un-configured device shows, what `useThemeFlagGuard`
+ * puts somebody back to when the picker is switched off, and what the PWA paints
+ * before React mounts -- `public/index.html` and `manifest.webmanifest` carry
+ * the same colour and have to move with it.
+ */
+export const DEFAULT_THEME: ThemeId = 'turf';
 
 export function isThemeId(value: unknown): value is ThemeId {
   return value === 'broadcast' || value === 'turf';

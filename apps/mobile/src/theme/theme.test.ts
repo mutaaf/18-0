@@ -38,6 +38,15 @@ function sourceFiles(): string[] {
   return out.filter((f) => !f.includes(`${join('src', 'theme')}`));
 }
 
+/**
+ * Whichever theme is not the shipped default.
+ *
+ * Named rather than hardcoded so these keep testing the switch rather than
+ * testing that the default is Broadcast -- which is what they were doing, and
+ * why they broke the day the default moved to Turf.
+ */
+const OTHER = THEME_LIST.find((t) => t.id !== DEFAULT_THEME)!;
+
 afterEach(() => __resetTheme());
 
 describe('palettes', () => {
@@ -85,15 +94,15 @@ describe('the live palette', () => {
     // export instead of replacing the contents would leave all of them looking
     // at the palette that is no longer active.
     const before = color;
-    setTheme('turf');
+    setTheme(OTHER.id);
     expect(color).toBe(before);
-    expect(color.action).toBe(THEMES.turf.color.action);
+    expect(color.action).toBe(OTHER.color.action);
   });
 
   it('moves the shape scale too', () => {
-    setTheme('turf');
-    expect(radius.md).toBe(THEMES.turf.radius.md);
-    expect(radius.md).not.toBe(THEMES.broadcast.radius.md);
+    setTheme(OTHER.id);
+    expect(radius.md).toBe(OTHER.radius.md);
+    expect(radius.md).not.toBe(THEMES[DEFAULT_THEME].radius.md);
   });
 
   it('ignores an id it does not have', () => {
@@ -102,13 +111,14 @@ describe('the live palette', () => {
   });
 });
 
+
 describe('themed()', () => {
   it('resolves to the active theme on every read', () => {
     const styles = themed(() => ({ root: { backgroundColor: color.void } }));
 
-    expect(styles.root.backgroundColor).toBe(THEMES.broadcast.color.void);
-    setTheme('turf');
-    expect(styles.root.backgroundColor).toBe(THEMES.turf.color.void);
+    expect(styles.root.backgroundColor).toBe(THEMES[DEFAULT_THEME].color.void);
+    setTheme(OTHER.id);
+    expect(styles.root.backgroundColor).toBe(OTHER.color.void);
   });
 
   it('builds each theme once', () => {
@@ -122,7 +132,7 @@ describe('themed()', () => {
     void styles.root;
     expect(builds).toBe(1);
 
-    setTheme('turf');
+    setTheme(OTHER.id);
     void styles.root;
     void styles.root;
     expect(builds).toBe(2);
