@@ -155,21 +155,56 @@ function buildCard(shape) {
   return card;
 }
 
+/**
+ * Where the card went last time.
+ *
+ * **The card is placed once and then left alone.** This is the fix for it
+ * flickering between the top two rows and being impossible to click, and it is
+ * deliberately a stronger guarantee than "find the right row each time".
+ *
+ * Re-resolving on every pass means the answer has to be stable on every pass,
+ * and it is not: a carousel is a list inside a scroller inside a section, all
+ * three can look like a row, and inserting the card changes the measurements
+ * that decide between them. So the card moves, which changes the measurements,
+ * which moves the card. Anything that re-derives a position from a page it is
+ * also modifying can do this, and no amount of tuning the heuristic fixes it --
+ * the heuristic is not the problem, asking it twice is.
+ *
+ * So: resolve once, remember the node, and only look again when that node has
+ * actually left the document. A React re-render replacing the shelf is the one
+ * case that should move the card, and it is the one case this re-resolves for.
+ */
+let placedIn = null;
+
 function place() {
   if (!settings.enabled) return removeCard();
 
   const existing = document.getElementById(HOST_ID);
-  const rows = findRows();
-  const row = chosenRow(rows);
+
+  // Still where we put it, and that row is still on the page: done. No
+  // querying, no measuring, no work at all -- which matters, because this runs
+  // behind a MutationObserver on a page that never stops re-rendering.
+  if (existing && placedIn?.isConnected && existing.parentElement === placedIn) return;
+
+  // The row we chose is gone (a re-render replaced it), or we have never
+  // placed. Either way the question is worth asking again -- and it is asked
+  // with the card out of the document, so the measurements describe the page
+  // rather than describing our own effect on it.
+  removeCard();
+  placedIn = null;
+
+  const row = chosenRow(findRows());
   if (!row) return;
 
-  // The cheap guard: already in the right row, nothing to do.
-  if (existing && existing.parentElement === row.node) return;
-  if (existing && !existing.isConnected) removeCard();
-
-  removeCard();
-  const card = buildCard(shapeFrom(row.tile));
-  row.node.insertBefore(card, row.node.firstElementChild);
+  placedIn = row.node;
+  // **Second, not first.** The first slot of these carousels sits under the
+  // left edge of a `SECTION.overflow-hidden` and moves as the rail scrolls, so
+  // a card placed there is clipped -- measured at x=-4 on a fresh load and
+  // x=-110 a moment later, which is what "it flashes and I cannot click it"
+  // looked like from the outside. The second slot is fully on screen at every
+  // scroll position a page arrives in.
+  const after = row.node.children[0];
+  row.node.insertBefore(buildCard(shapeFrom(row.tile)), after?.nextElementSibling ?? null);
 }
 
 function removeCard() {
@@ -246,6 +281,8 @@ function onPick(event) {
   settings.row = hit.label;
   chrome.storage.local.set({ row: hit.label });
   setPicking(false);
+  removeCard();
+  placedIn = null;
   place();
 }
 
@@ -292,7 +329,10 @@ chrome.storage.local.get({ row: null, matchUi: true, enabled: true }, (stored) =
 
 chrome.storage.onChanged.addListener((changes) => {
   for (const [key, { newValue }] of Object.entries(changes)) settings[key] = newValue;
+  // A settings change is the one time the card *should* move, so the remembered
+  // row is dropped rather than defended.
   removeCard();
+  placedIn = null;
   place();
 });
 

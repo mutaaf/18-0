@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>fixture</title>
+<!--
+  A page shaped like the one the extension runs on, so the row-finding can be
+  tested without espn.com.
+
+  It exists because of a specific bug: the card measured itself as part of the
+  row it had just been inserted into, the row then failed its own test, and the
+  card jumped to whichever row now sorted first — flickering between the top two
+  rows at the debounce interval and impossible to click, because it was being
+  destroyed and rebuilt under the pointer.
+
+  So the fixture has what produced that: several rows, nested wrappers around
+  each one (a section around a scroller around a list, all three of which can
+  look like a carousel), and a mutation after load, which is what a React page
+  does on its own.
+
+  Open it with `node extensions/espn-watch/fixture-check.mjs`.
+-->
+<style>
+  body { margin: 0; background: #0b0b0f; color: #fff; font: 14px system-ui; }
+  h2 { margin: 18px 12px 8px; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; }
+  .scroller { overflow-x: auto; }
+  .rail { display: flex; gap: 12px; padding: 0 12px 18px; list-style: none; margin: 0; }
+  .tile { flex: 0 0 auto; width: 232px; }
+  .thumb { width: 232px; height: 130px; border-radius: 6px; background: #23232b; }
+  .cap { margin: 8px 0 0; font-size: 13px; }
+  .sub { margin: 2px 0 0; font-size: 11px; color: #999; }
+</style>
+</head>
+<body>
+  <div id="page"></div>
+
+<script>
+  // Three rows, each wrapped twice, the way a real shelf is.
+  const ROWS = ['Just for you', 'Live now', 'Also live'];
+  const page = document.getElementById('page');
+
+  function buildRow(title, tiles) {
+    const section = document.createElement('section');
+    const heading = document.createElement('h2');
+    heading.textContent = title;
+    const scroller = document.createElement('div');
+    scroller.className = 'scroller';
+    const rail = document.createElement('ul');
+    rail.className = 'rail';
+    for (let i = 0; i < tiles; i++) {
+      const li = document.createElement('li');
+      li.className = 'tile';
+      li.innerHTML = '<div class="thumb"></div><p class="cap">A programme</p><p class="sub">ESPN+</p>';
+      rail.appendChild(li);
+    }
+    scroller.appendChild(rail);
+    section.append(heading, scroller);
+    return section;
+  }
+
+  for (const title of ROWS) page.appendChild(buildRow(title, 8));
+
+  // A React page does not stop changing after first paint: rows arrive late,
+  // and existing ones get replaced wholesale.
+  setTimeout(() => page.appendChild(buildRow('Upcoming', 6)), 700);
+  setTimeout(() => page.appendChild(buildRow('Replays', 5)), 1400);
+  // Something unrelated re-renders, repeatedly. A card that re-derives its
+  // position on every mutation walks; one that remembers does not.
+  for (const at of [1000, 1600, 2200, 2700]) {
+    setTimeout(() => {
+      const noise = document.createElement('div');
+      noise.textContent = '.';
+      page.appendChild(noise);
+    }, at);
+  }
+
+  // The extension's storage, stubbed. `content.js` is loaded as a plain script
+  // below, so this has to exist before it runs.
+  window.chrome = {
+    storage: {
+      local: {
+        get: (defaults, cb) => cb(defaults),
+        set: () => {},
+      },
+      onChanged: { addListener: () => {} },
+    },
+    runtime: { onMessage: { addListener: () => {} } },
+  };
+</script>
+
+<script src="content.js"></script>
+
+<script>
+  /*
+   * The assertions, reported through the title so `--dump-dom` can read them.
+   *
+   * Sampled over time rather than checked once: the failure this exists for was
+   * a card that appeared, moved, and appeared again. A single snapshot after
+   * two seconds would have passed while it was flickering.
+   */
+  const parents = new Set();
+  let maxCards = 0;
+  let moves = 0;
+  let lastParent = undefined;
+
+  const sample = () => {
+    const cards = document.querySelectorAll('#eighteen-zero-card');
+    maxCards = Math.max(maxCards, cards.length);
+    for (const card of cards) parents.add(card.parentElement);
+    const now = cards[0]?.parentElement ?? null;
+    if (lastParent !== undefined && now !== lastParent) moves++;
+    lastParent = now;
+  };
+
+  // Fixed timeouts rather than an interval: under Chrome's virtual clock a
+  // self-rescheduling interval never lets the page go idle, and `--dump-dom`
+  // waits for idle. The harness hung rather than failed, which is the worst
+  // kind of test.
+  for (let at = 200; at <= 3000; at += 100) setTimeout(sample, at);
+
+  setTimeout(() => {
+    sample();
+    const card = document.querySelector('#eighteen-zero-card');
+    const art = card?.querySelector('.ez-art');
+    document.title = JSON.stringify({
+      cards: document.querySelectorAll('#eighteen-zero-card').length,
+      maxCards,
+      distinctParents: parents.size,
+      moves,
+      inFirstRow: card?.parentElement === document.querySelector('.rail'),
+      onScreenX: card ? Math.round(card.getBoundingClientRect().x) : null,
+      clickable: Boolean(art),
+    });
+  }, 3200);
+</script>
+</body>
+</html>
