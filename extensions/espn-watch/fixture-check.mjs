@@ -14,7 +14,7 @@
  * layout: `getBoundingClientRect` is the whole algorithm, and jsdom returns
  * zeroes for all of it.
  */
-import { execFileSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -58,7 +58,7 @@ let runs = 0;
  * output and never returned, which is worse than either a pass or a fail. A
  * file is written by whoever is still alive and read after they are all gone.
  */
-function dumpDom(query = '', extra = [], url = null) {
+async function dumpDom(query = '', extra = [], url = null) {
   const args = [
     '--headless',
     '--disable-gpu',
@@ -89,21 +89,47 @@ function dumpDom(query = '', extra = [], url = null) {
     url ?? `file://${fixture}${query}`,
   ];
   const out = `${profiles}/run-${runs}.html`;
-  let handle;
-  try {
-    handle = openSync(out, 'w');
-    execFileSync(CHROME, args, {
-      stdio: ['ignore', handle, 'ignore'],
-      timeout: 60_000,
-      killSignal: 'SIGKILL',
-    });
-  } catch {
-    // Killed on the timeout, or exited non-zero having already written. Both
-    // are read the same way: whatever reached the file is the answer.
-  } finally {
-    if (handle !== undefined) closeSync(handle);
-  }
-  return existsSync(out) ? readFileSync(out, 'utf8') : '';
+  const handle = openSync(out, 'w');
+  /**
+   * The report is the ending, not the exit.
+   *
+   * Chrome writes the DOM when the virtual budget expires and then, reliably,
+   * sits there -- so waiting for it to exit spent the full timeout on every
+   * single run, and this suite takes nine of them. Nine minutes of waiting for
+   * something that had already happened, and a check that takes nine minutes is
+   * a check people stop running.
+   *
+   * The dump is on disk seconds in. So the file is watched, and the moment it
+   * holds a title the browser is killed. The timeout stays as a backstop for a
+   * run that never reports at all, which is a failure to print rather than a
+   * reason to sit here. Borrowed from `scripts/verify/fold.mjs`, which found it.
+   */
+  const written = () => {
+    if (!existsSync(out)) return null;
+    const dom = readFileSync(out, 'utf8');
+    return /<title>.+?<\/title>/s.test(dom) ? dom : null;
+  };
+
+  let dom = null;
+  await new Promise((done) => {
+    const child = spawn(CHROME, args, { stdio: ['ignore', handle, 'ignore'] });
+    const watch = setInterval(() => {
+      dom = written();
+      if (dom) child.kill('SIGKILL');
+    }, 200);
+    const backstop = setTimeout(() => child.kill('SIGKILL'), 60_000);
+    const finish = () => {
+      clearInterval(watch);
+      clearTimeout(backstop);
+      done();
+    };
+    child.on('exit', finish);
+    child.on('error', finish);
+  });
+  closeSync(handle);
+
+  // Once more, in case the dump landed between the last poll and the exit.
+  return dom ?? written() ?? '';
 }
 
 /**
@@ -117,7 +143,7 @@ function dumpDom(query = '', extra = [], url = null) {
  * paid for a page scan nobody asked for, and on a page that was busy the menu
  * took *minutes*.
  */
-function popupReport() {
+async function popupReport() {
   const dir = import.meta.dirname;
   const stub = `
 <base href="file://${dir}/">
@@ -165,7 +191,7 @@ setTimeout(() => {
 `;
   const out = `${profiles}/popup-fixture.html`;
   writeFileSync(out, readFileSync(resolve(dir, 'popup.html'), 'utf8').replace('<script src="config.js">', stub + '<script src="config.js">'));
-  const dom = dumpDom('', [], `file://${out}`);
+  const dom = await dumpDom('', [], `file://${out}`);
   const title = dom.match(/<title>(.*?)<\/title>/s)?.[1];
   try {
     return JSON.parse(title.replace(/&quot;/g, '"'));
@@ -175,8 +201,8 @@ setTimeout(() => {
   }
 }
 
-function run(query = '', extra = []) {
-  const dom = dumpDom(query, extra);
+async function run(query = '', extra = []) {
+  const dom = await dumpDom(query, extra);
   const title = dom.match(/<title>(.*?)<\/title>/s)?.[1];
   try {
     return JSON.parse(title.replace(/&quot;/g, '"'));
@@ -186,7 +212,7 @@ function run(query = '', extra = []) {
   }
 }
 
-const report = run();
+const report = await run();
 
 /** The order the fixture reports the four slots in. */
 const EZ_ORDER = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'];
@@ -357,7 +383,7 @@ console.log('\nTHE LOGO');
  * looking at a flat sticker, so what is asserted is that the movement is gone
  * and the light is still there.
  */
-const still = run('', ['--force-prefers-reduced-motion']);
+const still = await run('', ['--force-prefers-reduced-motion']);
 
 console.log('\nWITH REDUCE MOTION');
 check('the logo is still drawn', Boolean(still.tileLogo));
@@ -411,7 +437,7 @@ console.log('\nTHE CALL TO ACTION');
  */
 console.log('\nWITH THE EXTENSION CONTEXT GONE');
 {
-  const deadDom = dumpDom('?dead=1');
+  const deadDom = await dumpDom('?dead=1');
   const deadTitle = deadDom.match(/<title>(.*?)<\/title>/s)?.[1];
   let dead;
   try {
@@ -582,7 +608,7 @@ console.log('\nCONFIGURED URLS');
 console.log(`  · card ${report.heights.card}px (min-height ${report.heights.minH}), anchor tile ${report.heights.anchorTile}px, tallest ${report.heights.tallestTile}px, top delta ${report.cardTopDelta}px`);
 
 // The other placement, driven through the same fixture.
-const band = run('?tile=0&band=1');
+const band = await run('?tile=0&band=1');
 
 console.log('\nAS AN INLINE HEADER');
 check('exactly one band', band.bands === 1, `${band.bands}`);
@@ -674,7 +700,7 @@ check(
  * and the failure mode of getting that wrong is the tile being torn out and
  * rebuilt every time the band is re-placed, which is the flicker again.
  */
-const both = run('?tile=1&band=1');
+const both = await run('?tile=1&band=1');
 
 console.log('\nBOTH AT ONCE');
 check('one tile and one band', both.cards === 1 && both.bands === 1, `${both.cards} tile(s), ${both.bands} band(s)`);
@@ -703,7 +729,7 @@ check(
  * table or the frame's own message about which screen it is on is dropped by
  * the listener, and the panel stays whatever height it was.
  */
-const panel = run('?panel=1');
+const panel = await run('?panel=1');
 
 console.log('\nTHE PANEL, AND THE BOARD');
 check('the frame table names the board', panel.frameHeights?.board === 520, `board: ${panel.frameHeights?.board}`);
@@ -765,7 +791,7 @@ check('and the tile underneath never moved', panel.moves === 0 && panel.cards ==
 // The page taking one of ours over, and what happens next. `?steal=1` empties
 // the band and moves the shelf into it, which is what React hydration did on
 // espn.com.
-const stolen = run('?band=1&tile=0&steal=1');
+const stolen = await run('?band=1&tile=0&steal=1');
 console.log('\nWHEN THE PAGE CLAIMS THE BAND');
 check('the theft happened', stolen.steal?.ran === true);
 // The one that matters most. Our node now holds espn.com's row, so `remove()`
@@ -785,7 +811,7 @@ check('and no shelf inside it', stolen.steal?.bandHoldsShelf === 0, `${stolen.st
  * switch one off and auto-placement slides the next one up, so the call to
  * action moves to the top right of a card nobody configured that way.
  */
-const hidden = run('?off=topRight');
+const hidden = await run('?off=topRight');
 
 console.log('\nWITH A SLOT SWITCHED OFF');
 check('the corner it was in is empty', hidden.slots?.[1] === null, JSON.stringify(hidden.slots?.[1]));
@@ -797,7 +823,7 @@ check(
 );
 
 // The menu, and what it costs to open it.
-const popup = popupReport();
+const popup = await popupReport();
 console.log('\nOPENING THE MENU');
 if (!popup) {
   check('the popup reported', false);
@@ -821,7 +847,7 @@ if (!popup) {
 
 // The retired setting, driven end to end: storage holding `header` and nothing
 // else must still put a band on the page.
-const legacy = run('?placement=header');
+const legacy = await run('?placement=header');
 console.log('\nA STORED `PLACEMENT`');
 check('`header` still places a band and no tile', legacy.bands === 1 && legacy.cards === 0, `${legacy.bands} band(s), ${legacy.cards} tile(s)`);
 
