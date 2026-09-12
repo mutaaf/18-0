@@ -84,11 +84,25 @@ async function pageRows() {
   try {
     return await Promise.race([
       chrome.tabs.sendMessage(tab.id, { type: 'rows' }).then((reply) => reply?.rows ?? []),
-      new Promise((resolve) => setTimeout(() => resolve(null), 2000)),
+      new Promise((resolve) => setTimeout(() => resolve(null), 4000)),
     ]);
   } catch {
     return null;
   }
+}
+
+/**
+ * Asked once, and only when somebody reaches for a picker.
+ *
+ * Answering means measuring every candidate rail on a watch page, and the popup
+ * used to ask the moment it opened -- so opening the menu to flip one switch
+ * paid for a page scan nobody had asked for. Both pickers share the one
+ * request, because the rows are the same rows.
+ */
+let asked = null;
+function rowsOnce() {
+  asked ??= pageRows();
+  return asked;
 }
 
 function fillPicker(placement, rows, selected) {
@@ -96,14 +110,10 @@ function fillPicker(placement, rows, selected) {
   if (rows === null) {
     note.textContent = 'Open espn.com/watch to choose';
     select.disabled = true;
-    pick.disabled = true;
     return;
   }
 
-  // Both were disabled while the page was being asked; the answer is here.
   select.disabled = false;
-  pick.disabled = false;
-
   select.replaceChildren();
   const first = document.createElement('option');
   first.value = '';
@@ -154,7 +164,8 @@ chrome.storage.local.get(EZ_DEFAULTS, (stored) => {
     const { box, where, select, pick } = parts(placement);
     box.checked = settings[placement.flag];
     where.hidden = !box.checked;
-    waiting(placement);
+    resting(placement, settings[placement.key]);
+    loadOnDemand(placement, settings);
 
     box.addEventListener('change', () => {
       where.hidden = !box.checked;
@@ -182,17 +193,64 @@ chrome.storage.local.get(EZ_DEFAULTS, (stored) => {
     });
   }
 
-  void pageRows().then((rows) => {
-    for (const placement of PLACEMENTS) fillPicker(placement, rows, settings[placement.key]);
-  });
 });
 
-/** What a picker says while the page is still being asked. */
-function waiting(placement) {
-  const { select, note, pick } = parts(placement);
-  select.disabled = true;
-  pick.disabled = true;
+/**
+ * A picker before anybody has opened it.
+ *
+ * It shows what is stored and says the page has not been read, which is the
+ * truth: nothing has been asked of the page yet. "Pick a row on the page" is
+ * left working, because that one does not need the list -- it hands the job to
+ * the page and closes.
+ */
+function resting(placement, selected) {
+  const { select, note } = parts(placement);
+  select.replaceChildren();
+  const only = document.createElement('option');
+  only.value = selected ?? '';
+  only.textContent =
+    selected === END ? 'Below the last row'
+      : selected ? placement.name(selected.length > 24 ? `${selected.slice(0, 23)}\u2026` : selected)
+        : placement.firstOption;
+  select.append(only);
+  note.textContent = 'Open to read the page';
+}
+
+/** And what it says while the page is being read. */
+function reading(placement) {
+  const { select, note } = parts(placement);
+  const wait = document.createElement('option');
+  wait.disabled = true;
+  wait.textContent = 'Reading the page\u2026';
+  select.append(wait);
   note.textContent = 'Reading the page\u2026';
+}
+
+/**
+ * The first reach for a picker is what pays for the page scan.
+ *
+ * `pointerenter` as well as `focus`, because a hover is a reliable tell that a
+ * click is coming and it buys the round trip a head start -- by the time the
+ * list opens the rows are usually already in it.
+ */
+function loadOnDemand(placement, chosen) {
+  const { select } = parts(placement);
+  let started = false;
+  const start = () => {
+    if (started) return;
+    started = true;
+    // Every picker, not just the one that was reached for: they are the same
+    // rows, and a second one still saying "open to read the page" after the
+    // page has been read is a picker that looks broken.
+    for (const other of PLACEMENTS) if (other !== placement) reading(other);
+    reading(placement);
+    void rowsOnce().then((rows) => {
+      for (const other of PLACEMENTS) fillPicker(other, rows, chosen[other.key]);
+    });
+  };
+  for (const event of ['pointerenter', 'focus', 'mousedown', 'keydown']) {
+    select.addEventListener(event, start, { once: true });
+  }
 }
 
 enabled.addEventListener('change', () => {
@@ -213,22 +271,31 @@ function clock(seconds) {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
-async function loadStats() {
-  const tab = await activeTab();
-  if (!tab?.id) return;
-  try {
-    const reply = await chrome.tabs.sendMessage(tab.id, { type: 'stats' });
-    const s = reply?.stats;
-    if (!s) return;
+/**
+ * The counters, read from storage rather than asked of the page.
+ *
+ * The content script flushes them every five seconds and on the way out, so
+ * storage is the same numbers a moment behind -- and reading them costs a local
+ * lookup instead of a round trip to a tab that may be busy, may be a different
+ * site, or may not be there at all. Opening a menu should not depend on any of
+ * those.
+ */
+const STATS_KEY = 'stats';
+
+function loadStats() {
+  chrome.storage.local.get({ [STATS_KEY]: null }, (got) => {
+    const s = got[STATS_KEY];
+    if (!s) {
+      statsNote.textContent = 'Counted while you are on espn.com/watch';
+      return;
+    }
     statsNote.textContent =
       `${clock(s.watchSeconds)} watched · ${clock(s.playSeconds)} played · `
       + `${s.impressions} shown, ${s.opens} opened`;
-  } catch {
-    statsNote.textContent = 'Counted while you are on espn.com/watch';
-  }
+  });
 }
 
-void loadStats();
+loadStats();
 
 resetStats.addEventListener('click', async () => {
   const tab = await activeTab();
@@ -237,7 +304,12 @@ resetStats.addEventListener('click', async () => {
     await chrome.tabs.sendMessage(tab.id, { type: 'resetStats' });
     statsNote.textContent = 'Nothing counted yet';
   } catch {
-    // Not an ESPN tab; nothing to reset.
+    // No content script to tell -- so clear the copy that is left, which is the
+    // one this popup reads. A Reset that leaves the numbers on screen because
+    // the tab happened to be a different site is a button that does nothing.
+    chrome.storage.local.remove(STATS_KEY, () => {
+      statsNote.textContent = 'Nothing counted yet';
+    });
   }
 });
 

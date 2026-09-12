@@ -910,6 +910,39 @@ function buildCard(shape) {
  * the page and are replaced at different times; a shared memo would re-resolve
  * -- and therefore move -- the one that was perfectly happy where it was.
  */
+/**
+ * The rows, as of the last time anything needed them.
+ *
+ * `findRows` measures every candidate rail on the page, and the popup asks for
+ * the list the moment it opens. On a watch page -- or on a machine that is busy
+ * -- that is seconds of layout work standing between a click on the toolbar
+ * icon and a menu, which is what "it takes ages and it is hit or miss" was.
+ * `place` has already done the work, so the answer is usually sitting here.
+ *
+ * Aged rather than kept forever: a row list from twenty minutes and three
+ * navigations ago is a picker offering rows that are not there.
+ *
+ * It lives here, above `place`, rather than beside the handler that reads it,
+ * because `place` writes to it and `place` runs the moment storage answers --
+ * which, if storage ever answers synchronously, is *during* module evaluation.
+ * A `let` declared below that point is still in its temporal dead zone and the
+ * write throws, taking the card with it. The fixture's stub answers
+ * synchronously and caught exactly that.
+ */
+let known = { rows: null, at: 0 };
+const ROWS_FRESH_MS = 30_000;
+
+function remember(rows) {
+  known = { rows, at: Date.now() };
+}
+
+function rowsForPicker() {
+  if (known.rows && Date.now() - known.at < ROWS_FRESH_MS) return known.rows;
+  const rows = findRows();
+  remember(rows);
+  return rows;
+}
+
 const placed = { tile: null, band: null };
 
 const ID_OF = { tile: TILE_ID, band: BAND_ID };
@@ -1153,16 +1186,21 @@ function place() {
   // Still where we put them: done. No querying, no measuring, no work at all --
   // which matters, because this runs behind a MutationObserver on a page that
   // never stops re-rendering.
-  if (!needTile && !needBand) return;
+  if (!needTile && !needBand) return settle(true);
 
   if (needTile) removeAt('tile');
   if (needBand) removeAt('band');
 
   const rows = findRows();
-  if (!rows.length) return;
+  if (!rows.length) return settle(false);
+  remember(rows);
 
   if (needTile) insertTile(rows);
   if (needBand) insertBand(rows);
+
+  // Did that actually work? A placement we failed to make is the case this
+  // backs off for; one we made is the case it must stay eager for.
+  settle((!needTile || settledAt('tile')) && (!needBand || settledAt('band')));
 }
 
 function insertTile(rows) {
@@ -1394,6 +1432,9 @@ function onPick(event) {
   store.set({ [key]: hit.label });
   setPicking(null);
   removeAt(which);
+  // Somebody just asked for this; the backoff is about pages that will not
+  // settle, not about a request that has only this moment been made.
+  settle(true);
   place();
 }
 
@@ -1401,13 +1442,38 @@ function onPick(event) {
 // Wiring
 // ---------------------------------------------------------------------------
 
+/**
+ * When to look again, and how hard to try.
+ *
+ * A watch page never stops re-rendering, so this fires constantly -- and while
+ * a placement is unresolved, every firing runs `findRows`, which measures every
+ * candidate rail on the page. At four hundred milliseconds that is a page scan
+ * a hundred and fifty times a minute, on the main thread, forever, for any page
+ * where a placement cannot settle. The tab goes sluggish, and everything the
+ * extension does from then on -- including opening its own menu -- is waiting
+ * behind it.
+ *
+ * So the interval backs off while nothing is settling and snaps back the moment
+ * something does. A page that will never let us place is scanned six times a
+ * minute rather than a hundred and fifty, and a page that is simply still
+ * loading is answered as quickly as it ever was.
+ */
+const CALM = 400;
+const BUSY_MAX = 10_000;
 let pending = null;
+let wait = CALM;
+
 function schedule() {
   if (pending) return;
   pending = setTimeout(() => {
     pending = null;
     place();
-  }, 400);
+  }, wait);
+}
+
+/** Settled: try eagerly again next time. Not settled: try less often. */
+function settle(done) {
+  wait = done ? CALM : Math.min(BUSY_MAX, wait * 2);
 }
 
 /**
@@ -1457,12 +1523,13 @@ chrome.storage.onChanged.addListener((changes) => {
   const LOOK = ['matchUi', 'copy', 'slots', 'sponsor', 'sponsorLogo', 'cta'];
   if (touched(['row', 'placeTile', ...LOOK])) removeAt('tile');
   if (touched(['gap', 'placeBand', ...LOOK])) removeAt('band');
+  settle(true);
   place();
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   if (message?.type === 'rows') {
-    respond({ rows: findRows().map((r) => r.label) });
+    respond({ rows: rowsForPicker().map((r) => r.label) });
     return true;
   }
   if (message?.type === 'stats') {

@@ -15,7 +15,7 @@
  * zeroes for all of it.
  */
 import { execFileSync } from 'node:child_process';
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const CHROME = [
@@ -58,7 +58,7 @@ let runs = 0;
  * output and never returned, which is worse than either a pass or a fail. A
  * file is written by whoever is still alive and read after they are all gone.
  */
-function dumpDom(query = '', extra = []) {
+function dumpDom(query = '', extra = [], url = null) {
   const args = [
     '--headless',
     '--disable-gpu',
@@ -86,7 +86,7 @@ function dumpDom(query = '', extra = []) {
     '--host-resolver-rules=MAP * ~NOTFOUND',
     ...extra,
     '--dump-dom',
-    `file://${fixture}${query}`,
+    url ?? `file://${fixture}${query}`,
   ];
   const out = `${profiles}/run-${runs}.html`;
   let handle;
@@ -104,6 +104,75 @@ function dumpDom(query = '', extra = []) {
     if (handle !== undefined) closeSync(handle);
   }
   return existsSync(out) ? readFileSync(out, 'utf8') : '';
+}
+
+/**
+ * The popup, run as a page, with the extension API stubbed.
+ *
+ * Built from `popup.html` itself rather than from a copy, because a copy of the
+ * markup is a copy that stops matching the thing it is standing in for. The
+ * stub counts what the popup asks the page for, which is the whole point: the
+ * popup used to ask for the row list the moment it opened, and answering means
+ * measuring every rail on a watch page. Opening the menu to flip one switch
+ * paid for a page scan nobody asked for, and on a page that was busy the menu
+ * took *minutes*.
+ */
+function popupReport() {
+  const dir = import.meta.dirname;
+  const stub = `
+<base href="file://${dir}/">
+<script>
+window.__asked = [];
+window.__err = [];
+addEventListener('error', (e) => window.__err.push(e.message));
+addEventListener('unhandledrejection', (e) => window.__err.push(String(e.reason)));
+const later = (v) => new Promise((r) => setTimeout(() => r(v), 0));
+window.chrome = {
+  storage: {
+    local: {
+      get: (d, cb) => { const v = { ...d }; if (cb) { setTimeout(() => cb(v), 0); return; } return later(v); },
+      set: (_v, cb) => { if (cb) { setTimeout(cb, 0); return; } return later(); },
+      remove: (_k, cb) => { if (cb) { setTimeout(cb, 0); return; } return later(); },
+    },
+    onChanged: { addListener: () => {} },
+  },
+  runtime: { id: 'fx', getURL: (p) => p, openOptionsPage: () => {} },
+  tabs: {
+    query: () => later([{ id: 1 }]),
+    sendMessage: (_id, m) => { window.__asked.push(m.type); return later({ rows: ['Live now', 'Just for you'], stats: null }); },
+  },
+};
+setTimeout(() => {
+  const row = document.getElementById('row');
+  const before = { asked: [...window.__asked], options: row.options.length, note: document.getElementById('rowNote').textContent };
+  // What a person does: the pointer arrives, then the list opens.
+  row.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true }));
+  setTimeout(() => {
+    document.title = JSON.stringify({
+      before,
+      after: {
+        asked: [...window.__asked],
+        options: row.options.length,
+        note: document.getElementById('rowNote').textContent,
+        gapOptions: document.getElementById('gap').options.length,
+      },
+      errors: window.__err,
+      drawn: { enabled: document.getElementById('enabled').checked, pick: !document.getElementById('pickRow').disabled },
+    });
+  }, 600);
+}, 900);
+</script>
+`;
+  const out = `${profiles}/popup-fixture.html`;
+  writeFileSync(out, readFileSync(resolve(dir, 'popup.html'), 'utf8').replace('<script src="config.js">', stub + '<script src="config.js">'));
+  const dom = dumpDom('', [], `file://${out}`);
+  const title = dom.match(/<title>(.*?)<\/title>/s)?.[1];
+  try {
+    return JSON.parse(title.replace(/&quot;/g, '"'));
+  } catch {
+    console.error('The popup fixture did not report. Title was:', title);
+    return null;
+  }
 }
 
 function run(query = '', extra = []) {
@@ -613,6 +682,29 @@ check(
     && hidden.slots?.[2]?.type === 'ez-slot-pill' && hidden.slots[2].right === false && hidden.slots[2].bottom === true,
   JSON.stringify(hidden.slots),
 );
+
+// The menu, and what it costs to open it.
+const popup = popupReport();
+console.log('\nOPENING THE MENU');
+if (!popup) {
+  check('the popup reported', false);
+} else {
+  check('it draws without asking the page anything', popup.before.asked.length === 0, JSON.stringify(popup.before.asked));
+  check('and says so rather than pretending to be loading', popup.before.note === 'Open to read the page', `"${popup.before.note}"`);
+  check('the switches are already drawn', popup.drawn.enabled === true);
+  // The one that does not need the list must not wait for it.
+  check('and "pick a row" works before the page is read', popup.drawn.pick === true);
+  check('the stored choice is the option it shows', popup.before.options === 1, `${popup.before.options} option(s)`);
+
+  check('reaching for the picker is what asks', popup.after.asked.includes('rows'), JSON.stringify(popup.after.asked));
+  check('and it asks once', popup.after.asked.filter((t) => t === 'rows').length === 1);
+  check('the rows arrive', popup.after.options > 1, `${popup.after.options} option(s)`);
+  // Both pickers share the one answer; a second request for the same rows is a
+  // second page scan.
+  check('and the other picker is filled from the same answer', popup.after.gapOptions > 1, `${popup.after.gapOptions} option(s)`);
+  check('the note says what it found', /row/.test(popup.after.note), `"${popup.after.note}"`);
+  check('and nothing threw', popup.errors.length === 0, JSON.stringify(popup.errors));
+}
 
 // The retired setting, driven end to end: storage holding `header` and nothing
 // else must still put a band on the page.
