@@ -571,17 +571,18 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
      below, so they become items of this grid rather than a box inside it and a
      hidden slot leaves an empty cell instead of shifting its neighbour. */
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
+  /* Left pair, copy, right pair -- see the slot rules below for why it is one
+     row rather than two. */
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  grid-template-rows: auto;
   align-items: center;
-  column-gap: 24px;
-  row-gap: 12px;
+  column-gap: 18px;
   /* The shelves on this page are inset by the same amount; matching it is what
      keeps the band aligned with the headings above and below it. */
   /* Overridden at build time with the real heading inset; this is the
      fallback for a shelf that has no heading to measure. */
-  margin: 18px 24px 22px;
-  padding: 16px 22px 20px;
+  margin: 16px 24px 18px;
+  padding: 12px 20px 14px;
   border-radius: 10px;
   overflow: hidden;
   background:
@@ -597,15 +598,31 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
    reads as a second advert from somebody else. */
 #eighteen-zero-band.ez-band .ez-slots { display: contents; }
 
-#eighteen-zero-band .ez-tl { grid-area: 1 / 1; justify-self: start; align-self: start; }
-#eighteen-zero-band .ez-tr { grid-area: 1 / 3; justify-self: end; align-self: start; }
-#eighteen-zero-band .ez-bl { grid-area: 2 / 1; justify-self: start; align-self: end; }
-#eighteen-zero-band .ez-br { grid-area: 2 / 3; justify-self: end; align-self: end; }
+/*
+ * All four corners, on one line.
+ *
+ * The tile is a picture and its corners are corners: two rows, because there is
+ * a box of artwork for them to sit in. The band is a *strip* between two of the
+ * page's own shelves, and stacking the corners two deep made it half again as
+ * tall -- at which point it has stopped being a strip and become a panel, which
+ * is the thing it was drawn to replace. Every line it grows pushes the whole
+ * page below it down.
+ *
+ * So the same four slots, in the same reading order, laid along the line
+ * instead of down it: the left pair to the left of the copy, the right pair to
+ * its right, the sponsor at the far edge where the tile also puts it. Each one
+ * still names its own column -- which is what stops a switched-off slot sliding
+ * its neighbour into a place nobody configured.
+ */
+#eighteen-zero-band .ez-tl { grid-area: 1 / 1; justify-self: start; align-self: center; }
+#eighteen-zero-band .ez-bl { grid-area: 1 / 2; justify-self: start; align-self: center; }
+#eighteen-zero-band .ez-tr { grid-area: 1 / 4; justify-self: end; align-self: center; }
+#eighteen-zero-band .ez-br { grid-area: 1 / 5; justify-self: end; align-self: center; }
 
 #eighteen-zero-band.ez-band .ez-band-text {
   position: relative;
   min-width: 0;
-  grid-area: 1 / 2 / span 2 / auto;
+  grid-area: 1 / 3;
 }
 
 #eighteen-zero-band.ez-band .ez-band-kicker {
@@ -632,8 +649,48 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
   color: rgba(255, 255, 255, 0.62);
 }
 
-/* Here the pill *is* the control -- the band has no covering button -- so it is
-   the one place the slot grows a cursor and a hover. */
+/*
+ * The band is one button, and it is the whole band.
+ *
+ * A banner the width of the page whose only target is a pill in one corner is a
+ * banner most people click and nothing happens to. The button is a real one,
+ * covering the band behind everything drawn on it -- so it is reachable by
+ * keyboard and announced as a button -- and everything above it stops pointer
+ * events so a click anywhere lands here. The call to action turns its own back
+ * on, because it goes somewhere else; it sits above this rather than inside it,
+ * which is what stops one click doing both.
+ */
+#eighteen-zero-band.ez-band > .ez-band-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: inherit;
+}
+#eighteen-zero-band.ez-band > .ez-band-hit:focus-visible {
+  outline: 2px solid var(--ez-gold);
+  outline-offset: -3px;
+}
+/* Everything drawn on the band is drawn *over* the button and must not take the
+   click off it. Raised above it so it is still visible, not buried.
+   **No `position` here.** Setting one overrode the ladder's own `absolute` and
+   dropped it into the grid, where it landed in whichever cell auto-placement
+   had spare -- eighteen marks adrift in the middle of the band. A grid item
+   takes `z-index` without being positioned at all, which is why it was never
+   needed. */
+#eighteen-zero-band.ez-band > *:not(.ez-band-hit) {
+  z-index: 2;
+  pointer-events: none;
+}
+/* The one thing that is not the band's own action. */
+#eighteen-zero-band.ez-band .ez-band-cta { pointer-events: auto; }
+
+/* The pill still looks like the thing you press, because it is where the eye
+   goes -- it is simply not a second control. The hover belongs to the band. */
 #eighteen-zero-band.ez-band .ez-slot-pill {
   position: relative;
   height: 36px;
@@ -644,16 +701,36 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
   transition: background var(--ez-motion), transform var(--ez-motion);
 }
 
-#eighteen-zero-band.ez-band .ez-slot-pill:hover {
+#eighteen-zero-band.ez-band:hover .ez-slot-pill {
   background: var(--ez-green-lit);
   transform: translateY(-1px);
 }
-#eighteen-zero-band.ez-band .ez-slot-pill:focus-visible { outline: 2px solid var(--ez-gold); outline-offset: 2px; }
 
 #eighteen-zero-band.ez-band .ez-mark { font-size: 26px; }
 /* The band has the height for it, and the crest is a wide 3:2 -- constrained by
    height it is only fifty pixels across, which at the tile's 34px is a smudge. */
-#eighteen-zero-band.ez-band .ez-slot-img { height: 44px; max-width: 110px; }
+#eighteen-zero-band.ez-band .ez-slot-img { height: 36px; max-width: 96px; }
+
+/*
+ * In the strip a corner is a lockup, not a stack.
+ *
+ * On the tile the mark sits above its words because there is a box of artwork
+ * to spend height in. Here there is one line, and a slot two lines tall is a
+ * slot that makes the band two lines tall -- and makes every other corner, one
+ * line tall and centred against it, look scattered rather than placed.
+ */
+#eighteen-zero-band.ez-band .ez-slot-logo,
+#eighteen-zero-band.ez-band .ez-slot-image {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+}
+#eighteen-zero-band.ez-band .ez-slot-tagline,
+#eighteen-zero-band.ez-band .ez-slot-headline {
+  margin: 0;
+  max-width: 108px;
+}
 #eighteen-zero-band.ez-band .ez-slot-sponsor-text { font-size: 11px; }
 #eighteen-zero-band.ez-band .ez-slot-sponsor-logo { height: 16px; max-width: 72px; }
 
@@ -685,7 +762,7 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
 #eighteen-zero-band.ez-band.ez-match .ez-slot-headline { font-size: 10px; }
 
 @media (prefers-reduced-motion: reduce) {
-  #eighteen-zero-band.ez-band .ez-slot-pill:hover { transform: none; }
+  #eighteen-zero-band.ez-band:hover .ez-slot-pill { transform: none; }
 }
 
 /* Narrow: one column, corners stacked in the order they were built. Three
@@ -745,10 +822,18 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
   border-radius: 3px;
 }
 
-/* Under the copy rather than beside the pill: the pill is a corner now. */
+/* One line, shared. See `buildBand`: a line of its own cost the band half its
+   height again, and the band is a strip between two of somebody else's rows. */
+#eighteen-zero-band.ez-band .ez-band-line {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 4px 0 0;
+}
+#eighteen-zero-band.ez-band .ez-band-line .ez-band-sub { margin: 0; }
 #eighteen-zero-band.ez-band .ez-band-cta {
-  display: inline-block;
-  margin-top: 10px;
+  flex: 0 0 auto;
   font-size: 12.5px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.72);

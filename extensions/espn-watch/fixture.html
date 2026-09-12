@@ -294,6 +294,66 @@
   const control = () => document.querySelector(`#${ID.tile} button`);
   if (dead) setTimeout(() => control()?.click(), 2400);
 
+  /*
+   * Is the *whole* band the button?
+   *
+   * Asked with `elementFromPoint` rather than by dispatching a click, because
+   * dispatching bypasses the thing under test. The covering button is a sibling
+   * of the content, not an ancestor of it, so a synthetic click on the title
+   * would never reach it however the CSS was written -- it is the browser's hit
+   * test, walking `pointer-events` and z-order, that has to land on the button.
+   * Sampled across the band rather than in the middle, because "clickable"
+   * failing at the edges is exactly how a banner reads as broken.
+   */
+  function bandHits() {
+    const band = document.getElementById(ID.band);
+    const hit = band?.querySelector('.ez-band-hit');
+    if (!band || !hit) return null;
+    const box = band.getBoundingClientRect();
+    const at = (x, y) => document.elementFromPoint(x, y);
+    const lands = (node) => Boolean(node) && (node === hit || hit.contains(node));
+    const y = box.top + box.height / 2;
+    const points = {
+      farLeft: lands(at(box.left + 6, y)),
+      left: lands(at(box.left + box.width * 0.18, y)),
+      middle: lands(at(box.left + box.width / 2, y)),
+      right: lands(at(box.left + box.width * 0.82, y)),
+      farRight: lands(at(box.right - 6, y)),
+      top: lands(at(box.left + box.width / 2, box.top + 4)),
+      bottom: lands(at(box.left + box.width / 2, box.bottom - 4)),
+    };
+    const title = band.querySelector('.ez-band-title');
+    if (title) {
+      const t = title.getBoundingClientRect();
+      points.onTheWords = lands(at(t.left + t.width / 2, t.top + t.height / 2));
+    }
+    const cta = band.querySelector('a.ez-band-cta');
+    let onTheLink = null;
+    if (cta) {
+      const c = cta.getBoundingClientRect();
+      const node = at(c.left + c.width / 2, c.top + c.height / 2);
+      onTheLink = node === cta || cta.contains(node);
+    }
+    return {
+      points,
+      onTheLink,
+      buttons: band.querySelectorAll('button').length,
+      // Against the band's *padding* box, which is what `inset: 0` resolves to
+      // -- an absolutely positioned child is placed inside its containing
+      // block's border, so a one-pixel border is not a gap in the target.
+      covers:
+        Math.round(hit.getBoundingClientRect().width - band.clientWidth) === 0
+        && Math.round(hit.getBoundingClientRect().height - band.clientHeight) === 0,
+      size: [
+        Math.round(hit.getBoundingClientRect().width),
+        Math.round(hit.getBoundingClientRect().height),
+        band.clientWidth,
+        band.clientHeight,
+      ],
+      ctaInsideButton: Boolean(cta?.closest('button')),
+    };
+  }
+
   setTimeout(() => {
     sample();
     const card = document.getElementById(ID.tile);
@@ -381,6 +441,9 @@
             type: node.className.split(' ')[1],
             right: b.left + b.width / 2 > box.left + box.width / 2,
             bottom: b.top + b.height / 2 > box.top + box.height / 2,
+            // Where along the line it sits. The strip has one row, so its
+            // corners are ordered left to right rather than by quadrant.
+            x: Math.round(b.left + b.width / 2 - box.left),
           };
         });
       })(),
@@ -451,6 +514,48 @@
         };
       })(),
       bandLogo: Boolean(band?.querySelector('.ez-logo img.ez-logo-img')),
+      // The band is a strip between two rows. Every line it grows is a line of
+      // somebody else's page it pushes down.
+      bandHeight: band ? Math.round(band.getBoundingClientRect().height) : null,
+      // One row, not two. Measured rather than read off the grid, because the
+      // thing that matters is where the corners ended up.
+      // Nothing in the strip may sit on anything else in it. "The corners are
+      // overlapping" is a report nobody should have to make twice.
+      bandOverlaps: (() => {
+        if (!band) return null;
+        const parts = ['ez-tl', 'ez-tr', 'ez-bl', 'ez-br', 'ez-band-text']
+          .map((c) => [c, band.querySelector(`.${c}`)])
+          .filter(([, n]) => n)
+          .map(([c, n]) => [c, n.getBoundingClientRect()]);
+        const hits = [];
+        for (let i = 0; i < parts.length; i++) {
+          for (let j = i + 1; j < parts.length; j++) {
+            const [an, a] = parts[i];
+            const [bn, b] = parts[j];
+            const x = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+            const y = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+            if (x > 1 && y > 1) hits.push(`${an}/${bn}`);
+          }
+        }
+        return hits;
+      })(),
+      // The eighteen marks belong on the band's bottom edge, the width of it.
+      bandLadder: (() => {
+        const l = band?.querySelector('.ez-ladder');
+        if (!band || !l) return null;
+        const a = l.getBoundingClientRect();
+        const b = band.getBoundingClientRect();
+        return { wide: Math.round(b.width - a.width), fromBottom: Math.round(b.bottom - a.bottom) };
+      })(),
+      bandRows: (() => {
+        if (!band) return null;
+        const tops = ['ez-tl', 'ez-tr', 'ez-bl', 'ez-br']
+          .map((c) => band.querySelector(`.${c}`))
+          .filter(Boolean)
+          .map((n) => Math.round(n.getBoundingClientRect().top));
+        return tops.length ? { spread: Math.max(...tops) - Math.min(...tops), n: tops.length } : null;
+      })(),
+      bandHit: bandHits(),
 
       steal: steal.ran === undefined ? null : {
         ran: steal.ran,

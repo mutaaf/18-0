@@ -222,6 +222,36 @@ function checkCorners(where, slots) {
   check(`${where}: and leaves the unsponsored corner out`, slots?.[3] === null);
 }
 
+/**
+ * The same four slots in the strip, where a quadrant means nothing.
+ *
+ * The band is one row, so "bottom left" is not below anything -- it is second
+ * along. The invariant a named cell buys is unchanged and is what is asserted
+ * here: the slots appear in the order they were configured, so switching one
+ * off cannot slide its neighbour into a place nobody chose. Checking the
+ * quadrant here was checking the tile's geometry against the band's, which is
+ * how it came back saying the pill was in the top left -- true, and not the
+ * question.
+ */
+function checkStrip(slots) {
+  const order = [
+    ['the mark', 'ez-slot-logo'],
+    ['the pill', 'ez-slot-pill'],
+    ['the crest', 'ez-slot-image'],
+  ];
+  // The report is [tl, tr, bl, br]; along the line they read tl, bl, tr, br.
+  const along = [slots?.[0], slots?.[2], slots?.[1]];
+  for (const [i, [name, type]] of order.entries()) {
+    check(`band: ${name} is where it was put`, along[i]?.type === type, `${along[i]?.type ?? 'nothing'}`);
+  }
+  const xs = along.filter(Boolean).map((s) => s.x);
+  check(
+    'band: and they run left to right in that order',
+    xs.length === along.filter(Boolean).length && xs.every((x, i) => i === 0 || x > xs[i - 1]),
+    xs.join(' < '),
+  );
+}
+
 console.log('\n18-0 ON WATCH — THE CARD IN A ROW');
 console.log('='.repeat(56));
 
@@ -550,7 +580,7 @@ check('it never moved once placed', band.bandMoves === 0, `${band.bandMoves} mov
 check('its button is present', band.bandClickable === true);
 // The same four, built from the same model and laid out on a different grid.
 // If the two ever stop agreeing, this is where it shows.
-checkCorners('band', band.slots);
+checkStrip(band.slots);
 // The whole point of the placement: it sits in the gap above the row, not
 // inside it and not below the rail it is introducing.
 check('it sits above the first row', band.aboveFirstRow === true);
@@ -573,6 +603,42 @@ check(
   band.bandLeftDelta === null ? 'nothing to measure' : `${band.bandLeftDelta}px off`,
 );
 check('it carries the logo too', band.bandLogo === true);
+// A strip between two rows: every line it grows is a line of somebody else's
+// page it pushes down. The call to action shares the subtitle's line for the
+// same reason the tile's does -- a line of its own cost the band a third of its
+// height, which on a page of shelves is a band that has stopped being a strip.
+check('it stays a strip', band.bandHeight !== null && band.bandHeight <= 120, `${band.bandHeight}px tall`);
+// All four corners on one line. Two rows of them is what made it a panel.
+check(
+  'and nothing in it sits on anything else',
+  Array.isArray(band.bandOverlaps) && band.bandOverlaps.length === 0,
+  band.bandOverlaps?.length ? band.bandOverlaps.join(', ') : 'nothing overlaps',
+);
+// It is absolutely positioned, and a `position` set on every child of the band
+// silently overrode it -- eighteen marks adrift in the middle of the strip.
+check(
+  'the eighteen marks run along its bottom edge',
+  band.bandLadder !== null && band.bandLadder.wide <= 24 && band.bandLadder.fromBottom <= 14,
+  band.bandLadder ? `${band.bandLadder.wide}px narrower, ${band.bandLadder.fromBottom}px up` : 'no ladder',
+);
+check(
+  'with its four corners along it, not down it',
+  band.bandRows !== null && band.bandRows.spread <= 8,
+  `${band.bandRows?.n} corner(s), ${band.bandRows?.spread}px apart vertically`,
+);
+
+// The whole band is the target, not a pill in the corner of it.
+{
+  const h = band.bandHit;
+  check('the band is one control', h?.buttons === 1, `${h?.buttons} button(s)`);
+  check('and the control is the whole band', h?.covers === true, `${h?.size?.[0]}x${h?.size?.[1]} in ${h?.size?.[2]}x${h?.size?.[3]}`);
+  const missed = Object.entries(h?.points ?? {}).filter(([, ok]) => !ok).map(([k]) => k);
+  check('a click anywhere on it lands on that control', missed.length === 0, missed.length ? `missed: ${missed.join(', ')}` : 'every point');
+  // The exception, and the reason the pill stopped being a button: two controls
+  // stacked on one another fire twice on a single click.
+  check('except the call to action, which is its own link', h?.onTheLink !== false, `${h?.onTheLink}`);
+  check('and that link is not inside the button', h?.ctaInsideButton === false);
+}
 // A link beside the button rather than a second button: two pills side by side
 // is two primary actions and a choice nobody asked to make.
 check(

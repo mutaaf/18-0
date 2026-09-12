@@ -1053,30 +1053,58 @@ function buildBand(motion) {
   const text = el('div', 'ez-band-text');
   if (say('bandKicker')) text.append(el('p', 'ez-band-kicker', say('bandKicker')));
   text.append(el('p', 'ez-band-title', say('bandTitle')));
-  if (say('bandSubtitle')) text.append(el('p', 'ez-band-sub', say('bandSubtitle')));
+
+  /**
+   * The subtitle and the call to action share one line.
+   *
+   * The same rule as the tile, for a reason that is worse here: the band is a
+   * *strip* between two shelves, and every line it grows pushes the whole page
+   * below it down. A line of its own made it half again as tall -- at which
+   * point it has stopped being a strip and started being a panel, which is the
+   * thing it was drawn to replace.
+   */
+  const line = el('div', 'ez-band-line');
+  if (say('bandSubtitle')) line.append(el('p', 'ez-band-sub', say('bandSubtitle')));
 
   // The same four corners as the tile, at a size that can carry all of them.
-  // `control: true` -- the band has no covering button, so its pill is the
-  // control. `dense: false` -- there is a line's width here for a headline.
-  const slots = buildSlots({ place: 'band', say, dense: false, control: true });
+  // `control: false` -- the band is its own button now, exactly as the tile's
+  // artwork is; a pill inside it would fire the same thing twice on one click
+  // and offer assistive technology two controls for one action. `dense: false`
+  // -- there is a line's width here for a headline.
+  const slots = buildSlots({ place: 'band', say, dense: false, control: false });
 
-  // The call to action goes under the copy, not beside the pill. The pill is a
-  // corner now, and a link dropped into that corner beside it would be two
-  // things in a cell the grid gives to one -- which is how the band ended up
-  // with two primary actions and a choice nobody asked for.
+  // Beside the subtitle, not in the pill's corner: the grid gives that cell to
+  // one thing, and two of them there is how the band ended up with two primary
+  // actions and a choice nobody asked for.
   const cta = ctaLink('ez-band-cta');
-  if (cta) text.append(cta);
+  if (cta) line.append(cta);
+  if (line.childElementCount) text.append(line);
+
+  /**
+   * The whole band is the button.
+   *
+   * A banner the width of the page whose only target is a pill in one corner is
+   * a banner most people click and nothing happens to. It is one *control*, not
+   * a div with a listener: a covering `<button>` behind the content, the way
+   * the tile's artwork already is, so it is reachable by keyboard, announced as
+   * a button, and does not nest anything inside itself.
+   *
+   * Everything drawn on top of it stops pointer events, so a click anywhere --
+   * the title, the crest, the turf, the pill -- lands on the button underneath.
+   * The one exception is the call to action, which is a link to somewhere else
+   * and re-enables its own events; it sits above the button rather than inside
+   * it, so it cannot fire both.
+   */
+  const hit = el('button', 'ez-band-hit');
+  hit.type = 'button';
+  hit.setAttribute('aria-label', `${say('bandTitle')}. ${say('bandButton')}.`);
+  hit.addEventListener('click', () => openPanel());
 
   // A nominal box rather than the real one: the band is as wide as the shelf,
   // which is not known until it is in the document, and `slice` crops a wide
   // field rather than stretching the yard lines into stripes.
-  band.append(fieldArt(1200, 96), slots, text, ladder());
+  band.append(hit, fieldArt(1200, 96), slots, text, ladder());
 
-  // Whatever the pill turned out to be. A band whose slots are all switched off
-  // has nothing to click, which is a configuration and not a fault -- but it
-  // must not also be a listener attached to null.
-  const go = slots.querySelector('.ez-slot-pill');
-  go?.addEventListener('click', openPanel);
   if (slots.querySelector('.ez-logo-gloss')) trackShine(band);
   countImpression();
   return band;
