@@ -991,6 +991,80 @@ if (SERVICE) {
 }
 
 // ---------------------------------------------------------------------------
+console.log('\nA SEASON PLAYED IN A FRAME');
+
+/**
+ * The frame plays Scout, ranked, on an anonymous account.
+ *
+ * That combination had never been played by anything here. `/embed` opened
+ * every season with `ranked: false` -- on the reasoning that a frame "has no
+ * way to sign in and nothing to attach a season to", which was never true of
+ * `ensureSession()` -- so a season played in the extension was dealt on the
+ * device, scored on the device, and could not have reached a leaderboard even
+ * in principle. It was reported as "none of the stats from an ESPN linked
+ * extension account game show up on the leaderboard", and that is exactly what
+ * it was.
+ *
+ * The frame now does what the site does, and this is the check that it works
+ * and the check on what it is allowed to say about it. Three separate facts,
+ * and the result screen's copy depends on all three:
+ *
+ *   1. a Scout season opened the way the frame opens one is scored and lands
+ *      on `leaderboard_scout` -- not `leaderboard_rating`, which is the other
+ *      board and a different game;
+ *   2. while the account is anonymous it is *not* on the public board (0011),
+ *      which is why the frame may not say "your season is on the board";
+ *   3. signing in later brings it up, which is why the frame may say it is
+ *      recorded and waiting rather than lost.
+ *
+ * Anonymous is not an accident of the harness here: it is the only state a
+ * framed player can be in, because `/embed` must never show sign-in.
+ */
+if (SERVICE) {
+  const admin = createClient(API, SERVICE, { auth: { persistSession: false } });
+
+  const framed = await signIn('framed');
+  const scoutGame = await playRankedGame(framed, { mode: 'scout' });
+  const scoutDone = await call('complete-game', framed.token, {
+    gameSessionId: scoutGame.sessionId, idempotencyKey: scoutGame.idempotencyKey,
+  });
+  check('a Scout season opened the way a frame opens one is scored by the server',
+    scoutDone.status === 200 && scoutDone.body.result?.finalRating > 0,
+    scoutDone.status === 200
+      ? `${scoutDone.body.result.record.wins}-${scoutDone.body.result.record.losses}`
+      : JSON.stringify(scoutDone.body));
+
+  const { data: framedRow } = await admin.from('game_sessions')
+    .select('mode, assisted, gameday_key, status').eq('id', scoutGame.sessionId).maybeSingle();
+  // Every one of these is a server fact, not a client claim (invariant 2), and
+  // the board reads all three. A frame that could set them could rank a season
+  // it never played.
+  check('...and the row the board reads is the server\'s own',
+    framedRow?.mode === 'scout' && framedRow?.assisted === false
+      && framedRow?.gameday_key === null && framedRow?.status === 'completed',
+    JSON.stringify(framedRow));
+
+  const { data: anonScout } = await admin.from('leaderboard_scout')
+    .select('user_id').eq('user_id', framed.user.id);
+  check('an anonymous frame does not reach the public Scout board',
+    (anonScout ?? []).length === 0, `${(anonScout ?? []).length} row(s)`);
+
+  await markSignedIn(framed);
+  const { data: scoutAfter } = await admin.from('leaderboard_scout')
+    .select('final_rating').eq('user_id', framed.user.id);
+  check('signing in puts the season played in the frame on the Scout board',
+    (scoutAfter ?? []).length === 1,
+    scoutAfter?.[0] ? `ranked at ${scoutAfter[0].final_rating}` : 'still absent');
+
+  // Scout is not blind, so it belongs to one board and not the other. The frame
+  // offers the Scout board and no other, and this is why.
+  const { data: scoutOnRating } = await admin.from('leaderboard_rating')
+    .select('user_id').eq('user_id', framed.user.id);
+  check('...and on that board only',
+    (scoutOnRating ?? []).length === 0, `${(scoutOnRating ?? []).length} row(s) on the rating board`);
+}
+
+// ---------------------------------------------------------------------------
 console.log('\nGAMEDAY');
 
 /**

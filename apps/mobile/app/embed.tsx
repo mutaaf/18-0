@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useLocalSearchParams } from 'expo-router';
 import { Brand } from '@/components/Brand';
 import { EmbedBoard } from '@/components/EmbedBoard';
 import { StadiumBackdrop } from '@/components/Screen';
@@ -24,19 +25,21 @@ import {
 /**
  * Which of the two things a frame can be showing.
  *
- * Read from the URL once, because the host chooses it when it sets the frame's
- * `src` -- a segmented control in the panel changes the address rather than
- * talking to the frame, so there is one way in and no message to keep in step.
+ * The address is the control, because the host chooses it when it sets the
+ * frame's `src` -- a segmented control in the panel changes the address rather
+ * than talking to the frame, so there is one way in and no message to keep in
+ * step.
+ *
+ * Read through the router rather than off `window.location`, which is what it
+ * used to do behind a `useState` initialiser. That worked for the only caller
+ * there was -- a host assigning `src` on a fresh document -- and silently did
+ * not work for the second one: the result screen sending a player to
+ * `/embed?view=board` from inside the frame is a client-side navigation, and
+ * the component had already read the old address by the time this one existed.
+ * The frame arrived on the board's URL showing the entry card.
  */
-function initialView(): 'entry' | 'board' {
-  if (typeof window === 'undefined') return 'entry';
-  try {
-    return new URLSearchParams(window.location.search).get('view') === 'board'
-      ? 'board'
-      : 'entry';
-  } catch {
-    return 'entry';
-  }
+function useView(): 'entry' | 'board' {
+  return useLocalSearchParams<{ view?: string }>().view === 'board' ? 'board' : 'entry';
 }
 
 /**
@@ -46,15 +49,31 @@ function initialView(): 'entry' | 'board' {
  * A frame on a watch page is a couple of hundred points tall, and the thing it
  * has to do is be obviously playable at a glance -- not reproduce a home
  * screen. Everything that makes the full app a *product* rather than a game is
- * gone: no dock, no sign-in, no install prompt, no account.
+ * gone: no dock, no sign-in, no install prompt, no account screen.
  *
  * Scout, because that is what the front page leads with and because a frame is
  * the worst possible place to explain three modes.
  *
- * Ranked is off. A ranked season needs the server to deal every spin, and a
- * frame has no way to sign in and nothing to attach a season to -- so it plays
- * locally, the way the game has always been able to, and says so rather than
- * quietly failing to reach a board.
+ * Ranked is on, and this is the line that was wrong for as long as the frame
+ * has existed. It used to read: "a frame has no way to sign in and nothing to
+ * attach a season to". Neither half was true. `ensureSession()` signs in
+ * anonymously with no UI whatsoever -- it is how the site opens a ranked
+ * session for somebody who has never seen a sign-in screen -- and the session
+ * it makes is exactly the thing a season attaches to. So every season played
+ * here was dealt locally and scored locally, which is to say it could not have
+ * reached a board even in principle, while the extension was offering to link
+ * an account so seasons could rank.
+ *
+ * No sign-in appears here and none is needed: `useStartGame` opens the ranked
+ * session before the first spin and downgrades in the open if it cannot, so a
+ * frame with no network, or one in a browser that refuses it storage, still
+ * plays the whole game and says plainly that this one will not be ranked.
+ * That is invariant 3, and it is unchanged.
+ *
+ * What a framed player does *not* get for free is the public board: it filters
+ * on `is_permanent` (0011), and this surface must never offer sign-in
+ * (clickjacking -- see `embed.ts`). `frame-standing.ts` holds what may honestly
+ * be said about that, and the result screen says it.
  */
 export default function Embed() {
   // Subscribes this screen to the palette, like every route. See theme.test.ts.
@@ -62,7 +81,7 @@ export default function Embed() {
   const { start, opening } = useStartGame();
   const games = useHistoryStore((s) => s.games);
   const career = careerReport(games);
-  const [view] = useState(initialView);
+  const view = useView();
 
   useEffect(() => {
     tellHost(view);
@@ -108,7 +127,7 @@ export default function Embed() {
         </Text>
 
         <Pressable
-          onPress={() => start('scout', { ranked: false })}
+          onPress={() => start('scout')}
           disabled={opening}
           accessibilityRole="button"
           accessibilityLabel="Play a season"
@@ -131,7 +150,7 @@ export default function Embed() {
             <Text style={styles.formValue}>{career.bestRating?.toFixed(1)}</Text>
           </Text>
         ) : (
-          <Text style={styles.form}>Plays right here. No account, nothing to install.</Text>
+          <Text style={styles.form}>Plays right here. Nothing to install, no sign-up.</Text>
         )}
       </View>
     </View>
