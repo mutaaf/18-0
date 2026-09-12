@@ -51,7 +51,22 @@ export default function Play() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [positionFilter, setPositionFilter] = useState<Position | 'ALL'>('ALL');
-  const [notice, setNotice] = useState<string | null>(null);
+  /**
+   * A ranked game that could not be opened says so, here, at the top.
+   *
+   * `useStartGame` opens the ranked session *before* the first spin precisely
+   * so the player finds out now rather than seven picks from now, and it wrote
+   * its reason into `serverNote` -- where nothing read it. Every start-time
+   * downgrade was therefore silent: the player pressed Play for the board, got
+   * a season that could never reach one, and was told nothing. The mid-game
+   * downgrades below have always said so, which is what made the gap easy to
+   * miss. It surfaced the moment `/embed` started playing ranked, because a
+   * frame in a browser that refuses it storage downgrades on every single game.
+   */
+  const [notice, setNotice] = useState<string | null>(() => {
+    const why = useGameStore.getState().serverNote;
+    return why ? `${why} This season will not be ranked.` : null;
+  });
   const [lastPick, setLastPick] = useState<{ card: BootCard; slot: RosterSlot } | null>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [assistArmed, setAssistArmed] = useState(false);

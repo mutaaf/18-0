@@ -11,10 +11,11 @@ import { Celebration } from '@/components/Celebration';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
 import { ShareCard, type ShareRosterRow } from '@/components/ShareCard';
-import { homeRoute, tellHost } from '@/features/embed';
+import { homeRoute, isEmbedded, tellHost } from '@/features/embed';
+import { standing } from '@/features/frame-standing';
 import { shareResult } from '@/features/share';
 import { askForReminders, scheduleStreakReminder } from '@/features/reminders';
-import { hideSeason } from '@/services/supabase';
+import { currentUser, hideSeason } from '@/services/supabase';
 import { lookupCard, useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
 import {
@@ -78,6 +79,30 @@ export default function Result() {
   const [shareNote, setShareNote] = useState<string | null>(null);
   /** Optimistic: the row flips immediately and reverts if the server refuses. */
   const [boardHidden, setBoardHidden] = useState(false);
+
+  /**
+   * Whether this account has a linked identity, which is the only thing between
+   * a scored season and the public board (0011: every board filters on
+   * `profiles.is_permanent`).
+   *
+   * Asked only in a frame, because only a frame has to answer the question in
+   * copy: the full app has an account screen, a sign-in button and a board tab
+   * to say it for it. Starts `null` and stays null until the answer arrives --
+   * see `frame-standing.ts` for why a guess in either direction is the bug.
+   */
+  const [permanent, setPermanent] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!isEmbedded()) return;
+    let live = true;
+    void currentUser()
+      .then((me) => live && setPermanent(me ? !me.anonymous : false))
+      // No session at all is the same answer as an anonymous one: not on the
+      // board. It is only "unknown" while the question is still in flight.
+      .catch(() => live && setPermanent(false));
+    return () => {
+      live = false;
+    };
+  }, []);
 
   // Asked here rather than at launch: a prompt before the first season asks
   // somebody to protect a streak they do not have. A ranked season that just
@@ -184,6 +209,24 @@ export default function Result() {
       </Screen>
     );
   }
+
+  /**
+   * Where this season actually stands, for a frame that has to say so itself.
+   *
+   * Null everywhere else: the full app answers this with an account screen and
+   * a leaderboard tab rather than a sentence. Null in a frame too until the
+   * account has answered -- `standing()` refuses to claim anything it does not
+   * know yet.
+   */
+  const frameLine = isEmbedded()
+    ? standing({
+        // The server session is the proof, not the `ranked` flag: `downgrade()`
+        // clears the session and leaves nothing to rank.
+        ranked: Boolean(game.serverSessionId),
+        permanent,
+        assisted: game.assisted,
+      })
+    : null;
 
   const perfect = result.ending.key === 'PERFECT';
   const denied = isPerfectionDenied(result);
@@ -363,6 +406,34 @@ export default function Result() {
               </Text>
             </View>
           </Pressable>
+        </Layer>
+      ) : null}
+
+      {/* A frame has no board tab, no account button and no way to find out
+          where a season went except by being told. This is that telling, and
+          `frame-standing.ts` records what it is allowed to say -- the whole
+          reason the frame played this season unranked for so long is that
+          somebody wrote a sentence about the board that nothing checked. */}
+      {frameLine ? (
+        <Layer t={line.t} at={CUE.tail + 90} style={styles.standing}>
+          <Text style={styles.standingTitle}>{frameLine.title}</Text>
+          <Text style={styles.standingCopy}>{frameLine.copy}</Text>
+          {frameLine.offerBoard ? (
+            <Pressable
+              // `replace`, not `push`: the frame's back stack is invisible to
+              // the player and the host's tabs are the only navigation there is.
+              onPress={() => router.replace('/embed?view=board')}
+              accessibilityRole="button"
+              accessibilityLabel="See the Scout leaderboard"
+              style={({ hovered, pressed }: PressState) => [
+                styles.standingLink,
+                hovered && { borderColor: color.gold },
+                pressed && { opacity: 0.85 },
+              ]}
+            >
+              <Text style={styles.standingLinkLabel}>See the board</Text>
+            </Pressable>
+          ) : null}
         </Layer>
       ) : null}
 
@@ -677,6 +748,39 @@ const styles = themed(() => StyleSheet.create({
     letterSpacing: tracking.wide,
     color: '#C49BFF',
     textTransform: 'uppercase',
+  },
+
+  standing: {
+    gap: 3,
+    alignItems: 'flex-start',
+    padding: space.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: color.lineGold,
+    backgroundColor: color.goldGlow,
+  },
+  standingTitle: {
+    fontFamily: font.label,
+    fontSize: 11,
+    letterSpacing: tracking.wide,
+    textTransform: 'uppercase',
+    color: color.gold,
+  },
+  standingCopy: { fontFamily: font.bodyRegular, fontSize: 12, lineHeight: 17, color: color.textDim },
+  standingLink: {
+    marginTop: 4,
+    paddingVertical: 5,
+    paddingHorizontal: space.md,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: color.line,
+  },
+  standingLinkLabel: {
+    fontFamily: font.label,
+    fontSize: 10,
+    letterSpacing: tracking.wide,
+    textTransform: 'uppercase',
+    color: color.silver,
   },
 
   actions: { flexDirection: 'row', gap: space.sm },
