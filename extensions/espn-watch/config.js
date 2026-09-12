@@ -106,6 +106,32 @@ const EZ_DEFAULTS = {
    * is set, and an end that is empty on a fresh install is a band with one end
    * -- which is not a banner, it is a logo with a paragraph after it.
    */
+  /**
+   * What to call a player on a shared board.
+   *
+   * Typed, because there is nothing to read. ESPN publishes no display name to
+   * a page: there is no `espn.userInfo`, no profile key in local storage, and
+   * the only two identifiers in the cookie jar are `SWID` -- a GUID -- and
+   * `espn_s2`, which is the *credential* that proves you are signed in. A
+   * session token is not a container of profile fields and there is no name
+   * inside it to decode; holding one in an extension's storage would be holding
+   * somebody's account, which is a different and much worse thing than holding
+   * a name they chose.
+   *
+   * **Nothing reads it yet, and the options page says so.** A framed season is
+   * dealt and scored by the server, but the account it belongs to is anonymous,
+   * and 0011 keeps anonymous accounts off every board on purpose -- an
+   * anonymous account is free and unlimited. The season goes up when the player
+   * signs in at 18-0, and that account brings its own name. A setting whose
+   * page implies otherwise is the consent screen's mistake in a second place.
+   *
+   * Empty means "no name yet". The shape matches the game's own handles --
+   * 2 to 32 characters, letters, digits, space, dot, underscore or hyphen, and
+   * not starting or ending with punctuation -- so a name set here is a name the
+   * board will accept rather than one it silently rejects later.
+   */
+  handle: '',
+
   bandSlots: { left: 'topLeft', right: 'bottomLeft' },
 
   slots: {
@@ -263,6 +289,20 @@ function ezUrl(value) {
  * is, which is how a cleared width field turned the logo into nothing visible
  * rather than into the default.
  */
+/**
+ * A name somebody typed, held to the shape the game's own boards accept.
+ *
+ * The rule is `profiles_handle_shape` in `supabase/migrations/0002`, restated
+ * here rather than imported because the extension does not share code with the
+ * app -- and a name accepted here and rejected there is a field that looks
+ * saved and is not.
+ */
+function ezHandle(value) {
+  const name = String(value ?? '').trim().slice(0, 32);
+  if (!name) return '';
+  return /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,30}[A-Za-z0-9]$/.test(name) ? name : '';
+}
+
 function ezNumber(value, low, high, fallback) {
   const n = Number(value);
   if (!Number.isFinite(n) || value === '' || value === null) return fallback;
@@ -344,5 +384,6 @@ if (typeof globalThis !== 'undefined') {
   globalThis.ezFill = ezFill;
   globalThis.ezUrl = ezUrl;
   globalThis.ezNumber = ezNumber;
+  globalThis.ezHandle = ezHandle;
   globalThis.ezSettings = ezSettings;
 }

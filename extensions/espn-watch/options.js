@@ -54,6 +54,9 @@ function collect() {
     // for the wrong reason. An emptied field keeps the default rather than
     // becoming a zero-width logo.
     else if (field.type === 'number') write(next, field.id, ezNumber(field.value, Number(field.min), Number(field.max), read(EZ_DEFAULTS, field.id)));
+    // Held to the board's shape on the way in, so a name that would be
+    // rejected later is rejected here, where there is a line saying why.
+    else if (field.id === 'handle') write(next, field.id, ezHandle(field.value));
     else write(next, field.id, field.value.trim());
   }
   return next;
@@ -74,6 +77,11 @@ const URL_NOTES = {
     bad: 'Not a link. It has to start with https:// or http:// — nothing will be shown.',
     ok: (url) => `Opens ${url} in a new tab.`,
   },
+  handle: {
+    empty: 'No name set.',
+    bad: 'Not a name the board will take. 2 to 32 characters, starting and ending with a letter or a digit.',
+    ok: (name) => `Kept as “${name}”. Nothing reads it yet — see below.`,
+  },
   sponsorLogo: {
     empty: '',
     bad: 'Not usable. An https:// address, or a file this extension ships — no sponsor logo will be shown.',
@@ -87,9 +95,14 @@ function sayWhatItDoes(id) {
   if (!note || !field) return;
   const notes = URL_NOTES[id];
   const raw = field.value.trim();
-  const url = ezUrl(raw);
-  note.classList.toggle('bad', Boolean(raw) && !url);
-  note.textContent = !raw ? notes.empty : url ? notes.ok(url.href) : notes.bad;
+  // A name is checked by its own rule; everything else here is a URL.
+  const value = id === 'handle' ? ezHandle(raw) : ezUrl(raw);
+  note.classList.toggle('bad', Boolean(raw) && !value);
+  note.textContent = !raw
+    ? notes.empty
+    : value
+      ? notes.ok(typeof value === 'string' ? value : value.href)
+      : notes.bad;
 }
 
 for (const id of Object.keys(URL_NOTES)) {

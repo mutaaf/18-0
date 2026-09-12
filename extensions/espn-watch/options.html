@@ -283,6 +283,33 @@
     </div>
   </section>
 
+  <section>
+    <h2>Your name on the board</h2>
+    <p class="hint">
+      2 to 32 characters — letters, digits, space, dot, underscore or hyphen —
+      which is the shape the game's own boards accept, so a name set here is one
+      they will take.
+    </p>
+    <label><span>Name</span><input type="text" id="handle" placeholder="e.g. mutaaf" maxlength="32"></label>
+    <p class="state" data-note="handle"></p>
+    <p class="hint" style="margin:10px 0 0">
+      <b>Nothing reads it yet, and saying so is the point.</b> A season played in
+      the frame is dealt and scored by the server and is provable — but the
+      account it belongs to is anonymous, and the boards leave anonymous accounts
+      off deliberately, because an anonymous account is free and unlimited. The
+      season goes up when you sign in at 18-0.co, and that account brings its own
+      name. This is kept for when a framed season can rank on its own.
+    </p>
+    <p class="hint" style="margin:10px 0 0">
+      It is typed because there is nothing to read: ESPN publishes no display
+      name to a page. The only identifiers in the cookie jar are
+      <span class="token">SWID</span>, which is a GUID, and
+      <span class="token">espn_s2</span>, which is the credential that proves
+      you are signed in — a session token, with no name inside it, and not
+      something this extension will ever read or keep.
+    </p>
+  </section>
+
   <section class="warn">
     <h2>Your ESPN account</h2>
     <p class="hint">
