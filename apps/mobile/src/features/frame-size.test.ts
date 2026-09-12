@@ -85,3 +85,37 @@ describe('what the host is told about the frame', () => {
     }
   });
 });
+
+/**
+ * The ticket that carries framed seasons onto a real account.
+ *
+ * Tested here rather than in a component test because the rule is about what
+ * may be in a URL, and that is the half of the flow a mistake is silent in: a
+ * malformed ticket accepted here is a round trip that tells whoever sent it
+ * whether they were close.
+ */
+describe('a transfer ticket arriving in the address bar', () => {
+  const shaped = (value: string) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+
+  it('takes the shape the server mints', () => {
+    expect(shaped('3f2504e0-4f89-41d3-9a0c-0305e82c3301')).toBe(true);
+    expect(shaped('3F2504E0-4F89-41D3-9A0C-0305E82C3301')).toBe(true);
+  });
+
+  it('refuses anything that is not one', () => {
+    for (const hostile of [
+      '',
+      'null',
+      'undefined',
+      '../../etc/passwd',
+      "' or 1=1--",
+      '<script>alert(1)</script>',
+      '3f2504e0-4f89-41d3-9a0c',
+      '3f2504e0-4f89-41d3-9a0c-0305e82c3301x',
+      'zzzzzzzz-4f89-41d3-9a0c-0305e82c3301',
+    ]) {
+      expect(shaped(hostile), hostile).toBe(false);
+    }
+  });
+});

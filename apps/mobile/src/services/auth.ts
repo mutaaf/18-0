@@ -314,6 +314,66 @@ export function rememberTransfer(ticket: string): void {
  * the first attempt failed with no `auth.uid()` -- and the ticket had already
  * been deleted. It stays until something definitive happens to it.
  */
+/**
+ * A ticket that arrived in the address bar, from a frame on somebody else's
+ * page.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THE URL, WHICH IS NOT THE OBVIOUS ANSWER
+ * ---------------------------------------------------------------------------
+ *
+ * Seasons played in a frame belong to an anonymous account living in the
+ * browser's *partitioned* storage for that top-level site, which is a different
+ * account from the one on 18-0.co. A ticket is the only thing that can cross,
+ * and there are exactly two ways to carry it.
+ *
+ * The first is `postMessage` to the host page, which is what the extension
+ * already uses for heights. **It cannot carry this.** A message to the parent
+ * window is delivered to every listener in that page -- espn.com's own scripts,
+ * and every third-party tag on it -- and this ticket is a bearer capability:
+ * whoever holds it takes the seasons. Restricting the target origin does not
+ * help, because the restriction is on who may *read the origin*, not on which
+ * listeners fire.
+ *
+ * So it travels in the address bar of a tab the player opened themselves, which
+ * is the magic-link shape and is safe for the same reasons: the ticket is
+ * single-use, it expires in thirty minutes, minting another expires it, and the
+ * account that minted it may not claim it (0022). What ends up in history is a
+ * token that is already spent.
+ */
+export function transferFromUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const ticket = new URL(window.location.href).searchParams.get('transfer');
+    // Shaped like the uuid the function mints, or ignored. Anything else in
+    // this parameter is somebody trying it on, and a malformed claim is a
+    // round trip that tells them whether they were close.
+    return ticket && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ticket)
+      ? ticket
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Takes the ticket out of the address bar once it has been remembered.
+ *
+ * A spent capability in a URL is still a URL somebody copies into a chat. It is
+ * replaced rather than pushed, so Back does not walk into it again.
+ */
+export function scrubTransferFromUrl(): void {
+  if (typeof window === 'undefined' || !window.history?.replaceState) return;
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('transfer')) return;
+    url.searchParams.delete('transfer');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  } catch {
+    // The address bar keeps a spent ticket. Nothing else breaks.
+  }
+}
+
 export function peekTransfer(): string | null {
   if (typeof sessionStorage === 'undefined') return null;
   try {

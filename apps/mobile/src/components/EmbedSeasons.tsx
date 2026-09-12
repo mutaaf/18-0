@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { franchise } from '@18-0/data';
 import { SLOT_POSITION } from '@18-0/domain';
+import { CarryOver } from './CarryOver';
 import { MODE_LABEL } from '@/state/game';
 import { useHistoryStore, type HistoryEntry } from '@/state/history';
 import {
@@ -77,6 +78,10 @@ export function EmbedSeasons() {
           {seasons.length === 1 ? '1 season' : `${seasons.length} seasons`} · kept on this browser
         </Text>
       </View>
+
+      {/* Above the list, because it is about all of them. It draws nothing
+          unless the server has seasons to hand over. */}
+      <CarryOver />
 
       <ScrollView style={styles.scroller} contentContainerStyle={styles.list}>
         {seasons.map((game) => (

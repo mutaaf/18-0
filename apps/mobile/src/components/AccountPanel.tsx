@@ -12,6 +12,8 @@ import {
   consumeRedirectOutcome,
   clearTransfer,
   peekTransfer,
+  scrubTransferFromUrl,
+  transferFromUrl,
   whenSignedIn,
   linkedProviders,
   providerLabel,
@@ -129,6 +131,16 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
     // moment, and the first version claimed immediately and deleted the ticket
     // whatever happened. It failed with no `auth.uid()` and left the seasons
     // stranded on an account nobody could sign into any more.
+    // A ticket in the address bar is a frame on somebody else's page handing
+    // its seasons over -- see `transferFromUrl` for why it travels that way and
+    // not by `postMessage`. Written into the same place a sign-in leaves one,
+    // so from here there is one claim path rather than two.
+    const arriving = transferFromUrl();
+    if (arriving) {
+      rememberTransfer(arriving);
+      scrubTransferFromUrl();
+    }
+
     const ticket = peekTransfer();
     if (!ticket) return;
 
