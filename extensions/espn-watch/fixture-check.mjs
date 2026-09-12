@@ -205,7 +205,20 @@ async function run(query = '', extra = []) {
   const dom = await dumpDom(query, extra);
   const title = dom.match(/<title>(.*?)<\/title>/s)?.[1];
   try {
-    return JSON.parse(title.replace(/&quot;/g, '"'));
+    const parsed = JSON.parse(title.replace(/&quot;/g, '"'));
+    // A page that threw while loading reports the throw instead of the run.
+    // Without this the checks all read `undefined` and the harness blames the
+    // extension for a broken fixture.
+    if (parsed.boot) {
+      console.error(`The fixture threw while loading for "${query || 'the default'}":`);
+      for (const line of parsed.boot) console.error(`  ${line}`);
+      process.exit(1);
+    }
+    if (parsed.reportFailed) {
+      console.error(`The fixture could not build its report for "${query || 'the default'}": ${parsed.reportFailed}`);
+      process.exit(1);
+    }
+    return parsed;
   } catch {
     console.error(`The fixture did not report for "${query || 'the default'}". Title was:`, title);
     process.exit(1);
@@ -444,6 +457,14 @@ console.log('\nWITH THE EXTENSION CONTEXT GONE');
     dead = JSON.parse(deadTitle.replace(/&quot;/g, '"'));
   } catch {
     dead = null;
+  }
+  // The same courtesy the other runs get: a page that threw while loading says
+  // so, rather than leaving three checks to read `undefined` and blame the
+  // extension for a broken fixture.
+  if (dead?.boot) {
+    console.error('The fixture threw while loading with the context gone:');
+    for (const line of dead.boot) console.error(`  ${line}`);
+    process.exit(1);
   }
   // Placement must not depend on artwork. A bundled slot image is resolved with
   // `chrome.runtime.getURL`, which is exactly what a reloaded extension no
@@ -863,6 +884,34 @@ if (!popup) {
   check('the note says what it found', /row/.test(popup.after.note), `"${popup.after.note}"`);
   check('and nothing threw', popup.errors.length === 0, JSON.stringify(popup.errors));
 }
+
+// The best season, put on the artwork without moving anything that was placed.
+const placedFirst = await run('?tile=1&band=1');
+const withBest = await run('?tile=1&band=1&best=1');
+console.log('\nYOUR BEST SEASON, ON THE ARTWORK');
+check('the frame can tell the card its record', withBest.best?.tile !== null, JSON.stringify(withBest.best?.tile));
+check('it reads as the record it was told', withBest.best?.tile?.text?.includes('16-2') === true, `${withBest.best?.tile?.text}`);
+// The whole claim: it is in the middle, so it took no cell from anything.
+check(
+  'and it sits in the middle of the artwork',
+  Math.abs(withBest.best?.tile?.dx ?? 99) <= 2 && Math.abs(withBest.best?.tile?.dy ?? 99) <= 2,
+  `${withBest.best?.tile?.dx}px, ${withBest.best?.tile?.dy}px off centre`,
+);
+check('the strip carries it too', withBest.best?.band !== null, JSON.stringify(withBest.best?.band?.text));
+// On a rule between two rows it is signage behind the words, not a badge in
+// front of them -- the band's middle is its copy and this may not take it.
+check('as signage behind the copy, not a badge on it', withBest.best?.ghosted === true);
+check('and it is not read out, because the title already says it', withBest.best?.hidden === 'true');
+// The reason this is drawn on the artwork at all.
+// The promise it makes, held against a run without it rather than against
+// itself -- the first version of this compared a value to itself and would have
+// passed whatever the billboard did to the layout.
+check(
+  'no corner moved to make room for it',
+  JSON.stringify(withBest.cornerLefts) === JSON.stringify(placedFirst.cornerLefts),
+  `${JSON.stringify(placedFirst.cornerLefts)} → ${JSON.stringify(withBest.cornerLefts)}`,
+);
+check('and the strip is still a strip', withBest.bandHeight === placedFirst.bandHeight, `${placedFirst.bandHeight}px → ${withBest.bandHeight}px`);
 
 // The retired setting, driven end to end: storage holding `header` and nothing
 // else must still put a band on the page.

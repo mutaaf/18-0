@@ -78,6 +78,35 @@ export function homeRoute(): '/embed' | '/(tabs)' {
  * measurement refines it once there is something real to measure.
  */
 /**
+ * The player's best season, told to the host so it can be drawn on the card.
+ *
+ * The card and the band are drawn by an extension in somebody else's page, and
+ * the history they would need is in *this* origin's storage -- partitioned, and
+ * unreadable from there. So the frame says it, once, when it has one.
+ *
+ * **This is a different judgement from the transfer ticket**, which must never
+ * travel this way: a message to the parent is delivered to every listener in
+ * that page, and a ticket is a capability. A best record is not. It is a number
+ * about to be *printed on that page* -- drawing it on the card is the whole
+ * point -- so there is nothing a listener learns that the page is not about to
+ * show anyway.
+ */
+export interface BestSeason {
+  readonly wins: number;
+  readonly losses: number;
+  readonly rating: number;
+}
+
+export function tellHostBest(best: BestSeason | null): void {
+  if (!embedded || typeof window === 'undefined' || !best) return;
+  try {
+    window.parent?.postMessage({ source: '18-0', best }, '*');
+  } catch {
+    // A sandboxed frame with no parent access. The card shows no record.
+  }
+}
+
+/**
  * What the host has been told so far. The rule that reads it, and the bug that
  * made it necessary, are in `frame-size.ts` -- pulled out so it can be tested
  * without a react-native import.

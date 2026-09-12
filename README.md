@@ -18,7 +18,7 @@ same record, so every choice is yours.
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Tests](https://img.shields.io/badge/tests-255%20passing-3FD68C)
 ![Server checks](https://img.shields.io/badge/server%20checks-142%20passing-3FD68C)
-![Browser checks](https://img.shields.io/badge/browser%20checks-152%20passing-3FD68C)
+![Browser checks](https://img.shields.io/badge/browser%20checks-159%20passing-3FD68C)
 ![Platforms](https://img.shields.io/badge/iOS%20%C2%B7%20Android%20%C2%B7%20Web-one%20codebase-D50A0A)
 
 <br>

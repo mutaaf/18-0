@@ -1038,3 +1038,107 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.18);
 }
+
+/* ------------------------------------------------------------------------ */
+/* Your best season, on the artwork                                          */
+/* ------------------------------------------------------------------------ */
+
+/*
+ * The middle of the picture, which is the one place nothing was placed.
+ *
+ * Every corner and every end of the strip was argued over, so this takes no
+ * grid cell and no flex space and moves nothing: it is absolute, centred,
+ * behind the corners, and it does not take a click. Adding a fifth object to
+ * either layout would have moved something already where it should be.
+ *
+ * `ch` units on the record, so a 7-11 and a 16-2 occupy the same box and the
+ * billboard does not breathe as the number changes.
+ */
+#eighteen-zero-card .ez-best,
+#eighteen-zero-band .ez-best {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  pointer-events: none;
+  text-align: center;
+}
+
+#eighteen-zero-card .ez-best {
+  padding: 7px 16px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 197, 49, 0.34);
+  background:
+    radial-gradient(120% 160% at 50% 0%, rgba(255, 197, 49, 0.16) 0%, rgba(255, 197, 49, 0) 70%),
+    rgba(4, 8, 32, 0.62);
+  /* The lit edge a scoreboard has, rather than a drop shadow, which would read
+     as a sticker sitting on the field instead of a sign standing in it. */
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 10px 26px rgba(0, 0, 0, 0.45),
+    0 0 22px rgba(255, 197, 49, 0.12);
+}
+
+#eighteen-zero-card .ez-best-label,
+#eighteen-zero-band .ez-best-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: rgba(255, 197, 49, 0.75);
+}
+
+#eighteen-zero-card .ez-best-record,
+#eighteen-zero-band .ez-best-record {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.5px;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  min-width: 4ch;
+}
+
+#eighteen-zero-card .ez-best-rating,
+#eighteen-zero-band .ez-best-rating {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ez-green-lit);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * On the strip it is signage, not a badge.
+ *
+ * The band's middle is its copy -- that is the layout, and this may not change
+ * it -- so here the same element becomes big, dim and set behind the words:
+ * the number painted on the back wall of a stadium rather than a sign hung in
+ * front of the thing you are reading. No frame, no glow, nothing to compete.
+ */
+#eighteen-zero-band .ez-best.ez-best-ghost {
+  z-index: 0;
+  opacity: 0.13;
+  gap: 0;
+}
+#eighteen-zero-band .ez-best-ghost .ez-best-record {
+  font-size: 54px;
+  letter-spacing: -2px;
+}
+#eighteen-zero-band .ez-best-ghost .ez-best-label,
+#eighteen-zero-band .ez-best-ghost .ez-best-rating { display: none; }
+
+/* Matched means sit in the row, and a lit sign does not sit in anything. */
+#eighteen-zero-card.ez-match .ez-best {
+  padding: 5px 12px 6px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+#eighteen-zero-card.ez-match .ez-best-record { font-size: 21px; }
+
+@media (prefers-reduced-motion: reduce) {
+  #eighteen-zero-card .ez-best { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35); }
+}

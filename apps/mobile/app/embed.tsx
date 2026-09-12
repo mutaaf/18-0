@@ -7,7 +7,7 @@ import { EmbedBoard } from '@/components/EmbedBoard';
 import { EmbedSeasons } from '@/components/EmbedSeasons';
 import { StadiumBackdrop } from '@/components/Screen';
 import { useStartGame } from '@/features/start-game';
-import { tellHost } from '@/features/embed';
+import { tellHost, tellHostBest } from '@/features/embed';
 import { useHistoryStore } from '@/state/history';
 import { careerReport } from '@/state/career';
 import { MODE_LABEL } from '@/state/game';
@@ -93,6 +93,14 @@ export default function Embed() {
   useEffect(() => {
     tellHost(view);
   }, [view]);
+
+  // The host draws the card, and cannot see this origin's history. Told once a
+  // season exists; a frame with none says nothing and the card shows none.
+  useEffect(() => {
+    const { bestRecord, bestRating } = career;
+    if (!bestRecord || bestRating === null) return;
+    tellHostBest({ wins: bestRecord.wins, losses: bestRecord.losses, rating: bestRating });
+  }, [career]);
 
   /**
    * The height the host should give this frame.

@@ -181,6 +181,35 @@
   };
 </script>
 
+<script>
+  // Anything that throws while the extension is loading, said out loud. The
+  // report is written by a script that runs after these, so a throw in one of
+  // them produces a page with no report and no reason -- which is a harness
+  // that fails without saying why.
+  window.__boot = [];
+  addEventListener('error', (e) => {
+    // `Script error.` with no file and no line is the opaque report a page gets
+    // for a cross-origin script -- here, the panel's frame failing to load,
+    // which is deliberate and is not a fault. Recording it as one made the
+    // harness blame a broken extension for a working one.
+    if (e.message === 'Script error.' && !e.filename) return;
+    window.__boot.push(`${e.message} @ ${(e.filename || '').split('/').pop()}:${e.lineno}`);
+  });
+
+  /*
+   * Only if nothing else spoke.
+   *
+   * A throw in the script that *writes* the report leaves nothing to write it,
+   * and "it did not report" is the least useful thing a harness can say. So
+   * this says why -- just before the report would have, and only while the
+   * title is still the one the page loaded with.
+   */
+  setTimeout(() => {
+    if (window.__boot.length && document.title === 'fixture') {
+      document.title = JSON.stringify({ boot: window.__boot });
+    }
+  }, 3100);
+</script>
 <script src="config.js"></script>
 <script src="identity.js"></script>
 <script src="content.js"></script>
@@ -309,6 +338,57 @@
    * still on the page (deleting our node would have taken espn.com's own row
    * with it), and there is one band again, holding its own content.
    */
+  /*
+   * The best season, the way the frame reports it.
+   *
+   * Dispatched with the frame's origin rather than posted, for the reason the
+   * panel's own check is: a real `postMessage` from this page carries this
+   * page's origin, which the listener refuses -- correctly.
+   */
+  /*
+   * `bestSeen`, not `best`.
+   *
+   * `content.js` is loaded here as a plain `<script>`, so its top-level `let`
+   * and `const` share one lexical scope with this file's -- every name the
+   * extension declares is a name this fixture may not. It collided with
+   * `best`, and the whole page died with `Identifier 'best' has already been
+   * declared` before a single timer was registered.
+   */
+  const bestSeen = {};
+  if (new URLSearchParams(location.search).get('best') === '1') {
+    setTimeout(() => {
+      window.dispatchEvent(new MessageEvent('message', {
+        data: { source: '18-0', best: { wins: 16, losses: 2, rating: 92.2 } },
+        origin: 'https://18-0.co',
+      }));
+      setTimeout(() => {
+        const card = document.getElementById(ID.tile);
+        const band = document.getElementById(ID.band);
+        const at = (host, cls) => {
+          const n = host?.querySelector(`.${cls}`);
+          if (!n || !host) return null;
+          const a = n.getBoundingClientRect();
+          const h = host.getBoundingClientRect();
+          return {
+            text: n.textContent,
+            // Centred in its host, which is the whole claim: it takes no cell.
+            dx: Math.round((a.left + a.width / 2) - (h.left + h.width / 2)),
+            dy: Math.round((a.top + a.height / 2) - (h.top + h.height / 2)),
+          };
+        };
+        bestSeen.tile = at(card?.querySelector('.ez-art'), 'ez-best');
+        bestSeen.band = at(band, 'ez-best');
+        bestSeen.ghosted = Boolean(band?.querySelector('.ez-best.ez-best-ghost'));
+        bestSeen.hidden = document.querySelector('.ez-best')?.getAttribute('aria-hidden');
+        // Nothing that was placed may have moved because of it.
+        bestSeen.slots = ['ez-tl', 'ez-tr', 'ez-bl', 'ez-br']
+          .map((c) => card?.querySelector(`.${c}`))
+          .filter(Boolean)
+          .map((n) => Math.round(n.getBoundingClientRect().left - card.getBoundingClientRect().left));
+      }, 400);
+    }, 1600);
+  }
+
   const steal = {};
   if (new URLSearchParams(location.search).get('steal') === '1') {
     setTimeout(() => {
@@ -406,6 +486,11 @@
     const firstShelf = document.querySelector('.shelf');
     const label = document.querySelector('.label');
 
+    if (window.__boot.length) { document.title = JSON.stringify({ boot: window.__boot }); return; }
+    // Wrapped, because a throw anywhere in the object below leaves the page
+    // with its original title and the harness saying only "it did not report".
+    // A report that cannot be built should say what stopped it.
+    try {
     document.title = JSON.stringify({
       cards: document.querySelectorAll(`#${ID.tile}`).length,
       bands: document.querySelectorAll(`#${ID.band}`).length,
@@ -557,6 +642,14 @@
       // The band is a strip between two rows. Every line it grows is a line of
       // somebody else's page it pushes down.
       bandHeight: band ? Math.round(band.getBoundingClientRect().height) : null,
+      // Where the four corners sit, so a run with the billboard can be held
+      // against a run without it. That is the whole promise it makes.
+      cornerLefts: card
+        ? ['ez-tl', 'ez-tr', 'ez-bl', 'ez-br']
+            .map((c) => card.querySelector(`.${c}`))
+            .map((n) => (n ? Math.round(n.getBoundingClientRect().left - card.getBoundingClientRect().left) : null))
+        : null,
+      best: bestSeen.tile === undefined && bestSeen.band === undefined ? null : bestSeen,
       // One row, not two. Measured rather than read off the grid, because the
       // thing that matters is where the corners ended up.
       // Nothing in the strip may sit on anything else in it. "The corners are
@@ -611,6 +704,9 @@
         bandHasCopy: Boolean(band?.textContent.trim()),
       },
     });
+    } catch (e) {
+      document.title = JSON.stringify({ reportFailed: String(e && e.message || e) });
+    }
   }, 3200);
 </script>
 </body>

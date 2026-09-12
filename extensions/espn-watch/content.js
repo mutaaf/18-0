@@ -37,6 +37,21 @@
 const TILE_ID = 'eighteen-zero-card';
 const BAND_ID = 'eighteen-zero-band';
 /** Both placements, for the many places that mean "anything of ours". */
+/**
+ * The best season the frame has told us about, if it has.
+ *
+ * Kept in storage as well as here, because the card is built long before the
+ * panel has ever been opened and the frame can only speak once it has been --
+ * so the first visit shows no record and every visit after it does.
+ *
+ * Declared up here, above everything that reads it, for the reason the row
+ * cache is: `buildCard` runs the moment storage answers, and a storage that
+ * answers synchronously runs it during module evaluation, where a `let`
+ * further down is still in its temporal dead zone. The fixture's stub answers
+ * synchronously and has caught exactly that before.
+ */
+let best = null;
+
 const OURS = new Set([TILE_ID, BAND_ID]);
 const OURS_SELECTOR = `#${TILE_ID}, #${BAND_ID}`;
 const PANEL_ID = 'eighteen-zero-panel';
@@ -890,6 +905,8 @@ function buildCard(shape) {
     buildSlots({ place: 'tile', say, dense: true, control: false }),
     ladder(),
   );
+  const mark = billboard(best);
+  if (mark) art.append(mark);
 
   /**
    * The subtitle and the call to action share one line.
@@ -1144,6 +1161,13 @@ function buildBand(motion) {
   // which is not known until it is in the document, and `slice` crops a wide
   // field rather than stretching the yard lines into stripes.
   band.append(hit, fieldArt(1200, 96), slots, text, ladder());
+  const mark = billboard(best);
+  if (mark) {
+    mark.classList.add('ez-best-ghost');
+    // Before the copy in the DOM as well as behind it in z-order, so a screen
+    // reader reaches the words first. It is `aria-hidden` either way.
+    band.insertBefore(mark, text);
+  }
 
   if (slots.querySelector('.ez-logo-gloss')) trackShine(band);
   countImpression();
@@ -1220,6 +1244,43 @@ function headingInset(shelf, container, rails) {
   // A heading that is centred, or one we have mismeasured, should not push the
   // band halfway across the page.
   return inset >= 0 && inset < c.width / 3 ? inset : null;
+}
+
+/**
+ * The player's best season, on the artwork, the way a scoreboard carries one.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY IT IS PART OF THE ARTWORK AND NOT A FIFTH SLOT
+ * ---------------------------------------------------------------------------
+ *
+ * The four corners are placed, and the strip's two ends are placed, and every
+ * one of them was argued over. Adding a fifth object to either layout moves
+ * something that is already where it should be -- so this is not in the layout
+ * at all. It is absolutely positioned in the middle of the artwork, behind the
+ * corners, taking no grid cell and no flex space and changing nothing.
+ *
+ * The middle of the tile's artwork is empty by construction: the corners are in
+ * the corners. The band's middle is its copy, so there it is a *ghost* -- big,
+ * dim, stadium signage behind the words rather than a badge competing with
+ * them. Same element, two weights, one for a picture and one for a rule.
+ *
+ * The record comes from the frame, because the extension cannot see it. The
+ * game's history lives in this origin's storage, partitioned by the page the
+ * frame is on and unreadable from a content script, so the frame posts it. That
+ * is safe here and is not safe for everything: see `tellHostBest`.
+ */
+function billboard(season) {
+  if (!season || typeof season.wins !== 'number' || typeof season.losses !== 'number') return null;
+
+  const box = el('div', 'ez-best', '', { 'aria-hidden': 'true' });
+  box.append(
+    el('span', 'ez-best-label', 'Your best'),
+    el('span', 'ez-best-record', `${season.wins}-${season.losses}`),
+  );
+  if (typeof season.rating === 'number') {
+    box.append(el('span', 'ez-best-rating', season.rating.toFixed(1)));
+  }
+  return box;
 }
 
 /** The sentinel for the gap below the last row. */
@@ -1492,8 +1553,28 @@ async function consentRow() {
  * podium and then a hundred pixels of empty navy under it. It is still clamped,
  * because a number from a frame is a number from a page.
  */
+const BEST_KEY = 'best';
+
 window.addEventListener('message', (event) => {
   if (event.origin !== 'https://18-0.co') return;
+
+  // The player's best season, for the billboard on the artwork. Kept, because
+  // the card is built long before the frame is ever opened.
+  const told = event.data?.source === '18-0' ? event.data.best : null;
+  if (told && typeof told.wins === 'number' && typeof told.losses === 'number') {
+    const next = { wins: told.wins, losses: told.losses, rating: Number(told.rating) || 0 };
+    if (JSON.stringify(next) !== JSON.stringify(best)) {
+      best = next;
+      store.set({ [BEST_KEY]: next });
+      // Redraw, because the number on the card is now out of date. This is the
+      // one thing that *should* move a placement, and it moves it the same way
+      // a settings change does rather than by reaching into the card.
+      removeBoth();
+      settle(true);
+      place();
+    }
+  }
+
   const screen = event.data?.source === '18-0' ? event.data.screen : null;
   if (!screen || !(screen in FRAME_HEIGHT)) return;
   const frame = document.querySelector(`#${PANEL_ID} .ez-frame`);
@@ -1602,8 +1683,9 @@ function theirs(records) {
   });
 }
 
-store.get(EZ_DEFAULTS, (stored) => {
+store.get({ ...EZ_DEFAULTS, [BEST_KEY]: null }, (stored) => {
   settings = ezSettings(stored);
+  best = stored[BEST_KEY] ?? null;
   startCounting();
   place();
 
