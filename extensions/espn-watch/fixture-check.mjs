@@ -731,6 +731,34 @@ check(
   Boolean(panel.panel?.cta) && panel.panel.cta.rel.includes('noopener'),
   panel.panel?.cta ? `${panel.panel.cta.href} rel="${panel.panel.cta.rel}"` : 'none',
 );
+// The frame going to the board on its own -- which is what the result screen's
+// link does -- must move the header with it.
+check(
+  'the header follows the frame when it navigates itself',
+  panel.panel?.afterSelfNav?.selected === 'Leaderboard',
+  `${panel.panel?.afterSelfNav?.selected}`,
+);
+check(
+  'and says so to a screen reader',
+  JSON.stringify(panel.panel?.afterSelfNav?.aria) === '["false","true"]',
+  JSON.stringify(panel.panel?.afterSelfNav?.aria),
+);
+// The highlight, and only the highlight. A framed page that could navigate the
+// panel could put it somewhere nobody chose.
+// The origin guard, exercised rather than assumed: any page may post to a
+// window, and a message shaped like the frame's from anywhere else is exactly
+// what that check is for.
+check(
+  'and a stranger saying the same thing is ignored',
+  panel.panel?.afterStranger === 'Play',
+  `${panel.panel?.afterStranger}`,
+);
+check(
+  'without the message being able to navigate it',
+  panel.panel?.afterSelfNav?.srcNow === panel.panel?.afterSelfNav?.src,
+  `${panel.panel?.afterSelfNav?.srcNow}`,
+);
+
 // Opening it must not have disturbed the card underneath.
 check('and the tile underneath never moved', panel.moves === 0 && panel.cards === 1, `${panel.moves} move(s), ${panel.cards} tile(s)`);
 

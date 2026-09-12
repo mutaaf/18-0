@@ -1348,12 +1348,34 @@ function openPanel(view = 'play') {
     const chosen = VIEWS.find((v) => v.key === key) ?? VIEWS[0];
     frame.src = chosen.url;
     frame.style.height = `${chosen.height}px`;
+    mark(chosen.key);
+  };
+
+  /**
+   * Which tab reads as selected. Separate from `show`, because the frame can
+   * change view without being told to.
+   *
+   * The result screen offers the board, and following that link navigates the
+   * frame itself -- `frame.src` never changes, so `show` never runs, and the
+   * board rendered under a header still saying Play. For a screen reader it is
+   * worse than untidy: `aria-selected` was true on the wrong tab.
+   *
+   * This moves the highlight and nothing else. It is driven by a message from
+   * the frame, and a message must not be able to navigate the host's panel --
+   * that would let the framed page put the panel into a state nobody chose. A
+   * statement of fact about what is showing is all it may be.
+   */
+  function mark(key) {
     for (const [at, button] of buttons) {
-      const on = at === chosen.key;
+      const on = at === key;
       button.classList.toggle('on', on);
       button.setAttribute('aria-selected', on ? 'true' : 'false');
     }
-  };
+  }
+
+  // Readable from the message listener, which is module-level and outlives no
+  // panel: cleared on close, so a message arriving afterwards finds nothing.
+  followFrame = (screen) => mark(screen === 'board' ? 'board' : 'play');
 
   for (const v of VIEWS) {
     const button = el('button', 'ez-tab', v.label, { type: 'button', role: 'tab' });
@@ -1367,6 +1389,7 @@ function openPanel(view = 'play') {
   if (cta) panel.querySelector('.ez-foot').append(cta);
 
   const close = () => {
+    followFrame = null;
     panel.remove();
     document.removeEventListener('keydown', onKey);
   };
@@ -1466,7 +1489,15 @@ window.addEventListener('message', (event) => {
   if (!screen || !(screen in FRAME_HEIGHT)) return;
   const frame = document.querySelector(`#${PANEL_ID} .ez-frame`);
   if (frame) frame.style.height = `${frameHeight(screen, event.data.height)}px`;
+  // And the header follows the frame. See `mark`.
+  followFrame?.(screen);
 });
+
+/**
+ * Set while a panel is open, so the frame can tell the header which view it is
+ * on. Null the rest of the time.
+ */
+let followFrame = null;
 
 /** The height for a screen: what it measured if that is sane, else the table. */
 function frameHeight(screen, asked) {

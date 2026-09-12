@@ -250,7 +250,46 @@
       panel.switchedHeight = frame?.style.height ?? null;
       panel.switchedSelected = tabs.find((t) => t.classList.contains('on'))?.textContent ?? null;
 
-      node?.remove();
+      /*
+       * The frame navigating *itself*.
+       *
+       * Following "See the board" on the result screen changes the frame's
+       * location without touching `src`, so the panel's own switcher never
+       * runs -- and the board used to render under a header still saying Play,
+       * with `aria-selected` true on the wrong tab.
+       *
+       * Posted rather than called, because the message listener is the thing
+       * under test, and it must move the *highlight* only: a framed page that
+       * could navigate the panel could put it somewhere nobody chose.
+       */
+      // Dispatched with the frame's origin rather than posted, because a real
+      // `postMessage` from this page carries *this* page's origin -- which the
+      // listener refuses, as it should. Constructing the event is the only way
+      // to exercise the path a real frame takes without being on its origin.
+      const fromFrame = (screen) => window.dispatchEvent(new MessageEvent('message', {
+        data: { source: '18-0', screen },
+        origin: 'https://18-0.co',
+      }));
+      panel.afterSelfNav = { src: frame?.getAttribute('src') ?? null };
+
+      // Somebody else's page, saying the same thing. It must be ignored.
+      window.dispatchEvent(new MessageEvent('message', {
+        data: { source: '18-0', screen: 'board' },
+        origin: 'https://not-18-0.example',
+      }));
+      panel.afterStranger = tabs.find((t) => t.classList.contains('on'))?.textContent ?? null;
+
+      fromFrame('board');
+
+      // Read after the message has been delivered: `postMessage` is a task, not
+      // a call, so anything read in the same turn reads the state before it.
+      setTimeout(() => {
+        panel.afterSelfNav.selected =
+          tabs.find((t) => t.classList.contains('on'))?.textContent ?? null;
+        panel.afterSelfNav.aria = tabs.map((t) => t.getAttribute('aria-selected'));
+        panel.afterSelfNav.srcNow = frame?.getAttribute('src') ?? null;
+        node?.remove();
+      }, 0);
     }, 300);
   }
 
