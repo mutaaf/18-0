@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
   ActivityIndicator,
-  Animated,
+  Keyboard,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { POSITIONS, ROSTER_SLOTS, SLOT_POSITION, type EraKey, type Position, type RosterSlot } from '@18-0/domain';
@@ -60,9 +62,11 @@ export default function Play() {
   const fingers = useRef(0);
   const reelTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<ScrollView>(null);
-  /** Drives the hero's collapse into the header. Native-driven, so it tracks the finger. */
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const [heroHeight, setHeroHeight] = useState(0);
+  /** Measured, because what the bar holds -- and so how tall it is -- changes
+      with the state of the game, and the list has to clear whichever it is. */
+  const [barHeight, setBarHeight] = useState(0);
+  const [keyboard, setKeyboard] = useState(0);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion).catch(() => {});
@@ -78,6 +82,23 @@ export default function Play() {
   useEffect(() => {
     if (game.status === 'idle') game.startGame();
   }, [game.status]);
+
+  /**
+   * The bar is pinned to the bottom of the window, and on iOS the keyboard is
+   * drawn over the window rather than resizing it -- so the search field the
+   * player just tapped ends up underneath the keys they are typing on. Android
+   * resizes the window itself (`adjustResize`), where lifting the bar as well
+   * would raise it twice.
+   */
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    const shown = Keyboard.addListener('keyboardWillShow', (e) => setKeyboard(e.endCoordinates.height));
+    const hidden = Keyboard.addListener('keyboardWillHide', () => setKeyboard(0));
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
+  }, []);
 
   const spin = game.spins[game.spins.length - 1] ?? null;
   const complete = game.selections.length >= ROSTER_SLOTS.length;
@@ -428,35 +449,24 @@ export default function Play() {
   const team = shown ? franchise(shown.franchiseId) : null;
   const remaining = ROSTER_SLOTS.length - game.selections.length;
 
-  // What you spun is the thing you are reasoning about for the whole pick, so
-  // it does not simply scroll away: the hero hands off to a compact line beside
-  // the step counter, and hands back on the way up. The two cross-fade over the
-  // second half of the hero's own height, which makes the swap read as one
-  // object moving rather than two things blinking.
-  const collapseFrom = Math.max(24, heroHeight * 0.35);
-  const collapseTo = Math.max(collapseFrom + 1, heroHeight * 0.85);
-  const collapseRange = { inputRange: [collapseFrom, collapseTo], extrapolate: 'clamp' as const };
-  const collapsible = team !== null && heroHeight > 0;
-  const pillOpacity = collapsible ? scrollY.interpolate({ ...collapseRange, outputRange: [0, 1] }) : 0;
-  const pillShift = collapsible ? scrollY.interpolate({ ...collapseRange, outputRange: [12, 0] }) : 0;
-  const trackOpacity = collapsible ? scrollY.interpolate({ ...collapseRange, outputRange: [1, 0] }) : 1;
-  // The hero eases out as it goes rather than being cut off by the sticky bar.
-  const heroOpacity = collapsible ? scrollY.interpolate({ ...collapseRange, outputRange: [1, 0.15] }) : 1;
-
   /**
-   * There is no scroll correction here, deliberately.
+   * Where the spin lives once it has landed.
    *
-   * Two attempts at snapping out of the half-collapsed band both locked the
-   * screen up on a phone. A programmatic scrollTo emits onMomentumScrollEnd
-   * when it lands, which re-entered the correction; guarding that still left
-   * it fighting the finger. Resting mid-collapse is untidy. A list that stops
-   * accepting touches is the game not working, and the second is not worth
-   * risking to fix the first.
+   * The hero used to hand off to the compact line beside the step counter as
+   * you scrolled, which meant the 190 points it occupies were only reclaimed
+   * *after* you had found something to scroll to. A first-time player never
+   * got that far: the list began below the fold, so the screen they were
+   * handed was a field they had already tapped and no visible sign that a
+   * hundred players were sitting underneath it.
    *
-   * The collapse itself is driven straight off the scroll position by the
-   * native driver, which is smooth precisely because nothing in JavaScript is
-   * involved once it starts.
+   * So the handoff happens when the wheel answers instead of when the finger
+   * moves. While the wheel is the subject the hero is the whole point of the
+   * screen and gets its 62-point abbreviation; the moment there is a pick to
+   * make, the same two facts move into the header and stay there, and the
+   * height goes to the list. On a wide window there are two columns and
+   * nothing to reclaim, so the hero simply stays.
    */
+  const spinInHeader = canPick && !layout.wide;
 
   // --- pieces, composed differently per breakpoint -------------------------
 
@@ -491,156 +501,173 @@ export default function Play() {
     </>
   );
 
-  const spinPanel = (
-    <View style={styles.stack}>
-      {/* One full-width hero rather than two cramped columns. What a spin gave
-          you is the single most important thing on this screen, and at 34pt in
-          a half-width box it was reading as a caption. */}
-      <Animated.View
-        onLayout={(e) => setHeroHeight(e.nativeEvent.layout.height)}
-        style={[styles.hero, team ? { borderColor: `${team.color}73` } : null, { opacity: heroOpacity }]}
-      >
-        {team ? (
-          <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
-            <Defs>
-              <LinearGradient id="heroWash" x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0" stopColor={team.color} stopOpacity="0.34" />
-                <Stop offset="0.55" stopColor={team.color2 || team.color} stopOpacity="0.09" />
-                <Stop offset="1" stopColor={team.color} stopOpacity="0" />
-              </LinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroWash)" />
-          </Svg>
-        ) : null}
+  /**
+   * The era's own line, kept when the hero goes.
+   *
+   * It is the one thing in the hero that is not also in the header, and it is
+   * what you judge a pool by before you have read a single name. A short
+   * viewport gives it up rather than the first row of the list.
+   */
+  const storyLine = shown ? (
+    <Text style={styles.storyLine} numberOfLines={2}>
+      {franchiseEraStory(shown.franchiseId, shown.era) || franchiseEraShape(shown.franchiseId, shown.era)}
+    </Text>
+  ) : null;
 
-        <View style={styles.heroTop}>
-          <View style={[styles.heroTeam, layout.roomy && styles.heroTeamRoomy]}>
-            <Text style={[styles.spinLabel, { color: color.action }]}>Team</Text>
-            {spinning && reel ? (
-              <SpinReel
-                items={reel.teams}
-                itemHeight={layout.roomy ? 86 : 66}
-                spinning={spinning}
-                textStyle={StyleSheet.flatten([styles.heroAbbr, layout.roomy && styles.heroAbbrRoomy])}
-              />
-            ) : (
-              <Text
-                style={[
-                  styles.heroAbbr,
-                  layout.roomy && styles.heroAbbrRoomy,
-                  !team && styles.heroWaiting,
-                ]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {/* An em dash set at 62pt is a white bar, not a placeholder. */}
-                {team ? team.abbr : 'Ready'}
-              </Text>
-            )}
-            <Text style={styles.heroNick} numberOfLines={1}>
-              {spinning ? 'Spinning…' : team ? team.nick : 'Awaiting spin'}
-            </Text>
-          </View>
+  // One full-width hero rather than two cramped columns. What a spin gave you
+  // is the single most important thing on this screen, and at 34pt in a
+  // half-width box it was reading as a caption.
+  const hero = (
+    <View style={[styles.hero, team ? { borderColor: `${team.color}73` } : null]}>
+      {team ? (
+        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
+          <Defs>
+            <LinearGradient id="heroWash" x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor={team.color} stopOpacity="0.34" />
+              <Stop offset="0.55" stopColor={team.color2 || team.color} stopOpacity="0.09" />
+              <Stop offset="1" stopColor={team.color} stopOpacity="0" />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroWash)" />
+        </Svg>
+      ) : null}
 
-          <View style={styles.heroDivider} />
-
-          <View style={styles.heroEra}>
-            <Text style={[styles.spinLabel, { color: '#C49BFF' }]}>Era</Text>
-            {/* Years first. The era names are good flavour and useless at speed
-                -- you pick against a decade you can picture, not against a
-                phrase you have to decode mid-spin. */}
-            {spinning && reel ? (
-              <SpinReel
-                items={reel.eras}
-                itemHeight={layout.roomy ? 48 : 42}
-                spinning={spinning}
-                textStyle={StyleSheet.flatten([styles.heroEraYears, layout.roomy && styles.heroEraYearsRoomy])}
-              />
-            ) : (
-              <Text
-                style={[
-                  styles.heroEraYears,
-                  layout.roomy && styles.heroEraYearsRoomy,
-                  !shown && styles.heroWaiting,
-                ]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-              >
-                {shown ? eraDef(shown.era).label : 'Any year'}
-              </Text>
-            )}
-            <Text style={styles.heroEraName} numberOfLines={1}>
-              {spinning ? '' : shown ? eraDef(shown.era).name : ''}
-            </Text>
-          </View>
-        </View>
-
-        {/* The flavour has to be about the franchise-era on the card, not the
-            era in general: the era line introduced a Dallas spin by talking
-            about Kansas City.
-
-            In Player IQ it must also not name anybody. The names line is the
-            three highest-rated players in the pool, which is precisely what
-            that mode withholds — and since only blind seasons rank, printing it
-            here would have turned the leaderboard into a reading test. Blind
-            gets the pool's shape, which says how many receivers there are and
-            nothing about which one is good.
-
-            Full width, so it is never cut mid-word. */}
-        <Text style={styles.heroTagline} numberOfLines={3}>
-          {spinning
-            ? ''
-            : !shown
-              ? 'Spin for a franchise and an era.'
-              : // Every franchise-era has a true line, so this never has to
-                // reach for one that names players. Shape is the floor for a
-                // franchise-era with no recorded seasons at all.
-                franchiseEraStory(shown.franchiseId, shown.era) ||
-                franchiseEraShape(shown.franchiseId, shown.era)}
-        </Text>
-      </Animated.View>
-
-      {complete ? (
-        <Pressable
-          onPress={reveal}
-          accessibilityRole="button"
-          accessibilityLabel="Reveal your result"
-          style={({ pressed, hovered }: PressState) => [
-            styles.revealButton,
-            hovered && styles.lift,
-            pressed && { opacity: 0.85 },
-          ]}
-        >
-          <Text style={styles.revealLabel}>Reveal Result</Text>
-        </Pressable>
-      ) : (
-        <Pressable
-          onPress={(event) => doSpin(event?.nativeEvent as { shiftKey?: boolean } | undefined)}
-          disabled={spinning || canPick || awaitingServer}
-          accessibilityRole="button"
-          accessibilityLabel={canPick ? 'Make a pick before spinning again' : 'Spin the wheel'}
-          style={({ pressed, hovered }: PressState) => [
-            styles.spinButton,
-            hovered && !canPick && styles.lift,
-            pressed && { opacity: 0.85 },
-            (spinning || canPick) && styles.spinButtonMuted,
-          ]}
-        >
-          {spinning || awaitingServer ? (
-            <ActivityIndicator color="#fff" />
+      <View style={styles.heroTop}>
+        <View style={[styles.heroTeam, layout.roomy && styles.heroTeamRoomy]}>
+          <Text style={[styles.spinLabel, { color: color.action }]}>Team</Text>
+          {spinning && reel ? (
+            <SpinReel
+              items={reel.teams}
+              itemHeight={layout.roomy ? 86 : 66}
+              spinning={spinning}
+              textStyle={StyleSheet.flatten([styles.heroAbbr, layout.roomy && styles.heroAbbrRoomy])}
+            />
           ) : (
-            <Text style={[styles.spinButtonLabel, canPick && { color: color.textFaint }]}>
-              {canPick
-                ? 'Take a player first'
-                : assistArmed
-                  ? 'Rigged Spin'
-                  : spin
-                    ? `Spin · ${remaining} left`
-                    : 'Spin The Wheel'}
+            <Text
+              style={[
+                styles.heroAbbr,
+                layout.roomy && styles.heroAbbrRoomy,
+                !team && styles.heroWaiting,
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {/* An em dash set at 62pt is a white bar, not a placeholder. */}
+              {team ? team.abbr : 'Ready'}
             </Text>
           )}
-        </Pressable>
+          <Text style={styles.heroNick} numberOfLines={1}>
+            {spinning ? 'Spinning…' : team ? team.nick : 'Awaiting spin'}
+          </Text>
+        </View>
+
+        <View style={styles.heroDivider} />
+
+        <View style={styles.heroEra}>
+          <Text style={[styles.spinLabel, { color: '#C49BFF' }]}>Era</Text>
+          {/* Years first. The era names are good flavour and useless at speed
+              -- you pick against a decade you can picture, not against a
+              phrase you have to decode mid-spin. */}
+          {spinning && reel ? (
+            <SpinReel
+              items={reel.eras}
+              itemHeight={layout.roomy ? 48 : 42}
+              spinning={spinning}
+              textStyle={StyleSheet.flatten([styles.heroEraYears, layout.roomy && styles.heroEraYearsRoomy])}
+            />
+          ) : (
+            <Text
+              style={[
+                styles.heroEraYears,
+                layout.roomy && styles.heroEraYearsRoomy,
+                !shown && styles.heroWaiting,
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {shown ? eraDef(shown.era).label : 'Any year'}
+            </Text>
+          )}
+          <Text style={styles.heroEraName} numberOfLines={1}>
+            {spinning ? '' : shown ? eraDef(shown.era).name : ''}
+          </Text>
+        </View>
+      </View>
+
+      {/* The flavour has to be about the franchise-era on the card, not the
+          era in general: the era line introduced a Dallas spin by talking
+          about Kansas City.
+
+          In Player IQ it must also not name anybody. The names line is the
+          three highest-rated players in the pool, which is precisely what
+          that mode withholds — and since only blind seasons rank, printing it
+          here would have turned the leaderboard into a reading test. Blind
+          gets the pool's shape, which says how many receivers there are and
+          nothing about which one is good.
+
+          Full width, so it is never cut mid-word. */}
+      <Text style={styles.heroTagline} numberOfLines={3}>
+        {spinning
+          ? ''
+          : !shown
+            ? 'Spin for a franchise and an era.'
+            : // Every franchise-era has a true line, so this never has to
+              // reach for one that names players. Shape is the floor for a
+              // franchise-era with no recorded seasons at all.
+              franchiseEraStory(shown.franchiseId, shown.era) ||
+              franchiseEraShape(shown.franchiseId, shown.era)}
+      </Text>
+    </View>
+  );
+
+  /**
+   * The wheel, or the door out.
+   *
+   * This used to sit between the hero and the field, where for the whole of a
+   * pick it was a disabled button reading "Take a player first" — sixty points
+   * of the fold spent telling you to do something you could not see. It lives
+   * in the bottom bar now, which shows it only when it can actually be
+   * pressed.
+   */
+  const wheelButton = complete ? (
+    <Pressable
+      onPress={reveal}
+      accessibilityRole="button"
+      accessibilityLabel="Reveal your result"
+      style={({ pressed, hovered }: PressState) => [
+        styles.revealButton,
+        hovered && styles.lift,
+        pressed && { opacity: 0.85 },
+      ]}
+    >
+      <Text style={styles.revealLabel}>Reveal Result</Text>
+    </Pressable>
+  ) : (
+    <Pressable
+      onPress={(event) => doSpin(event?.nativeEvent as { shiftKey?: boolean } | undefined)}
+      disabled={spinning || awaitingServer}
+      accessibilityRole="button"
+      accessibilityLabel="Spin the wheel"
+      style={({ pressed, hovered }: PressState) => [
+        styles.spinButton,
+        hovered && styles.lift,
+        pressed && { opacity: 0.85 },
+        spinning && styles.spinButtonMuted,
+      ]}
+    >
+      {spinning || awaitingServer ? (
+        <ActivityIndicator color={color.onAction} />
+      ) : (
+        <Text style={styles.spinButtonLabel}>
+          {assistArmed ? 'Rigged Spin' : spin ? `Spin · ${remaining} left` : 'Spin The Wheel'}
+        </Text>
       )}
+    </Pressable>
+  );
+
+  const spinPanel = (
+    <View style={styles.stack}>
+      {spinInHeader ? (layout.short ? null : storyLine) : hero}
 
       {assistArmed && !canPick && !complete ? (
         <Text style={styles.assistHint}>Three fingers down — this spin will find the best card left.</Text>
@@ -679,72 +706,90 @@ export default function Play() {
   );
 
   /**
-   * Position filters and search, pinned to the top of the list.
+   * The bar along the bottom of the screen: whatever the game is asking for
+   * next, always within reach of a thumb and never below the fold.
    *
-   * The field graphic and the filter chips both scroll away as soon as you are
-   * a few players down the list, which left no way to change position or find a
-   * name without scrolling all the way back up. This bar sticks, and carries a
-   * shortcut back to the lineup with it.
+   * It holds the position filters and the search while a spin is live, and the
+   * wheel itself when one is not — the two things this screen is for. Both
+   * used to live in the scroll, where the filters at least stuck to the top of
+   * the list; the list itself then started so far down that a first-time
+   * player never saw a row of it, which is the bug this bar exists to fix.
+   *
+   * It is measured rather than assumed, because the list has to be padded to
+   * clear it: a bar that permanently hides the last row is the same fault in a
+   * different place.
    */
-  const pickBar = canPick ? (
-    <View style={styles.pickBar}>
-      <View style={styles.pickBarRow}>
-        {targetSlot ? (
-          <Pressable
-            onPress={() => setTargetSlot(null)}
-            accessibilityRole="button"
-            accessibilityLabel={`Filling ${targetSlot}. Tap to clear.`}
-            style={styles.fillingPill}
-          >
-            <Text style={[styles.fillingText, { color: positionColor[SLOT_POSITION[targetSlot]] }]}>
-              {targetSlot} ✕
-            </Text>
-          </Pressable>
-        ) : null}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          <Chip label="All" active={positionFilter === 'ALL'} onPress={() => setPositionFilter('ALL')} />
-          {POSITIONS.map((position) => (
-            <Chip
-              key={position}
-              label={position}
-              tint={positionColor[position]}
-              dimmed={!openPositions.has(position)}
-              active={positionFilter === position}
-              onPress={() => setPositionFilter(position)}
-            />
-          ))}
-        </ScrollView>
-        <Pressable
-          onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
-          accessibilityRole="button"
-          accessibilityLabel="Back to the lineup"
-          style={({ pressed, hovered }: PressState) => [
-            styles.lineupButton,
-            hovered && styles.lift,
-            pressed && { opacity: 0.8 },
-          ]}
-        >
-          <Text style={styles.lineupButtonText}>↑ Lineup</Text>
-        </Pressable>
-      </View>
+  const bottomBar = (
+    <View
+      style={[
+        styles.bottomBar,
+        // The keyboard is drawn over the window on iOS, so the bar rides above
+        // it; the home indicator only needs clearing when it is not.
+        { bottom: keyboard, paddingBottom: keyboard > 0 ? space.sm : Math.max(space.sm, insets.bottom) },
+      ]}
+      onLayout={(e) => setBarHeight(e.nativeEvent.layout.height)}
+    >
+      {canPick ? (
+        <>
+          <View style={styles.barRow}>
+            {targetSlot ? (
+              <Pressable
+                onPress={() => setTargetSlot(null)}
+                accessibilityRole="button"
+                accessibilityLabel={`Filling ${targetSlot}. Tap to clear.`}
+                style={styles.fillingPill}
+              >
+                <Text style={[styles.fillingText, { color: positionColor[SLOT_POSITION[targetSlot]] }]}>
+                  {targetSlot} ✕
+                </Text>
+              </Pressable>
+            ) : null}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+              <Chip label="All" active={positionFilter === 'ALL'} onPress={() => setPositionFilter('ALL')} />
+              {POSITIONS.map((position) => (
+                <Chip
+                  key={position}
+                  label={position}
+                  tint={positionColor[position]}
+                  dimmed={!openPositions.has(position)}
+                  active={positionFilter === position}
+                  onPress={() => setPositionFilter(position)}
+                />
+              ))}
+            </ScrollView>
+            <Pressable
+              onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
+              accessibilityRole="button"
+              accessibilityLabel="Back to the lineup"
+              style={({ pressed, hovered }: PressState) => [
+                styles.lineupButton,
+                hovered && styles.lift,
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <Text style={styles.lineupButtonText}>↑ Lineup</Text>
+            </Pressable>
+          </View>
 
-      <View style={styles.pickBarRow}>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search players or year"
-          placeholderTextColor={color.textFaint}
-          style={[styles.search, styles.searchInBar]}
-          accessibilityLabel="Search eligible players"
-          autoCorrect={false}
-        />
-        <View style={styles.countPill}>
-          <Text style={styles.countPillValue}>{visible.length}</Text>
-        </View>
-      </View>
+          <View style={styles.barRow}>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search players or year"
+              placeholderTextColor={color.textFaint}
+              style={[styles.search, styles.searchInBar]}
+              accessibilityLabel="Search eligible players"
+              autoCorrect={false}
+            />
+            <View style={styles.countPill}>
+              <Text style={styles.countPillValue}>{visible.length}</Text>
+            </View>
+          </View>
+        </>
+      ) : (
+        wheelButton
+      )}
     </View>
-  ) : (
-    <View />
   );
 
   const browser = canPick ? (
@@ -818,12 +863,23 @@ export default function Play() {
         </View>
         <View style={styles.headerRight}>
           <View style={styles.headerSwap}>
-            <Animated.View
-              style={[styles.headerSwapLayer, { opacity: trackOpacity }]}
-              pointerEvents="none"
-              {...DECORATIVE}
-            >
-              <View style={styles.progressTrack}>
+            {spinInHeader ? (
+              <View style={styles.headerSpinLine} pointerEvents="none" {...DECORATIVE}>
+                <View style={styles.headerMetaPair}>
+                  <Text style={styles.headerMetaLabel}>Team</Text>
+                  <Text style={styles.headerAbbr} numberOfLines={1}>
+                    {team ? team.abbr : '—'}
+                  </Text>
+                </View>
+                <View style={styles.headerMetaPair}>
+                  <Text style={styles.headerMetaLabel}>Era</Text>
+                  <Text style={styles.headerEra} numberOfLines={1}>
+                    {shown ? eraDef(shown.era).label : '—'}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.progressTrack} pointerEvents="none" {...DECORATIVE}>
                 <View
                   style={[
                     styles.progressFill,
@@ -831,29 +887,7 @@ export default function Play() {
                   ]}
                 />
               </View>
-            </Animated.View>
-            <Animated.View
-              style={[
-                styles.headerSwapLayer,
-                styles.headerSpinLine,
-                { opacity: pillOpacity, transform: [{ translateY: pillShift }] },
-              ]}
-              pointerEvents="none"
-              {...DECORATIVE}
-            >
-              <View style={styles.headerMetaPair}>
-                <Text style={styles.headerMetaLabel}>Team</Text>
-                <Text style={styles.headerAbbr} numberOfLines={1}>
-                  {team ? team.abbr : '—'}
-                </Text>
-              </View>
-              <View style={styles.headerMetaPair}>
-                <Text style={styles.headerMetaLabel}>Era</Text>
-                <Text style={styles.headerEra} numberOfLines={1}>
-                  {shown ? eraDef(shown.era).label : '—'}
-                </Text>
-              </View>
-            </Animated.View>
+            )}
           </View>
           <Text style={styles.progress}>
             {game.selections.length}
@@ -866,50 +900,58 @@ export default function Play() {
       </View>
 
       <View style={layout.wide ? styles.split : styles.single}>
-        <Animated.ScrollView
-          ref={scrollRef}
-          style={styles.column}
-          contentContainerStyle={styles.scroll}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          stickyHeaderIndices={canPick ? [1] : undefined}
-          scrollEventThrottle={16}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-            useNativeDriver: true,
-          })}
-        >
-          {spinPanel}
-          {pickBar}
-          {browser}
-        </Animated.ScrollView>
+        {/* The bar belongs to the list, not to the window: on a wide screen the
+            field has its own column beside this one, and a bar spanning both
+            would be filtering a list it was nowhere near. */}
+        <View style={styles.listColumn}>
+          <ScrollView
+            ref={scrollRef}
+            style={styles.column}
+            contentContainerStyle={[styles.scroll, { paddingBottom: barHeight + space.lg }]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {spinPanel}
+            {browser}
+          </ScrollView>
+
+          {selected && targetSlots.length > 1 ? (
+            <View
+              style={[
+                styles.actionBar,
+                // Above the bar rather than over it: the filters are how you
+                // get back out of a choice you did not mean to start.
+                { bottom: barHeight + space.sm, maxWidth: layout.wide ? 520 : undefined },
+              ]}
+            >
+              <Text style={styles.actionName} numberOfLines={1}>
+                {displayName(selected)}
+              </Text>
+              <View style={styles.actionSlots}>
+                {targetSlots.map((slotKey) => (
+                  <Pressable
+                    key={slotKey}
+                    onPress={() => assign(selected, slotKey)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add ${displayName(selected)} to ${slotKey}`}
+                    style={({ pressed, hovered }: PressState) => [
+                      styles.actionSlot,
+                      hovered && styles.lift,
+                      pressed && { opacity: 0.8 },
+                    ]}
+                  >
+                    <Text style={styles.actionSlotLabel}>{slotKey}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {bottomBar}
+        </View>
 
         {layout.wide ? <View style={styles.fieldColumn}>{fieldPanel}</View> : null}
       </View>
-
-      {selected && targetSlots.length > 1 ? (
-        <View style={[styles.actionBar, { maxWidth: layout.wide ? 520 : undefined }]}>
-          <Text style={styles.actionName} numberOfLines={1}>
-            {displayName(selected)}
-          </Text>
-          <View style={styles.actionSlots}>
-            {targetSlots.map((slotKey) => (
-              <Pressable
-                key={slotKey}
-                onPress={() => assign(selected, slotKey)}
-                accessibilityRole="button"
-                accessibilityLabel={`Add ${displayName(selected)} to ${slotKey}`}
-                style={({ pressed, hovered }: PressState) => [
-                  styles.actionSlot,
-                  hovered && styles.lift,
-                  pressed && { opacity: 0.8 },
-                ]}
-              >
-                <Text style={styles.actionSlotLabel}>{slotKey}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-      ) : null}
     </Screen>
   );
 }
@@ -950,6 +992,8 @@ const styles = themed(() => StyleSheet.create({
   single: { flex: 1 },
   /** The list scrolls; the field does not. That is the whole point of it. */
   split: { flex: 1, flexDirection: 'row', gap: space.xl },
+  /** The scroll and the bar that is pinned over it, as one box. */
+  listColumn: { flex: 1, minWidth: 0 },
   column: { flex: 1, minWidth: 0 },
   fieldColumn: { flex: 1, minWidth: 0, maxWidth: 480, gap: space.md, paddingTop: space.lg },
   header: {
@@ -981,7 +1025,6 @@ const styles = themed(() => StyleSheet.create({
       Flexes rather than sitting at a fixed width: with labels the spin line is
       much wider than the bare abbreviation was, and a fixed box clipped it. */
   headerSwap: { flex: 1, minWidth: 0, height: 28, justifyContent: 'center' },
-  headerSwapLayer: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, justifyContent: 'center' },
   /** Pairs are grouped by spacing: 5pt binds a label to its value, 14pt separates
       the two pairs. Without that contrast the line reads as four evenly-spaced
       words rather than two facts. */
@@ -1026,7 +1069,8 @@ const styles = themed(() => StyleSheet.create({
     textAlign: 'center',
   },
 
-  scroll: { paddingHorizontal: space.lg, paddingBottom: 140, gap: space.md },
+  /** `paddingBottom` is supplied at render from the measured bar. */
+  scroll: { paddingHorizontal: space.lg, gap: space.md },
   columns: { flex: 1, flexDirection: 'row', gap: space.lg, paddingHorizontal: space.lg, overflow: 'hidden' },
   leftColumn: { width: '52%', minWidth: 0 },
   rightColumn: { width: '45%', minWidth: 0 },
@@ -1079,16 +1123,34 @@ const styles = themed(() => StyleSheet.create({
     textTransform: 'uppercase',
   },
   heroTagline: { fontFamily: font.bodyRegular, fontSize: 13, lineHeight: 19, color: color.textFaint },
+  /** The hero's flavour line, surviving on its own once the hero has gone. */
+  storyLine: {
+    fontFamily: font.bodyRegular,
+    fontSize: 13,
+    lineHeight: 19,
+    color: color.textFaint,
+    paddingTop: space.xs,
+  },
 
-  pickBar: {
+  bottomBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    // Opaque, not translucent: player rows pass underneath it, and a name read
+    // through a filter chip is worse than no atmosphere at all.
     backgroundColor: color.void,
     paddingTop: space.sm,
-    paddingBottom: space.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: color.line,
+    paddingHorizontal: space.lg,
+    borderTopWidth: 1,
+    borderTopColor: color.line,
     gap: space.sm,
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    ...elevate(12),
+    // Upwards: the bar sits on top of the list, not in front of it.
+    shadowOffset: { width: 0, height: -6 },
   },
-  pickBarRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  barRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   fillingPill: {
     borderWidth: 1,
     borderColor: color.lineBright,
