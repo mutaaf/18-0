@@ -68,9 +68,9 @@ export function OnWatch() {
       <View style={styles.routes}>
         <View style={styles.route}>
           <Text style={styles.routeName}>Do it yourself</Text>
-          <Text style={styles.routeHint}>Four steps, about a minute. Chrome or Edge.</Text>
+          <Text style={styles.routeHint}>Four steps, about a minute. Chrome or Edge. 194K.</Text>
           {[
-            'Download the folder and unzip it.',
+            'Download the extension and unzip it.',
             'Open chrome://extensions and turn on Developer mode, top right.',
             'Press “Load unpacked” and choose extensions/espn-watch inside the folder.',
             'Go to espn.com/watch. The card is in the first row.',
@@ -83,7 +83,7 @@ export function OnWatch() {
           <Pressable
             onPress={() => open(EXTENSION_ZIP_URL, 'watch_extension_zip')}
             accessibilityRole="link"
-            accessibilityLabel="Download the extension folder"
+            accessibilityLabel="Download the 18-0 on Watch extension"
             style={({ hovered, pressed }: PressState) => [
               styles.action,
               hovered && styles.actionHover,
@@ -93,7 +93,7 @@ export function OnWatch() {
             <Svg width={13} height={13} viewBox="0 0 24 24">
               <Path d="M12 3v10m0 0l-4-4m4 4l4-4M4 19h16" stroke={color.onAction} strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
-            <Text style={styles.actionLabel}>Download the folder</Text>
+            <Text style={styles.actionLabel}>Download the extension</Text>
           </Pressable>
         </View>
 

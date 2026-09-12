@@ -11,6 +11,12 @@ sitting where people already are.
 Chrome → `chrome://extensions` → **Developer mode** on → **Load unpacked** →
 choose this folder. Then open `espn.com/watch`.
 
+**Handing it to somebody else:**
+[download the zip](https://github.com/mutaaf/18-0/releases/latest/download/18-0-on-watch.zip)
+— 194K, this folder and nothing else, so there is no monorepo to unzip and no
+path to go hunting for. `pnpm pack:extension` rebuilds it; the same sources make
+the same bytes, so a release asset can be checked against a rebuild.
+
 It is loaded unpacked on purpose and is not published. See
 [What this is, and is not](#what-this-is-and-is-not).
 

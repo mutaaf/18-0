@@ -291,8 +291,14 @@ the identifier is hashed with a random per-device salt that unlinking deletes.
 **No club or league mark is bundled, referenced or defaulted to.** The only
 image that ships is the game's own crest. See the licence note below.
 
-[`extensions/espn-watch`](extensions/espn-watch) — how to load it, how it finds
-a row, and what its browser checks assert.
+**[Download it](https://github.com/mutaaf/18-0/releases/latest/download/18-0-on-watch.zip)**
+— 194K, the extension folder and nothing else. Unzip it, open
+`chrome://extensions`, turn on Developer mode, press **Load unpacked** and
+choose the folder. Chrome or Edge; it is loaded unpacked, not signed and not in
+a store. `pnpm pack:extension` rebuilds the same bytes.
+
+[`extensions/espn-watch`](extensions/espn-watch) — how it finds a row, what is
+configurable, and what its browser checks assert.
 
 ---
 

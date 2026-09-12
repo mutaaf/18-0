@@ -74,13 +74,18 @@ export const REPO_URL = 'https://github.com/mutaaf/18-0';
 export const EXTENSION_URL = `${REPO_URL}/tree/main/extensions/espn-watch`;
 
 /**
- * The whole repository as a zip, because that is what "Download the folder"
- * has to mean for somebody who does not have git.
+ * The extension, and nothing else, as one folder.
  *
- * GitHub's own archive URL rather than a release asset: there is no release,
- * and a link to one that does not exist is a download button that 404s.
+ * `releases/latest/download/<asset>` rather than a pinned tag: it follows the
+ * newest release, so publishing a new build does not leave the site pointing at
+ * an old one. Built by `scripts/pack-extension.sh` and attached to the release.
+ *
+ * It used to be the whole repository, because GitHub can archive a repository
+ * and cannot archive a directory inside one -- a monorepo to unzip and then a
+ * path to go hunting for, handed to somebody whose entire job in the
+ * transaction is to press Load unpacked.
  */
-export const EXTENSION_ZIP_URL = `${REPO_URL}/archive/refs/heads/main.zip`;
+export const EXTENSION_ZIP_URL = `${REPO_URL}/releases/latest/download/18-0-on-watch.zip`;
 
 /**
  * What to hand an agent.
