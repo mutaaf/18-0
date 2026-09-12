@@ -4,6 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { useLocalSearchParams } from 'expo-router';
 import { Brand } from '@/components/Brand';
 import { EmbedBoard } from '@/components/EmbedBoard';
+import { EmbedSeasons } from '@/components/EmbedSeasons';
 import { StadiumBackdrop } from '@/components/Screen';
 import { useStartGame } from '@/features/start-game';
 import { tellHost } from '@/features/embed';
@@ -38,14 +39,20 @@ import {
  * the component had already read the old address by the time this one existed.
  * The frame arrived on the board's URL showing the entry card.
  */
-function useView(): 'entry' | 'board' {
-  return useLocalSearchParams<{ view?: string }>().view === 'board' ? 'board' : 'entry';
+function useView(): 'entry' | 'board' | 'seasons' {
+  const view = useLocalSearchParams<{ view?: string }>().view;
+  return view === 'board' || view === 'seasons' ? view : 'entry';
 }
 
 /**
  * The game in a card, for a frame in somebody else's page.
  *
- * Two views and no more: an entry card that starts a season, and a board.
+ * Three views: an entry card that starts a season, a board, and the seasons
+ * this browser has played. The last of those is not a luxury -- a framed season
+ * is recorded on an anonymous account, and the public boards exclude those on
+ * purpose, so without it there is nowhere a player can see the thing they just
+ * did. History is on the device either way.
+ *
  * A frame on a watch page is a couple of hundred points tall, and the thing it
  * has to do is be obviously playable at a glance -- not reproduce a home
  * screen. Everything that makes the full app a *product* rather than a game is
@@ -101,12 +108,12 @@ export default function Embed() {
     [view],
   );
 
-  if (view === 'board') {
+  if (view === 'board' || view === 'seasons') {
     return (
       <View style={styles.root}>
         <StadiumBackdrop />
         <View onLayout={measured}>
-          <EmbedBoard />
+          {view === 'board' ? <EmbedBoard /> : <EmbedSeasons />}
         </View>
       </View>
     );

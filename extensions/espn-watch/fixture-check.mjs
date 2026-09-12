@@ -737,7 +737,18 @@ check(
   'and still names the game\'s own screens',
   panel.frameHeights?.entry === 232 && panel.frameHeights?.play === 620 && panel.frameHeights?.result === 760,
 );
-check('the header offers both views', JSON.stringify(panel.panel?.tabs) === '["Play","Leaderboard"]', JSON.stringify(panel.panel?.tabs));
+check(
+  'the header offers all three views',
+  JSON.stringify(panel.panel?.tabs) === '["Play","Leaderboard","Yours"]',
+  JSON.stringify(panel.panel?.tabs),
+);
+// The one a framed player has no other way to see: their own seasons are on an
+// anonymous account, which every public board excludes on purpose.
+check(
+  'including the seasons this browser has played',
+  panel.frameHeights?.seasons > 0,
+  `seasons: ${panel.frameHeights?.seasons}`,
+);
 check(
   'opening on the board loads the board',
   panel.panel?.openedOn === 'https://18-0.co/embed?view=board',
@@ -764,11 +775,19 @@ check(
   panel.panel?.afterSelfNav?.selected === 'Leaderboard',
   `${panel.panel?.afterSelfNav?.selected}`,
 );
-check(
-  'and says so to a screen reader',
-  JSON.stringify(panel.panel?.afterSelfNav?.aria) === '["false","true"]',
-  JSON.stringify(panel.panel?.afterSelfNav?.aria),
-);
+// Exactly one tab selected, and it is the one that reads as selected. Written
+// as the invariant rather than as the array it happened to be: the first
+// version hardcoded two tabs and went red the day a third was added, which is
+// a check reporting its own assumption rather than the thing it is guarding.
+{
+  const aria = panel.panel?.afterSelfNav?.aria ?? [];
+  const selected = aria.filter((a) => a === 'true').length;
+  check(
+    'and says so to a screen reader',
+    selected === 1 && aria[panel.panel?.afterSelfNav?.index ?? -1] === 'true',
+    `${JSON.stringify(aria)} with ${panel.panel?.afterSelfNav?.selected} selected`,
+  );
+}
 // The highlight, and only the highlight. A framed page that could navigate the
 // panel could put it somewhere nobody chose.
 // The origin guard, exercised rather than assumed: any page may post to a

@@ -43,7 +43,7 @@ const PANEL_ID = 'eighteen-zero-panel';
 const EMBED_URL = 'https://18-0.co/embed';
 
 /** Heights the frame is given, by the screen the game says it is on. */
-const FRAME_HEIGHT = { entry: 232, play: 620, result: 760, board: 520 };
+const FRAME_HEIGHT = { entry: 232, play: 620, result: 760, board: 520, seasons: 440 };
 /** What a measured height is allowed to be. A frame is a guest in a row. */
 const FRAME_MIN = 150;
 const FRAME_MAX = 760;
@@ -64,6 +64,15 @@ const FRAME_MAX = 760;
 const VIEWS = [
   { key: 'play', label: 'Play', url: EMBED_URL, height: FRAME_HEIGHT.entry },
   { key: 'board', label: 'Leaderboard', url: `${EMBED_URL}?view=board`, height: FRAME_HEIGHT.board },
+  /*
+   * Your own seasons, which is the only place a framed player can see them.
+   * A season played here is recorded on an anonymous account and the public
+   * boards exclude those on purpose, so the leaderboard cannot show somebody
+   * the thing they just did. The game keeps its history on the device, and a
+   * third-party frame's storage is partitioned by the page holding it -- so
+   * seasons played on this watch page come back on this watch page, every time.
+   */
+  { key: 'seasons', label: 'Yours', url: `${EMBED_URL}?view=seasons`, height: FRAME_HEIGHT.seasons },
 ];
 
 let settings = ezSettings(null);
@@ -1375,7 +1384,7 @@ function openPanel(view = 'play') {
 
   // Readable from the message listener, which is module-level and outlives no
   // panel: cleared on close, so a message arriving afterwards finds nothing.
-  followFrame = (screen) => mark(screen === 'board' ? 'board' : 'play');
+  followFrame = (screen) => mark(VIEWS.some((v) => v.key === screen) ? screen : 'play');
 
   for (const v of VIEWS) {
     const button = el('button', 'ez-tab', v.label, { type: 'button', role: 'tab' });

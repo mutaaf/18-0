@@ -32,7 +32,7 @@
  * a screen talking about a frame it no longer occupies, and is dropped.
  */
 
-export type EmbedScreen = 'entry' | 'play' | 'result' | 'board';
+export type EmbedScreen = 'entry' | 'play' | 'result' | 'board' | 'seasons';
 
 export interface FrameTalk {
   /** The screen the host has been told the player is on. */

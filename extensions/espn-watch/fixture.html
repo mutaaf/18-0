@@ -287,6 +287,7 @@
         panel.afterSelfNav.selected =
           tabs.find((t) => t.classList.contains('on'))?.textContent ?? null;
         panel.afterSelfNav.aria = tabs.map((t) => t.getAttribute('aria-selected'));
+        panel.afterSelfNav.index = tabs.findIndex((t) => t.classList.contains('on'));
         panel.afterSelfNav.srcNow = frame?.getAttribute('src') ?? null;
         node?.remove();
       }, 0);

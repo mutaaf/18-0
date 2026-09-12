@@ -79,7 +79,7 @@ describe('what the host is told about the frame', () => {
   });
 
   it('every screen the game can be on is understood', () => {
-    for (const screen of ['entry', 'play', 'result', 'board'] as const) {
+    for (const screen of ['entry', 'play', 'result', 'board', 'seasons'] as const) {
       expect(decide(NOTHING_SHOWN, screen).send, screen).toBe(true);
       expect(decide({ showing: screen }, screen, 300).send, screen).toBe(true);
     }
