@@ -16,8 +16,8 @@ same record, so every choice is yours.
 [![CI](https://github.com/mutaaf/18-0/actions/workflows/ci.yml/badge.svg)](https://github.com/mutaaf/18-0/actions/workflows/ci.yml)
 [![Deploy](https://github.com/mutaaf/18-0/actions/workflows/pages.yml/badge.svg)](https://github.com/mutaaf/18-0/actions/workflows/pages.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Tests](https://img.shields.io/badge/tests-255%20passing-3FD68C)
-![Server checks](https://img.shields.io/badge/server%20checks-142%20passing-3FD68C)
+![Tests](https://img.shields.io/badge/tests-264%20passing-3FD68C)
+![Server checks](https://img.shields.io/badge/server%20checks-127%20passing-3FD68C)
 ![Browser checks](https://img.shields.io/badge/browser%20checks-159%20passing-3FD68C)
 ![Platforms](https://img.shields.io/badge/iOS%20%C2%B7%20Android%20%C2%B7%20Web-one%20codebase-D50A0A)
 
