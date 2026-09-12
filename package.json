@@ -2,7 +2,7 @@
   "name": "eighteen-zero",
   "private": true,
   "version": "0.1.0",
-  "description": "18-0 — Spin history. Build seven. Chase perfection.",
+  "description": "18-0 \u2014 Spin history. Build seven. Chase perfection.",
   "scripts": {
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",

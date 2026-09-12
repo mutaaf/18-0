@@ -1,4 +1,7 @@
 import { Platform } from 'react-native';
+import { NOTHING_SHOWN, decide, type EmbedScreen, type FrameTalk } from './frame-size';
+
+export type { EmbedScreen } from './frame-size';
 
 /**
  * The game, running inside somebody else's page.
@@ -74,11 +77,20 @@ export function homeRoute(): '/embed' | '/(tabs)' {
  * because the host needs a height *before* the frame has loaded anything; the
  * measurement refines it once there is something real to measure.
  */
-export function tellHost(
-  screen: 'entry' | 'play' | 'result' | 'board',
-  height?: number,
-): void {
+/**
+ * What the host has been told so far. The rule that reads it, and the bug that
+ * made it necessary, are in `frame-size.ts` -- pulled out so it can be tested
+ * without a react-native import.
+ */
+let talk: FrameTalk = NOTHING_SHOWN;
+
+export function tellHost(screen: EmbedScreen, height?: number): void {
   if (!embedded || typeof window === 'undefined') return;
+
+  const { send, next } = decide(talk, screen, height);
+  talk = next;
+  if (!send) return;
+
   try {
     // '*' rather than an origin: the frame does not know who is holding it, and
     // the payload is the name of a screen. There is nothing here to leak.
