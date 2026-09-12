@@ -128,6 +128,14 @@ All three must pass. For a change to the server layer,
 plays a ranked game and then tries to cheat it every way that matters, and it is
 what caught 0021 dropping a board filter it was supposed to be restating.
 
+`pnpm verify:fold` measures the play screen in a real 393-wide viewport — at a
+phone's height, and at the 620 points the extension's frame gives it — and fails
+if a whole player row is not on screen when the spin stops. It plays a season in
+headless Chrome against a `dist/` that `pnpm verify:web` made, and refuses to
+run against an export older than the sources rather than reporting on a screen
+nobody is shipping. Nothing else here lays the page out, so nothing else can see
+a list that starts below the fold: every unit test passes while it does.
+
 `verify:builds` exports the web bundle, regenerates both native projects and
 builds them. Nothing in CI does: a native build is the one thing that breaks
 without anything going red. It exports `DEVELOPER_DIR` and `ANDROID_HOME`

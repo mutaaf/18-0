@@ -70,3 +70,6 @@ apps/mobile/android/
 # in. 377 files of it were committed and every test run dirtied a few dozen, so
 # `git status` described a browser's cache rather than anybody's work.
 extensions/espn-watch/.fixture-profile/
+
+# And the one `verify:fold` runs the app in, for the same reason.
+scripts/verify/.fold-profile/
