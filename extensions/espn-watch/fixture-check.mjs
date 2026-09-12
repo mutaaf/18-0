@@ -188,6 +188,20 @@ function run(query = '', extra = []) {
 
 const report = run();
 
+/** The order the fixture reports the four slots in. */
+const EZ_ORDER = ['topLeft', 'topRight', 'bottomLeft', 'bottomRight'];
+
+/**
+ * The shipped defaults, read out of `config.js` rather than restated here.
+ * A check that hardcodes what it is checking is a check that agrees with
+ * itself.
+ */
+const CONFIG = (() => {
+  const scope = {};
+  new Function('globalThis', readFileSync(resolve(import.meta.dirname, 'config.js'), 'utf8')).call(scope, scope);
+  return scope;
+})();
+
 let failures = 0;
 const check = (what, ok, detail = '') => {
   console.log(`  ${ok ? '✓' : '✗'} ${what}${detail ? `  — ${detail}` : ''}`);
@@ -233,22 +247,20 @@ function checkCorners(where, slots) {
  * how it came back saying the pill was in the top left -- true, and not the
  * question.
  */
-function checkStrip(slots) {
-  const order = [
-    ['the mark', 'ez-slot-logo'],
-    ['the pill', 'ez-slot-pill'],
-    ['the crest', 'ez-slot-image'],
-  ];
-  // The report is [tl, tr, bl, br]; along the line they read tl, bl, tr, br.
-  const along = [slots?.[0], slots?.[2], slots?.[1]];
-  for (const [i, [name, type]] of order.entries()) {
-    check(`band: ${name} is where it was put`, along[i]?.type === type, `${along[i]?.type ?? 'nothing'}`);
-  }
-  const xs = along.filter(Boolean).map((s) => s.x);
+function checkStrip(slots, ends) {
+  const drawn = slots.filter(Boolean);
+  check('band: it draws two ends, not four corners', drawn.length === 2, `${drawn.length} drawn`);
+  // Both ends have to *draw* on a fresh install. The sponsor corner renders
+  // nothing until a sponsor is set, and an end that is empty by default is a
+  // band with one end -- a logo with a paragraph after it.
+  const left = slots[EZ_ORDER.indexOf(ends.left)];
+  const right = slots[EZ_ORDER.indexOf(ends.right)];
+  check(`band: the left end is ${ends.left}`, Boolean(left), left?.type ?? 'nothing');
+  check(`band: the right end is ${ends.right}`, Boolean(right), right?.type ?? 'nothing');
   check(
-    'band: and they run left to right in that order',
-    xs.length === along.filter(Boolean).length && xs.every((x, i) => i === 0 || x > xs[i - 1]),
-    xs.join(' < '),
+    'band: and the left one is actually on the left',
+    Boolean(left) && Boolean(right) && left.x < right.x,
+    `${left?.x} < ${right?.x}`,
   );
 }
 
@@ -580,7 +592,7 @@ check('it never moved once placed', band.bandMoves === 0, `${band.bandMoves} mov
 check('its button is present', band.bandClickable === true);
 // The same four, built from the same model and laid out on a different grid.
 // If the two ever stop agreeing, this is where it shows.
-checkStrip(band.slots);
+checkStrip(band.slots, CONFIG.EZ_DEFAULTS.bandSlots);
 // The whole point of the placement: it sits in the gap above the row, not
 // inside it and not below the rail it is introducing.
 check('it sits above the first row', band.aboveFirstRow === true);
@@ -602,7 +614,11 @@ check(
   band.bandLeftDelta !== null && Math.abs(band.bandLeftDelta) <= 1,
   band.bandLeftDelta === null ? 'nothing to measure' : `${band.bandLeftDelta}px off`,
 );
-check('it carries the logo too', band.bandLogo === true);
+// The mark, whatever it turned out to be: a configured image, or the wordmark
+// the logo slot draws when no file is set. The band shows two ends and the
+// crest is not one of them by default, so asking for an `<img>` here was asking
+// for a corner the strip no longer has.
+check('its left end carries the mark', band.slots?.[0]?.type === 'ez-slot-logo', `${band.slots?.[0]?.type}`);
 // A strip between two rows: every line it grows is a line of somebody else's
 // page it pushes down. The call to action shares the subtitle's line for the
 // same reason the tile's does -- a line of its own cost the band a third of its
@@ -621,10 +637,13 @@ check(
   band.bandLadder !== null && band.bandLadder.wide <= 24 && band.bandLadder.fromBottom <= 14,
   band.bandLadder ? `${band.bandLadder.wide}px narrower, ${band.bandLadder.fromBottom}px up` : 'no ladder',
 );
+// Each end is a stack -- a thing and a line about it -- so they are centred on
+// each other rather than sharing a top edge. What must stay true is that the
+// band is one line of *ends*: two of them, level, not stacked down the strip.
 check(
-  'with its four corners along it, not down it',
-  band.bandRows !== null && band.bandRows.spread <= 8,
-  `${band.bandRows?.n} corner(s), ${band.bandRows?.spread}px apart vertically`,
+  'its two ends are level with each other',
+  band.bandRows !== null && band.bandRows.n === 2 && band.bandRows.spread <= 24,
+  `${band.bandRows?.n} end(s), ${band.bandRows?.spread}px apart vertically`,
 );
 
 // The whole band is the target, not a pill in the corner of it.

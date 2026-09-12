@@ -571,9 +571,9 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
      below, so they become items of this grid rather than a box inside it and a
      hidden slot leaves an empty cell instead of shifting its neighbour. */
   display: grid;
-  /* Left pair, copy, right pair -- see the slot rules below for why it is one
-     row rather than two. */
-  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  /* One end, the copy, the other end. See the slot rules below for why the
+     strip draws two of the four rather than all of them. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-rows: auto;
   align-items: center;
   column-gap: 18px;
@@ -614,15 +614,38 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
  * still names its own column -- which is what stops a switched-off slot sliding
  * its neighbour into a place nobody configured.
  */
-#eighteen-zero-band .ez-tl { grid-area: 1 / 1; justify-self: start; align-self: center; }
-#eighteen-zero-band .ez-bl { grid-area: 1 / 2; justify-self: start; align-self: center; }
-#eighteen-zero-band .ez-tr { grid-area: 1 / 4; justify-self: end; align-self: center; }
-#eighteen-zero-band .ez-br { grid-area: 1 / 5; justify-self: end; align-self: center; }
+/*
+ * Each end is a thing and a line about it, and the two mirror each other.
+ *
+ * The mark carries its tagline; the action carries the link that explains it.
+ * That is the symmetry -- and it costs the strip no height, because the copy
+ * between them is three lines and already the tallest thing in the band.
+ */
+#eighteen-zero-band .ez-end {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+#eighteen-zero-band .ez-end-left {
+  grid-area: 1 / 1;
+  justify-self: start;
+  align-self: center;
+  align-items: flex-start;
+  text-align: left;
+}
+#eighteen-zero-band .ez-end-right {
+  grid-area: 1 / 3;
+  justify-self: end;
+  align-self: center;
+  align-items: flex-end;
+  text-align: right;
+}
 
 #eighteen-zero-band.ez-band .ez-band-text {
   position: relative;
   min-width: 0;
-  grid-area: 1 / 3;
+  grid-area: 1 / 2;
 }
 
 #eighteen-zero-band.ez-band .ez-band-kicker {
@@ -682,7 +705,12 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
    had spare -- eighteen marks adrift in the middle of the band. A grid item
    takes `z-index` without being positioned at all, which is why it was never
    needed. */
-#eighteen-zero-band.ez-band > *:not(.ez-band-hit) {
+#eighteen-zero-band.ez-band > *:not(.ez-band-hit),
+/* `.ez-slots` is `display: contents`, so it has no box to raise -- a `z-index`
+   on it does nothing and its children paint *under* the button. The promo link
+   inside one of them turned its own pointer events back on and still could not
+   be clicked, because it was behind the thing it was in front of. */
+#eighteen-zero-band.ez-band > .ez-slots > * {
   z-index: 2;
   pointer-events: none;
 }
@@ -711,26 +739,14 @@ body.ez-picking #eighteen-zero-band { pointer-events: none; }
    height it is only fifty pixels across, which at the tile's 34px is a smudge. */
 #eighteen-zero-band.ez-band .ez-slot-img { height: 36px; max-width: 96px; }
 
-/*
- * In the strip a corner is a lockup, not a stack.
- *
- * On the tile the mark sits above its words because there is a box of artwork
- * to spend height in. Here there is one line, and a slot two lines tall is a
- * slot that makes the band two lines tall -- and makes every other corner, one
- * line tall and centred against it, look scattered rather than placed.
- */
-#eighteen-zero-band.ez-band .ez-slot-logo,
-#eighteen-zero-band.ez-band .ez-slot-image {
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-}
+/* The words under a mark, kept short enough not to widen the end they sit in. */
 #eighteen-zero-band.ez-band .ez-slot-tagline,
 #eighteen-zero-band.ez-band .ez-slot-headline {
   margin: 0;
-  max-width: 108px;
+  max-width: 150px;
 }
+#eighteen-zero-band .ez-end-right .ez-slot-image,
+#eighteen-zero-band .ez-end-right .ez-slot-logo { align-items: flex-end; text-align: right; }
 #eighteen-zero-band.ez-band .ez-slot-sponsor-text { font-size: 11px; }
 #eighteen-zero-band.ez-band .ez-slot-sponsor-logo { height: 16px; max-width: 72px; }
 

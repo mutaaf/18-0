@@ -532,9 +532,12 @@ const SLOT_CLASS = {
  * comes out of storage, and storage outlives a rename -- so a type nobody
  * recognises renders nothing instead of throwing on a page we do not own.
  */
+/**
+ * @param ctx.only  the slot names to draw, in order. The strip passes two.
+ */
 function buildSlots(ctx) {
   const layer = el('div', 'ez-slots');
-  for (const name of EZ_SLOT_NAMES) {
+  for (const name of ctx.only ?? EZ_SLOT_NAMES) {
     const slot = settings.slots[name];
     if (!slot?.show) continue;
     const render = SLOT_RENDERERS[slot.type];
@@ -542,7 +545,24 @@ function buildSlots(ctx) {
     const node = render(slot, ctx);
     if (!node) continue;
     node.classList.add(SLOT_CLASS[name]);
-    layer.append(node);
+    if (!ctx.only) {
+      layer.append(node);
+      continue;
+    }
+    /*
+     * An end is a stack, and the stack is why it is wrapped.
+     *
+     * Placed by which end it is rather than by which corner it came from -- a
+     * strip has a left and a right, and `bottomLeft` chosen as the right-hand
+     * end belongs on the right, not in the column its name once meant. The
+     * wrapper exists so the line that goes *under* an end is a sibling of the
+     * slot rather than a child of it: the pill is a `<span>` and the promo
+     * link is an `<a>`, and one inside the other is a link inside the thing
+     * the whole band already is.
+     */
+    const end = el('div', `ez-end ez-end-${ctx.only.indexOf(name) === 0 ? 'left' : 'right'}`);
+    end.append(node);
+    layer.append(end);
   }
   return layer;
 }
@@ -1071,14 +1091,25 @@ function buildBand(motion) {
   // artwork is; a pill inside it would fire the same thing twice on one click
   // and offer assistive technology two controls for one action. `dense: false`
   // -- there is a line's width here for a headline.
-  const slots = buildSlots({ place: 'band', say, dense: false, control: false });
+  const ends = [settings.bandSlots.left, settings.bandSlots.right];
+  const slots = buildSlots({ place: 'band', say, dense: false, control: false, only: ends });
 
-  // Beside the subtitle, not in the pill's corner: the grid gives that cell to
-  // one thing, and two of them there is how the band ended up with two primary
-  // actions and a choice nobody asked for.
-  const cta = ctaLink('ez-band-cta');
-  if (cta) line.append(cta);
   if (line.childElementCount) text.append(line);
+
+  /**
+   * The promo link goes under the right-hand end, the way the tagline sits
+   * under the left-hand one.
+   *
+   * That is the whole of the symmetry: each end is a thing and a line about it.
+   * The mark carries its tagline; the action carries the link that explains it.
+   * Anywhere else -- beside the subtitle, on a line of its own -- it is a fifth
+   * object competing with four that are already placed.
+   *
+   * If nothing took the right end it stays with the copy, because a link
+   * hanging off an end that is not there is a link nobody will find.
+   */
+  const cta = ctaLink('ez-band-cta');
+  if (cta) (slots.querySelector('.ez-end-right') ?? text).append(cta);
 
   /**
    * The whole band is the button.
@@ -1366,6 +1397,14 @@ function openPanel(view = 'play') {
  * Shown only when there is a SWID to read -- a signed-out visitor is asked
  * nothing, because there is nothing to consent to -- and only until it has been
  * answered either way. Declining is a real answer and is not asked again.
+ *
+ * **It says what it does, which is less than it used to claim.** This asked to
+ * link an account so that "your seasons can rank on a shared leaderboard", and
+ * neither half was true: a framed season is played unranked and never reaches
+ * the server at all, and the hash is salted per device, so it could not
+ * identify the same person on a second machine even if it were sent. Consent
+ * obtained for something that does not happen is worse than no consent screen,
+ * because it is the screen somebody trusted.
  */
 async function consentRow() {
   const existing = await ezIdentity();
@@ -1378,9 +1417,11 @@ async function consentRow() {
     el(
       'p',
       'ez-consent-body',
-      'Your seasons would carry your ESPN identity so they can rank on a shared '
-        + 'leaderboard. Your identifier is hashed on this device and never stored '
-        + 'or sent as-is. You can undo this any time in the extension options.',
+      'Your identifier is hashed on this device with a random salt, so what is '
+        + 'kept is a name for this browser and not for you -- it cannot be turned '
+        + 'back into your account, and it is not the same on another machine. '
+        + 'Nothing is sent anywhere yet; a shared board for framed seasons is not '
+        + 'built. You can undo this any time in the extension options.',
     ),
   );
 
@@ -1391,7 +1432,7 @@ async function consentRow() {
   no.type = 'button';
 
   yes.addEventListener('click', () => {
-    row.replaceChildren(el('p', 'ez-consent-done', 'Linked. Your seasons can rank on the shared board.'));
+    row.replaceChildren(el('p', 'ez-consent-done', 'Linked. Kept on this browser until there is a board to send it to.'));
     void ezGrantIdentity().catch(() => {});
   });
   no.addEventListener('click', () => {
@@ -1548,7 +1589,7 @@ chrome.storage.onChanged.addListener((changes) => {
   // Everything the two are *built* from, which is why the list is long and why
   // adding a setting means adding it here: a field that is not named is one
   // that appears to save and then does nothing until the page is reloaded.
-  const LOOK = ['matchUi', 'copy', 'slots', 'sponsor', 'sponsorLogo', 'cta'];
+  const LOOK = ['matchUi', 'copy', 'slots', 'bandSlots', 'sponsor', 'sponsorLogo', 'cta'];
   if (touched(['row', 'placeTile', ...LOOK])) removeAt('tile');
   if (touched(['gap', 'placeBand', ...LOOK])) removeAt('band');
   settle(true);

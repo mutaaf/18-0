@@ -45,7 +45,7 @@ control in its header. They are two URLs on the same route rather than two
 routes; see [What it loads](#what-it-loads) for why that is not a detail.
 
 **Slots, sponsorship and copy** are on the options page — right-click the
-toolbar icon, or press **Corners, copy & sponsorship…** in the popup.
+toolbar icon, or press **Corners, text & sponsor…** in the popup.
 
 <br>
 

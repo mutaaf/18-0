@@ -92,6 +92,22 @@ const EZ_DEFAULTS = {
    * choice made by whoever typed the path, which is exactly what the slot is
    * for -- see the licence note in the root README.
    */
+  /**
+   * The two ends of the strip, and which of the four slots stands in each.
+   *
+   * The tile is a picture and has four corners to fill. The band is one line
+   * between two of somebody else's shelves, and four slots plus a paragraph on
+   * one line is five things competing for the same rule -- which reads as
+   * jumble however carefully each one is placed. Two ends and the copy between
+   * them is a banner; anything more is a panel pretending to be one.
+   *
+   * The mark and the pill by default, because those are the two that always
+   * have something to draw. The sponsor corner renders nothing until a sponsor
+   * is set, and an end that is empty on a fresh install is a band with one end
+   * -- which is not a banner, it is a logo with a paragraph after it.
+   */
+  bandSlots: { left: 'topLeft', right: 'bottomLeft' },
+
   slots: {
     topLeft: { type: 'logoImage', show: true, image: '' },
     topRight: { type: 'image', show: true, image: 'icons/crest.png' },
@@ -269,6 +285,13 @@ function ezSettings(stored) {
   // Two levels, and only the four names we know. A spread would let a stored
   // slot arrive with no `type` at all -- which is what a half-written storage
   // write looks like -- and a fifth name would be a corner nothing lays out.
+  // Only the two ends, and only names that are slots. A stored end naming
+  // something that is not one is an end that draws nothing, silently.
+  merged.bandSlots = {
+    left: EZ_SLOT_NAMES.includes(stored?.bandSlots?.left) ? stored.bandSlots.left : EZ_DEFAULTS.bandSlots.left,
+    right: EZ_SLOT_NAMES.includes(stored?.bandSlots?.right) ? stored.bandSlots.right : EZ_DEFAULTS.bandSlots.right,
+  };
+
   merged.slots = {};
   for (const name of EZ_SLOT_NAMES) {
     merged.slots[name] = { ...EZ_DEFAULTS.slots[name], ...(stored?.slots?.[name] ?? {}) };

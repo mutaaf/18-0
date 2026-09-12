@@ -523,7 +523,7 @@
       // overlapping" is a report nobody should have to make twice.
       bandOverlaps: (() => {
         if (!band) return null;
-        const parts = ['ez-tl', 'ez-tr', 'ez-bl', 'ez-br', 'ez-band-text']
+        const parts = ['ez-end-left', 'ez-end-right', 'ez-band-text']
           .map((c) => [c, band.querySelector(`.${c}`)])
           .filter(([, n]) => n)
           .map(([c, n]) => [c, n.getBoundingClientRect()]);
@@ -549,7 +549,7 @@
       })(),
       bandRows: (() => {
         if (!band) return null;
-        const tops = ['ez-tl', 'ez-tr', 'ez-bl', 'ez-br']
+        const tops = ['ez-end-left', 'ez-end-right']
           .map((c) => band.querySelector(`.${c}`))
           .filter(Boolean)
           .map((n) => Math.round(n.getBoundingClientRect().top));
