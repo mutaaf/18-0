@@ -15,6 +15,7 @@ import { Hall } from '@/components/Hall';
 import { Screen } from '@/components/Screen';
 import { SectionHead } from '@/components/SectionHead';
 import { GetTheApp } from '@/components/GetTheApp';
+import { OnWatch } from '@/components/OnWatch';
 import { LeaderboardStrip } from '@/components/LeaderboardStrip';
 import { Panel } from '@/components/Panel';
 import { track } from '@/features/telemetry';
@@ -447,6 +448,13 @@ export default function Home() {
 
       <Reveal delay={280}>
         <GetTheApp />
+      </Reveal>
+
+      {/* After the phones, because it is the least likely thing a first-time
+          reader came for -- and before the closer, because it is still a way in
+          rather than fine print. */}
+      <Reveal delay={300}>
+        <OnWatch />
       </Reveal>
 
     </View>

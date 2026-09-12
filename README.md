@@ -16,8 +16,9 @@ same record, so every choice is yours.
 [![CI](https://github.com/mutaaf/18-0/actions/workflows/ci.yml/badge.svg)](https://github.com/mutaaf/18-0/actions/workflows/ci.yml)
 [![Deploy](https://github.com/mutaaf/18-0/actions/workflows/pages.yml/badge.svg)](https://github.com/mutaaf/18-0/actions/workflows/pages.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Tests](https://img.shields.io/badge/tests-240%20passing-3FD68C)
+![Tests](https://img.shields.io/badge/tests-255%20passing-3FD68C)
 ![Server checks](https://img.shields.io/badge/server%20checks-142%20passing-3FD68C)
+![Browser checks](https://img.shields.io/badge/browser%20checks-149%20passing-3FD68C)
 ![Platforms](https://img.shields.io/badge/iOS%20%C2%B7%20Android%20%C2%B7%20Web-one%20codebase-D50A0A)
 
 <br>
@@ -261,6 +262,37 @@ same components — the palette and the shape scale are tokens, and
 theme hard.
 
 </details>
+
+---
+
+## It also plays inside somebody else's page
+
+A browser extension that puts the game into a row on **espn.com/watch** — as a
+card among the thumbnails, or as a band across the gap between two rows, or
+both. It is a placement demo, loaded unpacked, and it is the only consumer of
+the `/embed` contract above.
+
+The interesting part is not the card. It is that **the page is never asked what
+it is** — a watch page is a React app with generated class names, so anything
+matching `.WatchShelf__row` works until the next deploy and then fails silently.
+What does not change is the *shape* of a carousel: a container whose children
+are several boxes of near-identical width sharing a top edge. The card copies
+its box, its corner radius, its margins, its transition timing and its hover
+transform off a real neighbouring tile, so it moves on the row's clock rather
+than on one of ours.
+
+Everything on it is configuration: four named corners on the card and two ends
+on the band, each with a type, a switch and an image; every string a field, with
+`{sponsor}` filled in — and removed *along with the words holding it* when there
+is no sponsor, so one set of defaults reads correctly either way. Attribution is
+counted on the machine and sent nowhere. Linking an ESPN account is opt-in, and
+the identifier is hashed with a random per-device salt that unlinking deletes.
+
+**No club or league mark is bundled, referenced or defaulted to.** The only
+image that ships is the game's own crest. See the licence note below.
+
+[`extensions/espn-watch`](extensions/espn-watch) — how to load it, how it finds
+a row, and what its browser checks assert.
 
 ---
 

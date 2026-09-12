@@ -68,3 +68,41 @@ export const PRIVACY_URL = `${APP_URL}/privacy`;
  * only a queue. Worth knowing before assuming the URL is wrong.
  */
 export const TESTFLIGHT_URL = 'https://testflight.apple.com/join/Q79YnwEs';
+
+/** The repository, and the folder inside it that Chrome is pointed at. */
+export const REPO_URL = 'https://github.com/mutaaf/18-0';
+export const EXTENSION_URL = `${REPO_URL}/tree/main/extensions/espn-watch`;
+
+/**
+ * The whole repository as a zip, because that is what "Download the folder"
+ * has to mean for somebody who does not have git.
+ *
+ * GitHub's own archive URL rather than a release asset: there is no release,
+ * and a link to one that does not exist is a download button that 404s.
+ */
+export const EXTENSION_ZIP_URL = `${REPO_URL}/archive/refs/heads/main.zip`;
+
+/**
+ * What to hand an agent.
+ *
+ * It names the repository, the folder inside it and the page to open, because
+ * an agent given "install the 18-0 extension" will guess at all three -- and
+ * the guess that matters is the folder: the repository root is not an
+ * extension and Chrome refuses it with an error about a missing manifest.
+ *
+ * It ends by saying what success looks like. An agent that has loaded an
+ * extension has no way to know whether it worked, and "the card is in the first
+ * row" is checkable by looking.
+ */
+export function agentPrompt(): string {
+  return [
+    `Clone ${REPO_URL} and load its browser extension in Chrome for me.`,
+    '',
+    'The extension is the folder extensions/espn-watch — not the repository root,',
+    'which has no manifest and which Chrome will refuse.',
+    '',
+    'Open chrome://extensions, turn on Developer mode, choose Load unpacked and',
+    'point it at that folder. Then open https://www.espn.com/watch/ and tell me',
+    'whether the 18-0 card is in the first row.',
+  ].join('\n');
+}
