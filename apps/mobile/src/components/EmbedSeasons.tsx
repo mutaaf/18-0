@@ -58,7 +58,7 @@ export function EmbedSeasons() {
   const best = Math.max(...seasons.map((g) => g.result.finalRating));
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={styles.list}>
+    <View style={styles.root}>
       <View style={styles.head}>
         <Text style={styles.title}>Your seasons</Text>
         <Text style={styles.sub}>
@@ -66,10 +66,12 @@ export function EmbedSeasons() {
         </Text>
       </View>
 
-      {seasons.map((game) => (
-        <Season key={game.id} game={game} best={game.result.finalRating === best} />
-      ))}
-    </ScrollView>
+      <ScrollView style={styles.scroller} contentContainerStyle={styles.list}>
+        {seasons.map((game) => (
+          <Season key={game.id} game={game} best={game.result.finalRating === best} />
+        ))}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -110,9 +112,23 @@ function stamp(at: number): string {
 }
 
 const styles = themed(() => StyleSheet.create({
-  root: { flex: 1 },
-  list: { padding: space.lg, gap: space.xs },
-  head: { gap: 1, marginBottom: space.xs },
+  /**
+   * Content-sized, and a scroller with a ceiling inside it.
+   *
+   * Not `flex: 1` -- the same note `EmbedBoard` carries, and I wrote this one
+   * anyway. The frame is sized from what this measures, so a root that stretches
+   * has nothing to stretch *into*: it measured zero, reported zero, and the view
+   * collapsed the moment it was opened.
+   *
+   * The scroller needs a ceiling for the same reason it needs to scroll at all.
+   * Forty seasons content-sized is a frame taller than the page holding it, and
+   * the host clamps at 760 -- so without a bound the list would simply be cut
+   * off with no way to reach the rest of it.
+   */
+  root: { padding: space.lg, gap: space.md },
+  scroller: { maxHeight: 300 },
+  list: { gap: space.xs },
+  head: { gap: 1 },
   title: {
     fontFamily: font.label,
     fontSize: 10,
