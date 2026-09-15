@@ -3,10 +3,12 @@
 Open work, with enough context to pick it up cold. Each item says what it is,
 why it matters, what has already been decided, and how to know when it is done.
 
-Last reviewed **2026-09-11**. Items 3, 4, 7, 8, 9, 10 and 11 are closed — 3 by
+Last reviewed **2026-09-15**. Items 3, 4, 7, 8, 9, 10 and 11 are closed — 3 by
 deciding it rather than changing it, 7 by filing both store forms, 11 by two
 migrations and the harness that caught it. Item 6 is still the last one that can
-stop a public binary, and it is a decision rather than a task. This repository
+stop a public binary, and it is a decision rather than a task — asked again on
+2026-09-12 and deliberately left as it is, on the `player_photos` flag.
+Items 13, 14 and 15 came out of the extension and framed-play work. This repository
 moves quickly — before acting on an item, check the "still true?" line, because
 several things listed here in the past were fixed by the time anybody read
 them.
@@ -332,6 +334,69 @@ it so the next restatement has a list to copy rather than a memory to trust.
   from `season_cards` and the client previews from the bundle; ship them apart
   and `version_mismatch` fires (correctly) and previews disagree with results.
 
+## 13. A framed season's ticket home is built but unproven
+
+`/embed` plays ranked now, and a framed season sits on an *anonymous* account,
+which 0011 keeps off every board on purpose. `CarryOver` (in the Yours tab)
+mints a 0022 transfer ticket and opens `18-0.co/account?transfer=…` in a new
+tab, where `transferFromUrl` feeds it into the existing claim.
+
+**Verified on espn.com as far as the offer**: the panel showed "2 seasons here
+are not on the board yet", so the frame really does create an anonymous session
+inside partitioned storage and the server really does have seasons to hand over.
+What was *not* verified is the other half — signing in and watching them land.
+Two reasons: the button is inside a cross-origin frame, where Chrome does not
+route synthetic clicks, and the claim needs a real sign-in.
+
+**Still true?** Press "Take them to my account" on a watch page, sign in, and
+check the seasons appear on the board and the `transfer` parameter is gone from
+the address bar. If they do not arrive, the thing to suspect is not the ticket
+but the *account*: third-party storage is partitioned per top-level site, so the
+frame's anonymous account is not the one on 18-0.co, which is exactly why the
+ticket exists. The ticket deliberately does **not** travel by `postMessage` —
+that is delivered to every listener in the host page, and a ticket is a bearer
+capability. See `CarryOver` and `transferFromUrl` for the argument.
+
+---
+
+## 14. The extension's name field has no consumer
+
+`handle` in `extensions/espn-watch/config.js` is validated against the game's
+own `profiles_handle_shape` and stored, and **nothing reads it**. The options
+page says so in as many words, on purpose — a setting whose page implies it is
+live when it is not is the consent screen's mistake in a second place.
+
+It cannot be used yet because of ordering: a framed account is anonymous,
+anonymous accounts reach no board, and a framed season only ranks once it is
+carried onto an account the player signed into — which already has its own
+name. Writing a name onto the throwaway account in between would also burn its
+30-day rename cooldown for nothing.
+
+**Done when** either a framed account can rank on its own, or the name is used
+as the *suggestion* at the moment a transfer is claimed. The safe shape for the
+first is to hand it to `claimHandle()` and let the server refuse it: `handle` is
+unique, the denylist catches impersonation, and `enforce_handle_policy` owns the
+cooldown. A client that resolved uniqueness itself would be a client deciding
+who somebody is.
+
+---
+
+## 15. The ranked switch publishes no `aria-checked`
+
+Found by `scripts/verify/fold.mjs`, which tried to read it to decide whether to
+toggle, got `null` in both states, and therefore silently never toggled — so
+every measured season was played ranked until the harness was taught to read the
+word it renders (RANKED/CASUAL) instead.
+
+That is a real accessibility gap, not a harness problem: a switch that does not
+say what state it is in is a switch a screen reader cannot report. It is also a
+small fix, and the harness will keep working either way.
+
+**Done when** the control exposes its state, and the fold harness can go back to
+reading it rather than reading its label.
+
+---
+
 ## Gotchas that cost time
 
 - **A service worker caches the dev bundle.** Editing a file and reloading
@@ -364,3 +429,13 @@ it so the next restatement has a list to copy rather than a memory to trust.
   other way to find the SDK is `ANDROID_HOME`, and without it the build fails
   with "SDK location not found" -- which reads as a broken project and is a
   missing export. `pnpm verify:builds` sets it, and `DEVELOPER_DIR`, itself.
+- **Synthetic clicks do not reach inside a cross-origin iframe.** Chrome routes
+  them to the top frame, so any automation of `/embed` *through* the extension's
+  panel silently does nothing -- three separate attempts looked like app bugs
+  and were not. Drive the same screen top-level at `18-0.co/embed` instead; a
+  real mouse is unaffected.
+- **`~/Downloads` is off-limits to this process, and so is the screen.** macOS
+  TCC denies both, and disabling the agent's own sandbox does not help because
+  the refusal is the operating system's. A recording downloaded by the browser
+  has to be moved out of `Downloads` by Finder before anything here can touch
+  it, and `screencapture` answers "could not create image from display".
