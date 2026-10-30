@@ -1,0 +1,1 @@
+# 18-0.co ads.txt — Google line added once the AdSense publisher id exists (managed in Marquee)

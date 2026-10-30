@@ -11,6 +11,9 @@ import { Celebration } from '@/components/Celebration';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
 import { ShareCard, type ShareRosterRow } from '@/components/ShareCard';
+import { AdSlot } from '@/components/AdSlot';
+import { betweenSeasons } from '@/features/ads';
+import { SLOT_RESULTS } from '@/features/ads-policy';
 import { homeRoute, isEmbedded, tellHost } from '@/features/embed';
 import { standing } from '@/features/frame-standing';
 import { shareResult } from '@/features/share';
@@ -257,8 +260,11 @@ export default function Result() {
     });
   };
 
-  const buildAnother = () => {
+  const buildAnother = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+    // Web only, capped, and resolved at once with no fill (features/ads.ts).
+    // Before startGame, so a break never sits on top of a spinning reel.
+    await betweenSeasons();
     game.startGame();
     router.replace('/play');
   };
@@ -469,6 +475,10 @@ export default function Result() {
           {shareNote}
         </Text>
       ) : null}
+
+      {/* Below the actions, so it can never take the press meant for Build
+          Another. Web only; takes no space with no fill. */}
+      <AdSlot id={SLOT_RESULTS} />
     </View>
   );
 

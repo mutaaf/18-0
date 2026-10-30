@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
+import { startAds } from '@/features/ads';
 import { startAnalytics } from '@/features/analytics';
 import { startFlags } from '@/features/flags';
 import { startStatLines } from '@/features/stat-lines';
@@ -49,6 +50,9 @@ export default function RootLayout() {
     // which is a frame or two on a warm start. A theme is not worth holding a
     // splash screen for.
     void startTheme();
+    // Marquee, on the web build at 18-0.co only (features/ads-policy.ts). An
+    // async cross-origin script; with no fill every call resolves at once.
+    startAds();
   }, []);
 
   // A challenge arrives as `?c=<token>` on the site's own address rather than

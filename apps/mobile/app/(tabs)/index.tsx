@@ -19,6 +19,8 @@ import { OnWatch } from '@/components/OnWatch';
 import { LeaderboardStrip } from '@/components/LeaderboardStrip';
 import { Panel } from '@/components/Panel';
 import { track } from '@/features/telemetry';
+import { adsOn } from '@/features/ads';
+import { AD_PRIVACY_URL } from '@/features/ads-policy';
 import { beginRanked } from '@/features/ranked';
 import { useStartGame, withTimeout } from '@/features/start-game';
 import { flag, useFlag } from '@/features/flags';
@@ -511,6 +513,17 @@ export default function Home() {
         Every rating is computed against its own era and stored on this device. No account, no
         connection required.
       </Text>
+      {/* The web build carries ads (Marquee, features/ads.ts); the page that
+          says what they collect is one tap from the foot of the front page. */}
+      {adsOn() ? (
+        <Pressable
+          onPress={() => window.open(AD_PRIVACY_URL, '_blank', 'noopener')}
+          accessibilityRole="link"
+          accessibilityLabel="How ads work on this site"
+        >
+          <Text style={[styles.footerNote, styles.footerLink]}>Ads and privacy</Text>
+        </Pressable>
+      ) : null}
     </Reveal>
   );
 
@@ -903,4 +916,5 @@ const styles = themed(() => StyleSheet.create({
   },
   footerValue: { fontFamily: font.body, fontSize: 13, color: color.textDim },
   footerNote: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textFaint, lineHeight: 17 },
+  footerLink: { textDecorationLine: 'underline', marginTop: 4 },
 }));
