@@ -1,1 +1,2 @@
-# 18-0.co ads.txt — Google line added once the AdSense publisher id exists (managed in Marquee)
+# 18-0.co ads.txt (publisher managed in Marquee, mutaafaziz.com/ads/admin)
+google.com, pub-7183748259887865, DIRECT, f08c47fec0942fa0
