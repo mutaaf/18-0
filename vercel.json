@@ -16,19 +16,19 @@
   "rewrites": [
     {
       "source": "/robots.txt",
-      "destination": "https://mutaafaziz.com/playbill/ext/18-0/robots.txt"
+      "destination": "https://playbill.mutaaf-aziz4288.workers.dev/playbill/ext/18-0/robots.txt"
     },
     {
       "source": "/sitemap.xml",
-      "destination": "https://mutaafaziz.com/playbill/ext/18-0/sitemap.xml"
+      "destination": "https://playbill.mutaaf-aziz4288.workers.dev/playbill/ext/18-0/sitemap.xml"
     },
     {
       "source": "/llms.txt",
-      "destination": "https://mutaafaziz.com/playbill/ext/18-0/llms.txt"
+      "destination": "https://playbill.mutaaf-aziz4288.workers.dev/playbill/ext/18-0/llms.txt"
     },
     {
       "source": "/fd6ac69bdc4ffe19ef0f922cc3d96bd1.txt",
-      "destination": "https://mutaafaziz.com/playbill/ext/18-0/fd6ac69bdc4ffe19ef0f922cc3d96bd1.txt"
+      "destination": "https://playbill.mutaaf-aziz4288.workers.dev/playbill/ext/18-0/fd6ac69bdc4ffe19ef0f922cc3d96bd1.txt"
     },
     {
       "source": "/privacy",
