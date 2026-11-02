@@ -27,7 +27,11 @@ sign-in, and what it does cost on a device that already had a build.
 
 ## Store listing
 
-**Name:** 18-0
+**Name:** 17-0: Fantasy Football
+
+The bare "17-0" is the name on the home screen and everywhere in the app. The
+store name carries a qualifier because at least six other App Store apps are
+called some variant of "17-0", and a store name has to be unique.
 
 **Subtitle:** Build the perfect roster
 
@@ -43,7 +47,7 @@ sign-in, and what it does cost on a device that already had a build.
 > line and no grade. GM Mode gives you a name and a year, and nothing else.
 >
 > Every rating is computed from what actually happened, against the era it
-> happened in. 18-0 lands about once every 6,000 games.
+> happened in. 17-0 lands about once every 6,000 games.
 
 **Keywords:** football, roster, history, trivia, stats, seasons, draft, sports
 
@@ -62,7 +66,7 @@ asking about when it asks about user-generated content.
 the one line that can be changed without submitting a build, so it is where a
 running thing gets said:
 
-> Each spin hands you one franchise and one era. Seven picks decide a season, rated against the era it was played in. 18-0 lands about once every 6,000 games.
+> Each spin hands you one franchise and one era. Seven picks decide a season, rated against the era it was played in. 17-0 lands about once every 6,000 games.
 
 **Release notes / What's New, 0.1.0:**
 
@@ -73,6 +77,22 @@ running thing gets said:
 
 **Copyright**, for App Store Connect — year and holder, no symbol:
 `2026 DigitalCraft AI`
+
+## The first rejection: 2.1, Information Needed
+
+Version 1.0 (build 3) was rejected on 5 September 2026 under 2.1 -- not for a
+defect, but because the developer account has little review history and Apple
+wanted six things answered: a screen recording on a physical device, the app's
+purpose and audience, how to reach its features, its external services, any
+regional differences, and proof of rights to third-party material.
+
+The answers are in [`apps/mobile/store/review-reply.md`](../apps/mobile/store/review-reply.md),
+with the shot list for the recording, and flattened into
+`apps/mobile/store/review-notes.txt` for the notes field -- Apple asked for them
+to stay there for future submissions, so that file is now what
+`submit-for-review.mjs --notes-file` sends. The answer to the last question is
+why `player_photos` is off: there is no licence for the photographs, so the
+app shows none (see [`licensing.md`](licensing.md)).
 
 ## App Store — Review notes
 
@@ -404,10 +424,10 @@ release.
 
 Covered in `app.config.js`, and worth knowing before anyone "fixes" the name
 back: `expo.name` is both the label under the icon and the string prebuild
-sanitises into the Xcode target name. `18-0` sanitises to `180`, which is purely
+sanitises into the Xcode target name. `17-0` sanitises to `180`, which is purely
 numeric, so the pbxproj stores it unquoted and parsers read it as a number --
 and the build dies with `Could not find target '180' in project.pbxproj`.
-`plugins/with-display-name.js` puts `18-0` back on both home screens.
+`plugins/with-display-name.js` puts `17-0` back on both home screens.
 
 ## Still open
 

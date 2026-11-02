@@ -25,7 +25,7 @@ import { color, font, radius, space, themed, tracking, type PressState } from '@
  * The other is a prompt. Handing an agent "clone this and set it up" is how a
  * growing number of people install anything, and the instruction has to name
  * the repository, the folder inside it and the page to open — an agent given
- * "install the 18-0 extension" will guess at all three.
+ * "install the 17-0 extension" will guess at all three.
  *
  * **What it must not do is pretend to be a store.** There is no listing and no
  * one-click install; this is a demo loaded unpacked. Saying so plainly is the
@@ -58,7 +58,7 @@ export function OnWatch() {
   return (
     <Panel tint={color.navy} contentStyle={styles.body}>
       <Text style={styles.eyebrow}>Beyond this page</Text>
-      <Text style={styles.title}>Put 18-0 on your ESPN Watch page</Text>
+      <Text style={styles.title}>Put 17-0 on your ESPN Watch page</Text>
       <Text style={styles.lede}>
         A browser extension drops the game into a row on espn.com/watch — a card
         among the thumbnails, or a band across the gap between two rows. It sits
@@ -83,7 +83,7 @@ export function OnWatch() {
           <Pressable
             onPress={() => open(EXTENSION_ZIP_URL, 'watch_extension_zip')}
             accessibilityRole="link"
-            accessibilityLabel="Download the 18-0 on Watch extension"
+            accessibilityLabel="Download the 17-0 on Watch extension"
             style={({ hovered, pressed }: PressState) => [
               styles.action,
               hovered && styles.actionHover,

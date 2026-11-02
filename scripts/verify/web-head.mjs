@@ -54,7 +54,7 @@ const contentOf = (attr, value) => {
 console.log('\nWEB SHARE PREVIEW');
 
 const title = /<title>([^<]*)<\/title>/i.exec(html)?.[1] ?? '';
-check('the page has a title worth reading', title.length > 6 && title !== '18-0', title);
+check('the page has a title worth reading', title.length > 6 && title !== '17-0', title);
 check('it describes itself', (contentOf('name', 'description') ?? '').length > 60);
 
 for (const tag of ['og:title', 'og:description', 'og:url', 'og:image', 'og:type']) {

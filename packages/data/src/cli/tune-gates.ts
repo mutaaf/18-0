@@ -1,11 +1,11 @@
 /**
  * Tunes the perfection gates against the real dataset.
  *
- *   pnpm --filter @18-0/data tune -- --games=400000
+ *   pnpm --filter @17-0/data tune -- --games=400000
  *
  * The gate values in PRFAQ §21 (96 everywhere, 98 at QB and DEF) were round
  * numbers chosen before anyone knew the real rating distribution. Measured
- * against actual NFL history they make 18-0 effectively unreachable: only 0.007%
+ * against actual NFL history they make 17-0 effectively unreachable: only 0.007%
  * of seven-spin draws can fill all seven slots at a 96 floor, because most
  * franchise-decades simply never produced an all-time-elite season at every
  * position.
@@ -19,8 +19,8 @@ import {
   ROSTER_SLOTS,
   scoreRoster,
   type RosterSlot,
-} from '@18-0/domain';
-import { createRng, drawSkill, expectedBestByPosition, playGame, poolFromSeasons } from '@18-0/domain/sim';
+} from '@17-0/domain';
+import { createRng, drawSkill, expectedBestByPosition, playGame, poolFromSeasons } from '@17-0/domain/sim';
 import { DATASET, toRatedSeason } from '../index.js';
 
 const args = new Map(
@@ -41,7 +41,7 @@ interface Sample {
   ratings: Record<RosterSlot, number>;
 }
 
-console.log(`\n18-0 — GATE TUNING  (${GAMES.toLocaleString()} games on the real dataset)\n` + '='.repeat(76));
+console.log(`\n17-0 — GATE TUNING  (${GAMES.toLocaleString()} games on the real dataset)\n` + '='.repeat(76));
 const samples: Sample[] = [];
 for (let i = 0; i < GAMES; i++) {
   const { roster } = playGame(pool, rng, drawSkill(rng), config, baseline);
@@ -114,7 +114,7 @@ const passes = (sample: Sample, c: Candidate): boolean => {
 };
 
 console.log('\nCANDIDATE GATE CONFIGS\n');
-console.log('  config                            18-0 rate     1 in       17-1 rate');
+console.log('  config                            17-0 rate     1 in       16-1 rate');
 for (const candidate of CANDIDATES) {
   const perfect = samples.filter((s) => passes(s, candidate)).length;
   const reachedScore = above(candidate.score);
@@ -152,7 +152,7 @@ const shipped: Candidate = {
   eliteCount: config.perfection.eliteCount.minCount,
 };
 
-/** Where 17-1 begins, taken from the record bands rather than restated. */
+/** Where 16-1 begins, taken from the record bands rather than restated. */
 const heartbreakFloor = config.recordBands
   .filter((b) => b.endingKey === 'HEARTBREAK')
   .map((b) => b.minRating)[0] ?? 96.5;
@@ -169,15 +169,15 @@ console.log(
   `  score ${shipped.score} / ${shipped.universal} / ${shipped.qbDef}` +
     `, ${shipped.eliteCount} at ${shipped.eliteRating}+`,
 );
-console.log(`  18-0   ${perfectCount} of ${GAMES.toLocaleString()}   1 in ${perfectOneIn.toLocaleString()}`);
-console.log(`  17-1   ${heartbreakCount} of ${GAMES.toLocaleString()}   1 in ${heartbreakOneIn.toLocaleString()}`);
+console.log(`  17-0   ${perfectCount} of ${GAMES.toLocaleString()}   1 in ${perfectOneIn.toLocaleString()}`);
+console.log(`  16-1   ${heartbreakCount} of ${GAMES.toLocaleString()}   1 in ${heartbreakOneIn.toLocaleString()}`);
 console.log('');
 
 /**
  * The published claim, asserted rather than printed.
  *
- * The README, the home screen and the stats screen all say 18-0 lands about
- * once every 6,000 games and 17-1 about once every 49. Those are a function of
+ * The README, the home screen and the stats screen all say 17-0 lands about
+ * once every 6,000 games and 16-1 about once every 49. Those are a function of
  * the card pool, and the pool has grown twice in a month -- each time silently
  * falsifying them until somebody happened to measure. The last drift was a
  * factor of four.
@@ -189,7 +189,7 @@ console.log('');
  * drift cannot hide: at 400,000 games the shipped gates read 1 in 5,797.
  *
  * Retuning is two steps in order -- `analyze --write` refits the curve, which
- * governs 17-1, then `tune` picks the gates, which govern 18-0 -- and then the
+ * governs 16-1, then `tune` picks the gates, which govern 17-0 -- and then the
  * copy has to move with them, or this fails again for the right reason.
  */
 const BANDS = {
@@ -201,14 +201,14 @@ if (args.has('assert')) {
   const failures: string[] = [];
   if (perfectOneIn < BANDS.perfect.min || perfectOneIn > BANDS.perfect.max) {
     failures.push(
-      `18-0 is 1 in ${perfectOneIn.toLocaleString()}, outside ` +
+      `17-0 is 1 in ${perfectOneIn.toLocaleString()}, outside ` +
         `${BANDS.perfect.min.toLocaleString()}-${BANDS.perfect.max.toLocaleString()}. ` +
         `The app says ${BANDS.perfect.claim}.`,
     );
   }
   if (heartbreakOneIn < BANDS.heartbreak.min || heartbreakOneIn > BANDS.heartbreak.max) {
     failures.push(
-      `17-1 is 1 in ${heartbreakOneIn.toLocaleString()}, outside ` +
+      `16-1 is 1 in ${heartbreakOneIn.toLocaleString()}, outside ` +
         `${BANDS.heartbreak.min}-${BANDS.heartbreak.max}. The app says ${BANDS.heartbreak.claim}.`,
     );
   }

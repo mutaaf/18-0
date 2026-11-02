@@ -22,7 +22,7 @@ import {
   gamedayDate,
   gamedayLabel,
   type Gameday,
-} from '@18-0/data';
+} from '@17-0/data';
 import { lookupCard } from '@/state/game';
 import { Screen } from '@/components/Screen';
 import { ReportButton } from '@/components/ReportButton';
@@ -273,7 +273,7 @@ export default function Leaderboard() {
           <Text style={styles.subtitle}>
             {board === 'gameday' && day
               ? `${gamedayDate(day)} · ${gamedayLabel(day)}`
-              : 'Highest 18-0 rating'}
+              : 'Highest 17-0 rating'}
           </Text>
         </View>
 

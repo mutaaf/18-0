@@ -21,7 +21,7 @@ export const APP_URL = 'https://18-0.co';
 /** How the link reads when it is shown as text rather than followed. */
 export const APP_URL_LABEL = APP_URL.replace(/^https?:\/\//, '').replace(/\/+$/, '');
 
-export const APP_NAME = '18-0';
+export const APP_NAME = '17-0';
 
 export const APP_TAGLINE = 'Build the perfect roster';
 
@@ -91,7 +91,7 @@ export const EXTENSION_ZIP_URL = `${REPO_URL}/releases/latest/download/18-0-on-w
  * What to hand an agent.
  *
  * It names the repository, the folder inside it and the page to open, because
- * an agent given "install the 18-0 extension" will guess at all three -- and
+ * an agent given "install the 17-0 extension" will guess at all three -- and
  * the guess that matters is the folder: the repository root is not an
  * extension and Chrome refuses it with an error about a missing manifest.
  *
@@ -108,6 +108,6 @@ export function agentPrompt(): string {
     '',
     'Open chrome://extensions, turn on Developer mode, choose Load unpacked and',
     'point it at that folder. Then open https://www.espn.com/watch/ and tell me',
-    'whether the 18-0 card is in the first row.',
+    'whether the 17-0 card is in the first row.',
   ].join('\n');
 }

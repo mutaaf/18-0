@@ -15,8 +15,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-import { POSITIONS, ROSTER_SLOTS, SLOT_POSITION, type EraKey, type Position, type RosterSlot } from '@18-0/domain';
-import { DATASET, displayName, eligibleCards, era as eraDef, franchise, franchiseEraShape, franchiseEraStory, type BootCard } from '@18-0/data';
+import { POSITIONS, ROSTER_SLOTS, SLOT_POSITION, type EraKey, type Position, type RosterSlot } from '@17-0/domain';
+import { DATASET, displayName, eligibleCards, era as eraDef, franchise, franchiseEraShape, franchiseEraStory, type BootCard } from '@17-0/data';
 import { Brand } from '@/components/Brand';
 import { Field } from '@/components/Field';
 import { SpinReel } from '@/components/SpinReel';
@@ -1227,8 +1227,8 @@ const styles = themed(() => StyleSheet.create({
     textTransform: 'uppercase',
     includeFontPadding: false,
   },
-  // Deliberately red, not gold: gold is reserved for an earned 18-0, and this
-  // button fires on every game including the ones that end 2-16.
+  // Deliberately red, not gold: gold is reserved for an earned 17-0, and this
+  // button fires on every game including the ones that end 2-15.
   revealButton: {
     backgroundColor: color.action,
     borderRadius: radius.md,

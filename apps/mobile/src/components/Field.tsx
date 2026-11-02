@@ -1,8 +1,8 @@
 import { memo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, G, Line, LinearGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
-import { ROSTER_SLOTS, SLOT_POSITION, type RosterSlot } from '@18-0/domain';
-import type { BootCard } from '@18-0/data';
+import { ROSTER_SLOTS, SLOT_POSITION, type RosterSlot } from '@17-0/domain';
+import type { BootCard } from '@17-0/data';
 import { SLOT_HEIGHT, TOUCHLINE, formation } from './field-geometry';
 import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking, useLayout, useThemeId } from '@/theme';
 

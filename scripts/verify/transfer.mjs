@@ -114,7 +114,7 @@ for (const signal of ['uncaughtException', 'unhandledRejection']) {
   });
 }
 
-console.log('\n18-0 — CARRYING SEASONS ACROSS');
+console.log('\n17-0 — CARRYING SEASONS ACROSS');
 console.log('='.repeat(64));
 
 const alice = await anonUser('alice');

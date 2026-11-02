@@ -17,7 +17,7 @@
  * named for its colour is a token that can only ever have one, and the day it
  * holds a different one every reader of the code is misled. `gold` survives as
  * a name because it is not a hue here, it is the chase: the crown an earned
- * 18-0 wears is gold in both themes on purpose.
+ * 17-0 wears is gold in both themes on purpose.
  *
  * ---------------------------------------------------------------------------
  * THE CLUB RULE STILL APPLIES
@@ -134,7 +134,7 @@ export type ThemeId = 'broadcast' | 'turf';
  *
  * A navy-black bowl, red for anything live, silver type. Reconciled from three
  * sources: the league's broadcast navy #013369 and red #D50A0A, ESPN's dense
- * uppercase bars, and 18-0's own Victory Gold #FFB400 and Steel Silver
+ * uppercase bars, and 17-0's own Victory Gold #FFB400 and Steel Silver
  * #C0C0C6.
  */
 const broadcast: Theme = {

@@ -1,4 +1,4 @@
-import type { Archetype, EraKey, Position } from '@18-0/domain';
+import type { Archetype, EraKey, Position } from '@17-0/domain';
 
 /**
  * The bundled historical dataset.

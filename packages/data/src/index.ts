@@ -1,4 +1,4 @@
-import { POSITION_MODELS, type EraKey, type Position, type RatedSeason } from '@18-0/domain';
+import { POSITION_MODELS, type EraKey, type Position, type RatedSeason } from '@17-0/domain';
 import raw from '../generated/dataset.json' with { type: 'json' };
 import type { BootCard, Dataset, DatasetCard, DatasetComponent, DatasetFranchise } from './schema.js';
 

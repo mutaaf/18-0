@@ -7,8 +7,8 @@ import { DECORATIVE, color } from '@/theme';
  *
  * A reveal that fades a number in is a receipt, not a celebration — this is the
  * moment the whole loop exists for, so it flashes, it throws confetti, and at
- * 18-0 it does all of it in gold and does not apologise. Intensity scales with
- * the record: a 6-12 gets a flicker, a 17-1 gets buried.
+ * 17-0 it does all of it in gold and does not apologise. Intensity scales with
+ * the record: a 6-11 gets a flicker, a 16-1 gets buried.
  *
  * Built on React Native's own `Animated` rather than Reanimated, and every
  * piece is `pointerEvents="none"` in an absolutely-positioned overlay, so
@@ -111,7 +111,7 @@ function Flash({ color, strength }: { color: string; strength: number }) {
   );
 }
 
-/** Three shockwaves off the record. Reserved for 18-0. */
+/** Three shockwaves off the record. Reserved for 17-0. */
 function Rings({ width }: { width: number }) {
   return (
     <>

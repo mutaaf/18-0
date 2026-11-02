@@ -2,7 +2,7 @@ import { Platform, Share, type View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import * as Clipboard from 'expo-clipboard';
 import * as Sharing from 'expo-sharing';
-import type { GameResult } from '@18-0/domain';
+import type { GameResult } from '@17-0/domain';
 import type { ShareRosterRow } from '@/components/ShareCard';
 
 /**
@@ -56,7 +56,7 @@ export function shareText(result: GameResult, roster: readonly ShareRosterRow[])
   );
   const perfect = result.ending.key === 'PERFECT';
   return (
-    `18-0 — ${result.record.wins}-${result.record.losses} ${result.ending.label.toUpperCase()}\n` +
+    `17-0 — ${result.record.wins}-${result.record.losses} ${result.ending.label.toUpperCase()}\n` +
     `Rating ${result.finalRating.toFixed(1)} · Tier ${result.ending.tier}\n\n${lines.join('\n')}\n\n` +
     `${perfect ? 'A perfect season. Beat it.' : 'Can you beat this roster?'}\n${challengeUrl(roster)}`
   );
@@ -103,7 +103,7 @@ export async function shareResult(
     }
 
     if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(file, { mimeType: 'image/png', dialogTitle: '18-0' });
+      await Sharing.shareAsync(file, { mimeType: 'image/png', dialogTitle: '17-0' });
       return 'image';
     }
     return await fallback();

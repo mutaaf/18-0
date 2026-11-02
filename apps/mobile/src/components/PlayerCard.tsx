@@ -2,7 +2,7 @@ import { memo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Reveal } from './Reveal';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { franchise, type BootCard } from '@18-0/data';
+import { franchise, type BootCard } from '@17-0/data';
 import { useCardStats } from '@/features/stat-lines';
 import { showsRating, showsStats, type GameMode } from '@/state/game';
 import { color, font, positionColor, radius, space, tabular, themed, tracking, type PressState, useThemeId } from '@/theme';

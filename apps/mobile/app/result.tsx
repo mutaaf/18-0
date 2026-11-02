@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { ROSTER_SLOTS, isPerfectionDenied, type RosterSlot } from '@18-0/domain';
-import { displayName, eraLabel, franchise } from '@18-0/data';
+import { ROSTER_SLOTS, isPerfectionDenied, type RosterSlot } from '@17-0/domain';
+import { displayName, eraLabel, franchise } from '@17-0/data';
 import { Brand } from '@/components/Brand';
 import { EASE_OUT, Layer, SkipLayer, keyframes, useTimeline } from '@/components/Broadcast';
 import { CUE, ROSTER_STEP, Scoreboard } from '@/components/Scoreboard';
@@ -40,7 +40,7 @@ import {
 
 /**
  * The reveal does two jobs: land the result hard, and make the next spin feel
- * inevitable. So the distance from 18-0 is the second thing on the page rather
+ * inevitable. So the distance from 17-0 is the second thing on the page rather
  * than a footnote — the whole product is the chase.
  *
  * The landing is a broadcast build rather than a page that fades in, and the
@@ -269,7 +269,7 @@ export default function Result() {
     router.replace('/play');
   };
 
-  // Confetti over a 4-14 would read as mockery, so the celebration only starts
+  // Confetti over a 4-13 would read as mockery, so the celebration only starts
   // once the season is one worth celebrating, and grows from there.
   const celebration = perfect ? 1 : wins >= 17 ? 0.92 : wins >= 15 ? 0.7 : wins >= 12 ? 0.45 : wins >= 10 ? 0.25 : 0;
 
@@ -311,7 +311,7 @@ export default function Result() {
         ) : (
           <>
             <View style={styles.chaseHead}>
-              <Text style={styles.chaseLabel}>Distance from 18-0</Text>
+              <Text style={styles.chaseLabel}>Distance from 17-0</Text>
               <Text style={styles.chaseValue}>{toPerfect.toFixed(2)}</Text>
             </View>
             <View style={styles.meter}>

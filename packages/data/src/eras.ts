@@ -1,4 +1,4 @@
-import type { EraKey } from '@18-0/domain';
+import type { EraKey } from '@17-0/domain';
 import { FRANCHISE_ERA_RECORD } from './franchise-era-records.js';
 
 /**

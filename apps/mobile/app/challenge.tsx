@@ -169,7 +169,7 @@ export default function Challenge() {
               accessibilityLabel="Back to the game"
               style={styles.quiet}
             >
-              <Text style={styles.quietLabel}>Back to 18-0</Text>
+              <Text style={styles.quietLabel}>Back to 17-0</Text>
             </Pressable>
           </>
         )}
@@ -232,7 +232,7 @@ function Missing({ onHome, inline }: { onHome: () => void; inline?: boolean }) {
         The link may be mistyped, or the season behind it was deleted.
       </Text>
       <Pressable onPress={onHome} accessibilityRole="button" style={styles.quiet}>
-        <Text style={styles.quietLabel}>Back to 18-0</Text>
+        <Text style={styles.quietLabel}>Back to 17-0</Text>
       </Pressable>
     </View>
   );

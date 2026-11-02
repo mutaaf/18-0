@@ -122,7 +122,7 @@ const EZ_DEFAULTS = {
    * dealt and scored by the server, but the account it belongs to is anonymous,
    * and 0011 keeps anonymous accounts off every board on purpose -- an
    * anonymous account is free and unlimited. The season goes up when the player
-   * signs in at 18-0, and that account brings its own name. A setting whose
+   * signs in at 17-0, and that account brings its own name. A setting whose
    * page implies otherwise is the consent screen's mistake in a second place.
    *
    * Empty means "no name yet". The shape matches the game's own handles --
@@ -186,7 +186,7 @@ const EZ_DEFAULTS = {
    * defaults read correctly in both states and nobody has to maintain two sets.
    */
   copy: {
-    tileTitle: '18-0 — build the perfect roster',
+    tileTitle: '17-0 — build the perfect roster',
     tileSubtitle: 'Seven spins · Plays here',
     tileButton: 'Play a season',
     // The two lines the slots carry: a tagline under the mark and a headline
@@ -196,7 +196,7 @@ const EZ_DEFAULTS = {
     tileHeadline: 'Can you go perfect?',
 
     bandKicker: 'Play',
-    bandTitle: '18-0 — build the perfect roster',
+    bandTitle: '17-0 — build the perfect roster',
     bandSubtitle: 'Seven spins, sixty years of pro football, one undefeated season.',
     bandButton: 'Play a season',
     bandTagline: 'Build · Play · Goat',

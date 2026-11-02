@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Position, SeasonStats } from '@18-0/domain';
+import type { Position, SeasonStats } from '@17-0/domain';
 
 /**
  * Hydrated season files: one year at a time, from whatever source you have.

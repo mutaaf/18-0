@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
-import { DEFAULT_SCORING_CONFIG, type RosterSlot } from '@18-0/domain';
-import { DATASET } from '@18-0/data';
+import { DEFAULT_SCORING_CONFIG, type RosterSlot } from '@17-0/domain';
+import { DATASET } from '@17-0/data';
 import { currentUser, ensureSession, isBackendConfigured, supabase } from '@/services/supabase';
 import { uuid } from '@/features/uuid';
 import type { GameMode } from '@/state/game';

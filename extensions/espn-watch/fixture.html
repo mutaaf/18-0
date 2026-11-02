@@ -358,7 +358,7 @@
   if (new URLSearchParams(location.search).get('best') === '1') {
     setTimeout(() => {
       window.dispatchEvent(new MessageEvent('message', {
-        data: { source: '18-0', best: { wins: 16, losses: 2, rating: 92.2 } },
+        data: { source: '18-0', best: { wins: 15, losses: 2, rating: 92.2 } },
         origin: 'https://18-0.co',
       }));
       setTimeout(() => {

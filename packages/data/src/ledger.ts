@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { POSITION_MODELS, type Position } from '@18-0/domain';
+import { POSITION_MODELS, type Position } from '@17-0/domain';
 import { SEASONS_DIR } from './seasons.js';
 import type { Dataset, DatasetCard } from './schema.js';
 
@@ -166,7 +166,7 @@ export function writeLedger(
     '<meta name="viewport" content="width=device-width,initial-scale=1">\n' +
     '<meta name="color-scheme" content="dark light">\n' +
     '<meta name="robots" content="noindex,nofollow">\n' +
-    '<meta name="description" content="Every rated season in 18-0, and the source file each one was built from.">\n' +
+    '<meta name="description" content="Every rated season in 17-0, and the source file each one was built from.">\n' +
     body.slice(0, split).trim() +
     '\n</head>\n<body>\n' +
     body.slice(split).trim() +

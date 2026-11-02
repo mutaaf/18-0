@@ -16,7 +16,7 @@ import {
   type PartialRoster,
   type RosterSlot,
   type SpinResult,
-} from '@18-0/domain';
+} from '@17-0/domain';
 import {
   DATASET,
   cardById,
@@ -25,7 +25,7 @@ import {
   gamedayByKey,
   toRatedSeason,
   type BootCard,
-} from '@18-0/data';
+} from '@17-0/data';
 
 /**
  * The gameplay state machine (PRFAQ §29), persisted so an in-progress game
@@ -180,7 +180,7 @@ function gamedayFranchises(key: string): Set<string> {
  * the single best card still available for a slot you have not filled.
  *
  * It is a cheat, and the game says so — any run that uses it is flagged
- * `assisted` for the rest of the game, so a rigged 18-0 can never be mistaken
+ * `assisted` for the rest of the game, so a rigged 17-0 can never be mistaken
  * for an earned one.
  */
 function bestAvailableCombo(

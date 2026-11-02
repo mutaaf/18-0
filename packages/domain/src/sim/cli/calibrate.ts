@@ -63,7 +63,7 @@ const TARGETS: readonly (readonly [percentile: number, finalRating: number])[] =
 
 
 
-console.log('\n18-0 — CALIBRATION FIT\n' + '='.repeat(72));
+console.log('\n17-0 — CALIBRATION FIT\n' + '='.repeat(72));
 console.log(`model ${config.version} · ${LEAGUES} leagues × ${GAMES.toLocaleString()} games\n`);
 
 const raws: number[] = [];
@@ -146,8 +146,8 @@ for (const ending of [...ENDINGS].reverse()) {
       `${bar(share)}  ${(share * 100).toFixed(3).padStart(7)}%  ${count.toLocaleString().padStart(9)}`,
   );
 }
-console.log('\n  note: 18-0 here counts rosters that cleared the SCORE only.');
-console.log('        The perfection gates decide how many of those actually finish 18-0.\n');
+console.log('\n  note: 17-0 here counts rosters that cleared the SCORE only.');
+console.log('        The perfection gates decide how many of those actually finish 17-0.\n');
 
 if (WRITE) {
   const target = resolve(

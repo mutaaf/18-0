@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { DATASET, cardById, type BootCard, type StatLine } from '@18-0/data';
+import { DATASET, cardById, type BootCard, type StatLine } from '@17-0/data';
 import { parseManifest, parseStatLines, type ParsedStatLines } from './parse';
 
 export * from './parse';

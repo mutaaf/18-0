@@ -7,7 +7,7 @@ import { color, font, radius, tabular, themed, tracking } from '@/theme';
  */
 export function ratingTone(rating: number): { fg: string; bg: string; border: string } {
   // Deliberately near-white, not gold: a 99 should read as hot, and gold is
-  // reserved for an earned 18-0.
+  // reserved for an earned 17-0.
   if (rating >= 97) return { fg: '#FFFFFF', bg: '#FFFFFF14', border: '#FFFFFF59' };
   if (rating >= 93) return { fg: '#7FE3B0', bg: `${color.positive}14`, border: `${color.positive}4D` };
   if (rating >= 88) return { fg: '#8FC4FF', bg: '#4D9DFF14', border: '#4D9DFF40' };

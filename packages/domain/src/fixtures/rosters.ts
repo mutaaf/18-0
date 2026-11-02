@@ -39,7 +39,7 @@ export const ROSTER_FIXTURES: readonly RosterFixture[] = [
     key: 'weak',
     label: 'Weak roster',
     description: 'Seven very good starters and nothing more.',
-    expectedRecord: [6, 12],
+    expectedRecord: [6, 11],
     expectedEndingKey: 'UNDERACHIEVER',
     slots: {
       QB: slot(87.2, 'Fixture QB', 'atl', 1994),
@@ -55,8 +55,8 @@ export const ROSTER_FIXTURES: readonly RosterFixture[] = [
     key: 'average',
     label: 'Average roster',
     description: 'Seven Pro Bowl-caliber seasons — the median build.',
-    expectedRecord: [9, 9],
-    expectedEndingKey: 'AVERAGE',
+    expectedRecord: [8, 9],
+    expectedEndingKey: 'ALMOST_THERE',
     slots: {
       QB: slot(91, 'Fixture QB', 'buf', 1991),
       RB1: slot(89, 'Fixture RB1', 'dal', 1993),
@@ -71,7 +71,7 @@ export const ROSTER_FIXTURES: readonly RosterFixture[] = [
     key: 'playoff',
     label: 'Playoff roster',
     description: 'First-Team All-Pro across the board, with a soft RB2.',
-    expectedRecord: [12, 6],
+    expectedRecord: [11, 6],
     expectedEndingKey: 'PLAYOFF_TEAM',
     slots: {
       QB: slot(94.8, 'Fixture QB', 'sf', 1989),
@@ -87,7 +87,7 @@ export const ROSTER_FIXTURES: readonly RosterFixture[] = [
     key: 'championship',
     label: 'Championship-caliber roster',
     description: 'One rung below a dynasty; the middle of the roster gives it away.',
-    expectedRecord: [15, 3],
+    expectedRecord: [14, 3],
     expectedEndingKey: 'CHAMPIONSHIP_CALIBER',
     slots: {
       QB: slot(96.2, 'Fixture QB', 'ne', 2007),
@@ -103,7 +103,7 @@ export const ROSTER_FIXTURES: readonly RosterFixture[] = [
     key: 'dynasty',
     label: 'Dynasty roster',
     description: 'Elite everywhere, still short of the perfection floors.',
-    expectedRecord: [16, 2],
+    expectedRecord: [15, 2],
     expectedEndingKey: 'DYNASTY',
     slots: {
       QB: slot(96.7, 'Fixture QB', 'ne', 2007),
@@ -118,8 +118,8 @@ export const ROSTER_FIXTURES: readonly RosterFixture[] = [
   {
     key: 'heartbreak',
     label: 'Heartbreak roster',
-    description: '17-1 on score alone — it never reached the 18-0 threshold.',
-    expectedRecord: [17, 1],
+    description: '16-1 on score alone — it never reached the 17-0 threshold.',
+    expectedRecord: [16, 1],
     expectedEndingKey: 'HEARTBREAK',
     slots: {
       QB: slot(98.6, 'Fixture QB', 'ne', 2007),
@@ -134,8 +134,8 @@ export const ROSTER_FIXTURES: readonly RosterFixture[] = [
   {
     key: 'perfection_denied',
     label: 'Perfection denied',
-    description: 'Cleared the 18-0 score, then failed the RB2 floor. The PERFECTION DENIED state.',
-    expectedRecord: [17, 1],
+    description: 'Cleared the 17-0 score, then failed the RB2 floor. The PERFECTION DENIED state.',
+    expectedRecord: [16, 1],
     expectedEndingKey: 'HEARTBREAK',
     slots: {
       QB: slot(99.9, 'Fixture QB', 'ne', 2007),
@@ -150,8 +150,8 @@ export const ROSTER_FIXTURES: readonly RosterFixture[] = [
   {
     key: 'perfect',
     label: 'Perfect roster',
-    description: 'Every gate cleared. 18-0. IMMORTAL.',
-    expectedRecord: [18, 0],
+    description: 'Every gate cleared. 17-0. IMMORTAL.',
+    expectedRecord: [17, 0],
     expectedEndingKey: 'PERFECT',
     slots: {
       QB: slot(99.9, 'Fixture QB', 'ne', 2007),

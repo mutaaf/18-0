@@ -1,5 +1,5 @@
 /**
- * Is 18-0 actually reachable?
+ * Is 17-0 actually reachable?
  *
  * The perfection gates require seven slots at 96+, QB and DEF at 98+, and four
  * slots at 98+ — but the user does not choose their spins. This measures how
@@ -31,7 +31,7 @@ const POOL_SPEC = { ...DEFAULT_POOL_SPEC, talentClustering: CLUSTERING };
 const config = DEFAULT_SCORING_CONFIG;
 
 
-console.log('\n18-0 — PERFECTION REACHABILITY\n' + '='.repeat(72));
+console.log('\n17-0 — PERFECTION REACHABILITY\n' + '='.repeat(72));
 console.log(`model ${config.version} · ${LEAGUES} leagues · ${DRAWS.toLocaleString()} draws · ${GAMES.toLocaleString()} games each`);
 console.log(`talent clustering: ${CLUSTERING}\n`);
 
@@ -72,7 +72,7 @@ for (let league = 0; league < LEAGUES; league++) {
     console.log('');
   }
 
-  // --- Upper bound on 18-0 -------------------------------------------------
+  // --- Upper bound on 17-0 -------------------------------------------------
   const rng = createRng(seed ^ 0x5f3759df);
   for (let i = 0; i < DRAWS; i++) {
     const spins = drawSpins(pool, rng);
@@ -94,7 +94,7 @@ for (let league = 0; league < LEAGUES; league++) {
 }
 
 console.log('GATE FEASIBILITY UNDER OMNISCIENT PLAY\n');
-console.log('  slots fillable at their 18-0 floor, per seven-spin draw:');
+console.log('  slots fillable at their 17-0 floor, per seven-spin draw:');
 gatedHistogram.forEach((count, slots) => {
   console.log(
     `    ${slots}/7  ${bar(count / totalDraws)}  ${((count / totalDraws) * 100).toFixed(3).padStart(7)}%  ${count.toLocaleString()}`,
@@ -105,10 +105,10 @@ console.log('');
 console.log(`  all seven gates satisfiable : ${totalGatesReachable.toLocaleString()} / ${totalDraws.toLocaleString()}  (${pct(totalGatesReachable, totalDraws)})`);
 console.log(`  ...and score >= ${config.perfection.minFinalRating}       : ${totalPerfectReachable.toLocaleString()} / ${totalDraws.toLocaleString()}  (${pct(totalPerfectReachable, totalDraws)})`);
 if (totalPerfectReachable === 0) {
-  console.log(`\n  >>> No reachable 18-0 in ${totalDraws.toLocaleString()} draws under perfect play.`);
+  console.log(`\n  >>> No reachable 17-0 in ${totalDraws.toLocaleString()} draws under perfect play.`);
   console.log(`  >>> Upper bound on the true rate: < 1 in ${totalDraws.toLocaleString()}.`);
 } else {
-  console.log(`\n  >>> Roughly 1 in ${Math.round(totalDraws / totalPerfectReachable).toLocaleString()} games could reach 18-0 with perfect knowledge.`);
+  console.log(`\n  >>> Roughly 1 in ${Math.round(totalDraws / totalPerfectReachable).toLocaleString()} games could reach 17-0 with perfect knowledge.`);
   console.log('  >>> Real players see far fewer, since they choose without seeing future spins.');
 }
 

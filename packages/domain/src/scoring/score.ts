@@ -49,11 +49,11 @@ export function scoreRoster(
   const perfectEligibility = evaluatePerfection(roster, finalRating, config);
 
   // Reaching the threshold only makes a roster *eligible*. A failed gate sends
-  // it to 17-1 with an explanation rather than to 18-0.
+  // it to 16-1 with an explanation rather than to 17-0.
   const banded = endingForRating(finalRating, config);
   const ending =
     banded.key === 'PERFECT' && !perfectEligibility.eligible
-      ? endingByKey(config.perfection.deniedEndingKey)
+      ? endingByKey(config.perfection.deniedEndingKey, config.seasonGames)
       : banded;
 
   return {
@@ -71,7 +71,7 @@ export function scoreRoster(
 }
 
 /**
- * True when a roster cleared the score threshold but was denied 18-0 by a
+ * True when a roster cleared the score threshold but was denied 17-0 by a
  * gate — the "PERFECTION DENIED" reveal state (PRFAQ §21).
  */
 export function isPerfectionDenied(result: GameResult): boolean {

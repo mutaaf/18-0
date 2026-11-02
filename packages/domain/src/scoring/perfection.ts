@@ -5,7 +5,7 @@ import type { ScoringConfig } from '../constants/config.js';
  * Perfection gates (PRFAQ §21).
  *
  * A score >= 99.25 is necessary but not sufficient. The gates enforce the
- * product promise: an 18-0 roster has no obvious weakness. Every failure is
+ * product promise: a perfect (17-0) roster has no obvious weakness. Every failure is
  * reported so the reveal screen can name the blocker rather than shrug.
  */
 export function evaluatePerfection(
@@ -15,6 +15,9 @@ export function evaluatePerfection(
 ): PerfectEligibility {
   const { minFinalRating, slotMinimums, universalSlotMinimum, eliteCount } = config.perfection;
   const reachedThreshold = finalRating >= minFinalRating;
+  // Named from the model rather than written in: a 1.3.0 season re-read today
+  // was denied 17-0, not 17-0.
+  const perfect = `${config.seasonGames}-0`;
   const failedGates: FailedGate[] = [];
 
   for (const slot of ROSTER_SLOTS) {
@@ -26,7 +29,7 @@ export function evaluatePerfection(
         slot,
         required: universalSlotMinimum,
         actual: rating,
-        message: `${slot} needed a ${universalSlotMinimum.toFixed(1)} minimum for 18-0 eligibility.`,
+        message: `${slot} needed a ${universalSlotMinimum.toFixed(1)} minimum for ${perfect} eligibility.`,
       });
     }
 
@@ -37,7 +40,7 @@ export function evaluatePerfection(
         slot,
         required: positionFloor,
         actual: rating,
-        message: `${slot} needed a ${positionFloor.toFixed(1)} minimum for 18-0 eligibility.`,
+        message: `${slot} needed a ${positionFloor.toFixed(1)} minimum for ${perfect} eligibility.`,
       });
     }
   }
@@ -52,7 +55,7 @@ export function evaluatePerfection(
       slot: null,
       required: eliteCount.minCount,
       actual: eliteSlots,
-      message: `18-0 needs at least ${eliteCount.minCount} positions at ${eliteCount.minRating}+. This roster had ${eliteSlots}.`,
+      message: `${perfect} needs at least ${eliteCount.minCount} positions at ${eliteCount.minRating}+. This roster had ${eliteSlots}.`,
     });
   }
 

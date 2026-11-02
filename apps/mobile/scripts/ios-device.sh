@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Build 18-0 and install it on a paired iPhone, signed with a personal Apple
+# Build 17-0 and install it on a paired iPhone, signed with a personal Apple
 # team. No paid membership, no cloud build.
 #
 #   pnpm ios:device                       # first paired device
@@ -72,8 +72,8 @@ TEAM="${APPLE_TEAM_ID:-95988FTS33}"
 echo "→ signing with team $TEAM"
 
 # The scheme is whatever prebuild named the target, and that is a function of
-# `name` in app.config.js -- which moved from '18-0' to 'Eighteen Zero' because
-# '18-0' sanitises to '180', a purely numeric Xcode target that EAS cannot look
+# `name` in app.config.js -- which moved from '17-0' to 'Seventeen Zero' because
+# '17-0' sanitises to '180', a purely numeric Xcode target that EAS cannot look
 # up. Hardcoding it here meant this script broke the moment that changed, so it
 # is read from the workspace that actually exists.
 WORKSPACE=$(find ios -maxdepth 1 -name '*.xcworkspace' | head -1)

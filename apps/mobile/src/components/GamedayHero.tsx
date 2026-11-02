@@ -8,7 +8,7 @@ import {
   gamedayLabel,
   nextGamedayAfter,
   type Gameday,
-} from '@18-0/data';
+} from '@17-0/data';
 import { useFlag } from '@/features/flags';
 import { DECORATIVE, color, elevate, font, radius, space, tabular, themed, tracking, type PressState } from '@/theme';
 

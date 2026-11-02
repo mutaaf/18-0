@@ -8,7 +8,7 @@ import {
   eraLabel,
   franchise,
   type CardExplanation,
-} from '@18-0/data';
+} from '@17-0/data';
 import { Screen } from '@/components/Screen';
 import { useCardStats } from '@/features/stat-lines';
 import { showsRating, showsStats, useGameStore } from '@/state/game';

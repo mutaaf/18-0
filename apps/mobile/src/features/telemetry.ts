@@ -1,4 +1,4 @@
-import { DATASET } from '@18-0/data';
+import { DATASET } from '@17-0/data';
 
 /**
  * Gameplay telemetry (PRFAQ §33).

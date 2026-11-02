@@ -6,7 +6,7 @@ import { DECORATIVE, color } from '@/theme';
  * The crown.
  *
  * Gold appears all over this app because gold is the brand — but the crown is
- * reserved. Nothing wears one except an earned 18-0, so the first time a player
+ * reserved. Nothing wears one except an earned 17-0, so the first time a player
  * sees it is the moment they earned it.
  */
 export function Crown({

@@ -5,8 +5,8 @@ import * as Haptics from 'expo-haptics';
 import { RankedSwitch } from '@/components/RankedSwitch';
 import Svg, { Path } from 'react-native-svg';
 import { Reveal } from '@/components/Reveal';
-import { ROSTER_SLOTS } from '@18-0/domain';
-import { DATASET, gamedayAt, type Gameday } from '@18-0/data';
+import { ROSTER_SLOTS } from '@17-0/domain';
+import { DATASET, gamedayAt, type Gameday } from '@17-0/data';
 import { Billboard } from '@/components/Billboard';
 import { Brand } from '@/components/Brand';
 import { GamedayHero, gamedayMarqueeDay } from '@/components/GamedayHero';
@@ -236,7 +236,7 @@ export default function Home() {
             // a function of the calibration curve: if the card pool grows and
             // the curve is not refitted, this line quietly stops being true --
             // see docs/scoring-model.md.
-            { value: '1 in 6,000', label: 'Odds of 18-0', gold: true },
+            { value: '1 in 6,000', label: 'Odds of 17-0', gold: true },
           ]}
         >
           <Text style={[styles.headline, { fontSize: display, lineHeight: display * 0.98 }]}>
@@ -423,13 +423,13 @@ export default function Home() {
             <Text style={[styles.chaseValue, stats.perfectSeasons > 0 && { color: color.goldBright }]}>
               {stats.perfectSeasons}
             </Text>
-            <Text style={styles.chaseLabel}>18-0 seasons</Text>
+            <Text style={styles.chaseLabel}>17-0 seasons</Text>
           </View>
           <View>
             <Text style={[styles.chaseValue, stats.heartbreaks > 0 && { color: color.ice }]}>
               {stats.heartbreaks}
             </Text>
-            <Text style={styles.chaseLabel}>17-1 seasons</Text>
+            <Text style={styles.chaseLabel}>16-1 seasons</Text>
           </View>
           <View>
             <Text style={[styles.chaseValue, stats.playerIqGames > 0 && { color: color.actionBright }]}>
@@ -439,7 +439,7 @@ export default function Home() {
           </View>
         </View>
         <Text style={styles.chaseNote}>
-          18-0 lands about once every 6,000 games. 17-1 about once every 49.
+          17-0 lands about once every 6,000 games. 16-1 about once every 49.
         </Text>
         </Panel>
       </Reveal>
@@ -476,7 +476,7 @@ export default function Home() {
     <Reveal delay={320} style={styles.closer}>
       <View style={styles.closerText}>
         <Text style={styles.closerLine}>Seven spins. One roster.</Text>
-        <Text style={styles.closerLineGold}>One shot at 18-0.</Text>
+        <Text style={styles.closerLineGold}>One shot at 17-0.</Text>
       </View>
       <Pressable
         onPress={() => start('scout', { ranked })}

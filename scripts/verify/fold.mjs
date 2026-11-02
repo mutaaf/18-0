@@ -466,7 +466,7 @@ const check = (what, ok, detail = '') => {
   if (!ok) failures++;
 };
 
-console.log('\n18-0 — PLAYERS ABOVE THE FOLD');
+console.log('\n17-0 — PLAYERS ABOVE THE FOLD');
 console.log('='.repeat(64));
 console.log(`  ${dist}  (served at ${BASE || '/'})`);
 

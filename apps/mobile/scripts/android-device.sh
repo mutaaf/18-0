@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Build 18-0 and install it on a connected Android device or a running
+# Build 17-0 and install it on a connected Android device or a running
 # emulator.
 #
 #   pnpm android:device                  # first attached device

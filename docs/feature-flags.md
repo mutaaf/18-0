@@ -38,7 +38,7 @@ apps/mobile/src/features/flags/
    silent in the worst way — the client discards a value it does not recognise
    and serves the fallback, so the experiment looks like it is running and is
    not.
-4. **Run the tests.** `pnpm --filter @18-0/mobile test`.
+4. **Run the tests.** `pnpm --filter @17-0/mobile test`.
 
 ```tsx
 const enabled = useFlag('gameday');          // toggle  -> boolean
@@ -109,7 +109,7 @@ has exactly one answer, and the operator console prints it next to every flag.
 
 Three properties worth knowing:
 
-- **The fallback is the product, not a placeholder.** 18-0 plays with no
+- **The fallback is the product, not a placeholder.** 17-0 plays with no
   account and no connection, and most sessions never ask a server anything. A
   flag whose fallback is not the shipping behaviour behaves one way in the
   office and another in the wild.

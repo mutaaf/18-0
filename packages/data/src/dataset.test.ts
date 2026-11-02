@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { RATING_MODEL_VERSION, scoringConfigForVersion } from '@18-0/domain';
+import { RATING_MODEL_VERSION, scoringConfigForVersion } from '@17-0/domain';
 import { DATASET } from './index.js';
 
 /**

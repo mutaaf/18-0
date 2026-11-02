@@ -22,7 +22,7 @@ export * from './registry';
  *
  * Four properties, in the order they mattered while writing it.
  *
- * **Offline is the normal case.** 18-0 plays with no account and no
+ * **Offline is the normal case.** 17-0 plays with no account and no
  * connection, so a flag has to be answerable before any network call and
  * without one ever succeeding. Reads are synchronous against memory that was
  * populated from the registry's own fallbacks at import time; the remote

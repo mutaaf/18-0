@@ -74,7 +74,7 @@ account:
 
 1. **Identifiers → App IDs** — on the `com.eighteenzerodcai.app` App ID, enable the
    **Sign In with Apple** capability.
-2. **Identifiers → Services IDs** — `com.eighteenzerodcai.app.web` ("18-0 web")
+2. **Identifiers → Services IDs** — `com.eighteenzerodcai.app.web` ("17-0 web")
    exists and is configured. This is the OAuth client id, and it is *not* the
    same string as the App ID:
    - Domain: `keqwdtnyotdovrtcswel.supabase.co`
@@ -96,8 +96,8 @@ calendar reminder.
 
 ## 3. Google
 
-Done. Project **18-0** (`eighteen-zero-game`), separate from CourtIQ because a
-Cloud project has one consent screen, and players signing into 18-0 would
+Done. Project **17-0** (`eighteen-zero-game`), separate from CourtIQ because a
+Cloud project has one consent screen, and players signing into 17-0 would
 otherwise have seen "CourtIQ" on the permission dialog.
 
 - Consent screen: External, **In production**. An External app starts in

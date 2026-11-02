@@ -1,6 +1,6 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { eraLabel, franchise } from '@18-0/data';
+import { eraLabel, franchise } from '@17-0/data';
 import { useMemo } from 'react';
 import { Screen } from '@/components/Screen';
 import { computeStats, useHistoryStore } from '@/state/history';
@@ -36,7 +36,7 @@ export default function Stats() {
             <Text style={styles.blankCtaLabel}>Play a season</Text>
           </Pressable>
           <Text style={styles.blankNote}>
-            18-0 lands about once every 6,000 games. 17-1 about once every 49.
+            17-0 lands about once every 6,000 games. 16-1 about once every 49.
           </Text>
         </View>
       </Screen>
@@ -63,11 +63,11 @@ export default function Stats() {
             The chase
           </Text>
           <View style={styles.chaseRow}>
-            <ChaseStat label="18-0 seasons" value={stats.perfectSeasons} gold />
-            <ChaseStat label="17-1 seasons" value={stats.heartbreaks} />
+            <ChaseStat label="17-0 seasons" value={stats.perfectSeasons} gold />
+            <ChaseStat label="16-1 seasons" value={stats.heartbreaks} />
           </View>
           <Text style={styles.chaseNote}>
-            18-0 lands about once every 6,000 games. 17-1 about once every 49.
+            17-0 lands about once every 6,000 games. 16-1 about once every 49.
           </Text>
         </View>
 
@@ -163,7 +163,7 @@ const styles = themed(() => StyleSheet.create({
     padding: space.lg,
     gap: space.md,
   },
-  // Gold appears only once an 18-0 has actually been earned.
+  // Gold appears only once an 17-0 has actually been earned.
   chaseEarned: { borderColor: '#F2C43D40', backgroundColor: '#F2C43D0A' },
   chaseTitle: {
     fontFamily: font.label,

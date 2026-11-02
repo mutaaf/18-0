@@ -114,7 +114,7 @@ export function Scoreboard({
 
   const glow = useRef(new Animated.Value(0)).current;
 
-  // 18-0 breathes. Nothing else in the app does, and it starts on the stamp
+  // 17-0 breathes. Nothing else in the app does, and it starts on the stamp
   // rather than on mount so the panel is not already pulsing while it builds.
   useEffect(() => {
     if (!perfect) return;

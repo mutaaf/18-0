@@ -212,7 +212,7 @@ async function playRankedGame(
   return { sessionId: session.id, idempotencyKey, selections, spins };
 }
 
-console.log('\n18-0 — SERVER END-TO-END VERIFICATION\n' + '='.repeat(64));
+console.log('\n17-0 — SERVER END-TO-END VERIFICATION\n' + '='.repeat(64));
 
 // ---------------------------------------------------------------------------
 console.log('\nHAPPY PATH');

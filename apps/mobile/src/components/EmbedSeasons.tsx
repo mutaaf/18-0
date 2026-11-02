@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { franchise } from '@18-0/data';
-import { SLOT_POSITION } from '@18-0/domain';
+import { franchise } from '@17-0/data';
+import { SLOT_POSITION } from '@17-0/domain';
 import { CarryOver } from './CarryOver';
 import { MODE_LABEL } from '@/state/game';
 import { useHistoryStore, type HistoryEntry } from '@/state/history';

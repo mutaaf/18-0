@@ -131,23 +131,23 @@ which is the minimum and is done).
 
 ## 4. Nothing enforces the published rarity
 
-The README, the home screen and the stats screen all say 18-0 lands about once
-every 6,000 games and 17-1 about once every 49. Those numbers are a function of
+The README, the home screen and the stats screen all say 17-0 lands about once
+every 6,000 games and 16-1 about once every 49. Those numbers are a function of
 the card pool, and the pool has grown twice this month — each time silently
 falsifying them until somebody measured. The last drift was a factor of four.
 
-CI runs `pnpm --filter @18-0/data tune` on every push, but it **prints and never
+CI runs `pnpm --filter @17-0/data tune` on every push, but it **prints and never
 asserts**, so a green build says nothing about whether the front page is true.
 
 **Done.** `tune --assert` measures the shipped gates — read from
 `DEFAULT_SCORING_CONFIG`, not matched by label — and fails outside 1 in
-4,000–9,000 for 18-0 and 1 in 33–83 for 17-1. CI runs it at 400,000 games,
+4,000–9,000 for 17-0 and 1 in 33–83 for 16-1. CI runs it at 400,000 games,
 which matters: the same config reads 1 in 4,444 at 120,000 and 1 in 6,154 at
 400,000, so a band fitted to one does not fit the other. The sample is seeded,
 so it cannot flake.
 
 **Note:** retuning is two steps in order — `analyze --write` refits the curve
-(which governs 17-1), then `tune` picks the gates (which govern 18-0). Bump the
+(which governs 16-1), then `tune` picks the gates (which govern 17-0). Bump the
 model version, freeze the outgoing config in the registry the way 1.2.0 is
 frozen, and regenerate the fixtures.
 

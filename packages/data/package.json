@@ -1,5 +1,5 @@
 {
-  "name": "@18-0/data",
+  "name": "@17-0/data",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -19,7 +19,7 @@
     "seed:sql": "tsx src/cli/seed-sql.ts"
   },
   "dependencies": {
-    "@18-0/domain": "workspace:*"
+    "@17-0/domain": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.7.2",

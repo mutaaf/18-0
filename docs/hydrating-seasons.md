@@ -81,7 +81,7 @@ the field manifest: <https://claude.ai/code/artifact/a6baada2-d4cc-4d10-85f7-a20
 ## Building with it
 
 ```bash
-pnpm --filter @18-0/data build:dataset
+pnpm --filter @17-0/data build:dataset
 ```
 
 ```
