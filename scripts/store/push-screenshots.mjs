@@ -14,9 +14,9 @@
  *      the `uploadOperations` plan it hands back
  *   4. PATCH it `uploaded: true` *with the file's MD5*
  *
- * Re-running is safe: a screenshot already in the set under the same name and
- * already COMPLETE is left alone, and anything else with that name is deleted
- * before it is replaced. Nothing here duplicates.
+ * Re-running is safe: a screenshot already in the set under the same name, with
+ * the same MD5 and already COMPLETE, is left alone, and anything else with that
+ * name is deleted before it is replaced. Nothing here duplicates.
  */
 import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
@@ -222,8 +222,13 @@ for (const key of chosen) {
     const buffer = files.get(name);
     const already = existing.find((s) => s.attributes.fileName === name);
     const state = already?.attributes.assetDeliveryState?.state;
+    // By content, not by name. Matching on the name alone meant a re-shot
+    // screenshot was "already up" forever: the 17-0 set kept the 18-0
+    // images under the same filenames and reported success.
+    const md5 = createHash('md5').update(buffer).digest('hex');
+    const same = already?.attributes.sourceFileChecksum === md5;
 
-    if (already && state === 'COMPLETE') {
+    if (already && state === 'COMPLETE' && same) {
       note(`${name} is already up`, already.id);
       ordered.push(already.id);
       continue;
@@ -232,10 +237,11 @@ for (const key of chosen) {
     if (already) {
       // A half-uploaded or FAILED asset holds the name and cannot be repaired
       // in place; the console shows it as a broken image forever otherwise.
-      if (dryRun) note(`would replace ${name}`, state ?? 'no delivery state');
+      const why = state === 'COMPLETE' ? 'the file changed' : (state ?? 'no delivery state');
+      if (dryRun) note(`would replace ${name}`, why);
       else {
         await asc(`/v1/appScreenshots/${already.id}`, { method: 'DELETE' });
-        note(`removed the previous ${name}`, state ?? 'no delivery state');
+        note(`removed the previous ${name}`, why);
       }
     }
 
