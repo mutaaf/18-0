@@ -23,7 +23,7 @@ export function Brand({
           allowFontScaling={false}
           style={[styles.numeral, { fontSize: size, textShadowRadius: size * 0.16 }, tint ? { color: tint } : null]}
         >
-          18
+          17
         </Text>
         <View
           style={[

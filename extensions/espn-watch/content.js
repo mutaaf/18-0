@@ -327,7 +327,7 @@ function el(tag, className, text = '', attrs = {}) {
 
 /** The wordmark, which is the one piece of markup that is genuinely ours. */
 function mark() {
-  const span = el('span', 'ez-mark', '18');
+  const span = el('span', 'ez-mark', '17');
   span.append(el('span', 'ez-dash', '-'), document.createTextNode('0'));
   return span;
 }
@@ -1392,7 +1392,7 @@ function openPanel(view = 'play') {
   panel.innerHTML = `
     <div class="ez-sheet" role="dialog" aria-label="17-0">
       <div class="ez-sheet-head">
-        <span class="ez-sheet-mark">18<span class="ez-dash">-</span>0</span>
+        <span class="ez-sheet-mark">17<span class="ez-dash">-</span>0</span>
         <div class="ez-tabs" role="tablist" aria-label="17-0"></div>
         <button class="ez-close" type="button" aria-label="Close">&times;</button>
       </div>

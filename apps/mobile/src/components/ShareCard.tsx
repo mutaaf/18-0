@@ -53,7 +53,7 @@ export const ShareCard = forwardRef<View, {
 
       <View style={styles.head}>
         <View style={styles.lockup}>
-          <Text style={styles.mark}>18</Text>
+          <Text style={styles.mark}>17</Text>
           <View style={styles.markDash} />
           <Text style={styles.mark}>0</Text>
         </View>
