@@ -1,7 +1,7 @@
 /**
  * Regenerates the seed-fixture ratings against the current scoring config.
  *
- *   pnpm --filter @18-0/domain regen:fixtures
+ *   pnpm --filter @17-0/domain regen:fixtures
  *
  * The fixtures (PRFAQ §38) pin real rosters to real endings, which makes them a
  * genuine regression check — but it also means every recalibration moves them.
@@ -92,7 +92,7 @@ for (const [key, wins] of targets) {
   resolved.set(key, found);
 }
 
-// 17-1 on score alone: at or above the heartbreak band, below the 18-0 floor.
+// 16-1 on score alone: at or above the heartbreak band, below the 17-0 floor.
 const heartbreak = search((r) =>
   r.finalRating < 96.5 ? -1 : r.finalRating >= config.perfection.minFinalRating ? 1 : 0,
 );

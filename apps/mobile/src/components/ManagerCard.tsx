@@ -1,6 +1,6 @@
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { era as eraDef, franchise } from '@18-0/data';
+import { era as eraDef, franchise } from '@17-0/data';
 import { Reveal } from './Reveal';
 import { useCardTilt } from './useCardTilt';
 import { modeCount, type CareerReport } from '@/state/career';

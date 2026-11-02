@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import type { GameResult, RosterSlot } from '@18-0/domain';
+import type { GameResult, RosterSlot } from '@17-0/domain';
 import type { GameMode } from '@/state/game';
 
 /**

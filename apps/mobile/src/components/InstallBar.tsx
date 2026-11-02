@@ -70,7 +70,7 @@ export function InstallBar() {
   // offering unprompted, because it is the moment the history went missing.
   const needsTransfer = isStandalone() && games.length === 0 && !transferDone;
 
-  // The landing screen carries the "Get 18-0" panel, which makes the same offer
+  // The landing screen carries the "Get 17-0" panel, which makes the same offer
   // with room to explain it and the two stores beside it. Two install prompts
   // on one screen reads as nagging rather than as an offer, so the floating one
   // stands down there. The transfer prompt is a different message and still
@@ -127,7 +127,7 @@ export function InstallBar() {
 
           <View style={styles.copyBlock}>
             <Text style={styles.title}>
-              {needsTransfer ? 'Bring your seasons over' : 'Put 18-0 on your home screen'}
+              {needsTransfer ? 'Bring your seasons over' : 'Put 17-0 on your home screen'}
             </Text>
             <Text style={styles.sub} numberOfLines={2}>
               {needsTransfer

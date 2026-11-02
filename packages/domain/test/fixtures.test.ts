@@ -21,10 +21,10 @@ describe('seed fixtures (PRFAQ §38)', () => {
     },
   );
 
-  it('covers a spread from a losing season to 18-0', () => {
+  it('covers a spread from a losing season to 17-0', () => {
     const wins = ROSTER_FIXTURES.map((f) => f.expectedRecord[0]);
     expect(Math.min(...wins)).toBeLessThanOrEqual(6);
-    expect(Math.max(...wins)).toBe(18);
+    expect(Math.max(...wins)).toBe(17);
   });
 
   it('the perfect fixture clears every gate', () => {
@@ -42,10 +42,10 @@ describe('seed fixtures (PRFAQ §38)', () => {
     expect(result.perfectEligibility.eligible).toBe(false);
     expect(isPerfectionDenied(result)).toBe(true);
     expect(result.perfectEligibility.failedGates[0]!.slot).toBe('RB2');
-    expect(result.record).toEqual({ wins: 17, losses: 1 });
+    expect(result.record).toEqual({ wins: 16, losses: 1 });
   });
 
-  it('the heartbreak fixture is 17-1 on score, not on a gate', () => {
+  it('the heartbreak fixture is 16-1 on score, not on a gate', () => {
     const result = scoreRoster(fixtureRoster(fixtureByKey('heartbreak')), config);
     expect(result.finalRating).toBeLessThan(config.perfection.minFinalRating);
     expect(isPerfectionDenied(result)).toBe(false);

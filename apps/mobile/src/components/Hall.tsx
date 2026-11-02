@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { DATASET, franchise, type BootCard } from '@18-0/data';
-import { POSITIONS } from '@18-0/domain';
+import { DATASET, franchise, type BootCard } from '@17-0/data';
+import { POSITIONS } from '@17-0/domain';
 import { SectionHead } from './SectionHead';
 import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking } from '@/theme';
 

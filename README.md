@@ -1,12 +1,12 @@
 <div align="center">
 
-<img src="apps/mobile/assets/brand/lockup.png" alt="18-0" width="440">
+<img src="apps/mobile/assets/brand/lockup.png" alt="17-0" width="440">
 
 **Spin history. Build seven. Chase perfection.**
 
 A pro football history game. Spin for a franchise and an era, take one player,
-fill seven slots, and receive a deterministic rating mapped to an 18-game
-record — from 0-18 to 18-0.
+fill seven slots, and receive a deterministic rating mapped to a 17-game
+record — from 0-17 to 17-0.
 
 No possession simulation. No random losses. The same roster always earns the
 same record, so every choice is yours.
@@ -23,9 +23,9 @@ same record, so every choice is yours.
 
 <br>
 
-<img src="docs/media/perfect.jpg" alt="A perfect 18-0 season" width="820">
+<img src="docs/media/perfect.jpg" alt="A perfect 17-0 season" width="820">
 
-<sub><b>18-0.</b> It lands about once every 6,000 games.</sub>
+<sub><b>17-0.</b> It lands about once every 6,000 games.</sub>
 
 </div>
 
@@ -41,7 +41,7 @@ flowchart LR
     A["Spin<br/><small>one franchise, one era</small>"] --> B["Take one<br/><small>the rest are gone</small>"]
     B --> C{"Seven<br/>filled?"}
     C -- no --> A
-    C -- yes --> D["Rated<br/><small>0-18 ... 18-0</small>"]
+    C -- yes --> D["Rated<br/><small>0-17 ... 17-0</small>"]
 ```
 
 Seven positions: a quarterback, two running backs, two receivers, a tight end,
@@ -110,7 +110,7 @@ Three properties the model holds onto:
 [`docs/scoring-model.md`](docs/scoring-model.md) has the full method.
 [`docs/FINDINGS.md`](docs/FINDINGS.md) records what the simulation harness
 found, including the fact that the perfection gates *as originally specified*
-produced **zero** 18-0 seasons in 600,000 games.
+produced **zero** 17-0 seasons in 600,000 games.
 
 </details>
 
@@ -118,7 +118,7 @@ produced **zero** 18-0 seasons in 600,000 games.
 
 ## Perfection is gated, not lucky
 
-A high score is necessary and not sufficient. To finish 18-0 a roster must have
+A high score is necessary and not sufficient. To finish 17-0 a roster must have
 no weakness anywhere:
 
 | Gate | Requirement |
@@ -128,12 +128,12 @@ no weakness anywhere:
 | QB and defense | ≥ 96 — all-time elite |
 | At least four positions | ≥ 96 |
 
-Miss one and you get 17-1, with the blocker named:
+Miss one and you get 16-1, with the blocker named:
 
-> **PERFECTION DENIED** — RB2 needed a 94.0 minimum for 18-0 eligibility.
+> **PERFECTION DENIED** — RB2 needed a 94.0 minimum for 17-0 eligibility.
 
-Measured against the real dataset over 400,000 games: **18-0 lands about once in
-6,000, 17-1 about once in 49.** Those two numbers are a promise the gates have to
+Measured against the real dataset over 400,000 games: **17-0 lands about once in
+6,000, 16-1 about once in 49.** Those two numbers are a promise the gates have to
 keep — every time the dataset grows, the curve is refitted and the floors are
 tuned again so they stay true.
 
@@ -142,7 +142,7 @@ tuned again so they stay true.
 ## Play it
 
 <div align="center">
-<img src="docs/media/landing.jpg" alt="18-0 on the web" width="820">
+<img src="docs/media/landing.jpg" alt="17-0 on the web" width="820">
 </div>
 
 <table>
@@ -396,10 +396,10 @@ one goes on building long after the config that produced it stopped being right
 
 ```bash
 data/raw/fetch.sh                                    # re-fetch nflverse CSVs
-pnpm --filter @18-0/data build:dataset               # rebuild the cards
-pnpm --filter @18-0/data analyze -- --write          # refit the calibration curve
-pnpm --filter @18-0/data tune                        # re-measure 18-0's rarity
-pnpm --filter @18-0/domain regen:fixtures            # move the seed fixtures with it
+pnpm --filter @17-0/data build:dataset               # rebuild the cards
+pnpm --filter @17-0/data analyze -- --write          # refit the calibration curve
+pnpm --filter @17-0/data tune                        # re-measure 17-0's rarity
+pnpm --filter @17-0/domain regen:fixtures            # move the seed fixtures with it
 ```
 
 Anything that changes a published score bumps `version` in
@@ -467,5 +467,5 @@ representation would keep its own identity; every team in this dataset has one.
 <br>
 <a href="https://18-0.co"><b>&#9654;&nbsp; Go chase it</b></a>
 <br><br>
-<sub>An honest 18-0 is roughly a 1-in-6,000 season. Good luck.</sub>
+<sub>An honest 17-0 is roughly a 1-in-6,000 season. Good luck.</sub>
 </div>

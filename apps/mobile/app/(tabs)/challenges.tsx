@@ -101,7 +101,7 @@ export default function Challenges() {
     }
     track('challenge_created', { rating: Math.round(season.rating) });
     const link = challengeUrl(token);
-    const message = `I built a ${season.record} roster in 18-0 (${season.rating.toFixed(1)}). Same seven spins. Beat it.\n${link}`;
+    const message = `I built a ${season.record} roster in 17-0 (${season.rating.toFixed(1)}). Same seven spins. Beat it.\n${link}`;
     await Share.share(Platform.OS === 'ios' ? { message, url: link } : { message }).catch(() => {});
     await load();
   };

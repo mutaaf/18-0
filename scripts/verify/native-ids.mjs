@@ -46,7 +46,7 @@ const wanted = {
   version: config.version,
 };
 
-console.log('\n18-0 — NATIVE PROJECT IDENTITY\n' + '='.repeat(64));
+console.log('\n17-0 — NATIVE PROJECT IDENTITY\n' + '='.repeat(64));
 console.log(`\napp.config.js declares  ios ${wanted.ios} · android ${wanted.android}\n`);
 
 // ---------------------------------------------------------------------------

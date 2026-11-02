@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
-import { DATASET } from '@18-0/data';
+import { DATASET } from '@17-0/data';
 import { Dock } from './Dock';
 import type { DockIconName } from './DockIcons';
 import { color, font, radius, space, themed, tracking, useLayout } from '@/theme';

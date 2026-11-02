@@ -10,10 +10,10 @@ importers:
 
   apps/mobile:
     dependencies:
-      '@18-0/data':
+      '@17-0/data':
         specifier: workspace:*
         version: link:../../packages/data
-      '@18-0/domain':
+      '@17-0/domain':
         specifier: workspace:*
         version: link:../../packages/domain
       '@expo-google-fonts/barlow':
@@ -125,7 +125,7 @@ importers:
 
   packages/data:
     dependencies:
-      '@18-0/domain':
+      '@17-0/domain':
         specifier: workspace:*
         version: link:../domain
     devDependencies:

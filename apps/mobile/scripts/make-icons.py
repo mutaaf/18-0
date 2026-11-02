@@ -72,7 +72,7 @@ def wordmark(size: int, pad: float = 0.10) -> Image.Image:
     low, high = 4, box
     while low < high:
         mid = (low + high + 1) // 2
-        bounds = draw.textbbox((0, 0), '18-0', font=ImageFont.truetype(str(face), mid))
+        bounds = draw.textbbox((0, 0), '17-0', font=ImageFont.truetype(str(face), mid))
         if bounds[2] - bounds[0] <= avail and bounds[3] - bounds[1] <= avail:
             low = mid
         else:
@@ -81,7 +81,7 @@ def wordmark(size: int, pad: float = 0.10) -> Image.Image:
     font = ImageFont.truetype(str(face), low)
     parts = (('18-', (242, 245, 250)), ('0', (255, 180, 0)))
     width = sum(draw.textlength(text, font=font) for text, _ in parts)
-    bounds = draw.textbbox((0, 0), '18-0', font=font)
+    bounds = draw.textbbox((0, 0), '17-0', font=font)
     x = (box - width) / 2
     y = (box - (bounds[3] - bounds[1])) / 2 - bounds[1]
     for text, colour in parts:

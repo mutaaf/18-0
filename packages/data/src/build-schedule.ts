@@ -1,7 +1,7 @@
 /**
  * Builds the bundled gameday calendar from the nflverse schedule file.
  *
- *   pnpm --filter @18-0/data build:schedule
+ *   pnpm --filter @17-0/data build:schedule
  *
  * Separate from the dataset build on purpose. The dataset is history and does
  * not move; the schedule does -- a new season is published every spring -- and

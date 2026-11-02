@@ -54,7 +54,7 @@ describe('the edge bundle is the domain, not a copy of it that drifted', () => {
       throw new Error(
         'supabase/functions/_shared/domain.ts is out of date with packages/domain.\n' +
           'The server would score with a different model than the client. Regenerate it:\n' +
-          '  pnpm --filter @18-0/domain build:edge',
+          '  pnpm --filter @17-0/domain build:edge',
       );
     }
   });

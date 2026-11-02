@@ -8,5 +8,5 @@ code, not two implementations that agree today.
 Regenerate before deploying:
 
 ```bash
-pnpm --filter @18-0/domain build:edge
+pnpm --filter @17-0/domain build:edge
 ```

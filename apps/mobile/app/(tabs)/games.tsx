@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { franchise } from '@18-0/data';
+import { franchise } from '@17-0/data';
 import { ACCOUNT_DOCK_WIDTH } from '@/components/AccountButton';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';

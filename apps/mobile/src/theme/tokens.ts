@@ -1,5 +1,5 @@
 /**
- * 18-0 visual system.
+ * 17-0 visual system.
  *
  * The colours and the shape scale moved to `palettes.ts` when the app grew a
  * second identity, and are served from `runtime.ts` as live objects -- see the

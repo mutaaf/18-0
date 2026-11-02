@@ -1,6 +1,6 @@
-# 18-0 on Watch
+# 17-0 on Watch
 
-A Chrome extension that puts a playable 18-0 card into a row on
+A Chrome extension that puts a playable 17-0 card into a row on
 [espn.com/watch](https://www.espn.com/watch/), to show what the game looks like
 sitting where people already are.
 
@@ -115,7 +115,7 @@ whoever typed the path. See the licence note in the root README.
 
 Every string the card shows is a field, and `{sponsor}` can go in any of them:
 
-    Title      18-0 — build the perfect roster
+    Title      17-0 — build the perfect roster
     Subtitle   Seven spins · Plays here
     Action     Play a season
     Tagline    Build · Play · Goat
@@ -428,7 +428,7 @@ a different question entirely once it is distributed — which is why this is
 loaded unpacked rather than sitting in the Chrome Web Store, and why the manifest
 asks for `espn.com/watch` and nothing wider.
 
-18-0 is unaffiliated with, and not endorsed by, ESPN or any league or club.
+17-0 is unaffiliated with, and not endorsed by, ESPN or any league or club.
 
 <br>
 

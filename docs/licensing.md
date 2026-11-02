@@ -20,7 +20,7 @@ Last reviewed **2026-09-03**.
 
 No source file is republished. What ships is:
 
-- **A rating per card** — a number computed by `@18-0/domain` from that season's
+- **A rating per card** — a number computed by `@17-0/domain` from that season's
   statistics, z-scored against its own era and mapped through a calibration
   curve. It is not in any source and cannot be inverted back to one.
 - **A short stat line per card** — four or five figures, the same facts a

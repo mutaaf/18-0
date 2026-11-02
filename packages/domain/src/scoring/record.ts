@@ -8,7 +8,7 @@ import type { Ending } from '../types.js';
  * Bands are inclusive floors: the highest floor at or below the rating wins.
  * This closes the gaps in the spec's table (62.9 -> 63) deterministically.
  *
- * Reaching the top band makes a roster *eligible* for 18-0. The perfection
+ * Reaching the top band makes a roster *eligible* for a perfect season (17-0). The perfection
  * gates decide whether it gets there.
  */
 export function endingForRating(rating: number, config: ScoringConfig): Ending {
@@ -17,5 +17,5 @@ export function endingForRating(rating: number, config: ScoringConfig): Ending {
     if (rating >= band.minRating) selected = band;
     else break;
   }
-  return endingByKey(selected.endingKey);
+  return endingByKey(selected.endingKey, config.seasonGames);
 }

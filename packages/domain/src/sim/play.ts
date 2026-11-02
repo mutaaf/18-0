@@ -334,11 +334,11 @@ export interface ReachabilityVerdict {
 
 /**
  * Given a fixed sequence of seven spins, could *any* legal set of choices
- * produce an 18-0?
+ * produce an 17-0?
  *
  * This deliberately assumes omniscient play — the user knows every card in
  * every bucket before choosing. It is an upper bound: no real strategy can do
- * better. If this says no, 18-0 is impossible for that draw.
+ * better. If this says no, 17-0 is impossible for that draw.
  */
 export function evaluateReachability(
   spins: readonly SpinResult[],

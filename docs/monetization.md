@@ -1,4 +1,4 @@
-# Making money from 18-0
+# Making money from 17-0
 
 The full plan, with the numbers and the sequencing, is here:
 **https://claude.ai/code/artifact/db87a775-ee71-4fe8-88f7-365c54142d7b**
@@ -11,7 +11,7 @@ The owner decided on 2026-10-30 to monetize the whole collection through Marquee
 the ad server at `mutaafaziz.com/ads` (contract: the marquee repo's `AGENTS.md`).
 On the **web build only** (`apps/mobile/src/features/ads.ts`, `ads-policy.ts`):
 
-- The loader `https://mutaafaziz.com/ads/v1/ads.js`, `data-app="18-0"`, injected by
+- The loader `https://mutaafaziz.com/ads/v1/ads.js`, `data-app="17-0"`, injected by
   `startAds()` from the root layout. Only on `18-0.co` and the Pages mirror; never
   in a native build, a Vercel preview, localhost or the `/embed` frame.
 - Slots: `results` (banner under the result actions, `AdSlot`) and

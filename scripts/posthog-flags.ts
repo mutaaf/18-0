@@ -106,7 +106,7 @@ async function projectId(): Promise<string> {
 }
 
 async function main(): Promise<void> {
-  console.log(`\n18-0 — POSTHOG FLAGS  (${APPLY ? 'APPLY' : 'dry run'})\n` + '='.repeat(64));
+  console.log(`\n17-0 — POSTHOG FLAGS  (${APPLY ? 'APPLY' : 'dry run'})\n` + '='.repeat(64));
 
   for (const definition of FLAG_LIST) {
     const payload = payloadFor(definition);

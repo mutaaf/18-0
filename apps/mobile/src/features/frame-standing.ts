@@ -140,7 +140,7 @@ export function standing(at: SeasonStanding): StandingLine | null {
   return {
     title: 'Recorded — not ranked yet',
     copy: 'The server dealt every spin and scored this roster, so it is a real season. '
-      + 'Sign in at 18-0 and it goes onto the public board, along with every other '
+      + 'Sign in at 17-0 and it goes onto the public board, along with every other '
       + 'season you have played.',
     offerBoard: true,
   };

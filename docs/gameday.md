@@ -21,7 +21,7 @@ leaderboard_gameday() one day's board, live or finished
 
 `data/raw/games.csv` is nflverse's schedule file, and it already carried every
 fixture through the following season with kickoff times, both teams and the
-week. `pnpm --filter @18-0/data build:schedule` turns it into
+week. `pnpm --filter @17-0/data build:schedule` turns it into
 `packages/data/generated/schedule.json`, which is bundled into the app and
 loaded into Postgres by the same seed that loads the cards.
 
@@ -75,7 +75,7 @@ intended behaviour, and `scripts/verify/e2e.mjs` asserts it.
 ## What it deliberately does not do
 
 Nothing about a gameday touches a rating. The wheel changes; the model does
-not, so 18-0 is exactly as rare on a Sunday as it is on a Tuesday and the
+not, so 17-0 is exactly as rare on a Sunday as it is on a Tuesday and the
 all-time boards are untouched.
 
 That was a choice, and the ladder it sits on is worth writing down, because the

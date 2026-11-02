@@ -1,5 +1,5 @@
 {
-  "name": "@18-0/mobile",
+  "name": "@17-0/mobile",
   "version": "0.1.0",
   "private": true,
   "main": "expo-router/entry",
@@ -16,8 +16,8 @@
     "android:device": "bash scripts/android-device.sh"
   },
   "dependencies": {
-    "@18-0/data": "workspace:*",
-    "@18-0/domain": "workspace:*",
+    "@17-0/data": "workspace:*",
+    "@17-0/domain": "workspace:*",
     "@expo-google-fonts/barlow": "^0.4.1",
     "@expo-google-fonts/montserrat": "^0.4.2",
     "@expo-google-fonts/rajdhani": "^0.4.1",

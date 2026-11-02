@@ -94,7 +94,7 @@ function explain(state: ReminderState | null): string {
     case 'off':
       return 'Off. A streak can end without anything telling you.';
     case 'blocked':
-      return 'Turned off for 18-0 in your device settings. Only Settings can turn it back on.';
+      return 'Turned off for 17-0 in your device settings. Only Settings can turn it back on.';
     case 'unsupported':
       return 'Not available in a browser. Install the app to get one.';
     default:

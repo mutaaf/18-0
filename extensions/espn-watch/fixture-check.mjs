@@ -303,7 +303,7 @@ function checkStrip(slots, ends) {
   );
 }
 
-console.log('\n18-0 ON WATCH — THE CARD IN A ROW');
+console.log('\n17-0 ON WATCH — THE CARD IN A ROW');
 console.log('='.repeat(56));
 
 check('exactly one card ends up on the page', report.cards === 1, `${report.cards}`);
@@ -491,7 +491,7 @@ console.log('\nSPONSOR COPY');
     ['{sponsor} · Seven spins', '', 'Seven spins'],
     // The trailing comma goes too: a dangling separator is the thing this is
     // for, not something to preserve.
-    ['18-0, with {sponsor}', '', '18-0'],
+    ['17-0, with {sponsor}', '', '17-0'],
     ['Play a season', '', 'Play a season'],
     ['{sponsor}', 'Brand', 'Brand'],
   ];
@@ -890,7 +890,7 @@ const placedFirst = await run('?tile=1&band=1');
 const withBest = await run('?tile=1&band=1&best=1');
 console.log('\nYOUR BEST SEASON, ON THE ARTWORK');
 check('the frame can tell the card its record', withBest.best?.tile !== null, JSON.stringify(withBest.best?.tile));
-check('it reads as the record it was told', withBest.best?.tile?.text?.includes('16-2') === true, `${withBest.best?.tile?.text}`);
+check('it reads as the record it was told', withBest.best?.tile?.text?.includes('15-2') === true, `${withBest.best?.tile?.text}`);
 // The whole claim: it is in the middle, so it took no cell from anything.
 check(
   'and it sits in the middle of the artwork',

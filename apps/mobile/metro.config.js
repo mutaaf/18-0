@@ -1,4 +1,4 @@
-// Metro tuned for a pnpm workspace: the app imports @18-0/domain and @18-0/data
+// Metro tuned for a pnpm workspace: the app imports @17-0/domain and @17-0/data
 // straight from their TypeScript sources, so Metro has to watch the whole repo
 // and resolve through the symlinked workspace root. Symlink resolution itself
 // is Metro's default now, so it is not set here -- expo-doctor flags the

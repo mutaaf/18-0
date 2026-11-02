@@ -6,7 +6,7 @@ import { cached, invalidateIdentity } from '@/features/cache';
 /**
  * The optional server.
  *
- * 18-0 is playable start to finish with no account and no connection — the
+ * 17-0 is playable start to finish with no account and no connection — the
  * dataset is bundled and the scoring is local. Supabase exists only for the
  * things that genuinely need a server: cross-device history, leaderboards and
  * challenges. If it is not configured, every function here degrades to a

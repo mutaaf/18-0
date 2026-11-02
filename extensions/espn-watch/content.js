@@ -1,5 +1,5 @@
 /**
- * Puts a playable 18-0 card into a row on ESPN's Watch page.
+ * Puts a playable 17-0 card into a row on ESPN's Watch page.
  *
  * ---------------------------------------------------------------------------
  * WHY THE ROW IS FOUND STRUCTURALLY
@@ -1066,7 +1066,7 @@ function disown(which, node) {
   node.removeAttribute('class');
   node.removeAttribute('style');
   if (adoptions[which] >= GIVE_UP_AFTER) {
-    console.warn(`[18-0] the page keeps claiming the ${which}; leaving it out.`);
+    console.warn(`[17-0] the page keeps claiming the ${which}; leaving it out.`);
   }
 }
 
@@ -1390,16 +1390,16 @@ function openPanel(view = 'play') {
   // Static markup only. Every string here is ours; anything typed on the
   // options page is appended as a text node below.
   panel.innerHTML = `
-    <div class="ez-sheet" role="dialog" aria-label="18-0">
+    <div class="ez-sheet" role="dialog" aria-label="17-0">
       <div class="ez-sheet-head">
         <span class="ez-sheet-mark">18<span class="ez-dash">-</span>0</span>
-        <div class="ez-tabs" role="tablist" aria-label="18-0"></div>
+        <div class="ez-tabs" role="tablist" aria-label="17-0"></div>
         <button class="ez-close" type="button" aria-label="Close">&times;</button>
       </div>
-      <iframe class="ez-frame" title="18-0"
+      <iframe class="ez-frame" title="17-0"
         allow="clipboard-write" referrerpolicy="no-referrer"></iframe>
       <div class="ez-foot">
-        <p class="ez-note">Added by the 18-0 browser extension. Not part of ESPN.</p>
+        <p class="ez-note">Added by the 17-0 browser extension. Not part of ESPN.</p>
       </div>
     </div>
   `;

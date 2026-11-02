@@ -1,7 +1,7 @@
 /**
  * Builds the bundled historical dataset from the nflverse CSV drops.
  *
- *   pnpm --filter @18-0/data build:dataset
+ *   pnpm --filter @17-0/data build:dataset
  *
  * NFL history is immutable, so this runs once and its output ships with the
  * app. Raw CSVs live in `data/raw` and are not committed; re-fetch them with
@@ -24,7 +24,7 @@ import {
   type Position,
   type PlayerCalibration,
   type SeasonStats,
-} from '@18-0/domain';
+} from '@17-0/domain';
 import { parseCsv } from './csv.js';
 import { TEAM_TO_FRANCHISE } from './teams.js';
 import { ERA_TABLE, eraForYear } from './eras.js';
@@ -502,7 +502,7 @@ function hslToHex(h: number, s: number, l: number): string {
 }
 
 function main(): void {
-  console.log('Building 18-0 dataset from', RAW);
+  console.log('Building 17-0 dataset from', RAW);
   const players = loadPlayerSeasons();
   const defenses = loadDefenseSeasons();
 

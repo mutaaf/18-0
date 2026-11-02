@@ -1,7 +1,7 @@
 import { forwardRef, type ComponentProps } from 'react';
 import { StyleSheet, Text as RNText, View } from 'react-native';
 import Svg, { Defs, Line, LinearGradient, Rect, Stop } from 'react-native-svg';
-import type { GameResult, RosterSlot } from '@18-0/domain';
+import type { GameResult, RosterSlot } from '@17-0/domain';
 import { APP_URL_LABEL } from '@/features/share';
 import { color, font, positionColor, radius, space, tabular, themed, tierColor, tracking } from '@/theme';
 
@@ -25,7 +25,7 @@ export interface ShareRosterRow {
  * The share card (PRFAQ §32).
  *
  * Rendered at a fixed 1080×1350 logical size and captured to an image, so it
- * looks identical wherever it lands. 18-0 gets a visually distinct treatment —
+ * looks identical wherever it lands. 17-0 gets a visually distinct treatment —
  * the whole point of the chase is that the artifact proves it.
  */
 export const ShareCard = forwardRef<View, {
@@ -71,7 +71,7 @@ export const ShareCard = forwardRef<View, {
           {perfect ? 'PERFECT · IMMORTAL' : result.ending.label.toUpperCase()}
         </Text>
         <Text style={styles.rating}>
-          {result.finalRating.toFixed(1)} <Text style={styles.ratingLabel}>18-0 RATING</Text>
+          {result.finalRating.toFixed(1)} <Text style={styles.ratingLabel}>17-0 RATING</Text>
           <Text style={styles.ratingLabel}>   ·   TIER </Text>
           <Text style={{ color: accent }}>{result.ending.tier}</Text>
         </Text>

@@ -1,5 +1,5 @@
 /**
- * Core domain types for 18-0.
+ * Core domain types for 17-0.
  *
  * These types are deliberately free of any React, network, or persistence
  * concern. Everything in this package is a pure function of its inputs so that
@@ -246,7 +246,7 @@ export interface GameResult {
   readonly ending: Ending;
   readonly breakdown: ScoreBreakdown;
   readonly perfectEligibility: PerfectEligibility;
-  /** Points still needed to reach the 18-0 threshold. 0 once reached. */
+  /** Points still needed to reach the 17-0 threshold. 0 once reached. */
   readonly distanceFromPerfection: number;
   readonly ratingModelVersion: string;
 }

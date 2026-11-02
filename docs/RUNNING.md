@@ -1,4 +1,4 @@
-# Running 18-0
+# Running 17-0
 
 ## On your phone (recommended — this is where it's designed to live)
 
@@ -93,7 +93,7 @@ Supabase only adds cross-device history, leaderboards and challenges.
 ```bash
 supabase start
 supabase db push                                   # schema + RLS
-pnpm --filter @18-0/domain build:edge              # bundle scoring for Deno
+pnpm --filter @17-0/domain build:edge              # bundle scoring for Deno
 
 # The local database, on the port config.toml moves it to.
 psql postgresql://postgres:postgres@127.0.0.1:54422/postgres \
@@ -141,18 +141,18 @@ If the default ports collide with another local Supabase stack, the ports in
 
 ```bash
 data/raw/fetch.sh                                    # re-fetch nflverse CSVs
-pnpm --filter @18-0/data build:dataset               # rebuild the bundled cards
+pnpm --filter @17-0/data build:dataset               # rebuild the bundled cards
 
 # Two generated tables are keyed on the cards and go stale the moment the card
 # list moves. Both have tests that fail when they do, which is how you find out.
 python3 scripts/build-era-stories.py data/raw/games.csv   # franchise-era-records.ts
 python3 scripts/build-headshots.py /tmp/rosters /tmp/players.csv   # headshots.ts
 
-pnpm --filter @18-0/data analyze -- --write          # refit the calibration curve
-pnpm --filter @18-0/data tune                        # re-measure the 18-0 gates
-pnpm --filter @18-0/domain regen:fixtures            # move the seed fixtures with it
-pnpm --silent --filter @18-0/data seed:sql > supabase/seed/0001_dataset.sql
-pnpm --filter @18-0/domain build:edge                # the server scores with this
+pnpm --filter @17-0/data analyze -- --write          # refit the calibration curve
+pnpm --filter @17-0/data tune                        # re-measure the 17-0 gates
+pnpm --filter @17-0/domain regen:fixtures            # move the seed fixtures with it
+pnpm --silent --filter @17-0/data seed:sql > supabase/seed/0001_dataset.sql
+pnpm --filter @17-0/domain build:edge                # the server scores with this
 pnpm -r test
 ```
 
@@ -163,7 +163,7 @@ Anything that changes a published score should bump `version` in
 `packages/domain/src/constants/config.ts` -- and when the card pool grows, the
 curve and the gates both need refitting or the "once every 6,000 games" on the
 front page quietly stops being true. `analyze` first, then `tune`: the curve
-governs 17-1, the gates govern 18-0. See `docs/scoring-model.md`.
+governs 16-1, the gates govern 17-0. See `docs/scoring-model.md`.
 
 ## Correcting a stat line without shipping an app
 
@@ -189,8 +189,8 @@ The schedule moves every year and history does not, so it has its own build:
 
 ```bash
 data/raw/fetch.sh                                    # refreshes games.csv too
-pnpm --filter @18-0/data build:schedule              # rebuild the calendar
-pnpm --silent --filter @18-0/data seed:sql > supabase/seed/0001_dataset.sql
+pnpm --filter @17-0/data build:schedule              # rebuild the calendar
+pnpm --silent --filter @17-0/data seed:sql > supabase/seed/0001_dataset.sql
 pnpm -r test
 ```
 
@@ -228,7 +228,7 @@ supabase db push --yes                              # apply migrations
 PGPASSWORD="$SUPABASE_DB_PASSWORD" \
   psql "$(cat supabase/.temp/pooler-url)" -f supabase/seed/0001_dataset.sql
 
-pnpm --filter @18-0/domain build:edge               # the functions carry this
+pnpm --filter @17-0/domain build:edge               # the functions carry this
 supabase functions deploy spin select complete-game delete-account
 
 set -a; . .local/hosted.env; set +a

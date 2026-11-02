@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { DEFAULT_SCORING_CONFIG, ROSTER_SLOTS, type RosterSlot } from '@18-0/domain';
-import { DATASET } from '@18-0/data';
+import { DEFAULT_SCORING_CONFIG, ROSTER_SLOTS, type RosterSlot } from '@17-0/domain';
+import { DATASET } from '@17-0/data';
 import { Screen } from '@/components/Screen';
 import { OperatorConsole } from '@/components/OperatorConsole';
 import { amOperator } from '@/services/operator';

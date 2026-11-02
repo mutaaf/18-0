@@ -58,7 +58,7 @@ export function GetTheApp() {
 
   return (
     <Panel tint={color.navy} contentStyle={styles.body}>
-      <Text style={styles.eyebrow}>Get 18-0</Text>
+      <Text style={styles.eyebrow}>Get 17-0</Text>
       <Text style={styles.title}>On your phone, three ways</Text>
 
       <View style={styles.routes}>

@@ -1,5 +1,6 @@
 import type { Archetype, RosterSlot } from '../types.js';
 import { GENERATED_CALIBRATION_ANCHORS } from './calibration.generated.js';
+import type { SeasonGames } from './endings.js';
 
 /**
  * The scoring model is *configuration*, not code constants (PRFAQ §20, §45).
@@ -77,6 +78,8 @@ export interface PerfectionConfig {
 
 export interface ScoringConfig {
   readonly version: string;
+  /** How many games the record is out of. 17 since 1.4.0; 18 before it. */
+  readonly seasonGames: SeasonGames;
   readonly rosterWeights: Readonly<Record<RosterSlot, number>>;
   readonly weakLink: WeakLinkConfig;
   readonly eliteDepth: EliteDepthConfig;
@@ -232,8 +235,11 @@ const CALIBRATION: CalibrationConfig = {
   anchors: GENERATED_CALIBRATION_ANCHORS,
 };
 
-/** Score-to-record mapping (PRFAQ §20). Floors close the spec's band gaps. */
-const RECORD_BANDS: readonly RecordBand[] = [
+/**
+ * The 18-game score-to-record mapping (PRFAQ §20), frozen with 1.3.0.
+ * Floors close the spec's band gaps.
+ */
+const RECORD_BANDS_18_GAME: readonly RecordBand[] = [
   { minRating: 0, endingKey: 'HISTORIC_COLLAPSE' },
   { minRating: 61, endingKey: 'ROCK_BOTTOM' },
   { minRating: 63, endingKey: 'REBUILD' },
@@ -256,6 +262,21 @@ const RECORD_BANDS: readonly RecordBand[] = [
 ];
 
 /**
+ * The 17-game score-to-record mapping, from 1.4.0.
+ *
+ * Every floor is the 18-game one except where AVERAGE (9-9) used to be: a
+ * 17-game season has no .500 record, so its 77-80 band is split down the
+ * middle between 8-9 and 9-8. The top of the table is deliberately untouched
+ * -- 17-0 starts where 18-0 did and 16-1 where 17-1 did, with the same
+ * perfection gates -- so the published rarity carries over exactly rather
+ * than having to be re-measured: 17-0 about once every 6,000 games, 16-1
+ * about once every 49.
+ */
+const RECORD_BANDS: readonly RecordBand[] = RECORD_BANDS_18_GAME.filter(
+  (b) => b.endingKey !== 'AVERAGE',
+).map((b) => (b.endingKey === 'WINNING_SEASON' ? { ...b, minRating: 78.5 } : b));
+
+/**
  * Perfection gates (PRFAQ §21). Score alone is necessary, not sufficient.
  *
  * The values differ from the ones written in §21 (99.25 / 96 everywhere / 98 at
@@ -264,7 +285,7 @@ const RECORD_BANDS: readonly RecordBand[] = [
  * could also field seven slots at 96+, because most franchise-eras never
  * produced an all-time-elite season at every position.
  *
- * These floors were fitted instead of guessed (`pnpm --filter @18-0/data tune`)
+ * These floors were fitted instead of guessed (`pnpm --filter @17-0/data tune`)
  * and they still read cleanly against the §9 scale:
  *
  *   94 = First-Team All-Pro caliber  -> no slot is an obvious weakness
@@ -281,7 +302,7 @@ const RECORD_BANDS: readonly RecordBand[] = [
  * A gate that drifts by a factor of four is a published claim that has quietly
  * become false -- the README, the home screen and the stats screen all say 18-0
  * lands about once every 6,000 games. So the calibration curve was refitted
- * against the new dataset (`pnpm --filter @18-0/data analyze -- --write`),
+ * against the new dataset (`pnpm --filter @17-0/data analyze -- --write`),
  * which put 17-1 back at 1 in 52 on its own, and these floors were tuned on top
  * of it over 400,000 games:
  *
@@ -299,8 +320,15 @@ const PERFECTION: PerfectionConfig = {
   deniedEndingKey: 'HEARTBREAK',
 };
 
+/**
+ * 1.4.0: the season became 17 games (18 weeks, one bye) and the game became
+ * 17-0. Ratings are computed exactly as 1.3.0 computed them -- same weights,
+ * same curve, same gates -- and only the record a rating maps to changed. So a
+ * roster's rating is identical under both, and its record is not.
+ */
 export const SCORING_CONFIG_V1: ScoringConfig = {
-  version: '1.3.0',
+  version: '1.4.0',
+  seasonGames: 17,
   rosterWeights: ROSTER_WEIGHTS,
   weakLink: WEAK_LINK,
   eliteDepth: ELITE_DEPTH,
@@ -346,13 +374,21 @@ const CALIBRATION_V1_2: CalibrationConfig = {
   ],
 };
 
-const SCORING_CONFIG_V1_2: ScoringConfig = {
+/** 1.3.0, frozen: the last 18-game model. Seasons were played under it. */
+const SCORING_CONFIG_V1_3: ScoringConfig = {
   ...SCORING_CONFIG_V1,
+  version: '1.3.0',
+  seasonGames: 18,
+  recordBands: RECORD_BANDS_18_GAME,
+};
+
+const SCORING_CONFIG_V1_2: ScoringConfig = {
+  ...SCORING_CONFIG_V1_3,
   version: '1.2.0',
   calibration: CALIBRATION_V1_2,
   // 98.5 was the perfection floor before the deeper pool pushed 18-0 to
   // 1 in 1,690 and the gates were raised to hold the published rarity.
-  recordBands: RECORD_BANDS.map((b) =>
+  recordBands: RECORD_BANDS_18_GAME.map((b) =>
     b.endingKey === 'PERFECT' ? { ...b, minRating: 98.5 } : b,
   ),
   perfection: { ...PERFECTION, minFinalRating: 98.5, universalSlotMinimum: 93 },
@@ -360,7 +396,8 @@ const SCORING_CONFIG_V1_2: ScoringConfig = {
 
 const REGISTRY: Readonly<Record<string, ScoringConfig>> = {
   '1.2.0': SCORING_CONFIG_V1_2,
-  '1.3.0': SCORING_CONFIG_V1,
+  '1.3.0': SCORING_CONFIG_V1_3,
+  '1.4.0': SCORING_CONFIG_V1,
 };
 
 /** Historical results must be re-readable under the model that produced them. */

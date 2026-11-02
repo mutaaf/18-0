@@ -1,6 +1,6 @@
 # Theming
 
-18-0 has two visual identities and can gain more. This is how that works, what
+17-0 has two visual identities and can gain more. This is how that works, what
 it is allowed to touch, and the one mistake the whole design exists to prevent.
 
 ## The two themes
@@ -14,7 +14,7 @@ it is allowed to touch, and the one mistake the whole design exists to prevent.
 | Feel | a night game, lights blowing out the corners | a one o'clock kickoff |
 
 Gold does not move. It is not a hue here, it is *the chase*, and the crown an
-earned 18-0 wears is the same colour in both.
+earned 17-0 wears is the same colour in both.
 
 Turf is navy and field green — the stands and the grass. The club rule in
 CLAUDE.md still applies: no club names, marks, logos or colours, and the green
@@ -111,7 +111,7 @@ is avoiding, not a feature.
 
 ## Where the choice lives
 
-`AsyncStorage` under `18-0:theme`, restored by `startTheme()` at boot alongside
+`AsyncStorage` under `18-0:theme` (the key predates the rename and is kept so nobody loses their theme), restored by `startTheme()` at boot alongside
 the other non-blocking starts. Nothing waits for it: the app renders in
 Broadcast and repaints when it lands, which on a warm start is a frame or two.
 

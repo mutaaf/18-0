@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { DEFAULT_SCORING_CONFIG, ROSTER_SLOTS, type RosterSlot, type ScoringConfig } from '@18-0/domain';
+import { DEFAULT_SCORING_CONFIG, ROSTER_SLOTS, type RosterSlot, type ScoringConfig } from '@17-0/domain';
 
 /**
  * Operator weight overrides.

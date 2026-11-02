@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { Image } from 'expo-image';
-import { displayName, era as eraDef, franchise, headshotUrl, type BootCard } from '@18-0/data';
+import { displayName, era as eraDef, franchise, headshotUrl, type BootCard } from '@17-0/data';
 import { color, elevate, font, positionColor, radius, space, tabular, themed, tracking } from '@/theme';
 import { useCardTilt } from './useCardTilt';
 import { useCardStats } from '@/features/stat-lines';
@@ -190,7 +190,7 @@ export function CollectibleCard({
               <Text style={styles.hidden}>RATING HIDDEN</Text>
             ) : (
               <View>
-                <Text style={styles.ratingLabel}>18-0 rating</Text>
+                <Text style={styles.ratingLabel}>17-0 rating</Text>
                 <Text style={styles.rating}>{card.rating.toFixed(1)}</Text>
               </View>
             )}

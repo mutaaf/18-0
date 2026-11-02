@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
-import { eraLabel, franchise } from '@18-0/data';
+import { eraLabel, franchise } from '@17-0/data';
 import { GlassSurface } from './GlassSurface';
 import { useWidth } from './useWidth';
 import { MODE_LABEL, type GameMode } from '@/state/game';

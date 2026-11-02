@@ -57,7 +57,7 @@ step() {
 }
 
 echo
-echo '18-0 — DOES IT BUILD'
+echo '17-0 — DOES IT BUILD'
 echo '================================================================'
 
 echo

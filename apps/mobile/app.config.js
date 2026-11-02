@@ -17,15 +17,15 @@ const baseUrl = process.env.EXPO_BASE_URL ?? undefined;
 
 module.exports = {
   expo: {
-    // Not '18-0', and it is load-bearing. This string is both the label under
+    // Not '17-0', and it is load-bearing. This string is both the label under
     // the icon and what prebuild sanitises into the Xcode target name -- and
-    // '18-0' sanitises to '180', which is purely numeric. An Xcode project is a
+    // '17-0' sanitises to '180', which is purely numeric. An Xcode project is a
     // plist, so that gets written `name = 180;` unquoted and read back by every
     // parser as the *number* 180; EAS then looks up the target by the string
     // '180', matches nothing, and the build dies at "Configure Xcode project"
     // saying `Could not find target '180' in project.pbxproj`. The plugin below
-    // puts '18-0' back on both home screens.
-    name: 'Eighteen Zero',
+    // puts '17-0' back on both home screens.
+    name: 'Seventeen Zero',
     slug: 'eighteen-zero',
     scheme: 'eighteenzero',
     version: '0.1.0',

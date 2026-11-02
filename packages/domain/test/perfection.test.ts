@@ -131,23 +131,23 @@ describe('perfection gates (PRFAQ §21)', () => {
       config,
     );
     expect(result.failedGates[0]!.message).toBe(
-      `RB2 needed a ${UNIVERSAL.toFixed(1)} minimum for 18-0 eligibility.`,
+      `RB2 needed a ${UNIVERSAL.toFixed(1)} minimum for 17-0 eligibility.`,
     );
   });
 });
 
 describe('gate outcome routing (PRFAQ §21)', () => {
-  it('a flawless roster that clears the threshold finishes 18-0', () => {
+  it('a flawless roster that clears the threshold finishes 17-0', () => {
     const result = scoreRoster(flatRoster(100), config);
     expect(result.finalRating).toBeGreaterThanOrEqual(THRESHOLD);
-    expect(result.record).toEqual({ wins: 18, losses: 0 });
+    expect(result.record).toEqual({ wins: 17, losses: 0 });
     expect(result.ending.key).toBe('PERFECT');
     expect(result.ending.tier).toBe('IMMORTAL');
     expect(result.distanceFromPerfection).toBe(0);
     expect(isPerfectionDenied(result)).toBe(false);
   });
 
-  it('a threshold-clearing roster with one failed gate falls to 17-1', () => {
+  it('a threshold-clearing roster with one failed gate falls to 16-1', () => {
     // Ratings high enough to clear the score, with one slot under the floor.
     const denied = scoreRoster(
       makeRoster({ QB: 100, RB1: 100, RB2: UNIVERSAL - 0.5, WR1: 100, WR2: 100, TE1: 100, DEF: 100 }),
@@ -155,13 +155,13 @@ describe('gate outcome routing (PRFAQ §21)', () => {
     );
     expect(denied.perfectEligibility.reachedThreshold).toBe(true);
     expect(denied.perfectEligibility.eligible).toBe(false);
-    expect(denied.record).toEqual({ wins: 17, losses: 1 });
+    expect(denied.record).toEqual({ wins: 16, losses: 1 });
     expect(denied.ending.key).toBe('HEARTBREAK');
     expect(denied.ending.tier).toBe('S+');
     expect(isPerfectionDenied(denied)).toBe(true);
   });
 
-  it('17-1 by score alone is not a denied perfection', () => {
+  it('16-1 by score alone is not a denied perfection', () => {
     const result = scoreRoster(flatRoster(93), config);
     if (result.ending.key === 'HEARTBREAK') {
       expect(isPerfectionDenied(result)).toBe(false);

@@ -16,7 +16,7 @@ base_rating        weighted average of the seven slot ratings   (PRFAQ §13)
 → calibrate()      monotonic piecewise-linear curve             (PRFAQ §17)
 = final_rating     clamped [0, 100], rounded to 4dp
 → record band      highest floor at or below the rating         (PRFAQ §20)
-→ perfection gates 18-0 only if every gate also passes          (PRFAQ §21)
+→ perfection gates 17-0 only if every gate also passes          (PRFAQ §21)
 ```
 
 Nothing above is a code constant. `packages/domain/src/constants/config.ts`
@@ -43,33 +43,33 @@ them; regenerate, and bump the model version when you do.
 PRFAQ §20's table has gaps (`61–62.9`, then `63–64.9`). Bands are stored as
 inclusive floors and the highest floor at or below the rating wins, which
 closes the gaps deterministically and reproduces every boundary the spec calls
-out: `96.499 → 16-2`, `96.500 → 17-1`, `98.999 → 17-1`, `99.000 → 18-0`. The
+out: `96.499 → 15-2`, `96.500 → 16-1`, `98.999 → 16-1`, `99.000 → 17-0`. The
 perfect band's floor and `perfection.minFinalRating` are deliberately the same
-number: a rating inside the 18-0 band that cannot clear the score gate would be
-an 18-0 that is always denied, which reads as a bug.
+number: a rating inside the 17-0 band that cannot clear the score gate would be
+an 17-0 that is always denied, which reads as a bug.
 
 ## Retuning is not optional when the dataset grows
 
 The gates are fitted to a distribution, so every time the card pool changes they
 stop meaning what they meant. Between them, five eras becoming seven and the
 rating model's metric fallback took the dataset from 2,994 cards to 4,872 and
-18-0 from 1 in 12,000 to 1 in 1,690 — against a README, a home screen and a
+17-0 from 1 in 12,000 to 1 in 1,690 — against a README, a home screen and a
 stats screen that all say *about once every 6,000 games*.
 
 The fix is both halves, in order:
 
 ```bash
-pnpm --filter @18-0/data analyze -- --games=150000 --write   # refit the curve
-pnpm --filter @18-0/data tune -- --games=400000              # then pick floors
-pnpm --filter @18-0/domain regen:fixtures                    # move the fixtures
+pnpm --filter @17-0/data analyze -- --games=150000 --write   # refit the curve
+pnpm --filter @17-0/data tune -- --games=400000              # then pick floors
+pnpm --filter @17-0/domain regen:fixtures                    # move the fixtures
 ```
 
-The curve is what governs 17-1 (a band boundary); the gates govern 18-0. Tuning
+The curve is what governs 16-1 (a band boundary); the gates govern 17-0. Tuning
 only the gates leaves the near-miss twice as common as the copy claims.
 
 **The two harnesses disagree by about 1.4x, consistently.** On the shipped
-config over 400,000 games each, `tune` reports 18-0 at 1 in 5,797 and `analyze`
-at 1 in 8,333; they agree closely on 17-1 (1 in 51 against 1 in 50). The gap is
+config over 400,000 games each, `tune` reports 17-0 at 1 in 5,797 and `analyze`
+at 1 in 8,333; they agree closely on 16-1 (1 in 51 against 1 in 50). The gap is
 systematic rather than noise -- it shows up at every gate setting -- and comes
 from the two harnesses drawing play differently. Neither is wrong; they bracket
 the answer. This is written down so the next person to notice does not spend an
@@ -78,11 +78,11 @@ afternoon "fixing" a number that is behaving exactly as it always has.
 ## The gates are a narrative device, not the difficulty
 
 Simulation (see `FINDINGS.md`) shows the score threshold, not the gates, is
-what makes 18-0 rare: 3.6% of seven-spin draws can satisfy all seven gates,
+what makes 17-0 rare: 3.6% of seven-spin draws can satisfy all seven gates,
 but only 0.26% can also clear 99.25. The gates' real job is the one PRFAQ §21
 describes — turning a near-miss into an explanation:
 
-> **PERFECTION DENIED** — RB2 needed a 94.0 minimum for 18-0 eligibility.
+> **PERFECTION DENIED** — RB2 needed a 94.0 minimum for 17-0 eligibility.
 
 ## Calibration knobs, in order of leverage
 
@@ -90,7 +90,7 @@ describes — turning a near-miss into an explanation:
 |---|---|---|
 | `calibration.anchors` | generated | The entire rating-to-percentile relationship |
 | `weakLink.scale` | `config.ts` | How much one bad slot costs relative to overall quality |
-| `perfection.*` | `config.ts` | How reachable 18-0 is, and which near-miss story gets told |
+| `perfection.*` | `config.ts` | How reachable 17-0 is, and which near-miss story gets told |
 | `recordBands` | `config.ts` | How wide each ending is |
 | `eliteDepth`, `chemistry` | `config.ts` | Small, deliberately |
 
@@ -118,4 +118,4 @@ measured before the real historical dataset exists:
   function of this spec.
 - `play.ts` — spins, a continuous player-skill model, and an omniscient
   reachability solver (bipartite matching over spins and slots) that gives a
-  hard upper bound on how often 18-0 is attainable.
+  hard upper bound on how often 17-0 is attainable.

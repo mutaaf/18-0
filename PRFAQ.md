@@ -1,16 +1,16 @@
-# 18-0 — PRFAQ + End-to-End React Native Build Specification
+# 17-0 — PRFAQ + End-to-End React Native Build Specification
 
 **Document type:** Product Requirements + FAQ + Technical Build Spec  
 **Audience:** Coding agent / product engineer / designer  
 **Primary client:** React Native (iOS + Android)  
-**Working title:** **18-0**  
+**Working title:** **17-0**  
 **Core promise:** **Spin history. Build seven. Chase perfection.**
 
 ---
 
 ## 1. Executive Summary
 
-18-0 is a fast, replayable NFL historical roster-building game.
+17-0 is a fast, replayable NFL historical roster-building game.
 
 The user repeatedly spins a wheel that returns a **Team + Era** combination. From the eligible historical players for that franchise/era, the user selects one player and assigns him to an open roster slot:
 
@@ -22,7 +22,7 @@ The user repeatedly spins a wheel that returns a **Team + Era** combination. Fro
 - TE1
 - Defense
 
-When all seven slots are filled, the app computes a deterministic **18-0 Rating** and maps it to an 18-game projected record from **0-18 through 18-0**.
+When all seven slots are filled, the app computes a deterministic **17-0 Rating** and maps it to a 17-game projected record from **0-17 through 17-0**.
 
 The game is intentionally simple on the surface:
 
@@ -53,8 +53,8 @@ The NFL version should preserve the dark, premium, game-like presentation while 
 3. The field should feel like a TV pregame lineup graphic.
 4. Position cards should feel collectible and high-value.
 5. The final rating reveal must feel like the emotional payoff.
-6. 17-1 should feel painful.
-7. 18-0 should feel legendary.
+6. 16-1 should feel painful.
+7. 17-0 should feel legendary.
 8. Keep the main loop understandable within seconds.
 9. Avoid cluttering the primary flow with deep analytics.
 10. Advanced methodology belongs behind details screens.
@@ -63,21 +63,21 @@ The NFL version should preserve the dark, premium, game-like presentation while 
 
 # 3. Press Release
 
-## Introducing 18-0: The NFL History Roster Game Where Perfection Is Almost Impossible
+## Introducing 17-0: The NFL History Roster Game Where Perfection Is Almost Impossible
 
-Today we are introducing **18-0**, a historical NFL roster-building game built around one question:
+Today we are introducing **17-0**, a historical NFL roster-building game built around one question:
 
 > **Can you build the perfect team from the spins you are given?**
 
 Each spin gives the player a random **NFL franchise and era**. The player then chooses one eligible historical player from that combination and places him into one of seven roster positions: quarterback, two running backs, two wide receivers, tight end, or defense.
 
-Once the lineup is complete, 18-0 evaluates each selection using a historically normalized rating model that compares players with their position and era. The final roster earns an **18-0 Rating** and a projected 18-game record.
+Once the lineup is complete, 17-0 evaluates each selection using a historically normalized rating model that compares players with their position and era. The final roster earns an **17-0 Rating** and a projected 18-game record.
 
-A good roster might finish 12-6. An incredible roster might reach 16-2. A nearly flawless build could finish 17-1.
+A good roster might finish 11-6. An incredible roster might reach 15-2. A nearly flawless build could finish 16-1.
 
 Only a truly extraordinary roster can achieve:
 
-# 18-0
+# 17-0
 
 There are no random season simulations after the draft. Your final record comes directly from the roster you built.
 
@@ -87,7 +87,7 @@ That means every choice matters.
 
 Players can save their best teams, compare historical builds, challenge friends, climb leaderboards, share final result cards, and keep spinning in pursuit of the one record that matters.
 
-**18-0: Spin history. Build seven. Chase perfection.**
+**17-0: Spin history. Build seven. Chase perfection.**
 
 ---
 
@@ -98,7 +98,7 @@ Sports fans love debating historical greatness, but most historical-player produ
 - complicated simulation engines, or
 - shallow “pick the biggest name” games.
 
-18-0 should live between them.
+17-0 should live between them.
 
 The player should not need to understand EPA, ANY/A, era normalization, or weighting formulas to enjoy the game.
 
@@ -520,7 +520,7 @@ Chemistry must never rescue a materially weak roster.
 
 ---
 
-# 17. Final 18-0 Rating Formula
+# 17. Final 17-0 Rating Formula
 
 ```text
 raw_team_rating =
@@ -570,7 +570,7 @@ Initial calibration target across large volumes of synthetically generated valid
 
 Goal:
 
-**18-0 should be genuinely rare.**
+**17-0 should be genuinely rare.**
 
 Do not ship a scoring curve where routine elite rosters score 99+.
 
@@ -578,29 +578,28 @@ Do not ship a scoring curve where routine elite rosters score 99+.
 
 # 19. Complete Season Ending Taxonomy
 
-Every possible 18-game record has a named ending.
+Every possible 17-game record has a named ending. (Until model 1.4.0 the season was 18 games and had a nineteenth ending, 9-9 Average; a 17-game season has no .500 record.)
 
 | Record | Finish | Tier |
 |---|---|---|
-| 0-18 | Historic Collapse | F |
-| 1-17 | Rock Bottom | F |
-| 2-16 | Rebuild | F |
-| 3-15 | Lost Season | D |
-| 4-14 | Bottom Feeder | D |
-| 5-13 | Struggling | D |
-| 6-12 | Underachiever | C- |
-| 7-11 | Fringe | C |
-| 8-10 | Almost There | C+ |
-| 9-9 | Average | B- |
-| 10-8 | Winning Season | B |
-| 11-7 | Wild Card | B+ |
-| 12-6 | Playoff Team | A- |
-| 13-5 | Contender | A |
-| 14-4 | Elite | A |
-| 15-3 | Championship Caliber | A+ |
-| 16-2 | Dynasty | S |
-| 17-1 | Heartbreak | S+ |
-| 18-0 | PERFECT | IMMORTAL |
+| 0-17 | Historic Collapse | F |
+| 1-16 | Rock Bottom | F |
+| 2-15 | Rebuild | F |
+| 3-14 | Lost Season | D |
+| 4-13 | Bottom Feeder | D |
+| 5-12 | Struggling | D |
+| 6-11 | Underachiever | C- |
+| 7-10 | Fringe | C |
+| 8-9 | Almost There | C+ |
+| 9-8 | Winning Season | B |
+| 10-7 | Wild Card | B+ |
+| 11-6 | Playoff Team | A- |
+| 12-5 | Contender | A |
+| 13-4 | Elite | A |
+| 14-3 | Championship Caliber | A+ |
+| 15-2 | Dynasty | S |
+| 16-1 | Heartbreak | S+ |
+| 17-0 | PERFECT | IMMORTAL |
 
 ---
 
@@ -612,35 +611,34 @@ Initial proposal:
 
 | Rating | Record |
 |---:|---|
-| <61 | 0-18 |
-| 61–62.9 | 1-17 |
-| 63–64.9 | 2-16 |
-| 65–66.9 | 3-15 |
-| 67–68.9 | 4-14 |
-| 69–70.9 | 5-13 |
-| 71–72.9 | 6-12 |
-| 73–74.9 | 7-11 |
-| 75–76.9 | 8-10 |
-| 77–79.9 | 9-9 |
-| 80–82.49 | 10-8 |
-| 82.5–84.99 | 11-7 |
-| 85–87.49 | 12-6 |
-| 87.5–89.99 | 13-5 |
-| 90–92.49 | 14-4 |
-| 92.5–94.49 | 15-3 |
-| 94.5–96.49 | 16-2 |
-| 96.5–99.249 | 17-1 |
-| 99.25+ | eligible for 18-0 |
+| <61 | 0-17 |
+| 61–62.9 | 1-16 |
+| 63–64.9 | 2-15 |
+| 65–66.9 | 3-14 |
+| 67–68.9 | 4-13 |
+| 69–70.9 | 5-12 |
+| 71–72.9 | 6-11 |
+| 73–74.9 | 7-10 |
+| 75–78.49 | 8-9 |
+| 78.5–82.49 | 9-8 |
+| 82.5–84.99 | 10-7 |
+| 85–87.49 | 11-6 |
+| 87.5–89.99 | 12-5 |
+| 90–92.49 | 13-4 |
+| 92.5–94.49 | 14-3 |
+| 94.5–96.49 | 15-2 |
+| 96.5–99.249 | 16-1 |
+| 99.25+ | eligible for 17-0 |
 
 These thresholds are configuration, not code constants.
 
 ---
 
-# 21. 18-0 Perfection Gates
+# 21. 17-0 Perfection Gates
 
 A score >= 99.25 is necessary but not sufficient.
 
-To receive 18-0:
+To receive 17-0:
 
 ```text
 final_rating >= 99.25
@@ -653,7 +651,7 @@ At least 4 roster positions >= 98
 If the rating reaches 99.25 but one or more perfection gates fail:
 
 ```text
-record = 17-1
+record = 16-1
 ```
 
 The result screen should explain the blocker.
@@ -661,9 +659,9 @@ The result screen should explain the blocker.
 Example:
 
 > **PERFECTION DENIED**  
-> RB2 needed a 96.0 minimum for 18-0 eligibility.
+> RB2 needed a 96.0 minimum for 17-0 eligibility.
 
-This makes 18-0 difficult without hidden randomness.
+This makes 17-0 difficult without hidden randomness.
 
 ---
 
@@ -691,7 +689,7 @@ The primary gameplay screen.
 
 Top:
 
-- 18-0 brand
+- 17-0 brand
 - current Team
 - current Era
 - Spin button
@@ -762,15 +760,15 @@ Required content:
 - projected record
 - ending name
 - tier
-- final 18-0 Rating
+- final 17-0 Rating
 - all seven selected roster members
 - individual ratings
 - team offense rating
 - defense rating
 - chemistry grade/bonus
 - weak-link impact if any
-- distance from 18-0
-- perfection-gate explanation if 17-1 at >=99.25
+- distance from 17-0
+- perfection-gate explanation if 16-1 at >=99.25
 - Share
 - Build Another
 - Save / Sign In CTA when anonymous
@@ -780,17 +778,17 @@ Visual state should change based on result tier.
 
 Special states:
 
-### 17-1
+### 16-1
 Use language such as:
 
 > **HEARTBREAK**  
 > One loss from immortality.
 
-### 18-0
+### 17-0
 Full premium celebration:
 
 > **PERFECT**  
-> **18-0**  
+> **17-0**  
 > **IMMORTAL**
 
 Use restrained but unmistakable animation, haptics, lighting treatment, and share-card presentation.
@@ -834,8 +832,8 @@ Required stats:
 - Games Played
 - Best Rating
 - Best Record
-- Number of 18-0 finishes
-- Number of 17-1 finishes
+- Number of 17-0 finishes
+- Number of 16-1 finishes
 - Average Rating
 - Most-used franchise
 - Most-used era
@@ -858,8 +856,8 @@ Possible future stats:
 Initial leaderboards:
 
 - Highest Rating
-- Most 18-0 Seasons
-- Most 17-1+ Seasons
+- Most 17-0 Seasons
+- Most 16-1+ Seasons
 - Best Average Rating with minimum game count
 
 Filters:
@@ -990,7 +988,7 @@ The server should be authoritative for:
 
 The client can calculate a preview score, but completion should be confirmed by the server.
 
-This prevents modified clients from posting fake 18-0 results.
+This prevents modified clients from posting fake 17-0 results.
 
 ---
 
@@ -1309,17 +1307,17 @@ Generate a native share card.
 Required share-card content:
 
 ```text
-18-0 logo
+17-0 logo
 Final record
 Ending / tier
-18-0 Rating
+17-0 Rating
 Seven-position roster
 Player ratings
 CTA: Can you beat this roster?
 Challenge link when available
 ```
 
-Special 18-0 share card should be visually distinct.
+Special 17-0 share card should be visually distinct.
 
 Use native share sheet.
 
@@ -1441,17 +1439,17 @@ Must cover:
 - score calibration
 - score-to-record mapping
 - every one of the 19 record endings
-- all 18-0 perfection gates
+- all 17-0 perfection gates
 - exact boundary values
 
 Examples:
 
 ```text
-96.499 -> 16-2
-96.500 -> 17-1
-99.249 -> 17-1
-99.250 + all gates pass -> 18-0
-99.250 + one gate fails -> 17-1
+96.499 -> 15-2
+96.500 -> 16-1
+99.249 -> 16-1
+99.250 + all gates pass -> 17-0
+99.250 + one gate fails -> 16-1
 ```
 
 ## Integration Tests
@@ -1475,8 +1473,8 @@ Critical paths:
 
 1. first-time user completes game
 2. returning user resumes game
-3. 17-1 perfection denied
-4. valid 18-0 result
+3. 16-1 perfection denied
+4. valid 17-0 result
 5. share
 6. sign-in after result
 7. view saved game in My Stats
@@ -1491,38 +1489,38 @@ The coding agent must include deterministic fixtures for visual and E2E testing.
 ## Weak roster
 
 ```text
-Expected ending: 6-12 / Underachiever
+Expected ending: 6-11 / Underachiever
 ```
 
 ## Average roster
 
 ```text
-Expected ending: 9-9 / Average
+Expected ending: 8-9 / Almost There
 ```
 
 ## Playoff roster
 
 ```text
-Expected ending: 12-6 / Playoff Team
+Expected ending: 11-6 / Playoff Team
 ```
 
 ## Elite roster
 
 ```text
-Expected ending: 15-3 / Championship Caliber
+Expected ending: 14-3 / Championship Caliber
 ```
 
 ## Dynasty roster
 
 ```text
-Expected ending: 16-2 / Dynasty
+Expected ending: 15-2 / Dynasty
 ```
 
 ## Heartbreak roster
 
 ```text
 Expected rating: ~98.x
-Expected ending: 17-1 / Heartbreak
+Expected ending: 16-1 / Heartbreak
 ```
 
 ## Perfection-gate failure
@@ -1530,7 +1528,7 @@ Expected ending: 17-1 / Heartbreak
 ```text
 Final rating >= 99.25
 One required slot below gate
-Expected ending: 17-1
+Expected ending: 16-1
 Expected UI: PERFECTION DENIED
 ```
 
@@ -1539,7 +1537,7 @@ Expected UI: PERFECTION DENIED
 ```text
 Final rating >= 99.25
 All perfection gates satisfied
-Expected ending: 18-0 / PERFECT / IMMORTAL
+Expected ending: 17-0 / PERFECT / IMMORTAL
 ```
 
 ---
@@ -1625,8 +1623,8 @@ Keep scoring logic in a pure shared domain package.
 
 - final reveal
 - all 19 season endings
-- 17-1 special state
-- 18-0 special state
+- 16-1 special state
+- 17-0 special state
 - result breakdown
 - Build Another
 - history
@@ -1672,7 +1670,7 @@ MVP is not complete until:
 - game survives app restart
 - player ratings are versioned
 - completed roster gets deterministic rating
-- all records from 0-18 to 18-0 are supported
+- all records from 0-17 to 17-0 are supported
 - ending name/tier is shown
 - perfection gates work
 - result screen shows roster + breakdown
@@ -1680,7 +1678,7 @@ MVP is not complete until:
 - Build Another resets correctly
 - history works
 - profile best rating/best record works
-- 17-1 and 18-0 have dedicated reveal states
+- 16-1 and 17-0 have dedicated reveal states
 - iOS and Android layouts work
 - accessibility basics pass
 - unit + E2E critical path tests pass
@@ -1689,7 +1687,7 @@ MVP is not complete until:
 
 # 42. FAQ
 
-## Why not simulate 18 games?
+## Why not simulate 17 games?
 
 Because that makes the result feel random.
 
@@ -1699,19 +1697,21 @@ The final record should be an understandable consequence of roster quality.
 
 ---
 
-## Why use an 18-game record if the NFL regular season format changes over time?
+## Why use a 17-game record if the NFL regular season format changes over time?
 
-18-0 is the product metaphor and scoring scale.
+Seventeen games across eighteen weeks, one of them a bye: that is the modern season, and it is why the game is called 17-0.
+
+17-0 is the product metaphor and scoring scale.
 
 It is not intended to recreate a literal historical schedule.
 
 ---
 
-## Why make 18-0 so hard?
+## Why make 17-0 so hard?
 
 Because the product's entire identity depends on perfection carrying weight.
 
-If players routinely reach 18-0, the chase stops being interesting.
+If players routinely reach 17-0, the chase stops being interesting.
 
 ---
 
@@ -1721,7 +1721,7 @@ A weighted average can hide one materially weak position.
 
 The gates enforce the product promise:
 
-> an 18-0 roster has no obvious weakness.
+> an 17-0 roster has no obvious weakness.
 
 ---
 
@@ -1760,11 +1760,11 @@ The exact calibration constants do not need to dominate the primary UI.
 
 ---
 
-## Can a user get 18-0 more than once?
+## Can a user get 17-0 more than once?
 
 Yes.
 
-The profile should track total 18-0 finishes and leaderboard achievements.
+The profile should track total 17-0 finishes and leaderboard achievements.
 
 But the rarity target should make each one meaningful.
 
@@ -1823,7 +1823,7 @@ Do not build these until the core loop is excellent:
 
 Possible later extensions:
 
-### Daily 18-0
+### Daily 17-0
 Everyone gets the same sequence of spins.
 
 ### Era Lock
@@ -1855,7 +1855,7 @@ When tradeoffs arise, prioritize in this order:
 1. **Fast gameplay**
 2. **Clear choices**
 3. **Trustworthy rating**
-4. **Meaningful 17-1 / 18-0 rarity**
+4. **Meaningful 16-1 / 17-0 rarity**
 5. **Strong final reveal**
 6. **Replayability**
 7. **Social sharing**
@@ -1869,7 +1869,7 @@ Do not hide whether a user can assign a selected player to a position.
 
 Do not make the user register before playing.
 
-Do not allow 18-0 to become common.
+Do not allow 17-0 to become common.
 
 The core product should always feel like:
 
@@ -1879,6 +1879,6 @@ The core product should always feel like:
 
 # 46. Final Product Acceptance Statement
 
-The app is successful when a new user can understand the game without a tutorial, complete a roster in a few minutes, immediately understand why their roster earned its record, feel genuine tension when approaching 17-1, recognize 18-0 as extremely rare, and instinctively want to tap:
+The app is successful when a new user can understand the game without a tutorial, complete a roster in a few minutes, immediately understand why their roster earned its record, feel genuine tension when approaching 16-1, recognize 17-0 as extremely rare, and instinctively want to tap:
 
 # BUILD ANOTHER

@@ -12,12 +12,12 @@ export function Brand({
 }: {
   size?: number;
   subtitle?: string;
-  /** Overrides the numeral colour; used for the 18-0 celebration. */
+  /** Overrides the numeral colour; used for the 17-0 celebration. */
   tint?: string;
 }) {
   const barHeight = Math.max(2, Math.round(size * 0.14));
   return (
-    <View style={styles.row} accessible accessibilityRole="header" accessibilityLabel="18-0">
+    <View style={styles.row} accessible accessibilityRole="header" accessibilityLabel="17-0">
       <View style={styles.lockup}>
         <Text
           allowFontScaling={false}

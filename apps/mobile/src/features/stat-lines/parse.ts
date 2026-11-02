@@ -1,4 +1,4 @@
-import type { StatLine } from '@18-0/data';
+import type { StatLine } from '@17-0/data';
 
 /**
  * Reading a stat-line table that arrived over the network.

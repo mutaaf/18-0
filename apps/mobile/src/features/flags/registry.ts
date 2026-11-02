@@ -1,5 +1,5 @@
 /**
- * Every flag in 18-0, declared in one file.
+ * Every flag in 17-0, declared in one file.
  *
  * A flag is a promise to remove a flag. The failure mode of this pattern is
  * never the first one -- it is the fortieth, three of which nobody can explain
@@ -167,7 +167,12 @@ export const FLAGS = {
     summary: 'Shows player photographs on a card. Off leaves the team-coloured wash.',
     owner: 'mutaaf',
     removeBy: '2027-09-01',
-    fallback: true,
+    // Off, here and in PostHog, from the 17-0 submission on. App Review asked
+    // for proof of rights to protected third-party material (2.1, item 6) and
+    // there is none for these, so the answer is that the app shows no player
+    // photographs -- which has to be true on a device that never reaches
+    // PostHog as well as on one that does.
+    fallback: false,
   },
 
   /**
