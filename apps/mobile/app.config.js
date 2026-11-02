@@ -19,12 +19,13 @@ module.exports = {
   expo: {
     // Not '17-0', and it is load-bearing. This string is both the label under
     // the icon and what prebuild sanitises into the Xcode target name -- and
-    // '17-0' sanitises to '180', which is purely numeric. An Xcode project is a
-    // plist, so that gets written `name = 180;` unquoted and read back by every
-    // parser as the *number* 180; EAS then looks up the target by the string
-    // '180', matches nothing, and the build dies at "Configure Xcode project"
-    // saying `Could not find target '180' in project.pbxproj`. The plugin below
-    // puts '17-0' back on both home screens.
+    // '17-0' sanitises to '170', which is purely numeric. An Xcode project is a
+    // plist, so that gets written `name = 170;` unquoted and read back by every
+    // parser as the *number* 170; EAS then looks up the target by the string,
+    // matches nothing, and the build dies at "Configure Xcode project" saying
+    // `Could not find target '170' in project.pbxproj` (learned as '180', when
+    // the game was 18-0). The plugin below puts '17-0' back on both home
+    // screens.
     name: 'Seventeen Zero',
     slug: 'eighteen-zero',
     scheme: 'eighteenzero',
@@ -68,6 +69,7 @@ module.exports = {
       // needs to hand the redirect back to the app instead of a browser tab.
       'expo-web-browser',
       './plugins/with-display-name',
+      './plugins/without-push-entitlement',
       [
         'expo-splash-screen',
         {

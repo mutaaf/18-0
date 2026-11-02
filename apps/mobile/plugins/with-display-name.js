@@ -3,17 +3,18 @@
  * something a parser can read.
  *
  * `expo.name` does two unrelated jobs: it is the label under the icon, and it
- * is what prebuild sanitises into the Xcode target name. "17-0" sanitises to
- * "180", which is *purely numeric*, and an Xcode project file is a plist — so
- * `name = 180;` is written unquoted and every plist parser reads it back as the
- * number 180. EAS then looks up the target by the string "180", matches
- * nothing, and the build dies at "Configure Xcode project" with
+ * is what prebuild sanitises into the Xcode target name. The name was "18-0"
+ * then, which sanitises to "180" -- *purely numeric* -- and an Xcode project
+ * file is a plist, so `name = 180;` is written unquoted and every plist parser
+ * reads it back as the number 180. EAS then looks up the target by the string
+ * "180", matches nothing, and the build dies at "Configure Xcode project" with
  *
  *     Could not find target '180' in project.pbxproj
  *
- * which says nothing about names being numbers. So `expo.name` is now
- * "Seventeen Zero" -- target `EighteenZero`, a string -- and this plugin puts
- * "17-0" back in the two places a person actually sees it.
+ * which says nothing about names being numbers. "17-0" has exactly the same
+ * problem ("170"). So `expo.name` is "Seventeen Zero" -- target
+ * `SeventeenZero`, a string -- and this plugin puts "17-0" back in the two
+ * places a person actually sees it.
  */
 const { withInfoPlist, withStringsXml, AndroidConfig } = require('@expo/config-plugins');
 
