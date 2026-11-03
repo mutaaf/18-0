@@ -50,7 +50,13 @@ must be **built with Xcode 27.1 or later** (the iOS 27.1 SDK). On an older SDK
 the symbols do not exist and the build fails -- `#available` cannot rescue a
 missing declaration. Built with the 27.1 SDK the app also goes edge to edge on
 both displays and gets the vertical bar; that is decided by the SDK linked, not
-by any Info.plist key. EAS builds need an image with Xcode 27.1+.
+by any Info.plist key.
+
+EAS chooses Xcode 26.6 for Expo SDK 57 unless told otherwise -- 1.0 (6) was
+built that way -- so every profile in `eas.json` pins
+`macos-tahoe-26.6-xcode-27.1`, and `src/features/fold/build-image.test.ts`
+fails if one stops. Xcode 27 apps launch only with the UIScene lifecycle,
+which `plugins/with-scene-lifecycle.js` already provides.
 
 ## What has not been checked on hardware
 
