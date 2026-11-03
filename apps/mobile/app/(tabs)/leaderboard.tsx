@@ -454,32 +454,39 @@ function PodiumCard({ row, rank, wide }: { row: LeaderboardRow; rank: number; wi
           transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
         },
       ]}
-      accessible
-      accessibilityLabel={`Rank ${rank}. ${row.handle}. ${row.wins} and ${row.losses}. Tier ${row.tier}. Rating ${row.finalRating.toFixed(1)}.`}
     >
       <View style={[styles.podiumBar, { backgroundColor: accent }]} />
-      <View style={styles.podiumTop}>
-        <Text style={[styles.podiumRank, lead && styles.podiumRankLead, { color: accent }]}>
-          {rank}
+      <View
+        style={styles.podiumBody}
+        accessible
+        accessibilityLabel={`Rank ${rank}. ${row.handle}. ${row.wins} and ${row.losses}. Tier ${row.tier}. Rating ${row.finalRating.toFixed(1)}.`}
+      >
+        <View style={styles.podiumTop}>
+          <Text style={[styles.podiumRank, lead && styles.podiumRankLead, { color: accent }]}>
+            {rank}
+          </Text>
+          {row.endingKey === 'PERFECT' ? (
+            <View style={[styles.crown, { borderColor: `${color.gold}66` }]}>
+              <Text style={styles.crownText}>PERFECT</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={[styles.podiumHandle, lead && styles.podiumHandleLead]} numberOfLines={1}>
+          {row.handle}
         </Text>
-        {row.endingKey === 'PERFECT' ? (
-          <View style={[styles.crown, { borderColor: `${color.gold}66` }]}>
-            <Text style={styles.crownText}>PERFECT</Text>
-          </View>
-        ) : null}
-      </View>
-      <Text style={[styles.podiumHandle, lead && styles.podiumHandleLead]} numberOfLines={1}>
-        {row.handle}
-      </Text>
-      <View style={styles.podiumMeta}>
-        <Text style={[styles.podiumRecord, { color: accent }]}>
-          {row.wins}-{row.losses}
+        <View style={styles.podiumMeta}>
+          <Text style={[styles.podiumRecord, { color: accent }]}>
+            {row.wins}-{row.losses}
+          </Text>
+          <Text style={styles.podiumTier}>TIER {row.tier}</Text>
+        </View>
+        <Text style={[styles.podiumRating, lead && styles.podiumRatingLead]}>
+          {row.finalRating.toFixed(1)}
         </Text>
-        <Text style={styles.podiumTier}>TIER {row.tier}</Text>
       </View>
-      <Text style={[styles.podiumRating, lead && styles.podiumRatingLead]}>
-        {row.finalRating.toFixed(1)}
-      </Text>
+      <View style={styles.podiumFlag}>
+        <ReportButton userId={row.userId} handle={row.handle} />
+      </View>
     </Animated.View>
   );
 }
@@ -574,43 +581,46 @@ function Entry({
 
   return (
     <View style={[styles.entry, isMe && styles.entryMine]}>
-      <Pressable
-        onPress={toggle}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        accessibilityLabel={`Rank ${rank}. ${row.handle}. ${row.wins} and ${row.losses}. Tier ${row.tier}. Rating ${row.finalRating.toFixed(1)}. Tap to see the roster.`}
-        style={({ hovered, pressed }: PressState) => [
-          styles.entryHead,
-          hovered && { backgroundColor: '#FFFFFF0A' },
-          pressed && { opacity: 0.85 },
-        ]}
-      >
-        <Text style={styles.rank}>{String(rank).padStart(2, '0')}</Text>
+      <View style={styles.entryHeadRow}>
+        <Pressable
+          onPress={toggle}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          accessibilityLabel={`Rank ${rank}. ${row.handle}. ${row.wins} and ${row.losses}. Tier ${row.tier}. Rating ${row.finalRating.toFixed(1)}. Tap to see the roster.`}
+          style={({ hovered, pressed }: PressState) => [
+            styles.entryHead,
+            hovered && { backgroundColor: '#FFFFFF0A' },
+            pressed && { opacity: 0.85 },
+          ]}
+        >
+          <Text style={styles.rank}>{String(rank).padStart(2, '0')}</Text>
 
-        <View style={styles.entryMain}>
-          <View style={styles.entryTitle}>
-            <Text style={styles.handle} numberOfLines={1}>
-              {row.handle}
-            </Text>
-            {isMe ? <Text style={styles.you}>YOU</Text> : null}
-            <Text style={[styles.record, { color: accent }]}>
-              {row.wins}-{row.losses}
-            </Text>
+          <View style={styles.entryMain}>
+            <View style={styles.entryTitle}>
+              <Text style={styles.handle} numberOfLines={1}>
+                {row.handle}
+              </Text>
+              {isMe ? <Text style={styles.you}>YOU</Text> : null}
+              <Text style={[styles.record, { color: accent }]}>
+                {row.wins}-{row.losses}
+              </Text>
+            </View>
+            {/* The bar is decoration; the tier letter and rating carry the
+                meaning for anyone who cannot separate these colours. */}
+            <View style={styles.track} accessibilityElementsHidden importantForAccessibility="no">
+              <View style={[styles.trackFill, { width: `${fill * 100}%`, backgroundColor: accent }]} />
+            </View>
           </View>
-          {/* The bar is decoration; the tier letter and rating carry the
-              meaning for anyone who cannot separate these colours. */}
-          <View style={styles.track} accessibilityElementsHidden importantForAccessibility="no">
-            <View style={[styles.trackFill, { width: `${fill * 100}%`, backgroundColor: accent }]} />
+
+          <View style={styles.entryRight}>
+            <Text style={[styles.rating, { color: accent }]}>{row.finalRating.toFixed(1)}</Text>
+            <Text style={styles.tier}>TIER {row.tier}</Text>
           </View>
-        </View>
 
-        <View style={styles.entryRight}>
-          <Text style={[styles.rating, { color: accent }]}>{row.finalRating.toFixed(1)}</Text>
-          <Text style={styles.tier}>TIER {row.tier}</Text>
-        </View>
-
-        <Text style={[styles.chevron, open && styles.chevronOpen]}>›</Text>
-      </Pressable>
+          <Text style={[styles.chevron, open && styles.chevronOpen]}>›</Text>
+        </Pressable>
+        <ReportButton userId={row.userId} handle={row.handle} />
+      </View>
 
       {open ? (
         <View style={styles.roster}>
@@ -623,9 +633,6 @@ function Entry({
                 .map((pick) => (
                   <RosterLine key={pick.slot} pick={pick} />
                 ))}
-              <View style={styles.rosterFoot}>
-                <ReportButton userId={row.userId} handle={row.handle} />
-              </View>
             </>
           ) : (
             <Text style={styles.rosterEmpty}>This roster could not be loaded.</Text>
@@ -691,20 +698,25 @@ function PointsBoard({
           <View
             key={row.userId}
             style={[styles.pointsRow, row.userId === meId && styles.entryMine]}
-            accessible
-            accessibilityLabel={`Rank ${i + 4}. ${row.handle}. ${points.format(row.points)} points from ${row.seasons} seasons.`}
           >
-            <Text style={styles.rank}>{i + 4}</Text>
-            <Avatar handle={row.handle} size={34} />
-            <View style={styles.pointsMain}>
-              <Text style={styles.handle} numberOfLines={1}>
-                {row.handle}
-              </Text>
-              <Text style={styles.pointsMeta}>
-                {row.seasons} {row.seasons === 1 ? 'season' : 'seasons'}
-              </Text>
+            <View
+              style={styles.pointsBody}
+              accessible
+              accessibilityLabel={`Rank ${i + 4}. ${row.handle}. ${points.format(row.points)} points from ${row.seasons} seasons.`}
+            >
+              <Text style={styles.rank}>{i + 4}</Text>
+              <Avatar handle={row.handle} size={34} />
+              <View style={styles.pointsMain}>
+                <Text style={styles.handle} numberOfLines={1}>
+                  {row.handle}
+                </Text>
+                <Text style={styles.pointsMeta}>
+                  {row.seasons} {row.seasons === 1 ? 'season' : 'seasons'}
+                </Text>
+              </View>
+              <Text style={styles.pointsValue}>{points.format(row.points)}</Text>
             </View>
-            <Text style={styles.pointsValue}>{points.format(row.points)}</Text>
+            <ReportButton userId={row.userId} handle={row.handle} />
           </View>
         ))}
       </View>
@@ -728,6 +740,7 @@ function RostrumStep({ row, place, isMe }: { row: PointsRow; place: number; isMe
         {points.format(row.points)}
         <Text style={styles.stepPointsUnit}> pts</Text>
       </Text>
+      <ReportButton userId={row.userId} handle={row.handle} />
     </View>
   );
 }
@@ -867,6 +880,7 @@ const styles = themed(() => StyleSheet.create({
     backgroundColor: '#FFFFFF05',
     minHeight: 56,
   },
+  pointsBody: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: space.md },
   pointsMain: { flex: 1, minWidth: 0, gap: 1 },
   pointsMeta: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint },
   pointsValue: {
@@ -892,6 +906,8 @@ const styles = themed(() => StyleSheet.create({
     overflow: 'hidden',
   },
   podiumBar: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
+  podiumBody: { gap: 2 },
+  podiumFlag: { position: 'absolute', top: space.xs, right: space.xs },
   podiumTop: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   podiumRank: { fontFamily: font.display, fontSize: 20, ...tabular, includeFontPadding: false },
   podiumRankLead: { fontSize: 30 },
@@ -981,7 +997,9 @@ const styles = themed(() => StyleSheet.create({
   list: { paddingHorizontal: space.lg, gap: 4 },
   entry: { borderRadius: radius.md, backgroundColor: '#FFFFFF05', overflow: 'hidden' },
   entryMine: { backgroundColor: `${color.action}14`, borderWidth: 1, borderColor: `${color.action}44` },
+  entryHeadRow: { flexDirection: 'row', alignItems: 'center', paddingRight: space.xs },
   entryHead: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: space.md,
@@ -1033,7 +1051,6 @@ const styles = themed(() => StyleSheet.create({
   rosterName: { fontFamily: font.heading, fontSize: 14, color: color.text, flex: 1, minWidth: 0 },
   rosterTeam: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint },
   rosterRating: { fontFamily: font.display, fontSize: 14, color: color.textDim, ...tabular },
-  rosterFoot: { alignItems: 'flex-end', paddingTop: space.xs },
   rosterEmpty: {
     fontFamily: font.bodyRegular,
     fontSize: 12,
