@@ -69,6 +69,8 @@ module.exports = {
       // needs to hand the redirect back to the app instead of a browser tab.
       'expo-web-browser',
       './plugins/with-display-name',
+      // The iOS 27 SDK kills an app without a scene delegate at launch; see the plugin.
+      './plugins/with-scene-lifecycle',
       './plugins/without-push-entitlement',
       [
         'expo-splash-screen',
