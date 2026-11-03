@@ -75,7 +75,7 @@ export default function CardDetail() {
   const accent = positionColor[card.position];
 
   return (
-    <Screen edges={['top', 'bottom']}>
+    <Screen edges={['top', 'bottom', 'left', 'right']}>
       <View style={styles.header}>
         {/* A bare router.back() strands anyone who arrived without history --
             a shared link, a reload on the web, or a deep link into a card --

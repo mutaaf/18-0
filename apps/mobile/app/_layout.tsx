@@ -9,6 +9,7 @@ import { useFonts } from 'expo-font';
 import { startAds } from '@/features/ads';
 import { startAnalytics } from '@/features/analytics';
 import { startFlags } from '@/features/flags';
+import { FoldProvider } from '@/features/fold';
 import { startStatLines } from '@/features/stat-lines';
 import { useThemeFlagGuard } from '@/features/theme-flag';
 import { Rajdhani_600SemiBold, Rajdhani_700Bold } from '@expo-google-fonts/rajdhani';
@@ -77,6 +78,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider>
+        {/* Inside the safe-area provider because a spread is computed from
+            both: where the fold is, and what the system bars take. */}
+        <FoldProvider>
         <StatusBar style="light" />
         {error ? (
           <View style={styles.fontWarning}>
@@ -97,6 +101,7 @@ export default function RootLayout() {
           <Stack.Screen name="admin" options={{ animation: 'slide_from_bottom' }} />
           <Stack.Screen name="challenge" options={{ animation: 'slide_from_bottom' }} />
         </Stack>
+        </FoldProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

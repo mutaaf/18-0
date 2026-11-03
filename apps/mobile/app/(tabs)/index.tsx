@@ -14,6 +14,7 @@ import { Crown } from '@/components/Crown';
 import { Hall } from '@/components/Hall';
 import { Screen } from '@/components/Screen';
 import { SectionHead } from '@/components/SectionHead';
+import { BetaInvite } from '@/components/BetaInvite';
 import { GetTheApp } from '@/components/GetTheApp';
 import { OnWatch } from '@/components/OnWatch';
 import { LeaderboardStrip } from '@/components/LeaderboardStrip';
@@ -446,6 +447,12 @@ export default function Home() {
 
       <Reveal delay={260}>
         <LeaderboardStrip onPress={() => router.push('/(tabs)/leaderboard')} />
+      </Reveal>
+
+      {/* The beta, as something to pass on. Always on the site; inside the app
+          only once `share_beta` is turned on -- see BetaInvite. */}
+      <Reveal delay={270}>
+        <BetaInvite />
       </Reveal>
 
       <Reveal delay={280}>

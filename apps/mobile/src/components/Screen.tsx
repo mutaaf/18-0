@@ -75,22 +75,35 @@ export const StadiumBackdrop = memo(function StadiumBackdrop() {
  * The game is phone-first, so on a wide screen it holds a bounded column
  * rather than stretching a 96-pixel roster card across a desktop. How wide
  * that column is depends on the breakpoint — see `useLayout`.
+ *
+ * The sides are always safe, not only the top. iPhone Duo moves its status
+ * bar, and every app's own bars, to a vertical strip on one side -- 84 points
+ * on the trailing edge open, and on whichever edge the camera is in when
+ * closed and turned sideways. With only `top` here, every screen drew under
+ * it. A phone in portrait reports zero on both sides, so nothing else moves.
+ *
+ * `bleed` hands the whole width to the screen: a two-panel spread places its
+ * panels against the fold in window coordinates and applies the side insets
+ * itself, so a centred, inset column would only put the seam in the wrong
+ * place.
  */
 export function Screen({
   children,
-  edges = ['top'],
+  edges = ['top', 'left', 'right'],
   maxWidth,
+  bleed = false,
 }: {
   children: ReactNode;
   edges?: Edge[];
   maxWidth?: number;
+  bleed?: boolean;
 }) {
   const layout = useLayout();
   return (
     <View style={styles.root}>
       <StadiumBackdrop />
-      <SafeAreaView style={styles.safe} edges={edges}>
-        <View style={[styles.column, { maxWidth: maxWidth ?? Math.min(layout.maxWidth, 620) }]}>
+      <SafeAreaView style={styles.safe} edges={bleed ? edges.filter((e) => e !== 'left' && e !== 'right') : edges}>
+        <View style={[styles.column, { maxWidth: bleed ? undefined : maxWidth ?? Math.min(layout.maxWidth, 620) }]}>
           {children}
         </View>
       </SafeAreaView>

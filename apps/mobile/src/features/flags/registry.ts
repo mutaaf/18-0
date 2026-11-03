@@ -203,6 +203,49 @@ export const FLAGS = {
     removeBy: '2026-12-01',
     fallback: false,
   },
+
+  /**
+   * The two-panel spread, on or off.
+   *
+   * On an iPhone Duo the play, leaderboard and stats screens split at the
+   * fold -- the field on one panel, the wheel, the score and the picks on the
+   * other -- and every window wide enough gets the same split down a virtual
+   * seam, the web included. See `src/features/fold/spread.ts`.
+   *
+   * It is the newest layout in the app, on a device nobody on the team owned
+   * when it was written, laid out from simulator measurements. If a real
+   * device folds differently, off puts every screen back on the single-column
+   * and the older side-by-side compositions they had before, without a review.
+   *
+   * Surface only, like every flag: a panel is where the field is drawn, not
+   * what the roster on it scores.
+   */
+  dual_panel: {
+    key: 'dual_panel',
+    kind: 'toggle',
+    summary: 'Splits play, leaderboards and stats into two panels at the iPhone Duo fold, or down a virtual seam on a wide window.',
+    owner: 'mutaaf',
+    removeBy: '2027-04-01',
+    fallback: true,
+  },
+
+  /**
+   * The "send the beta to a friend" panel, inside the native app.
+   *
+   * The web always offers the TestFlight link; that is what the site is for.
+   * The native bundle is also the App Store build, and an App Store app
+   * advertising its own beta is a known rejection -- so inside the app it ships
+   * off, and is turned on in PostHog only once the build in review has
+   * cleared. See `BetaInvite.tsx`.
+   */
+  share_beta: {
+    key: 'share_beta',
+    kind: 'toggle',
+    summary: 'Shows the TestFlight share panel inside the iOS app. The website always shows it.',
+    owner: 'mutaaf',
+    removeBy: '2027-03-01',
+    fallback: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof FLAGS;

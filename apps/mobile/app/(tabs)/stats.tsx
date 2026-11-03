@@ -3,6 +3,10 @@ import { useRouter } from 'expo-router';
 import { eraLabel, franchise } from '@17-0/data';
 import { useMemo } from 'react';
 import { Screen } from '@/components/Screen';
+import { SpreadLayout } from '@/components/SpreadLayout';
+import { ModeRing, RatingTrend, WinsChart } from '@/components/charts';
+import { useSpread } from '@/features/fold';
+import { MODE_LABEL, type GameMode } from '@/state/game';
 import { computeStats, useHistoryStore } from '@/state/history';
 import { color, font, radius, space, tabular, themed, tracking, useLayout, useThemeId } from '@/theme';
 
@@ -17,6 +21,18 @@ export default function Stats() {
   const layout = useLayout();
   const games = useHistoryStore((s) => s.games);
   const stats = useMemo(() => computeStats(games), [games]);
+  const { spread, ref: spreadRef, onLayout: onSpreadLayout } = useSpread();
+  /**
+   * The charts' inputs. History is stored newest first; a trend reads left to
+   * right in the order the seasons were played, so the window is reversed.
+   * Forty seasons is a run you can see the shape of; four hundred is a smear.
+   */
+  const ratings = useMemo(() => games.slice(0, 40).reverse().map((g) => g.result.finalRating), [games]);
+  const wins = useMemo(() => games.map((g) => g.result.record.wins), [games]);
+  const modes = useMemo(() => {
+    const count = (m: GameMode) => games.filter((g) => (g.mode ?? 'rookie') === m).length;
+    return (['rookie', 'scout', 'player_iq', 'gameday'] as const).map((key) => ({ key, count: count(key) }));
+  }, [games]);
 
   if (stats.played === 0) {
     return (
@@ -43,58 +59,119 @@ export default function Stats() {
     );
   }
 
+  /** The numbers and the shape of them: what you have done. */
+  const record = (
+    <>
+    <Text style={styles.title}>My Stats</Text>
+
+    <View style={styles.grid}>
+      <Tile label="Games Played" value={String(stats.played)} />
+      <Tile label="Best Rating" value={stats.bestRating?.toFixed(1) ?? '—'} />
+      <Tile
+        label="Best Record"
+        value={stats.bestRecord ? `${stats.bestRecord.wins}-${stats.bestRecord.losses}` : '—'}
+      />
+      <Tile label="Average Rating" value={stats.averageRating?.toFixed(1) ?? '—'} />
+    </View>
+      <View style={styles.chart}>
+        <View style={styles.chartHead}>
+          <Text style={styles.sectionTitle}>Form</Text>
+          <Text style={styles.chartKey}>
+            <Text style={{ color: color.action }}>━ rating</Text>{'   '}
+            <Text style={{ color: color.ice }}>┅ 5-season average</Text>{'   '}
+            <Text style={{ color: color.gold }}>● best</Text>
+          </Text>
+        </View>
+        <RatingTrend ratings={ratings} />
+      </View>
+
+      <View style={styles.chart}>
+        <Text style={styles.sectionTitle}>Records</Text>
+        <WinsChart wins={wins} />
+      </View>
+    </>
+  );
+
+  /** How you have done it: the chase, the modes, the habits. */
+  const habits = (
+    <>
+
+      <View style={styles.chart}>
+        <Text style={styles.sectionTitle}>How you play</Text>
+        <ModeRing
+          parts={modes}
+          labels={MODE_LABEL}
+          tints={{ rookie: color.action, scout: color.silver, player_iq: color.ice, gameday: color.gold }}
+        />
+      </View>
+    <View style={[styles.chase, stats.perfectSeasons > 0 && styles.chaseEarned]}>
+      <Text style={[styles.chaseTitle, stats.perfectSeasons > 0 && styles.chaseTitleEarned]}>
+        The chase
+      </Text>
+      <View style={styles.chaseRow}>
+        <ChaseStat label="17-0 seasons" value={stats.perfectSeasons} gold />
+        <ChaseStat label="16-1 seasons" value={stats.heartbreaks} />
+      </View>
+      <Text style={styles.chaseNote}>
+        17-0 lands about once every 6,000 games. 16-1 about once every 49.
+      </Text>
+    </View>
+
+    <View style={styles.chase}>
+      <Text style={styles.chaseTitle}>GM Mode</Text>
+      <View style={styles.chaseRow}>
+        <ChaseStat label="Blind seasons" value={stats.playerIqGames} />
+        <ChaseStat
+          label="Best blind rating"
+          value={stats.bestPlayerIqRating ? Number(stats.bestPlayerIqRating.toFixed(1)) : 0}
+        />
+      </View>
+      <Text style={styles.chaseNote}>
+        Built with no ratings and no stat lines on screen.
+      </Text>
+    </View>
+
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Tendencies</Text>
+      <Row label="Most-used franchise" value={stats.topFranchise ? franchise(stats.topFranchise).name : '—'} />
+      <Row label="Most-used era" value={stats.topEra ? eraLabel(stats.topEra) : '—'} />
+      <Row
+        label="Highest-rated pick"
+        value={stats.bestCard ? `${stats.bestCard.name} (${stats.bestCard.rating.toFixed(1)})` : '—'}
+      />
+    </View>
+    </>
+  );
+
+  /**
+   * On an iPhone Duo (or any window wide enough) the record and the habits
+   * face each other across the seam, each scrolling on its own -- the charts
+   * never scroll away from the tiles that summarise them.
+   */
   return (
-    <Screen maxWidth={layout.wide ? 820 : undefined}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>My Stats</Text>
-
-        <View style={styles.grid}>
-          <Tile label="Games Played" value={String(stats.played)} />
-          <Tile label="Best Rating" value={stats.bestRating?.toFixed(1) ?? '—'} />
-          <Tile
-            label="Best Record"
-            value={stats.bestRecord ? `${stats.bestRecord.wins}-${stats.bestRecord.losses}` : '—'}
+    <Screen bleed={spread.kind !== 'single'} maxWidth={layout.wide ? 820 : undefined}>
+      <View ref={spreadRef} onLayout={onSpreadLayout} style={styles.fill}>
+        {spread.kind !== 'single' ? (
+          <SpreadLayout
+            spread={spread}
+            first={
+              <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+                {record}
+              </ScrollView>
+            }
+            second={
+              <ScrollView contentContainerStyle={[styles.scroll, styles.scrollSecond]} showsVerticalScrollIndicator={false}>
+                {habits}
+              </ScrollView>
+            }
           />
-          <Tile label="Average Rating" value={stats.averageRating?.toFixed(1) ?? '—'} />
-        </View>
-
-        <View style={[styles.chase, stats.perfectSeasons > 0 && styles.chaseEarned]}>
-          <Text style={[styles.chaseTitle, stats.perfectSeasons > 0 && styles.chaseTitleEarned]}>
-            The chase
-          </Text>
-          <View style={styles.chaseRow}>
-            <ChaseStat label="17-0 seasons" value={stats.perfectSeasons} gold />
-            <ChaseStat label="16-1 seasons" value={stats.heartbreaks} />
-          </View>
-          <Text style={styles.chaseNote}>
-            17-0 lands about once every 6,000 games. 16-1 about once every 49.
-          </Text>
-        </View>
-
-        <View style={styles.chase}>
-          <Text style={styles.chaseTitle}>GM Mode</Text>
-          <View style={styles.chaseRow}>
-            <ChaseStat label="Blind seasons" value={stats.playerIqGames} />
-            <ChaseStat
-              label="Best blind rating"
-              value={stats.bestPlayerIqRating ? Number(stats.bestPlayerIqRating.toFixed(1)) : 0}
-            />
-          </View>
-          <Text style={styles.chaseNote}>
-            Built with no ratings and no stat lines on screen.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Tendencies</Text>
-          <Row label="Most-used franchise" value={stats.topFranchise ? franchise(stats.topFranchise).name : '—'} />
-          <Row label="Most-used era" value={stats.topEra ? eraLabel(stats.topEra) : '—'} />
-          <Row
-            label="Highest-rated pick"
-            value={stats.bestCard ? `${stats.bestCard.name} (${stats.bestCard.rating.toFixed(1)})` : '—'}
-          />
-        </View>
-      </ScrollView>
+        ) : (
+          <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+            {record}
+            {habits}
+          </ScrollView>
+        )}
+      </View>
     </Screen>
   );
 }
@@ -129,7 +206,20 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 const styles = themed(() => StyleSheet.create({
+  fill: { flex: 1 },
   scroll: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: 120, gap: space.xl },
+  /** Level with the title opposite, which this panel does not repeat. */
+  scrollSecond: { paddingTop: space.lg + 44 },
+  chart: {
+    borderWidth: 1,
+    borderColor: color.line,
+    backgroundColor: '#FFFFFF04',
+    borderRadius: radius.md,
+    padding: space.lg,
+    gap: space.md,
+  },
+  chartHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap', gap: space.sm },
+  chartKey: { fontFamily: font.label, fontSize: 10, letterSpacing: tracking.wide },
   title: {
     fontFamily: font.displayBlack,
     fontSize: 34,
