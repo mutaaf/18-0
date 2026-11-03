@@ -3,8 +3,9 @@
 Apple's message of 2026-09-05 asked for six things, to be sent as a reply in
 App Store Connect *and* kept in the App Review Information notes for future
 submissions. Items 2–6 are below, written to be pasted as they are. Item 1 is a
-screen recording that has to be made on a physical iPhone by a person; the shot
-list for it is at the bottom.
+screen recording made on a physical iPhone; the shot list it follows is at the
+bottom, and `scripts/store/attach-review-file.mjs` attaches it to the version's
+App Review Information so the next reviewer has it too.
 
 The notes field takes 4,000 characters. `review-notes.txt` beside this file is
 the same content, flattened to plain text and kept under that limit; pass it to
@@ -12,8 +13,8 @@ the same content, flattened to plain text and kept under that limit; pass it to
 
 ---
 
-**1. Screen recording.** Attached. Recorded on an iPhone running the current
-iOS, from a cold launch: a full seven-pick season to its result, the account
+**1. Screen recording.** Attached. Recorded on an iPhone 15 Pro Max running
+iOS 27.0.1, with the TestFlight build being submitted, from a cold launch: a full seven-pick season to its result, the account
 screen with optional Sign in with Apple, account deletion, and the leaderboard's
 report control on a display name.
 
@@ -26,12 +27,14 @@ roster is rated against the era each season was played in and given a projected
 on real historical statistics. There are no wagers, prizes, purchases or ads.
 
 **3. How to reach the features.** No login or setup is needed. The app signs
-in anonymously on first launch, with no prompt. Tap Play on the home screen,
-choose a mode (Rookie shows every rating, Scout shows stat lines only, GM Mode
-shows names only), then spin and pick seven times; the result screen shows the
-rating and record. The Leaderboards tab holds the boards; every row has a report
-control. Tap the avatar disc at the top right of any screen to open Account,
-where Sign in with Apple is optional and "Delete my account" is at the bottom.
+in anonymously on first launch, with no prompt. The app opens on the Play tab:
+scroll to the three modes and tap one (Play Rookie shows every rating, Play Scout
+shows stat lines only, Play GM Mode shows names only), then spin and pick seven
+times; Reveal your result shows the rating and record. The Ranks tab, second in
+the bottom bar, holds the leaderboards; every name carries a small report flag
+(top right of each podium card, end of each row). Tap the avatar disc at the top
+right of any screen to open Account, where Sign in with Apple is optional and
+"Delete my account" sits just below the sign-in buttons.
 
 **4. External services.**
 - Supabase (database, anonymous and optional Apple/Google sign-in, server-side
@@ -63,9 +66,8 @@ build that is being submitted (TestFlight). One continuous take, about two
 minutes:
 
 1. Start from the home screen with the app closed. Tap the 17-0 icon.
-2. Play tab → Rookie. Spin and pick all seven slots. Let the result screen finish.
-3. Leaderboards tab. Tap the report control on any row and show what it
-   does.
+2. Play tab → scroll to the modes → Play Rookie. Spin and pick all seven slots. Let the result screen finish.
+3. Ranks tab. Tap the report flag on any name and show the sheet it opens.
 4. Avatar disc (top right) → Account. Show Sign in with Apple (no need to
    complete it).
 5. Scroll to "Delete my account", tap it, confirm. Show that the app returns to

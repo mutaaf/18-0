@@ -1,14 +1,14 @@
 PURPOSE AND AUDIENCE. 17-0 is a pro football history game for teenage and adult football fans. Each spin deals one franchise and one era; the player takes one real season from it to fill a seven-slot roster, and the finished roster is rated against the era each season was played in and given a projected 17-game record. The goal is a perfect 17-0 season, about once in 6,000 games. No wagers, prizes, purchases or ads.
 
-NO DEMO ACCOUNT IS NEEDED. The app signs in anonymously on first launch, with no prompt and no sign-up screen. Tap Play, choose a mode (Rookie shows every rating, Scout shows stat lines only, GM Mode shows names only), then spin and pick seven times; the result screen shows the rating and record. The Leaderboards tab holds the boards.
+NO DEMO ACCOUNT IS NEEDED. The app signs in anonymously on first launch, with no prompt and no sign-up screen. The app opens on the Play tab: scroll to the three modes and tap one (Play Rookie shows every rating, Play Scout shows stat lines only, Play GM Mode shows names only), then spin and pick seven times; Reveal your result shows the rating and record. The Ranks tab, second in the bottom bar, holds the leaderboards.
 
 SIGNING IN IS OPTIONAL. The Account screen (avatar disc, top right of any screen) offers Sign in with Apple and Google; nothing in the game is gated behind either. Signing in links the provider to the anonymous account already in use, so seasons carry over and survive losing the device, and it is what puts a ranked season on the public board.
 
 4.8: Sign in with Apple is offered wherever Google is, enforced in code: if Google is configured without Apple, iOS shows no sign-in buttons at all.
 
-5.1.1(v): Account deletion is in the app. Account screen -> "Delete my account" at the bottom. No sign-in, email or support contact needed. It removes the account, display name, every ranked season and the analytics for that account.
+5.1.1(v): Account deletion is in the app. Account screen -> "Delete my account", just below the sign-in buttons -> "Permanently delete my account". No sign-in, email or support contact needed. It removes the account, display name, every ranked season and the analytics for that account.
 
-1.2: The only user-generated content is a display name on the leaderboard. Names are checked against a denylist by the database when set, so a blocked name is refused rather than published. Every leaderboard row has a report control, and a reported name can be hidden.
+1.2: The only user-generated content is a display name on the leaderboard. Names are checked against a denylist by the database when set, so a blocked name is refused rather than published. Every name on every leaderboard carries a report flag (the small flag at the top right of each podium card and at the end of each row), and a reported name can be hidden.
 
 EXTERNAL SERVICES. Supabase (database, anonymous and optional sign-in, server-side scoring of ranked seasons, leaderboard). PostHog (first-party analytics and feature flags; no advertising identifier, no tracking). Sign in with Apple and Google Sign-In (optional). Season statistics from nflverse (CC BY 4.0) and Pro-Football-Reference (licensed), bundled at build time. No AI services.
 
