@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { APP_URL } from '@/features/links';
+import { APP_URL, APP_URL_LABEL } from '@/features/links';
 import { track } from '@/features/telemetry';
 import { offerSeasonTransfer, transferableSeasons } from '@/services/supabase';
 import { color, font, radius, space, themed, tracking, type PressState } from '@/theme';
@@ -93,13 +93,13 @@ export function CarryOver() {
         {seasons === 1 ? ' season here is' : ' seasons here are'} not on the board yet.
       </Text>
       <Text style={styles.why}>
-        They were played without an account. Sign in on 18-0.co and they go up together.
+        They were played without an account. Sign in on {APP_URL_LABEL} and they go up together.
       </Text>
       <Pressable
         onPress={() => void carry()}
         disabled={busy}
         accessibilityRole="link"
-        accessibilityLabel="Take these seasons to your account on 18-0.co"
+        accessibilityLabel={`Take these seasons to your account on ${APP_URL_LABEL}`}
         style={({ hovered, pressed }: PressState) => [
           styles.go,
           hovered && styles.goHover,

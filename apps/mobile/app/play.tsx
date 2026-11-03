@@ -22,6 +22,8 @@ import { Field } from '@/components/Field';
 import { SpinReel } from '@/components/SpinReel';
 import { PlayerCard } from '@/components/PlayerCard';
 import { Screen } from '@/components/Screen';
+import { SpreadLayout } from '@/components/SpreadLayout';
+import { useSpread } from '@/features/fold';
 import { MODE_LABEL, lookupCard, showsRating, slotsForCard, useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
 import { tellHost } from '@/features/embed';
@@ -43,6 +45,16 @@ export default function Play() {
   useEffect(() => tellHost('play'), []);
   const router = useRouter();
   const layout = useLayout();
+  /**
+   * The fold, or a virtual seam on a wide window. When there is one, the
+   * field takes the leading panel (the top one in tabletop) and everything you
+   * act with -- the score, the wheel, the filters, the list -- takes the other.
+   * See `src/features/fold/spread.ts` for where the line is drawn and why.
+   */
+  const { spread, ref: spreadRef, onLayout: onSpreadLayout } = useSpread();
+  const spreadOn = spread.kind !== 'single';
+  /** The field has a place of its own, so it is not stacked under the spin. */
+  const fieldApart = spreadOn || layout.wide;
   const game = useGameStore();
   const record = useHistoryStore((s) => s.record);
 
@@ -481,7 +493,10 @@ export default function Play() {
    * height goes to the list. On a wide window there are two columns and
    * nothing to reclaim, so the hero simply stays.
    */
-  const spinInHeader = canPick && !layout.wide;
+  // The controls panel of a spread is a phone's width on an iPhone Duo (371
+  // points beside the fold), so it hands off exactly as a phone does. A
+  // desktop's virtual panel is tall enough to keep the hero.
+  const spinInHeader = canPick && (spreadOn ? layout.height < 820 : !layout.wide);
 
   // --- pieces, composed differently per breakpoint -------------------------
 
@@ -716,7 +731,7 @@ export default function Play() {
 
       {/* Stacked under the spin on a phone. On a wide screen the field moves
           into its own column and stays there -- see `fieldPanel`. */}
-      {layout.wide ? null : fieldPanel}
+      {fieldApart ? null : fieldPanel}
     </View>
   );
 
@@ -772,18 +787,21 @@ export default function Play() {
                 />
               ))}
             </ScrollView>
-            <Pressable
-              onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
-              accessibilityRole="button"
-              accessibilityLabel="Back to the lineup"
-              style={({ pressed, hovered }: PressState) => [
-                styles.lineupButton,
-                hovered && styles.lift,
-                pressed && { opacity: 0.8 },
-              ]}
-            >
-              <Text style={styles.lineupButtonText}>↑ Lineup</Text>
-            </Pressable>
+            {/* The lineup is already in view when it has its own panel. */}
+            {fieldApart ? null : (
+              <Pressable
+                onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
+                accessibilityRole="button"
+                accessibilityLabel="Back to the lineup"
+                style={({ pressed, hovered }: PressState) => [
+                  styles.lineupButton,
+                  hovered && styles.lift,
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <Text style={styles.lineupButtonText}>↑ Lineup</Text>
+              </Pressable>
+            )}
           </View>
 
           <View style={styles.barRow}>
@@ -858,8 +876,133 @@ export default function Play() {
     </View>
   );
 
+  const header = (
+    <View style={styles.header}>
+      <View style={styles.headerLeft}>
+        <Brand size={layout.wide ? 26 : 22} />
+        {mode === 'rookie' ? null : (
+          <View style={styles.modeChip}>
+            <Text style={styles.modeChipText}>{MODE_LABEL[mode]}</Text>
+          </View>
+        )}
+      </View>
+      <View style={styles.headerRight}>
+        <View style={styles.headerSwap}>
+          {spinInHeader ? (
+            <View style={styles.headerSpinLine} pointerEvents="none" {...DECORATIVE}>
+              <View style={styles.headerMetaPair}>
+                <Text style={styles.headerMetaLabel}>Team</Text>
+                <Text style={styles.headerAbbr} numberOfLines={1}>
+                  {team ? team.abbr : '—'}
+                </Text>
+              </View>
+              <View style={styles.headerMetaPair}>
+                <Text style={styles.headerMetaLabel}>Era</Text>
+                <Text style={styles.headerEra} numberOfLines={1}>
+                  {shown ? eraDef(shown.era).label : '—'}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.progressTrack} pointerEvents="none" {...DECORATIVE}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${(game.selections.length / ROSTER_SLOTS.length) * 100}%` },
+                ]}
+              />
+            </View>
+          )}
+        </View>
+        <Text style={styles.progress}>
+          {game.selections.length}
+          <Text style={styles.progressTotal}>/{ROSTER_SLOTS.length}</Text>
+        </Text>
+        <Pressable onPress={() => router.back()} hitSlop={14} accessibilityRole="button" accessibilityLabel="Close game">
+          <Text style={styles.close}>✕</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  const controls = (
+  <View style={styles.listColumn}>
+    <ScrollView
+      ref={scrollRef}
+      style={styles.column}
+      contentContainerStyle={[styles.scroll, { paddingBottom: barHeight + space.lg }]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      {spinPanel}
+      {browser}
+    </ScrollView>
+
+    {selected && targetSlots.length > 1 ? (
+      <View
+        style={[
+          styles.actionBar,
+          // Above the bar rather than over it: the filters are how you
+          // get back out of a choice you did not mean to start.
+          { bottom: barHeight + space.sm, maxWidth: layout.wide && !spreadOn ? 520 : undefined },
+        ]}
+      >
+        <Text style={styles.actionName} numberOfLines={1}>
+          {displayName(selected)}
+        </Text>
+        <View style={styles.actionSlots}>
+          {targetSlots.map((slotKey) => (
+            <Pressable
+              key={slotKey}
+              onPress={() => assign(selected, slotKey)}
+              accessibilityRole="button"
+              accessibilityLabel={`Add ${displayName(selected)} to ${slotKey}`}
+              style={({ pressed, hovered }: PressState) => [
+                styles.actionSlot,
+                hovered && styles.lift,
+                pressed && { opacity: 0.8 },
+              ]}
+            >
+              <Text style={styles.actionSlotLabel}>{slotKey}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    ) : null}
+
+    {bottomBar}
+  </View>
+  );
+
+  /**
+   * The field's own panel in a spread.
+   *
+   * The lineup is what you look at; the list is what you touch. Given a whole
+   * panel the field is drawn at its full size and centred, and stays put while
+   * the list scrolls beside it -- folding the device into a book changes
+   * nothing here but the shadow at the spine. In tabletop the panel is short,
+   * so the heading goes and the field gets every point of it.
+   */
+  const fieldStage = (
+    <View style={[styles.stage, spread.kind === 'rows' && styles.stageRows]}>
+      {spread.kind === 'rows' ? null : (
+        <View style={styles.stageHead}>
+          {/* The count is not repeated here: the score lives with the
+              controls, on the other side of the seam. */}
+          <Text style={styles.stageTitle}>Your lineup</Text>
+        </View>
+      )}
+      <View style={styles.stageField}>{fieldPanel}</View>
+      {lastPick && spread.kind !== 'rows' ? (
+        <Text style={styles.stageFoot} numberOfLines={1}>
+          Last in · {lastPick.slot} · {displayName(lastPick.card)}
+        </Text>
+      ) : null}
+    </View>
+  );
+
   return (
-    <Screen maxWidth={layout.wide ? Math.min(layout.maxWidth, 1180) : undefined}>
+    <Screen bleed={spreadOn} maxWidth={layout.wide ? Math.min(layout.maxWidth, 1180) : undefined}>
       <View
         style={styles.touchLayer}
         pointerEvents="box-none"
@@ -867,105 +1010,30 @@ export default function Play() {
         onTouchEnd={(e) => trackTouches(e.nativeEvent.touches.length)}
         onTouchCancel={() => trackTouches(0)}
       />
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Brand size={layout.wide ? 26 : 22} />
-          {mode === 'rookie' ? null : (
-            <View style={styles.modeChip}>
-              <Text style={styles.modeChipText}>{MODE_LABEL[mode]}</Text>
+      <View ref={spreadRef} onLayout={onSpreadLayout} style={styles.single}>
+        {spread.kind !== 'single' ? (
+          <SpreadLayout
+            spread={spread}
+            first={fieldStage}
+            second={
+              <View style={styles.single}>
+                {header}
+                {controls}
+              </View>
+            }
+          />
+        ) : (
+          <>
+            {header}
+            <View style={layout.wide ? styles.split : styles.single}>
+              {/* The bar belongs to the list, not to the window: on a wide screen the
+                  field has its own column beside this one, and a bar spanning both
+                  would be filtering a list it was nowhere near. */}
+              {controls}
+              {layout.wide ? <View style={styles.fieldColumn}>{fieldPanel}</View> : null}
             </View>
-          )}
-        </View>
-        <View style={styles.headerRight}>
-          <View style={styles.headerSwap}>
-            {spinInHeader ? (
-              <View style={styles.headerSpinLine} pointerEvents="none" {...DECORATIVE}>
-                <View style={styles.headerMetaPair}>
-                  <Text style={styles.headerMetaLabel}>Team</Text>
-                  <Text style={styles.headerAbbr} numberOfLines={1}>
-                    {team ? team.abbr : '—'}
-                  </Text>
-                </View>
-                <View style={styles.headerMetaPair}>
-                  <Text style={styles.headerMetaLabel}>Era</Text>
-                  <Text style={styles.headerEra} numberOfLines={1}>
-                    {shown ? eraDef(shown.era).label : '—'}
-                  </Text>
-                </View>
-              </View>
-            ) : (
-              <View style={styles.progressTrack} pointerEvents="none" {...DECORATIVE}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${(game.selections.length / ROSTER_SLOTS.length) * 100}%` },
-                  ]}
-                />
-              </View>
-            )}
-          </View>
-          <Text style={styles.progress}>
-            {game.selections.length}
-            <Text style={styles.progressTotal}>/{ROSTER_SLOTS.length}</Text>
-          </Text>
-          <Pressable onPress={() => router.back()} hitSlop={14} accessibilityRole="button" accessibilityLabel="Close game">
-            <Text style={styles.close}>✕</Text>
-          </Pressable>
-        </View>
-      </View>
-
-      <View style={layout.wide ? styles.split : styles.single}>
-        {/* The bar belongs to the list, not to the window: on a wide screen the
-            field has its own column beside this one, and a bar spanning both
-            would be filtering a list it was nowhere near. */}
-        <View style={styles.listColumn}>
-          <ScrollView
-            ref={scrollRef}
-            style={styles.column}
-            contentContainerStyle={[styles.scroll, { paddingBottom: barHeight + space.lg }]}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {spinPanel}
-            {browser}
-          </ScrollView>
-
-          {selected && targetSlots.length > 1 ? (
-            <View
-              style={[
-                styles.actionBar,
-                // Above the bar rather than over it: the filters are how you
-                // get back out of a choice you did not mean to start.
-                { bottom: barHeight + space.sm, maxWidth: layout.wide ? 520 : undefined },
-              ]}
-            >
-              <Text style={styles.actionName} numberOfLines={1}>
-                {displayName(selected)}
-              </Text>
-              <View style={styles.actionSlots}>
-                {targetSlots.map((slotKey) => (
-                  <Pressable
-                    key={slotKey}
-                    onPress={() => assign(selected, slotKey)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Add ${displayName(selected)} to ${slotKey}`}
-                    style={({ pressed, hovered }: PressState) => [
-                      styles.actionSlot,
-                      hovered && styles.lift,
-                      pressed && { opacity: 0.8 },
-                    ]}
-                  >
-                    <Text style={styles.actionSlotLabel}>{slotKey}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          ) : null}
-
-          {bottomBar}
-        </View>
-
-        {layout.wide ? <View style={styles.fieldColumn}>{fieldPanel}</View> : null}
+          </>
+        )}
       </View>
     </Screen>
   );
@@ -1011,6 +1079,19 @@ const styles = themed(() => StyleSheet.create({
   listColumn: { flex: 1, minWidth: 0 },
   column: { flex: 1, minWidth: 0 },
   fieldColumn: { flex: 1, minWidth: 0, maxWidth: 480, gap: space.md, paddingTop: space.lg },
+  stage: { flex: 1, paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.lg, gap: space.md },
+  stageRows: { paddingTop: space.sm, paddingBottom: space.sm, justifyContent: 'center' },
+  stageHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  stageTitle: {
+    fontFamily: font.label,
+    fontSize: 11,
+    letterSpacing: tracking.wider,
+    textTransform: 'uppercase',
+    color: color.textFaint,
+  },
+  /** Centred in whatever height the panel has: the lineup is the picture. */
+  stageField: { flex: 1, justifyContent: 'center', gap: space.md },
+  stageFoot: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textDim, textAlign: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

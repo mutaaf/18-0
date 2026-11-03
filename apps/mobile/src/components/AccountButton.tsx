@@ -91,7 +91,10 @@ export function AccountButton() {
   const rim = named ? '#FFFFFF2E' : `${color.gold}80`;
 
   return (
-    <View style={[styles.dock, { top: insets.top + space.md }]} pointerEvents="box-none">
+    // The side inset too: on iPhone Duo the status bar is a vertical strip on the
+    // trailing edge, and a disc pinned 16 points from the window's edge sat
+    // underneath it.
+    <View style={[styles.dock, { top: insets.top + space.md, right: insets.right + space.lg }]} pointerEvents="box-none">
       <Pressable
         onPress={() => router.push('/(tabs)/account')}
         accessibilityRole="button"

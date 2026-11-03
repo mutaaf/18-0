@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Animated, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFold } from '@/features/fold';
 import { DockIcon, type DockIconName } from './DockIcons';
 import { GlassPaint, TINT, radiusFor } from './GlassSurface';
 import { useHasHover } from './useHasHover';
@@ -47,6 +49,23 @@ export function Dock({
   activeIndex: number;
   onSelect: (index: number) => void;
 }) {
+  /**
+   * Off the fold. Centred in the window, the shelf sat squarely across an
+   * iPhone Duo's hinge -- five buttons, one of them in the crease. Apple's
+   * pattern for a floating control is to move it to the trailing half when it
+   * would cross the fold, next to where it sits on the closed device, and the
+   * shelf follows it there. It also clears the home indicator and the
+   * vertical bar, which a window-centred stage at a fixed 16 points did not.
+   */
+  const { divisions } = useFold();
+  const window = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const fold = divisions.find((d) => d.height > d.width && d.x < window.width / 2 + 60 && d.x + d.width > window.width / 2 - 60);
+  const stage: ViewStyle = {
+    left: fold ? fold.x + fold.width : insets.left,
+    right: insets.right,
+    bottom: Math.max(insets.bottom, space.lg),
+  };
   const [focus, setFocus] = useState<number | null>(null);
   // Measured rather than assumed: the shelf is sized by its children, and the
   // glass has to be drawn at exactly that size to get a rim that follows the
@@ -57,7 +76,7 @@ export function Dock({
   const named = focus === null ? null : items[focus];
 
   return (
-    <View style={styles.stage} pointerEvents="box-none">
+    <View style={[styles.stage, stage]} pointerEvents="box-none">
       {/* Reserved whether or not anything is hovered, so naming a tile does not
           shove the dock down the screen. Never on touch, where the labels are
           standing under the tiles instead. */}

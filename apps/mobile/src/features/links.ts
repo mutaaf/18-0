@@ -15,8 +15,15 @@
  * the two deployments are one page to a search engine and one link in a chat.
  * Anything written here is what a scraper reads; see `public/index.html`, which
  * carries the same strings for the served HTML.
+ *
+ * Moving to a new domain is this one line. Everything in the app reads it;
+ * the static files a bundler never sees (the HTML shells, the store listing,
+ * the watch extension, the web-head verifier) cannot import it, so
+ * `domain.test.ts` fails and names each of them until they agree. The steps
+ * outside git -- DNS, Supabase, Google, the stores -- are in `docs/hosting.md`.
  */
-export const APP_URL = 'https://18-0.co';
+export const APP_HOST = '18-0.co';
+export const APP_URL = `https://${APP_HOST}`;
 
 /** How the link reads when it is shown as text rather than followed. */
 export const APP_URL_LABEL = APP_URL.replace(/^https?:\/\//, '').replace(/\/+$/, '');

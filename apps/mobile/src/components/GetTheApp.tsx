@@ -64,8 +64,8 @@ export function GetTheApp() {
       <View style={styles.routes}>
         <Route
           glyph={<AppleMark />}
-          name="iPhone & iPad"
-          detail="Public beta on TestFlight. App Store build is in review."
+          name="iPhone, iPad & iPhone Duo"
+          detail="Public beta on TestFlight -- a two-panel spread on iPhone Duo. App Store build is in review."
           action="Join the beta"
           onPress={() => open(TESTFLIGHT_URL, 'testflight')}
         />

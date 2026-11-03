@@ -24,7 +24,11 @@ import {
   type Gameday,
 } from '@17-0/data';
 import { lookupCard } from '@/state/game';
+import { FlashList } from '@shopify/flash-list';
 import { Screen } from '@/components/Screen';
+import { SpreadLayout } from '@/components/SpreadLayout';
+import { RatingRidge } from '@/components/charts';
+import { useSpread } from '@/features/fold';
 import { ReportButton } from '@/components/ReportButton';
 import { Avatar } from '@/components/Avatar';
 import { RankGate } from '@/components/RankGate';
@@ -165,6 +169,7 @@ export default function Leaderboard() {
   // colours. `theme.test.ts` asserts every route does this.
   useThemeId();
   const layout = useLayout();
+  const { spread, ref: spreadRef, onLayout: onSpreadLayout } = useSpread();
   const [chosen, setBoard] = useState<Board>('rating');
   // Resolved once per mount: it decides whether the tab exists at all, and a
   // tab that appeared and disappeared under the finger would be worse than one
@@ -265,148 +270,225 @@ export default function Leaderboard() {
     return index < 0 ? null : { rank: index + 1, row: rows[index]!, above: rows[index - 1] ?? null };
   }, [rows, me]);
 
-  return (
-    <Screen maxWidth={layout.wide ? 860 : undefined}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Leaderboards</Text>
-          <Text style={styles.subtitle}>
-            {board === 'gameday' && day
-              ? `${gamedayDate(day)} · ${gamedayLabel(day)}`
-              : 'Highest 17-0 rating'}
-          </Text>
-        </View>
+  const ratings = useMemo(() => rows.map((r) => r.finalRating), [rows]);
+    const ratingBoard = board !== 'points';
+  const ready = isBackendConfigured && !loading && !failed && (board === 'points' ? scores.length > 0 : rows.length > 0);
 
-        {!isBackendConfigured ? (
-          <View style={styles.notice}>
-            <Text style={styles.noticeTitle}>Leaderboards are offline</Text>
-            <Text style={styles.noticeCopy}>
-              Every season you play is still saved on this device. Rankings need a connection.
+  /**
+   * The board's shape: the podium, where the field's ratings fall, and where
+   * you are in it. In a spread this is the leading panel, held still while the
+   * rest of the field scrolls past opposite.
+   */
+  const summary = ratingBoard && ready ? (
+    <>
+      <Podium rows={rows.slice(0, 3)} wide={layout.wide && spread.kind === 'single'} />
+      {rows.length >= 4 ? (
+        <View style={styles.ridge}>
+          <Text style={styles.ridgeLabel}>Where the board's seasons fall</Text>
+          <RatingRidge ratings={ratings} you={mine?.row.finalRating ?? null} />
+        </View>
+      ) : null}
+      {mine ? (
+        <YourStanding {...mine} />
+      ) : (
+        <RankGate named={me?.named === true} mode={GATE_MODE[board]} heading="Your place is empty" />
+      )}
+    </>
+  ) : null;
+
+  const entry = (row: LeaderboardRow, i: number) => (
+    <Entry
+      key={row.gameSessionId}
+      row={row}
+      rank={i + 4}
+      top={top}
+      floor={floor}
+      isMe={row.userId === me?.userId}
+    />
+  );
+
+  const heading = (
+    <View style={styles.header}>
+      <Text style={styles.title}>Leaderboards</Text>
+      <Text style={styles.subtitle}>
+        {board === 'gameday' && day
+          ? `${gamedayDate(day)} · ${gamedayLabel(day)}`
+          : 'Highest 17-0 rating'}
+      </Text>
+    </View>
+  );
+
+  /** Which board, and over what window. Always with the heading. */
+  const controls = isBackendConfigured ? (
+    <>
+      {/* Which question the board is answering. Above the period chips
+          because it changes what the numbers mean, not just their range. */}
+      <View style={styles.boards}>
+        {boards.map((b) => (
+          <Pressable
+            key={b.key}
+            onPress={() => setBoard(b.key)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: board === b.key }}
+            accessibilityLabel={`${b.label}. ${b.blurb}.`}
+            style={({ hovered }: PressState) => [
+              styles.boardTab,
+              hovered && { borderColor: color.line },
+              board === b.key && styles.boardTabOn,
+            ]}
+          >
+            <Text style={[styles.boardLabel, board === b.key && { color: color.onAction }]}>
+              {b.label}
             </Text>
-          </View>
+            <Text style={[styles.boardBlurb, board === b.key && { color: '#FFFFFFCC' }]}>
+              {b.blurb}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {/* The gameday board is one date. Offering "This Month" over it
+          would be offering a window inside a window. */}
+      <View style={[styles.tabs, board === 'gameday' && styles.tabsHidden]}>
+        {(board === 'gameday' ? [] : PERIODS).map((p) => (
+          <Pressable
+            key={p.key}
+            onPress={() => setPeriod(p.key)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: period === p.key }}
+            style={({ hovered }: PressState) => [
+              styles.tab,
+              hovered && { borderColor: color.action },
+              period === p.key && styles.tabActive,
+            ]}
+          >
+            <Text style={[styles.tabLabel, period === p.key && { color: color.actionBright }]}>
+              {p.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+    </>
+  ) : null;
+
+  /** Loading, failure, an empty board, or the board itself. */
+  const content = !isBackendConfigured ? (
+    <View style={styles.notice}>
+      <Text style={styles.noticeTitle}>Leaderboards are offline</Text>
+      <Text style={styles.noticeCopy}>
+        Every season you play is still saved on this device. Rankings need a connection.
+      </Text>
+    </View>
+  ) : (
+    <>
+    {loading ? (
+      <View style={styles.loading}>
+        <ActivityIndicator color={color.action} />
+      </View>
+    ) : failed ? (
+      <View style={styles.notice}>
+        <Text style={styles.noticeTitle}>Couldn't reach the rankings</Text>
+        <Text style={styles.noticeCopy}>Your seasons are safe on this device.</Text>
+        <Pressable
+          onPress={() => void load(period, board)}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading the leaderboard"
+          style={styles.retry}
+        >
+          <Text style={styles.retryLabel}>Retry</Text>
+        </Pressable>
+      </View>
+    ) : (board === 'points' ? scores.length === 0 : rows.length === 0) ? (
+      <View style={styles.gate}>
+        <RankGate
+          named={me?.named === true}
+          mode={GATE_MODE[board]}
+          requireBlind={board !== 'points'}
+          heading={
+            board === 'gameday' && day && !gamedayAt()
+              ? 'Nobody played that gameday'
+              : 'Be the first on the board'
+          }
+        />
+      </View>
+    ) : (
+      <>
+        {board === 'points' ? (
+          <PointsBoard rows={scores} meId={me?.userId} named={me?.named === true} wide={layout.wide} />
         ) : (
           <>
-            {/* Which question the board is answering. Above the period chips
-                because it changes what the numbers mean, not just their range. */}
-            <View style={styles.boards}>
-              {boards.map((b) => (
-                <Pressable
-                  key={b.key}
-                  onPress={() => setBoard(b.key)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: board === b.key }}
-                  accessibilityLabel={`${b.label}. ${b.blurb}.`}
-                  style={({ hovered }: PressState) => [
-                    styles.boardTab,
-                    hovered && { borderColor: color.line },
-                    board === b.key && styles.boardTabOn,
-                  ]}
-                >
-                  <Text style={[styles.boardLabel, board === b.key && { color: color.onAction }]}>
-                    {b.label}
-                  </Text>
-                  <Text style={[styles.boardBlurb, board === b.key && { color: '#FFFFFFCC' }]}>
-                    {b.blurb}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+        {summary}
 
-            {/* The gameday board is one date. Offering "This Month" over it
-                would be offering a window inside a window. */}
-            <View style={[styles.tabs, board === 'gameday' && styles.tabsHidden]}>
-              {(board === 'gameday' ? [] : PERIODS).map((p) => (
-                <Pressable
-                  key={p.key}
-                  onPress={() => setPeriod(p.key)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: period === p.key }}
-                  style={({ hovered }: PressState) => [
-                    styles.tab,
-                    hovered && { borderColor: color.action },
-                    period === p.key && styles.tabActive,
-                  ]}
-                >
-                  <Text style={[styles.tabLabel, period === p.key && { color: color.actionBright }]}>
-                    {p.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
+        {rows.length > 3 ? (
+          <Text style={styles.sectionLabel}>The rest of the field</Text>
+        ) : null}
 
-            {loading ? (
-              <View style={styles.loading}>
-                <ActivityIndicator color={color.action} />
-              </View>
-            ) : failed ? (
-              <View style={styles.notice}>
-                <Text style={styles.noticeTitle}>Couldn't reach the rankings</Text>
-                <Text style={styles.noticeCopy}>Your seasons are safe on this device.</Text>
-                <Pressable
-                  onPress={() => void load(period, board)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Retry loading the leaderboard"
-                  style={styles.retry}
-                >
-                  <Text style={styles.retryLabel}>Retry</Text>
-                </Pressable>
-              </View>
-            ) : (board === 'points' ? scores.length === 0 : rows.length === 0) ? (
-              <View style={styles.gate}>
-                <RankGate
-                  named={me?.named === true}
-                  mode={GATE_MODE[board]}
-                  requireBlind={board !== 'points'}
-                  heading={
-                    board === 'gameday' && day && !gamedayAt()
-                      ? 'Nobody played that gameday'
-                      : 'Be the first on the board'
-                  }
-                />
-              </View>
-            ) : (
-              <>
-                {board === 'points' ? (
-                  <PointsBoard rows={scores} meId={me?.userId} named={me?.named === true} wide={layout.wide} />
-                ) : (
-                  <>
-                <Podium rows={rows.slice(0, 3)} wide={layout.wide} />
-                {mine ? (
-                  <YourStanding {...mine} />
-                ) : (
-                  <RankGate
-                    named={me?.named === true}
-                    mode={GATE_MODE[board]}
-                    heading="Your place is empty"
-                  />
-                )}
-
-                {rows.length > 3 ? (
-                  <Text style={styles.sectionLabel}>The rest of the field</Text>
-                ) : null}
-
-                <View style={styles.list}>
-                  {rows.slice(3).map((row, i) => (
-                    <Entry
-                      key={row.gameSessionId}
-                      row={row}
-                      rank={i + 4}
-                      top={top}
-                      floor={floor}
-                      isMe={row.userId === me?.userId}
-                    />
-                  ))}
-                </View>
-                  </>
-                )}
-              </>
-            )}
+        <View style={styles.list}>{rows.slice(3).map(entry)}</View>
           </>
         )}
+      </>
+    )}
+    </>
+  );
+
+  const body = (
+    <>
+      {controls}
+      {content}
+    </>
+  );
+
+  return (
+    <Screen bleed={spread.kind !== 'single'} maxWidth={layout.wide ? 860 : undefined}>
+      <View ref={spreadRef} onLayout={onSpreadLayout} style={styles.fill}>
+      {spread.kind !== 'single' ? (
+        <SpreadLayout
+          spread={spread}
+          first={
+            <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+              {heading}
+              {controls}
+              {/* What the board is asking, and its shape. The rows -- or the
+                  reason there are none yet -- are opposite. */}
+              {ready && ratingBoard ? summary : null}
+            </ScrollView>
+          }
+          second={
+            ratingBoard && ready ? (
+              // Virtualised: fifty rows that each open into a seven-player
+              // roster is exactly the list FlashList recycles well, and this
+              // panel is nothing but that list.
+              <FlashList
+                data={rows.slice(3)}
+                keyExtractor={(row) => row.gameSessionId}
+                renderItem={({ item, index }) => <View style={styles.flashRow}>{entry(item, index)}</View>}
+                ListHeaderComponent={<Text style={[styles.sectionLabel, styles.sectionLabelTop]}>The rest of the field</Text>}
+                ListEmptyComponent={<Text style={[styles.sectionLabel, styles.sectionLabelTop]}>Only three on the board so far</Text>}
+                contentContainerStyle={styles.scroll}
+                showsVerticalScrollIndicator={false}
+              />
+            ) : (
+              <ScrollView contentContainerStyle={[styles.scroll, styles.panelTop]} showsVerticalScrollIndicator={false}>
+                {board === 'points' && ready ? (
+                  <PointsBoard rows={scores} meId={me?.userId} named={me?.named === true} wide={false} />
+                ) : (
+                  content
+                )}
+              </ScrollView>
+            )
+          }
+        />
+      ) : (
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {heading}
+        {body}
       </ScrollView>
+      )}
+      </View>
     </Screen>
   );
 }
+
 
 /**
  * The top three, given the space the top three deserve.
@@ -793,7 +875,19 @@ function RosterLine({ pick }: { pick: RosterPick }) {
 
 const styles = themed(() => StyleSheet.create({
   gate: { paddingHorizontal: space.lg, paddingTop: space.sm },
+  fill: { flex: 1 },
   scroll: { paddingBottom: 120 },
+  /** Clear of the account disc in the corner above this panel. */
+  panelTop: { paddingTop: 72 },
+  flashRow: { paddingHorizontal: space.lg, paddingBottom: 4 },
+  ridge: { marginHorizontal: space.lg, marginTop: space.md, gap: space.sm },
+  ridgeLabel: {
+    fontFamily: font.label,
+    fontSize: 10,
+    letterSpacing: tracking.wider,
+    textTransform: 'uppercase',
+    color: color.textFaint,
+  },
   account: { paddingHorizontal: space.lg, paddingBottom: space.md },
   sectionLabelTop: { paddingTop: space.lg },
   header: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.md },
