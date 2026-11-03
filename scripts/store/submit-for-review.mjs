@@ -409,8 +409,13 @@ async function submitViaReviewSubmissions() {
   // An unsubmitted container from an earlier run is reused; a second one for the
   // same app is refused by Apple with a duplicate error that does not mention
   // the first.
+  // So is a rejected one: after a rejection the container sits in
+  // UNRESOLVED_ISSUES with the version as a REJECTED item, and resubmitting
+  // means resolving that item and submitting the same container again — what
+  // the web's "Resubmit to App Review" does. A new container is refused while
+  // that one is open.
   const open = await ascAll(
-    `/v1/reviewSubmissions?filter[app]=${APP_ID}&filter[platform]=IOS&filter[state]=READY_FOR_REVIEW`,
+    `/v1/reviewSubmissions?filter[app]=${APP_ID}&filter[platform]=IOS&filter[state]=READY_FOR_REVIEW,UNRESOLVED_ISSUES`,
   );
   let submission = open[0];
   if (submission) {
@@ -427,8 +432,11 @@ async function submitViaReviewSubmissions() {
   }
 
   const items = await ascAll(`/v1/reviewSubmissions/${submission.id}/items?include=appStoreVersion`);
-  const already = items.some((i) => i.relationships?.appStoreVersion?.data?.id === VERSION_ID);
-  if (already) {
+  const mine = items.find((i) => i.relationships?.appStoreVersion?.data?.id === VERSION_ID);
+  if (mine?.attributes?.state === 'REJECTED') {
+    await patch(`/v1/reviewSubmissionItems/${mine.id}`, 'reviewSubmissionItems', mine.id, { resolved: true });
+    step('marked the rejected item resolved', true);
+  } else if (mine) {
     step('the version is already an item on it', false);
   } else {
     await post('/v1/reviewSubmissionItems', {
