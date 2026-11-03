@@ -1,3 +1,5 @@
+import { APP_HOST } from './links';
+
 /**
  * Where ads may run, and how often a break may interrupt.
  *
@@ -27,7 +29,7 @@ export const SLOT_BETWEEN = 'between-seasons';
 /** Declared up front so the first config fetch already knows every slot. */
 export const AD_SLOTS = `${SLOT_RESULTS}:banner:menu,${SLOT_BETWEEN}:interstitial:menu`;
 
-const HOSTS = new Set(['18-0.co', 'www.18-0.co', 'mutaaf.github.io']);
+const HOSTS = new Set([APP_HOST, `www.${APP_HOST}`, 'mutaaf.github.io']);
 
 export function adsAllowed(env: { platform: string; embedded: boolean; hostname: string }): boolean {
   return env.platform === 'web' && !env.embedded && HOSTS.has(env.hostname);

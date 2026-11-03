@@ -79,6 +79,23 @@ on `@` takes a while to appear — the `www` CNAME went live in seconds and the
 apex took considerably longer. It is worth checking with
 `dig +short @dns1.registrar-servers.com 18-0.co A` rather than assuming a typo.
 
+## Moving to another domain
+
+Inside the repo the address is one line: `APP_HOST` in
+`apps/mobile/src/features/links.ts`. The app, the share card, the ad policy
+and the native stat-line URL all read it. The files that cannot import it --
+both HTML shells, `store/listing.json`, the watch extension, the web-head
+verifier and the og-image script -- are held to it by
+`apps/mobile/src/features/domain.test.ts`, which fails naming each one still on
+the old address. Re-run `make-og.py` for the preview image.
+
+Keep the old domain as a 308 redirect to the new one rather than letting it
+lapse: shared links, search results and installed web copies all point at it.
+A browser treats the new origin as a different site, so seasons played there
+without an account stay on the old origin; a signed-in player loses nothing.
+The extension checks the exact origin, so ship a version that accepts both
+before the switch.
+
 ## What holds the address, outside this repo
 
 Changing the domain means changing all of these, and none of them is in git:
