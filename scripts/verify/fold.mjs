@@ -231,10 +231,13 @@ const box = (el) => {
    */
   const sw = await need(() => labelled((l) => l === 'Play for the leaderboard')[0], 'the ranked switch', 24);
   if (!sw) return;
-  // By the word it renders rather than by \`aria-checked\`, which this switch
-  // does not publish -- reading it returned null in both states, so the harness
-  // silently never toggled anything and played every season ranked.
-  const state = () => (/CASUAL/.test(sw.textContent) ? 'casual' : /RANKED/.test(sw.textContent) ? 'ranked' : 'unreadable');
+  // By \`aria-checked\`, which is what a screen reader hears. It once published
+  // nothing, reading null in both states, and the harness silently played every
+  // season ranked; anything but "true"/"false" now fails the run instead.
+  const state = () => {
+    const checked = sw.getAttribute('aria-checked');
+    return checked === 'false' ? 'casual' : checked === 'true' ? 'ranked' : 'unreadable';
+  };
   if (state() !== 'casual') { click(sw); await sleep(500); }
   R.ranked = state();
   if (R.ranked !== 'casual') {

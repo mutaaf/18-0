@@ -67,6 +67,9 @@ const EDITABLE = new Set([
   'METADATA_REJECTED',
 ]);
 
+// Released, so frozen for good: a change to the listing needs a new version.
+const LIVE = new Set(['READY_FOR_SALE', 'READY_FOR_DISTRIBUTION', 'REPLACED_WITH_NEW_VERSION']);
+
 // `appStoreState` is deprecated and is already absent from some responses;
 // `state` and `appVersionState` are what replaced it, per resource.
 const stateOf = (entity) =>
@@ -148,7 +151,7 @@ if (failed > 0) {
  * ✓ means the field is on the store, not that this script intended to put it
  * there.
  */
-async function reconcile(prefix, entity, path, desired) {
+async function reconcile(prefix, entity, path, desired, frozen = null) {
   const current = entity.attributes;
   const same = [];
   const moved = [];
@@ -163,6 +166,19 @@ async function reconcile(prefix, entity, path, desired) {
   for (const field of same) check(`${prefix} ${field}`, true, 'already correct, skipped');
 
   if (moved.length === 0) return;
+
+  if (frozen) {
+    for (const [field, diff] of moved) {
+      if (field === 'whatsNew' && frozen.firstRelease) {
+        check(`${prefix} ${field}`, true,
+          'Apple will not take release notes on a first version — skipped');
+      } else {
+        check(`${prefix} ${field}`, false,
+          `${diff}  — locked while Apple has it (${frozen.state}); run this again once it is editable`);
+      }
+    }
+    return;
+  }
 
   if (dryRun) {
     for (const [field, diff] of moved) check(`${prefix} ${field}`, true, `would set  ${diff}`);
@@ -212,13 +228,24 @@ console.log(`\nAPP INFO${dryRun ? '  (dry run)' : ''}`);
 // An app carries one appInfo per review cycle: the live one and, once a change
 // is in flight, the one being reviewed. Only the unsubmitted one takes an edit.
 const infos = await ascAll(`/v1/apps/${APP_ID}/appInfos`);
-const info = infos.find((candidate) => EDITABLE.has(stateOf(candidate)));
+const editableInfo = infos.find((candidate) => EDITABLE.has(stateOf(candidate)));
+// While a version sits with App Review, every appInfo is locked, and the
+// release workflow runs then too: a TestFlight build ships mid-review. That
+// used to fail the release on a build that had uploaded fine (run 41888362430,
+// 2026-11-04). Nothing can be written, but the listing can still be read, so
+// compare against the copy under review: a match is a pass, and a real
+// difference still fails, naming the field.
+const frozenInfo = editableInfo
+  ? null
+  : infos.find((candidate) => !LIVE.has(stateOf(candidate)));
+const info = editableInfo ?? frozenInfo;
+const infoFrozen = frozenInfo ? { state: stateOf(frozenInfo), firstRelease: false } : null;
 
 if (!info) {
   check('an editable appInfo exists', false,
     infos.map(stateOf).join(', ') || 'the app has none');
 } else {
-  console.log(`  ${info.id} (${stateOf(info)})`);
+  console.log(`  ${info.id} (${stateOf(info)}${infoFrozen ? ', read-only' : ''})`);
   const locales = await ascAll(`/v1/appInfos/${info.id}/appInfoLocalizations`);
 
   for (const [locale, fields] of Object.entries(listing.appInfo)) {
@@ -234,7 +261,7 @@ if (!info) {
       name: fields.name,
       subtitle: fields.subtitle,
       privacyPolicyUrl: fields.privacyPolicyUrl,
-    });
+    }, infoFrozen);
   }
 }
 
@@ -248,7 +275,7 @@ if (info && listing.ageRating) {
   console.log(`\nAGE RATING${dryRun ? '  (dry run)' : ''}`);
   try {
     const declaration = await asc(`/v1/appInfos/${info.id}/ageRatingDeclaration`);
-    await reconcile('rating', declaration.data, '/v1/ageRatingDeclarations', listing.ageRating);
+    await reconcile('rating', declaration.data, '/v1/ageRatingDeclarations', listing.ageRating, infoFrozen);
   } catch (error) {
     check('the age rating declaration is reachable', false, error.message);
   }
@@ -259,15 +286,27 @@ console.log(`\nVERSION${dryRun ? '  (dry run)' : ''}`);
 // Newest first, by creation rather than by version string: "1.10" sorts below
 // "1.9" as text, and there is no reason to write a semver comparator when Apple
 // already records the order the versions were made in.
-const versions = (
+const allVersions = (
   await ascAll(`/v1/apps/${APP_ID}/appStoreVersions?filter[platform]=IOS&limit=50`)
-)
-  .filter((candidate) => EDITABLE.has(stateOf(candidate)))
-  .sort((a, b) => b.attributes.createdDate.localeCompare(a.attributes.createdDate));
+).sort((a, b) => b.attributes.createdDate.localeCompare(a.attributes.createdDate));
+const versions = allVersions.filter((candidate) => EDITABLE.has(stateOf(candidate)));
+const pick = (list) => (wantVersion
+  ? list.find((v) => v.attributes.versionString === wantVersion)
+  : list[0]);
 
-const version = wantVersion
-  ? versions.find((v) => v.attributes.versionString === wantVersion)
-  : versions[0];
+// Same reasoning as the appInfo above: with nothing editable, read the version
+// that is in review rather than failing a release that has already shipped.
+const editableVersion = pick(versions);
+const frozenVersion = editableVersion
+  ? null
+  : pick(allVersions.filter((candidate) => !LIVE.has(stateOf(candidate))));
+const version = editableVersion ?? frozenVersion;
+const versionFrozen = frozenVersion
+  ? {
+      state: stateOf(frozenVersion),
+      firstRelease: !allVersions.some((v) => LIVE.has(stateOf(v))),
+    }
+  : null;
 
 if (!version) {
   check('an editable version exists', false,
@@ -275,11 +314,11 @@ if (!version) {
       ? `no editable ${wantVersion}; editable: ${versions.map((v) => v.attributes.versionString).join(', ') || 'none'}`
       : 'every version is past the point where Apple accepts an edit');
 } else {
-  console.log(`  ${version.attributes.versionString} (${stateOf(version)})`);
+  console.log(`  ${version.attributes.versionString} (${stateOf(version)}${versionFrozen ? ', read-only' : ''})`);
 
   await reconcile(version.attributes.versionString, version, '/v1/appStoreVersions', {
     copyright: listing.copyright,
-  });
+  }, versionFrozen);
 
   const locales = await ascAll(
     `/v1/appStoreVersions/${version.id}/appStoreVersionLocalizations`,
@@ -296,6 +335,11 @@ if (!version) {
     };
 
     let row = locales.find((l) => l.attributes.locale === locale);
+    if (!row && versionFrozen) {
+      check(`${locale}`, false,
+        `no localization, and none can be added while Apple has it (${versionFrozen.state})`);
+      continue;
+    }
     if (!row) {
       // Apple creates a localization for the primary locale only, so a locale
       // added to listing.json has no row and the PATCH would 404 on an id that
@@ -320,7 +364,7 @@ if (!version) {
       }
     }
 
-    await reconcile(locale, row, '/v1/appStoreVersionLocalizations', desired);
+    await reconcile(locale, row, '/v1/appStoreVersionLocalizations', desired, versionFrozen);
     if (whatsNew === undefined) {
       // Sending null here would erase the notes of the release being shipped,
       // which is a silent way to publish a blank "What's New".

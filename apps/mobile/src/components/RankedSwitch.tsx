@@ -49,9 +49,14 @@ export function RankedSwitch({
     <Pressable
       onPress={onToggle}
       disabled={busy}
-      accessibilityRole="switch"
-      accessibilityState={{ checked: on, disabled: Boolean(busy) }}
-      accessibilityLabel="Play for the leaderboard"
+      // aria-* rather than accessibilityState: react-native-web never turned
+      // `checked` into aria-checked, so on the web this switch announced no
+      // state at all, and the fold harness reading it got null either way.
+      // React Native maps these props on native too.
+      role="switch"
+      aria-checked={on}
+      aria-disabled={Boolean(busy)}
+      aria-label="Play for the leaderboard"
       style={({ hovered }: PressState) => [
         styles.panel,
         on && styles.panelOn,
