@@ -16,7 +16,7 @@ import { betweenSeasons } from '@/features/ads';
 import { SLOT_RESULTS } from '@/features/ads-policy';
 import { homeRoute, isEmbedded, tellHost } from '@/features/embed';
 import { standing } from '@/features/frame-standing';
-import { shareResult } from '@/features/share';
+import { APP_URL_LABEL, prepareWebShareFile, shareResult, type ShareOutcome } from '@/features/share';
 import { askForReminders, scheduleStreakReminder } from '@/features/reminders';
 import { currentUser, hideSeason } from '@/services/supabase';
 import { lookupCard, useGameStore } from '@/state/game';
@@ -62,6 +62,16 @@ import {
  */
 const PERFECT_THRESHOLD = 98.5;
 
+/** What the screen says after a share. Null says nothing. */
+const SHARE_NOTE: Record<ShareOutcome, string | null> = {
+  image: null,
+  link: null,
+  cancelled: null,
+  text: 'Shared as text. The image could not be made.',
+  copied: 'Copied your record and the link. Paste it anywhere.',
+  failed: `This browser blocked sharing. The link is ${APP_URL_LABEL}`,
+};
+
 export default function Result() {
   // Subscribes this screen to the palette. React Navigation memoizes the
   // element it was handed, so a theme change reaches the component that
@@ -80,6 +90,8 @@ export default function Result() {
 
   const cardRef = useRef<View>(null);
   const [shareNote, setShareNote] = useState<string | null>(null);
+  /** The card as a file, made before the tap on a browser whose share sheet takes one. */
+  const shareFile = useRef<File | null>(null);
   /** Optimistic: the row flips immediately and reverts if the server refuses. */
   const [boardHidden, setBoardHidden] = useState(false);
 
@@ -138,6 +150,27 @@ export default function Result() {
     const at = setTimeout(() => setOnAir(true), CUE.stamp);
     return () => clearTimeout(at);
   }, [line.settled]);
+
+  /**
+   * The card image, captured once the build has finished and before anybody
+   * reaches for Share. On the tap it is too late: Safari stops treating the
+   * tap as a gesture during the capture and refuses the share sheet
+   * (`webShareRoute` in features/share-text.ts). Web only; null elsewhere.
+   */
+  useEffect(() => {
+    if (!line.settled || !result) return;
+    let live = true;
+    shareFile.current = null;
+    const at = setTimeout(() => {
+      void prepareWebShareFile(cardRef, result).then((file) => {
+        if (live) shareFile.current = file;
+      });
+    }, 400);
+    return () => {
+      live = false;
+      clearTimeout(at);
+    };
+  }, [line.settled, result?.finalRating]);
 
   const rosterCards = useMemo(
     () =>
@@ -255,8 +288,9 @@ export default function Result() {
           : 62;
 
   const share = () => {
-    void shareResult(cardRef, result, shareRows).then((mode) => {
-      if (mode === 'text') setShareNote('Shared as text — the image could not be generated.');
+    setShareNote(null);
+    void shareResult(cardRef, result, shareRows, shareFile.current).then((outcome) => {
+      setShareNote(SHARE_NOTE[outcome]);
     });
   };
 
@@ -340,7 +374,7 @@ export default function Result() {
                 : heartbreak
                   ? 'One loss from immortality.'
                   : beatBest
-                    ? `A new personal best — ${previousBest!.toFixed(1)} was the mark. Go again.`
+                    ? `A new personal best. ${previousBest!.toFixed(1)} was the mark. Go again.`
                     : 'Seven better picks and the crown is yours.'}
             </Text>
           </>
@@ -477,7 +511,9 @@ export default function Result() {
       ) : null}
 
       {/* Below the actions, so it can never take the press meant for Build
-          Another. Web only; takes no space with no fill. */}
+          Another. Web only. Its height is held while the ad loads, so a fill
+          never shoves the roster down under somebody's thumb, and it
+          collapses when there is no fill. */}
       <AdSlot id={SLOT_RESULTS} />
     </View>
   );
