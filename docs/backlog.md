@@ -13,6 +13,26 @@ moves quickly — before acting on an item, check the "still true?" line, becaus
 several things listed here in the past were fixed by the time anybody read
 them.
 
+## Where things stand — 2026-11-04
+
+Start a new feature from here; everything below this block is older and needs its
+"still true?" check.
+
+- **App Store:** v1.0, **build 6**, is `WAITING_FOR_REVIEW` (resubmitted
+  2026-11-03 with a device recording, after a 2.1 "Information Needed"
+  rejection) and releases on approval. Builds 7 and 8 are on TestFlight only.
+  While it waits, nothing on the listing can be edited; `push-listing.mjs`
+  compares read-only then, so a release run stays green unless
+  `listing.json` really differs from what Apple has.
+- **iOS 27 SDK:** handled ahead of time by `plugins/with-scene-lifecycle.js`
+  (#23). EAS still builds on the 26.5 SDK. If an Expo upgrade changes
+  `AppDelegate.swift`, prebuild throws by design: update the plugin's snippets.
+- **Two flags expire on 2026-12-01:** `gameday_cta` and `theme_picker`.
+  `registry.test.ts` fails the build on 2026-12-02, so decide each one (ship
+  the winner, delete it, or move the date on purpose) before then.
+- **Item 15 is closed** and items 1, 2 and 13 still need a human or a live
+  event.
+
 Read first: [`CLAUDE.md`](../CLAUDE.md) for the invariants,
 [`docs/gameday.md`](gameday.md) and [`docs/feature-flags.md`](feature-flags.md)
 for the two most recent subsystems.
@@ -381,7 +401,12 @@ who somebody is.
 
 ---
 
-## 15. The ranked switch publishes no `aria-checked`
+## 15. The ranked switch publishes no `aria-checked` — done
+
+**Closed 2026-11-04.** `RankedSwitch` sets `role`/`aria-checked` instead of
+`accessibilityState`, which react-native-web never turned into an attribute.
+The fold harness reads `aria-checked` again and fails on anything else.
+
 
 Found by `scripts/verify/fold.mjs`, which tried to read it to decide whether to
 toggle, got `null` in both states, and therefore silently never toggled — so
