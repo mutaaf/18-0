@@ -73,3 +73,6 @@ extensions/espn-watch/.fixture-profile/
 
 # And the one `verify:fold` runs the app in, for the same reason.
 scripts/verify/.fold-profile/
+
+# Copied from canvaskit-wasm on install (apps/mobile/scripts/copy-canvaskit.mjs)
+apps/mobile/public/canvaskit.wasm

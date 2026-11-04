@@ -69,6 +69,9 @@ export interface Palette {
   lineBright: string;
   lineGold: string;
   chalk: string;
+  /** The grass under the lineup, shaded end and lit end. A field is green in every theme. */
+  turfDeep: string;
+  turfLit: string;
 
   // Type
   text: string;
@@ -166,6 +169,8 @@ const broadcast: Theme = {
     lineBright: '#31405F',
     lineGold: '#FFB40033',
     chalk: '#FFFFFF12',
+    turfDeep: '#07110C',
+    turfLit: '#0D2016',
 
     text: '#F2F5FA',
     silver: '#C0C0C6',
@@ -239,6 +244,8 @@ const turf: Theme = {
     lineBright: '#4055C4',
     lineGold: '#FFB40040',
     chalk: '#FFFFFF1A',
+    turfDeep: '#0B2414',
+    turfLit: '#164A25',
 
     text: '#FFFFFF',
     silver: '#C8D2F0',

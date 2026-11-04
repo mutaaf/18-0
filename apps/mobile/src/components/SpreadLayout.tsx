@@ -3,6 +3,8 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeInUp } from 'react-native-reanimated';
 import Svg, { Defs, LinearGradient, Line, Rect, Stop } from 'react-native-svg';
 import { useFold, type Spread } from '@/features/fold';
+import { gpu } from '@/features/gpu';
+import { bendOf } from '@/features/gpu/color';
 import { DECORATIVE, color, themed, useThemeId } from '@/theme';
 
 type Split = Exclude<Spread, { kind: 'single' }>;
@@ -66,35 +68,45 @@ const Seam = memo(function Seam({ spread }: { spread: Split }) {
   const { hinge } = useFold();
   const columns = spread.kind === 'columns';
   // 180 is flat; a book is held around 90-120. Deepest at a right angle.
-  const bend = spread.folded
-    ? hinge
-      ? Math.min(Math.max((180 - hinge.angle) / 90, 0.35), 1)
-      : 0.7
-    : 0;
+  const bend = bendOf(hinge, spread.folded);
   const box = columns
     ? { left: spread.seam.start, width: spread.seam.size, top: 0, bottom: 0 }
     : { top: spread.seam.start, height: spread.seam.size, left: 0, right: 0 };
 
   return (
     <Animated.View entering={FadeIn.duration(500)} style={[styles.seam, box]} pointerEvents="none" {...DECORATIVE}>
-      <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-        <Defs>
-          <LinearGradient id="spine" x1="0" y1="0" x2={columns ? '1' : '0'} y2={columns ? '0' : '1'}>
-            <Stop offset="0" stopColor={color.void} stopOpacity="0" />
-            <Stop offset="0.5" stopColor={color.void} stopOpacity={String(0.55 * bend)} />
-            <Stop offset="1" stopColor={color.void} stopOpacity="0" />
-          </LinearGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" fill="url(#spine)" />
-        {columns ? (
-          <Line x1="50%" y1="6%" x2="50%" y2="94%" stroke={color.chalk} strokeOpacity={0.1 + 0.08 * bend} strokeWidth="1" strokeDasharray={spread.source === 'virtual' ? '2 6' : undefined} />
-        ) : (
-          <Line x1="6%" y1="50%" x2="94%" y2="50%" stroke={color.chalk} strokeOpacity={0.1 + 0.08 * bend} strokeWidth="1" strokeDasharray={spread.source === 'virtual' ? '2 6' : undefined} />
-        )}
-      </Svg>
+      <GpuSeam
+        columns={columns}
+        bend={bend}
+        colors={{ green: color.actionBright, ice: color.ice, shade: color.void }}
+        fallback={<FlatSeam columns={columns} bend={bend} dashed={spread.source === 'virtual'} />}
+      />
     </Animated.View>
   );
 });
+
+const GpuSeam = gpu(() => import('@/features/gpu/effects/seam'));
+
+/** The seam in SVG: what draws before the GPU one loads, or instead of it. */
+function FlatSeam({ columns, bend, dashed }: { columns: boolean; bend: number; dashed: boolean }) {
+  return (
+    <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
+      <Defs>
+        <LinearGradient id="spine" x1="0" y1="0" x2={columns ? '1' : '0'} y2={columns ? '0' : '1'}>
+          <Stop offset="0" stopColor={color.void} stopOpacity="0" />
+          <Stop offset="0.5" stopColor={color.void} stopOpacity={String(0.55 * bend)} />
+          <Stop offset="1" stopColor={color.void} stopOpacity="0" />
+        </LinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100%" height="100%" fill="url(#spine)" />
+      {columns ? (
+        <Line x1="50%" y1="6%" x2="50%" y2="94%" stroke={color.chalk} strokeOpacity={0.1 + 0.08 * bend} strokeWidth="1" strokeDasharray={dashed ? '2 6' : undefined} />
+      ) : (
+        <Line x1="6%" y1="50%" x2="94%" y2="50%" stroke={color.chalk} strokeOpacity={0.1 + 0.08 * bend} strokeWidth="1" strokeDasharray={dashed ? '2 6' : undefined} />
+      )}
+    </Svg>
+  );
+}
 
 const styles = themed(() =>
   StyleSheet.create({

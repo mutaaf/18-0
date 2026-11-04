@@ -4,6 +4,7 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
+    "postinstall": "node scripts/copy-canvaskit.mjs",
     "start": "expo start",
     "ios": "expo run:ios",
     "android": "expo run:android",
@@ -25,6 +26,7 @@
     "@expo/metro-runtime": "~57.0.15",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@shopify/flash-list": "2.0.2",
+    "@shopify/react-native-skia": "2.6.2",
     "@supabase/supabase-js": "^2.112.4",
     "d3-array": "3.2.4",
     "d3-scale": "4.0.2",

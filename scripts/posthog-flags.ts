@@ -69,7 +69,10 @@ function payloadFor(definition: FlagDefinition) {
     // the person who finds this flag in eight months is not the person who made
     // it and the first two questions are always the same.
     name: `${definition.summary} (owner ${definition.owner}, remove by ${definition.removeBy})`,
-    active: true,
+    // A toggle is created in the state its fallback ships: `share_beta` is off
+    // until App Review clears, and creating it on would have put the beta panel
+    // inside the build Apple was reviewing. Experiments start running.
+    active: definition.kind === 'experiment' ? true : definition.fallback === true,
     filters:
       definition.kind === 'experiment'
         ? { groups, multivariate: { variants: evenSplit(definition.variants ?? []) } }
@@ -115,7 +118,9 @@ async function main(): Promise<void> {
         ? (payload.filters as { multivariate: { variants: Variant[] } }).multivariate.variants
             .map((v) => `${v.key} ${v.rollout_percentage}%`)
             .join(', ')
-        : 'on for 100%';
+        : payload.active
+          ? 'on for 100%'
+          : 'created off -- turn on in PostHog when it should ship';
     console.log(`\n  ${definition.key}  [${definition.kind}]`);
     console.log(`    ${arms}`);
     console.log(`    fallback if unreachable: ${String(definition.fallback)}`);
@@ -150,8 +155,10 @@ async function main(): Promise<void> {
       console.log(`  created  ${definition.key}`);
     } else {
       // Patched rather than replaced, so a rollout percentage somebody set in
-      // the UI on purpose is the one thing this does not stamp back over.
-      const { filters, ...rest } = payload;
+      // the UI on purpose is not stamped back over -- and neither is `active`,
+      // because switching a flag off in PostHog is the kill switch, and a sync
+      // that re-enabled it would undo the one action that has to stick.
+      const { filters, active: _active, ...rest } = payload;
       const keep = definition.kind === 'experiment' ? { ...rest, filters } : rest;
       await api(`/api/projects/${project}/feature_flags/${id}/`, {
         method: 'PATCH',
