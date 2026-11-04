@@ -76,3 +76,6 @@ scripts/verify/.fold-profile/
 
 # Copied from canvaskit-wasm on install (apps/mobile/scripts/copy-canvaskit.mjs)
 apps/mobile/public/canvaskit.wasm
+
+# Lobby renders: reproducible from store/lobby.json + raw captures (lobby build)
+store/lobby/out/
