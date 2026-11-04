@@ -21,7 +21,8 @@ import { LeaderboardStrip } from '@/components/LeaderboardStrip';
 import { Panel } from '@/components/Panel';
 import { track } from '@/features/telemetry';
 import { adsOn } from '@/features/ads';
-import { AD_PRIVACY_URL } from '@/features/ads-policy';
+import { AD_PRIVACY_URL, SLOT_HOME } from '@/features/ads-policy';
+import { AdSlot } from '@/components/AdSlot';
 import { beginRanked } from '@/features/ranked';
 import { useStartGame, withTimeout } from '@/features/start-game';
 import { flag, useFlag } from '@/features/flags';
@@ -568,6 +569,10 @@ export default function Home() {
         )}
 
         {closer}
+        {/* The front page's one banner, at its foot: after every way into a
+            season, so it never sits between a visitor and the first spin.
+            Web only, never in a frame, collapses with no fill. */}
+        <AdSlot id={SLOT_HOME} />
         {footer}
       </ScrollView>
     </Screen>
