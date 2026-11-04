@@ -19,7 +19,12 @@ apps/mobile/src/features/flags/
 2. **Read it** where it is used: `useFlag('key')` in a component,
    `flag('key')` anywhere else. Keys are a union type, so a typo is a
    compile error and there is no string to get wrong.
-3. **Push it to PostHog**, which is a script rather than a web form because the
+3. **Push it to PostHog -- before it ships, not after.** Once PostHog answers,
+   a flag it does not mention resolves to *off*, whatever its fallback says.
+   `dual_panel` shipped in 1.0 (7) without this step and the iPhone Duo spread
+   was dark for everyone. Toggles are created in their fallback's state (so
+   `share_beta` arrives off), and a re-run never touches `active`, so it cannot
+   undo a kill switch. It is a script rather than a web form because the
    registry has to stay the single source of truth:
 
    ```bash

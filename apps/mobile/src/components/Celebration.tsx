@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { useFold } from '@/features/fold';
+import { gpu } from '@/features/gpu';
 import { DECORATIVE, color } from '@/theme';
 
 /**
@@ -10,11 +12,18 @@ import { DECORATIVE, color } from '@/theme';
  * 17-0 it does all of it in gold and does not apologise. Intensity scales with
  * the record: a 6-11 gets a flicker, a 16-1 gets buried.
  *
- * Built on React Native's own `Animated` rather than Reanimated, and every
- * piece is `pointerEvents="none"` in an absolutely-positioned overlay, so
- * nothing here can swallow a tap or gate the content underneath. Reduce Motion
- * renders nothing at all.
+ * On the GPU it is a firework show (`features/gpu/effects/fireworks.tsx`):
+ * shells and hundreds of pieces of confetti in one Skia picture, and on an
+ * iPhone Duo the shells launch out of the fold and burst over both pages. The
+ * view-based confetti below is the fallback -- built on React Native's own
+ * `Animated`, as it always was.
+ *
+ * Every piece of either is `pointerEvents="none"` in an absolutely-positioned
+ * overlay, so nothing here can swallow a tap or gate the content underneath.
+ * Reduce Motion renders nothing at all.
  */
+
+const GpuFireworks = gpu(() => import('@/features/gpu/effects/fireworks'));
 
 interface Piece {
   readonly key: number;
@@ -44,6 +53,7 @@ export function Celebration({
 }) {
   const { width, height } = useWindowDimensions();
   const [enabled, setEnabled] = useState<boolean | null>(null);
+  const { divisions } = useFold();
 
   useEffect(() => {
     let cancelled = false;
@@ -76,13 +86,28 @@ export function Celebration({
 
   if (enabled !== true || strength <= 0) return null;
 
+  // The hinge, in window coordinates: shells rise out of it. A book's fold
+  // launches from its foot, a tabletop's from the crease up into the top page.
+  const fold = divisions[0];
+  const origin = fold
+    ? fold.height > fold.width
+      ? { x: fold.x + fold.width / 2, y: fold.y + fold.height }
+      : { x: fold.x + fold.width / 2, y: fold.y + fold.height / 2 }
+    : null;
+
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none" {...DECORATIVE}>
       <Flash color={perfect ? color.goldBright : colors[0]!} strength={strength} />
       {perfect ? <Rings width={width} /> : null}
-      {pieces.map((piece) => (
-        <Confetto key={piece.key} piece={piece} fallTo={height + 80} />
-      ))}
+      <GpuFireworks
+        intensity={strength}
+        palette={perfect ? [...GOLD, color.text] : [...colors, color.goldBright]}
+        perfect={perfect}
+        origin={origin}
+        fallback={pieces.map((piece) => (
+          <Confetto key={piece.key} piece={piece} fallTo={height + 80} />
+        ))}
+      />
     </View>
   );
 }

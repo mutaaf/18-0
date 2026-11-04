@@ -140,6 +140,15 @@ check('the service worker was exported', Boolean(worker));
 check('it handles fetch', Boolean(worker && /addEventListener\(\s*['"]fetch['"]/.test(worker)));
 
 // ---------------------------------------------------------------------------
+console.log('\nGPU RENDERER');
+
+// Skia draws on the web through CanvasKit, which fetches canvaskit.wasm from
+// our own origin at run time (apps/mobile/scripts/copy-canvaskit.mjs copies it
+// into public/ on install). Missing, every GPU effect quietly falls back to its
+// SVG -- nothing breaks, so nothing else would notice it had gone.
+const wasm = await stat(join(dist, 'canvaskit.wasm')).catch(() => null);
+check('canvaskit.wasm ships with the page', Boolean(wasm && wasm.size > 1_000_000), wasm ? `${Math.round(wasm.size / 1024)}K` : 'missing');
+
 console.log('\nONE CANONICAL ADDRESS');
 
 // The build ships to two places: the domain root on Vercel and the /18-0/

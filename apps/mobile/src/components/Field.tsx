@@ -1,9 +1,20 @@
-import { memo, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  Easing,
+  ReduceMotion,
+  ZoomIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import Svg, { Defs, G, Line, LinearGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { ROSTER_SLOTS, SLOT_POSITION, type RosterSlot } from '@17-0/domain';
 import type { BootCard } from '@17-0/data';
 import { SLOT_HEIGHT, TOUCHLINE, formation } from './field-geometry';
+import { useFold } from '@/features/fold';
+import { gpu } from '@/features/gpu';
+import { bendOf } from '@/features/gpu/color';
 import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking, useLayout, useThemeId } from '@/theme';
 
 const SLOT_LABEL: Record<RosterSlot, string> = {
@@ -34,8 +45,54 @@ const SLOT_SPOKEN: Record<RosterSlot, string> = {
 /** Yard numerals as a broadcast draws them: 10 up to 50 and back down. */
 const YARD_NUMERALS = [10, 20, 30, 40, 50, 40, 30, 20, 10];
 
+const GpuTurf = gpu(() => import('@/features/gpu/effects/turf'));
+
 /**
- * A top-down field: chalk, hashes, and the yard numerals a broadcast uses.
+ * The grass. On the GPU it is a lit, living field (`features/gpu/effects/
+ * turf.tsx`); the SVG gradient below is what draws while that loads, when the
+ * `gpu_effects` flag is off, and wherever it cannot load.
+ */
+const TurfGround = memo(function TurfGround() {
+  useThemeId();
+  const { divisions, hinge } = useFold();
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  const bend = bendOf(hinge, divisions.some((d) => d.active));
+  const flat = (
+    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" viewBox="0 0 300 260" preserveAspectRatio="none">
+      <Defs>
+        <LinearGradient id="turf" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={color.turfLit} />
+          <Stop offset="1" stopColor={color.turfDeep} />
+        </LinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width="300" height="260" fill="url(#turf)" />
+      {/* Mowing stripes */}
+      {[0, 1, 2, 3, 4, 5].map((i) => (
+        <Rect key={i} x={i * 50} y="0" width="25" height="260" fill="#FFFFFF" opacity="0.014" />
+      ))}
+    </Svg>
+  );
+  return (
+    <View
+      style={StyleSheet.absoluteFill}
+      pointerEvents="none"
+      onLayout={(e) => setSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
+      {...DECORATIVE}
+    >
+      <GpuTurf
+        width={size.width}
+        height={size.height}
+        bend={bend}
+        colors={{ deep: color.turfDeep, lit: color.turfLit, glow: color.actionBright }}
+        fallback={flat}
+      />
+    </View>
+  );
+});
+
+/**
+ * A top-down field: chalk, hashes, and the yard numerals a broadcast uses,
+ * over the grass.
  * Memoized — it takes no props and was being reconciled on every keystroke in
  * the search box above it.
  */
@@ -44,50 +101,41 @@ const Turf = memo(function Turf() {
   // this when the palette changes. See `StadiumBackdrop` for the same note.
   useThemeId();
   return (
-    <Svg
-      style={StyleSheet.absoluteFill}
-      width="100%"
-      height="100%"
-      viewBox="0 0 300 260"
-      preserveAspectRatio="none"
-      {...DECORATIVE}
-    >
-      <Defs>
-        <LinearGradient id="turf" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#0D2016" />
-          <Stop offset="0.45" stopColor="#0A1A12" />
-          <Stop offset="1" stopColor="#07110C" />
-        </LinearGradient>
-      </Defs>
-      <Rect x="0" y="0" width="300" height="260" fill="url(#turf)" rx="14" />
-      {/* Mowing stripes */}
-      {[0, 1, 2, 3, 4, 5].map((i) => (
-        <Rect key={i} x={i * 50} y="0" width="25" height="260" fill="#FFFFFF" opacity="0.014" />
-      ))}
-      {/* Yard lines every 10, hash ticks between them */}
-      {Array.from({ length: 11 }, (_, i) => i * 26).map((y, i) => (
-        <G key={y}>
-          <Line x1="14" y1={y} x2="286" y2={y} stroke="#FFFFFF" strokeWidth="0.7" opacity={i % 2 === 0 ? 0.14 : 0.07} />
-          {i > 0 && i < 10 ? (
-            <>
-              <Line x1="112" y1={y - 13} x2="118" y2={y - 13} stroke="#FFFFFF" strokeWidth="0.6" opacity="0.09" />
-              <Line x1="182" y1={y - 13} x2="188" y2={y - 13} stroke="#FFFFFF" strokeWidth="0.6" opacity="0.09" />
-            </>
-          ) : null}
-          {i > 0 && i < 10 ? (
-            <>
-              <SvgText x="26" y={y - 4} fill="#FFFFFF" opacity="0.16" fontSize="11" fontWeight="700">
-                {String(YARD_NUMERALS[i - 1])}
-              </SvgText>
-              <SvgText x="262" y={y - 4} fill="#FFFFFF" opacity="0.16" fontSize="11" fontWeight="700">
-                {String(YARD_NUMERALS[i - 1])}
-              </SvgText>
-            </>
-          ) : null}
-        </G>
-      ))}
-      <Rect x="1" y="1" width="298" height="258" rx="14" fill="none" stroke="#FFFFFF" strokeWidth="1" opacity="0.10" />
-    </Svg>
+    <>
+      <TurfGround />
+      <Svg
+        style={StyleSheet.absoluteFill}
+        width="100%"
+        height="100%"
+        viewBox="0 0 300 260"
+        preserveAspectRatio="none"
+        {...DECORATIVE}
+      >
+        {/* Yard lines every 10, hash ticks between them */}
+        {Array.from({ length: 11 }, (_, i) => i * 26).map((y, i) => (
+          <G key={y}>
+            <Line x1="14" y1={y} x2="286" y2={y} stroke="#FFFFFF" strokeWidth="0.7" opacity={i % 2 === 0 ? 0.16 : 0.08} />
+            {i > 0 && i < 10 ? (
+              <>
+                <Line x1="112" y1={y - 13} x2="118" y2={y - 13} stroke="#FFFFFF" strokeWidth="0.6" opacity="0.1" />
+                <Line x1="182" y1={y - 13} x2="188" y2={y - 13} stroke="#FFFFFF" strokeWidth="0.6" opacity="0.1" />
+              </>
+            ) : null}
+            {i > 0 && i < 10 ? (
+              <>
+                <SvgText x="26" y={y - 4} fill="#FFFFFF" opacity="0.18" fontSize="11" fontWeight="700">
+                  {String(YARD_NUMERALS[i - 1])}
+                </SvgText>
+                <SvgText x="262" y={y - 4} fill="#FFFFFF" opacity="0.18" fontSize="11" fontWeight="700">
+                  {String(YARD_NUMERALS[i - 1])}
+                </SvgText>
+              </>
+            ) : null}
+          </G>
+        ))}
+        <Rect x="1" y="1" width="298" height="258" rx="14" fill="none" stroke="#FFFFFF" strokeWidth="1" opacity="0.10" />
+      </Svg>
+    </>
   );
 });
 
@@ -107,6 +155,17 @@ interface SlotProps {
 function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, width, scale, onPress }: SlotProps) {
   const accent = positionColor[SLOT_POSITION[slot]];
   const filled = card !== undefined;
+
+  // A player landing in a slot bounces in and throws sparks in the position's
+  // colour. Only on a change: a lineup restored on launch, or redrawn on the
+  // result screen, arrives already standing still.
+  const seen = useRef(card?.id);
+  const fresh = card !== undefined && card.id !== seen.current;
+  const [burst, setBurst] = useState<string | null>(null);
+  useEffect(() => {
+    if (card && card.id !== seen.current) setBurst(card.id);
+    seen.current = card?.id;
+  }, [card]);
 
   const label = filled
     ? `${SLOT_SPOKEN[slot]} slot. ${card.name || `${card.year} defense`}. ${card.year} ${
@@ -137,7 +196,7 @@ function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, width, 
         {slot}
       </Text>
       {filled ? (
-        <>
+        <Animated.View key={card.id} entering={fresh ? LANDING : undefined}>
           <Text style={[styles.slotName, { fontSize: 15 * scale }]} numberOfLines={1}>
             {surname(card)}
           </Text>
@@ -149,15 +208,48 @@ function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, width, 
               {blind ? '' : card.rating.toFixed(1)}
             </Text>
           </View>
-        </>
+        </Animated.View>
       ) : (
         <Text style={[styles.slotEmptyLabel, { fontSize: 10 * scale, lineHeight: 13 * scale }]} numberOfLines={2}>
           {targeted ? 'Choose a player' : SLOT_LABEL[slot]}
         </Text>
       )}
       <View style={[styles.slotUnderline, { backgroundColor: filled ? accent : color.line }]} />
+      {filled && burst === card.id ? <Sparks key={card.id} accent={accent} /> : null}
     </Pressable>
   );
+}
+
+/** A bounce with a little overshoot: the card lands rather than appears. */
+const LANDING = ZoomIn.springify().damping(9).stiffness(220).reduceMotion(ReduceMotion.System);
+
+const SPARK_ANGLES = Array.from({ length: 10 }, (_, i) => (i / 10) * Math.PI * 2 + 0.3);
+
+function Sparks({ accent }: { accent: string }) {
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none" {...DECORATIVE}>
+      {SPARK_ANGLES.map((angle, i) => (
+        <Spark key={i} angle={angle} accent={i % 3 === 2 ? color.goldBright : accent} far={i % 2 === 0} />
+      ))}
+    </View>
+  );
+}
+
+function Spark({ angle, accent, far }: { angle: number; accent: string; far: boolean }) {
+  const t = useSharedValue(0);
+  useEffect(() => {
+    t.value = withTiming(1, { duration: 620, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System });
+  }, [t]);
+  const reach = far ? 46 : 30;
+  const style = useAnimatedStyle(() => ({
+    opacity: t.value < 0.08 ? t.value / 0.08 : 1 - t.value,
+    transform: [
+      { translateX: Math.cos(angle) * reach * t.value },
+      { translateY: Math.sin(angle) * reach * 0.6 * t.value },
+      { scale: 1.2 - 0.8 * t.value },
+    ],
+  }));
+  return <Animated.View style={[styles.spark, { backgroundColor: accent }, style]} />;
 }
 
 function surname(card: BootCard): string {
@@ -294,6 +386,16 @@ const styles = themed(() => StyleSheet.create({
     color: color.textFaint,
     marginTop: 4,
     lineHeight: 13,
+  },
+  spark: {
+    position: 'absolute',
+    left: '50%',
+    top: '50%',
+    width: 5,
+    height: 5,
+    marginLeft: -2.5,
+    marginTop: -2.5,
+    borderRadius: 2.5,
   },
   slotUnderline: {
     position: 'absolute',

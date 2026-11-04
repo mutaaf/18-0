@@ -230,6 +230,22 @@ export const FLAGS = {
   },
 
   /**
+   * The GPU layer: the lit turf under the lineup, the light in the fold, and
+   * the fireworks at the end of a season, drawn by Skia (Metal on iOS,
+   * WebAssembly on the web). Off, every one of them falls back to the SVG and
+   * views it replaced, so a device that renders a shader badly loses a
+   * decoration and nothing else.
+   */
+  gpu_effects: {
+    key: 'gpu_effects',
+    kind: 'toggle',
+    summary: 'Draws the field lighting, the fold glow and the end-of-season fireworks on the GPU with Skia instead of SVG.',
+    owner: 'mutaaf',
+    removeBy: '2027-04-01',
+    fallback: true,
+  },
+
+  /**
    * The "send the beta to a friend" panel, inside the native app.
    *
    * The web always offers the TestFlight link; that is what the site is for.
