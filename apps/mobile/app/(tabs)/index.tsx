@@ -13,6 +13,8 @@ import { GamedayHero, gamedayMarqueeDay } from '@/components/GamedayHero';
 import { Crown } from '@/components/Crown';
 import { Hall } from '@/components/Hall';
 import { Screen } from '@/components/Screen';
+import { SpreadLayout } from '@/components/SpreadLayout';
+import { useSpread } from '@/features/fold';
 import { SectionHead } from '@/components/SectionHead';
 import { BetaInvite } from '@/components/BetaInvite';
 import { GetTheApp } from '@/components/GetTheApp';
@@ -54,6 +56,15 @@ export default function Home() {
   useThemeId();
   const router = useRouter();
   const layout = useLayout();
+  /**
+   * Two pages on an iPhone Duo open as a book (or a window wide enough for
+   * the virtual seam): the marquee and the story on the leading page, every
+   * way into a season on the trailing one. Before this the landing ran one
+   * billboard straight across the fold, its headline creased down the middle.
+   * Tabletop is portrait and stays one column.
+   */
+  const { spread, ref: spreadRef, onLayout: onSpreadLayout } = useSpread();
+  const paged = spread.kind === 'columns';
   const game = useGameStore();
   const games = useHistoryStore((s) => s.games);
   const stats = useMemo(() => computeStats(games), [games]);
@@ -212,20 +223,22 @@ export default function Home() {
    * about 610. That is why the headline gets *smaller* as the window crosses
    * 1180 -- the column it lives in did too.
    */
-  const display = layout.roomy
+  const display = paged
+    ? Math.min(56, Math.round((spread.leading.size - 2 * space.lg - 50) / 7.65))
+    : layout.roomy
     ? 78
     : layout.wide
       ? 92
       : Math.min(marquee ? 40 : 56, Math.round((layout.width - 50) / 7.65));
 
-  const hero = (
-    <View style={styles.heroColumn}>
+  const billboard = (
+    <>
       <Reveal delay={0}>
         <Billboard
           kicker="The pro football history game"
-          columns={layout.wide ? 4 : 2}
-          bleed={layout.wide ? 0 : space.lg}
-          padding={layout.roomy ? space.xl : space.lg}
+          columns={layout.wide && !paged ? 4 : 2}
+          bleed={layout.wide || paged ? 0 : space.lg}
+          padding={layout.roomy && !paged ? space.xl : space.lg}
           stats={marquee ? [] : [
             {
               value: DATASET.cards.length.toLocaleString(),
@@ -247,6 +260,13 @@ export default function Home() {
           </Text>
         </Billboard>
       </Reveal>
+    </>
+  );
+
+  // Everything you press to start: the gameday marquee, a game to resume,
+  // the three modes and the ranked switch.
+  const actions = (
+    <>
 
 
       {/* The marquee, above everything it competes with. It removes itself
@@ -345,6 +365,13 @@ export default function Home() {
         </Reveal>
       ) : null}
 
+    </>
+  );
+
+  const hero = (
+    <View style={styles.heroColumn}>
+      {billboard}
+      {actions}
     </View>
   );
 
@@ -364,7 +391,7 @@ export default function Home() {
           note="No simulation, and no luck after the whistle. Seven picks decide the season."
         />
       </Reveal>
-      <Reveal delay={170} style={[styles.steps, layout.wide && styles.stepsWide]}>
+      <Reveal delay={170} style={[styles.steps, layout.wide && !paged && styles.stepsWide]}>
         <Step
           index="01"
           title="Spin"
@@ -536,45 +563,71 @@ export default function Home() {
   );
 
   return (
-    <Screen maxWidth={layout.wide ? layout.maxWidth : undefined}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {layout.wide ? null : (
-          <View style={styles.header}>
-            <Brand size={36} subtitle="Est. 2026" />
-          </View>
-        )}
-        {/* A desktop window gets both halves side by side. Stacked, the landing
-            was a phone-width column in the middle of a very large dark screen —
-            which is the first thing anyone sees of this game. */}
-        {layout.roomy ? (
-          <>
-            <View style={styles.split}>
-              <View style={styles.splitMain}>{hero}</View>
-              <View style={styles.splitSide}>{aside}</View>
-            </View>
-            <Reveal delay={110}>
-              <Hall />
-            </Reveal>
-            {loop}
-          </>
+    <Screen maxWidth={layout.wide && !paged ? layout.maxWidth : undefined} bleed={paged}>
+      <View ref={spreadRef} onLayout={onSpreadLayout} style={styles.fill}>
+        {spread.kind === 'columns' ? (
+          <SpreadLayout
+            spread={spread}
+            first={
+              <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+                {billboard}
+                {loop}
+                {aside}
+                {footer}
+              </ScrollView>
+            }
+            second={
+              <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+                <View style={styles.heroColumn}>{actions}</View>
+                <Reveal delay={110}>
+                  <Hall />
+                </Reveal>
+                {closer}
+                <AdSlot id={SLOT_HOME} />
+              </ScrollView>
+            }
+          />
         ) : (
-          <>
-            {hero}
-            <Reveal delay={110}>
-              <Hall />
-            </Reveal>
-            {loop}
-            {aside}
-          </>
-        )}
+          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            {layout.wide ? null : (
+              <View style={styles.header}>
+                <Brand size={36} subtitle="Est. 2026" />
+              </View>
+            )}
+            {/* A desktop window gets both halves side by side. Stacked, the landing
+                was a phone-width column in the middle of a very large dark screen —
+                which is the first thing anyone sees of this game. */}
+            {layout.roomy ? (
+              <>
+                <View style={styles.split}>
+                  <View style={styles.splitMain}>{hero}</View>
+                  <View style={styles.splitSide}>{aside}</View>
+                </View>
+                <Reveal delay={110}>
+                  <Hall />
+                </Reveal>
+                {loop}
+              </>
+            ) : (
+              <>
+                {hero}
+                <Reveal delay={110}>
+                  <Hall />
+                </Reveal>
+                {loop}
+                {aside}
+              </>
+            )}
 
-        {closer}
-        {/* The front page's one banner, at its foot: after every way into a
-            season, so it never sits between a visitor and the first spin.
-            Web only, never in a frame, collapses with no fill. */}
-        <AdSlot id={SLOT_HOME} />
-        {footer}
-      </ScrollView>
+            {closer}
+            {/* The front page's one banner, at its foot: after every way into a
+                season, so it never sits between a visitor and the first spin.
+                Web only, never in a frame, collapses with no fill. */}
+            <AdSlot id={SLOT_HOME} />
+            {footer}
+          </ScrollView>
+        )}
+      </View>
     </Screen>
   );
 }
@@ -680,6 +733,10 @@ function tierOf(rating: number): string {
 const styles = themed(() => StyleSheet.create({
   content: { paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: 140, gap: space.xxl },
   header: { paddingBottom: space.sm },
+  fill: { flex: 1 },
+  /** One page of the spread. The top clears the account disc's old corner
+      only on the trailing page, which no longer has it: the rail took it. */
+  page: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.xxl, gap: space.xl },
   split: { flexDirection: 'row', gap: space.xxl, alignItems: 'flex-start', width: '100%' },
   splitMain: { flex: 1.45, minWidth: 0 },
   splitSide: { flex: 1, minWidth: 0, maxWidth: 440 },

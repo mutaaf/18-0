@@ -1,8 +1,16 @@
 # iPhone Duo, and the two-panel spread
 
-Open an iPhone Duo like a book and the play screen splits at the fold: the
-field on the leading panel, and everything you act with -- the score, the
-wheel, the filters, the search and the player list -- on the trailing one.
+Open an iPhone Duo like a book and every tab becomes two pages split at the
+fold, with the navigation in a rail on the trailing edge:
+
+| Screen | Leading page | Trailing page |
+|---|---|---|
+| Home | the marquee, the loop, your seasons | resume, the three modes, ranked, the hall |
+| Play | the lineup, on a field that fills the page | the score, team and era, the list, a floating filter tray |
+| Games | every season | the open season's seven on the field |
+| Ranks / Stats | the board / your numbers | the rest of the field / the charts |
+| Versus | the challenge you can send | the ones already out, or how one works |
+
 Stand it in tabletop and the field goes above the fold with the controls
 below. Leaderboards and My Stats split the same way. Any window wide enough,
 the web included, gets the same two panels down a virtual seam, so this is
@@ -36,8 +44,16 @@ Things the SDK settles that are easy to get wrong, and that the code relies on:
   folding).
 - **The sides are safe now.** On the Duo the status bar is a vertical strip
   (84 pt, on the camera's side when closed and turned). `Screen` insets left
-  and right by default; the account disc and the dock clear it too, and the
-  dock moves to the trailing panel instead of sitting across the fold.
+  and right by default.
+- **The navigation is a rail in that strip.** Apple puts the system tab bar
+  in the 84 pt trailing column when the Duo is open as a book, and says no
+  API moves a custom one there. `navRail()` (`spread.ts`) decides when: any
+  window that is a two-column spread. `Rail.tsx` draws it, centred below the
+  status bar, with the account disc at its foot. On a Duo it reserves
+  nothing, because the safe area already holds the column. On a wide browser
+  window it takes its own 84 pt column, via the tab scene's `paddingRight`.
+  Tabletop is portrait and keeps the bottom bar, which is also what the HIG
+  asks for in open portrait.
 - **Safari's fold APIs are a preview behind feature flags** (Settings > Apps >
   Safari > Advanced > Feature Flags), and are unavailable in `WKWebView`.
   Only the JS API is read: one device report has Safari's

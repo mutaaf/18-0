@@ -96,7 +96,8 @@ export const PlayerCard = memo(function PlayerCard({
           </View>
 
           <View style={styles.body}>
-            <Text style={styles.name} numberOfLines={1}>
+            {/* Shrinks a little before it cuts: a unit name ("1980 Buffalo Defense") on one page of a Duo lost its last word. */}
+            <Text style={styles.name} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78}>
               {name}
             </Text>
             <View style={styles.metaRow}>

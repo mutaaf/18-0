@@ -265,6 +265,7 @@ export function Field({
   target,
   blind,
   onSlotPress,
+  fill = false,
 }: {
   cards: Partial<Record<RosterSlot, BootCard>>;
   franchiseAbbrs: Partial<Record<RosterSlot, string>>;
@@ -273,10 +274,17 @@ export function Field({
   target?: RosterSlot | null;
   blind?: boolean;
   onSlotPress?: (slot: RosterSlot) => void;
+  /**
+   * Take the whole height of the parent: a page of its own on an iPhone Duo.
+   * Sized by width alone, the field was a 330-point card floating in the
+   * middle of a 669-point page with the turf's floodlights lighting nothing
+   * around it. Filling, the rows spread down the pitch like a formation.
+   */
+  fill?: boolean;
 }) {
   const layout = useLayout();
   // A desktop window has the room for a bigger lineup graphic; a phone does not.
-  const scale = layout.roomy ? 1.35 : layout.wide ? 1.2 : 1;
+  const scale = fill ? 1.25 : layout.roomy ? 1.35 : layout.wide ? 1.2 : 1;
 
   /**
    * The formation is sized from the field it is drawn on, rather than from a
@@ -302,10 +310,10 @@ export function Field({
   );
 
   return (
-    <View style={[styles.field, { paddingVertical: TOUCHLINE * scale }]}>
+    <View style={[styles.field, fill && styles.fieldFill, { paddingVertical: TOUCHLINE * scale }]}>
       <Turf />
       <View
-        style={styles.formation}
+        style={[styles.formation, fill && styles.formationFill]}
         onLayout={(e) => setFormationWidth(e.nativeEvent.layout.width)}
       >
         <View style={styles.row}>{slot('QB')}</View>
@@ -334,6 +342,8 @@ const styles = themed(() => StyleSheet.create({
     paddingHorizontal: space.sm,
   },
   formation: { gap: space.sm },
+  fieldFill: { flex: 1, justifyContent: 'center' },
+  formationFill: { flex: 1, maxHeight: 620, justifyContent: 'space-evenly' },
   row: { flexDirection: 'row', justifyContent: 'center', gap: space.sm },
   /** The rows that reach for the sidelines, held off them by one rule. */
   rowInset: { justifyContent: 'space-between', paddingHorizontal: TOUCHLINE },

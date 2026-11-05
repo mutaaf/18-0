@@ -9,6 +9,8 @@ import { ratingBucket } from '@/features/telemetry';
 import { useHistoryStore } from '@/state/history';
 import { careerReport } from '@/state/career';
 import { color, font, space, themed, tracking, type PressState } from '@/theme';
+import { useNavRail } from '@/features/fold';
+import { railAccountPosition } from './Rail';
 
 const SIZE = 46;
 
@@ -38,6 +40,7 @@ export const ACCOUNT_DOCK_WIDTH = space.lg + SIZE + space.sm;
  */
 export function AccountButton() {
   const insets = useSafeAreaInsets();
+  const rail = useNavRail();
   const pathname = usePathname();
   const [me, setMe] = useState<Identity | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -94,7 +97,14 @@ export function AccountButton() {
     // The side inset too: on iPhone Duo the status bar is a vertical strip on the
     // trailing edge, and a disc pinned 16 points from the window's edge sat
     // underneath it.
-    <View style={[styles.dock, { top: insets.top + space.md, right: insets.right + space.lg }]} pointerEvents="box-none">
+    // With the rail up the disc ends it, at the foot of the same column.
+    <View
+      style={[
+        styles.dock,
+        rail ? railAccountPosition(rail, insets.bottom, SIZE) : { top: insets.top + space.md, right: insets.right + space.lg },
+      ]}
+      pointerEvents="box-none"
+    >
       <Pressable
         onPress={() => router.push('/(tabs)/account')}
         accessibilityRole="button"

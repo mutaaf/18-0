@@ -50,9 +50,18 @@ describe('ads sit only on the pauses', () => {
 
   it('the front page carries its banner at the foot, after every way into a season', () => {
     const source = read(APP, '(tabs)', 'index.tsx');
-    const slot = source.indexOf(`<AdSlot id={SLOT_HOME}`);
-    expect(slot).toBeGreaterThan(source.indexOf('{closer}'));
-    expect(slot).toBeLessThan(source.indexOf('{footer}\n      </ScrollView>'));
+    // Checked per scroll: the page is one column on a phone and two pages on
+    // an iPhone Duo, and in each the banner follows the closer -- the last way
+    // into a season -- and precedes the fine print.
+    const scrolls = source.split('<ScrollView').slice(1).filter((s) => s.includes('<AdSlot id={SLOT_HOME}'));
+    expect(scrolls.length).toBeGreaterThan(0);
+    for (const scroll of scrolls) {
+      const slot = scroll.indexOf('<AdSlot id={SLOT_HOME}');
+      expect(scroll.indexOf('{closer}')).toBeGreaterThan(-1);
+      expect(slot).toBeGreaterThan(scroll.indexOf('{closer}'));
+      const footer = scroll.indexOf('{footer}');
+      if (footer !== -1 && footer < scroll.indexOf('</ScrollView>')) expect(slot).toBeLessThan(footer);
+    }
     expect(SLOT_HOME).toBe('home');
   });
 
