@@ -27,11 +27,18 @@ sign-in, and what it does cost on a device that already had a build.
 
 ## Store listing
 
-**Name:** 17-0: Fantasy Football
+**Name:** 17-0: Perfect Season Builder
 
 The bare "17-0" is the name on the home screen and everywhere in the app. The
 store name carries a qualifier because at least six other App Store apps are
 called some variant of "17-0", and a store name has to be unique.
+
+The qualifier was "Fantasy Football" until 5 November 2026, when App Review
+rejected 1.0 under 4.3(b) (an opportunistic variant of a crowded category) and
+4.2.6. The name put the game beside the season-long fantasy league managers,
+which it is not, and invited exactly that comparison. The qualifier says what
+the game is instead. Keep "fantasy" out of it; `store/lobby.json` already
+keeps it out of the store art for the same reason.
 
 **Subtitle:** Build the perfect roster
 
