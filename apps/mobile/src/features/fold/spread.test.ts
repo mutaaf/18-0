@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MIN_PANEL, VIRTUAL_SEAM, computeSpread, divisionsFromSegments, type Division, type SpreadInput } from './spread';
+import { MIN_PANEL, RAIL_WIDTH, VIRTUAL_SEAM, computeSpread, divisionsFromSegments, navRail, type Division, type SpreadInput } from './spread';
 
 /**
  * Every number here was read off a booted iPhone Duo simulator (Xcode 27.1,
@@ -124,5 +124,35 @@ describe('divisionsFromSegments', () => {
 
   it('reads one segment as no fold', () => {
     expect(divisionsFromSegments([{ x: 0, y: 0, width: 951, height: 669 }])).toEqual([]);
+  });
+});
+
+describe('navRail', () => {
+  const rail = (over: Partial<SpreadInput>) => {
+    const { frame: _frame, ...rest } = input(over);
+    return navRail(rest);
+  };
+
+  it('puts the navigation in the Duo vertical bar column, reserving nothing more', () => {
+    expect(rail({ divisions: [BOOK_FOLD] })).toEqual({ width: RAIL_WIDTH, reserve: 0 });
+    expect(rail({ divisions: [{ ...BOOK_FOLD, active: false }] })).toEqual({ width: RAIL_WIDTH, reserve: 0 });
+  });
+
+  it('keeps the bottom bar in tabletop, where the open display is portrait', () => {
+    expect(
+      rail({ window: TABLETOP_WINDOW, insets: TABLETOP_INSETS, divisions: [TABLETOP_FOLD] }),
+    ).toBeNull();
+  });
+
+  it('gives a wide browser window the same rail, taking its own column', () => {
+    const desktop = { width: 1280, height: 800 };
+    expect(rail({ window: desktop, insets: { top: 0, left: 0, bottom: 0, right: 0 } })).toEqual({
+      width: RAIL_WIDTH,
+      reserve: RAIL_WIDTH,
+    });
+  });
+
+  it('leaves a phone alone', () => {
+    expect(rail({ window: { width: 393, height: 852 }, insets: { top: 59, left: 0, bottom: 34, right: 0 } })).toBeNull();
   });
 });

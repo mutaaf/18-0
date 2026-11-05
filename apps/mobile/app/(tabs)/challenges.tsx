@@ -12,6 +12,8 @@ import {
   View,
 } from 'react-native';
 import { Screen } from '@/components/Screen';
+import { SpreadLayout } from '@/components/SpreadLayout';
+import { useSpread } from '@/features/fold';
 import { Panel } from '@/components/Panel';
 import { Avatar } from '@/components/Avatar';
 import { RatingBadge } from '@/components/RatingBadge';
@@ -53,6 +55,8 @@ export default function Challenges() {
   // colours. `theme.test.ts` asserts every route does this.
   useThemeId();
   const layout = useLayout();
+  const { spread, ref: spreadRef, onLayout: onSpreadLayout } = useSpread();
+  const paged = spread.kind === 'columns';
   const [rows, setRows] = useState<ChallengeRow[]>([]);
   const [seasons, setSeasons] = useState<MySeason[]>([]);
   const [me, setMe] = useState<string | null>(null);
@@ -112,98 +116,151 @@ export default function Challenges() {
     setTimeout(() => setCopied((was) => (was === token ? null : was)), 2000);
   };
 
-  return (
-    <Screen maxWidth={layout.wide ? 760 : undefined}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Challenges</Text>
-        <Text style={styles.subtitle}>Same seven spins, head to head</Text>
-      </View>
+  /**
+   * On an iPhone Duo open as a book: the challenge you can send on the leading
+   * page, the ones already out on the trailing page, so neither scrolls the
+   * other off the screen.
+   */
+  const pitchBlock = (
+    <>
+      {best ? (
+        <Panel tint={color.action} contentStyle={styles.pitch}>
+          <Text style={styles.pitchLabel}>Put one up</Text>
+          <View style={styles.pitchRow}>
+            <View style={styles.pitchMain}>
+              <Text style={styles.pitchRecord}>{best.record}</Text>
+              <Text style={styles.pitchMeta}>
+                {best.ending ?? 'Season'}
+                {best.blind ? ' · built blind' : ''}
+              </Text>
+            </View>
+            <RatingBadge rating={best.rating} size="sm" />
+          </View>
+          <Pressable
+            onPress={() => void send(best)}
+            disabled={making}
+            accessibilityRole="button"
+            accessibilityLabel="Challenge a friend with this season"
+            style={({ hovered, pressed }: PressState) => [
+              styles.cta,
+              hovered && { backgroundColor: color.actionBright },
+              pressed && { opacity: 0.85 },
+              making && { opacity: 0.6 },
+            ]}
+          >
+            <Text style={styles.ctaLabel}>{making ? 'Making a link…' : 'Challenge a friend'}</Text>
+          </Pressable>
+          <Text style={styles.pitchNote}>
+            They get your score and your record. Never your roster.
+          </Text>
+        </Panel>
+      ) : (
+        <Panel contentStyle={styles.note}>
+          <Text style={styles.noteTitle}>No season to challenge with yet</Text>
+          <Text style={styles.noteCopy}>
+            A challenge is built from a season the server scored, so turn on{' '}
+            <Text style={styles.strong}>Playing for the leaderboard</Text> and finish one.
+          </Text>
+          <Pressable
+            onPress={() => router.push('/(tabs)')}
+            accessibilityRole="button"
+            accessibilityLabel="Go and play a ranked season"
+            style={({ hovered }: PressState) => [styles.quiet, hovered && { opacity: 0.8 }]}
+          >
+            <Text style={styles.quietLabel}>Play one →</Text>
+          </Pressable>
+        </Panel>
+      )}
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {!isBackendConfigured ? (
-          <Panel contentStyle={styles.note}>
-            <Text style={styles.noteTitle}>Challenges need the server</Text>
-            <Text style={styles.noteCopy}>
-              A challenge deals your opponent the same seven franchise-eras you were dealt, which
-              only the server can do. Offline seasons still play and still score.
-            </Text>
-          </Panel>
-        ) : loading ? (
-          <ActivityIndicator color={color.action} style={{ marginTop: space.xl }} />
+      {failed ? (
+        <Text style={styles.failed} accessibilityLiveRegion="polite">
+          Couldn&apos;t reach your challenges. Your seasons are safe on this device.
+        </Text>
+      ) : null}
+    </>
+  );
+  const duelsBlock =
+    rows.length > 0 ? (
+      <View style={styles.list}>
+        <Text style={styles.sectionTitle}>Your challenges</Text>
+        {rows.map((row) => (
+          <Duel
+            key={row.id}
+            row={row}
+            meId={me}
+            copied={copied === row.shareToken}
+            onCopy={() => void copy(row.shareToken)}
+          />
+        ))}
+      </View>
+    ) : null;
+
+  return (
+    <Screen maxWidth={layout.wide && !paged ? 760 : undefined} bleed={paged}>
+      <View ref={spreadRef} onLayout={onSpreadLayout} style={styles.fill}>
+        {spread.kind === 'columns' && isBackendConfigured && !loading ? (
+          <SpreadLayout
+            spread={spread}
+            first={
+              <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+                <View style={styles.pageHeader}>
+                  <Text style={styles.title}>Challenges</Text>
+                  <Text style={styles.subtitle}>Same seven spins, head to head</Text>
+                </View>
+                {pitchBlock}
+              </ScrollView>
+            }
+            second={
+              <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+                {rows.length > 0 ? (
+                  duelsBlock
+                ) : (
+                  // The page a first challenge lands on, saying what one is in
+                  // three beats rather than standing empty beside the pitch.
+                  <Panel contentStyle={styles.how}>
+                    <Text style={styles.sectionTitle}>How a challenge works</Text>
+                    {HOW.map(([step, title, copy]) => (
+                      <View key={step} style={styles.howRow}>
+                        <Text style={styles.howStep}>{step}</Text>
+                        <View style={styles.howText}>
+                          <Text style={styles.noteTitle}>{title}</Text>
+                          <Text style={styles.noteCopy}>{copy}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </Panel>
+                )}
+              </ScrollView>
+            }
+          />
         ) : (
           <>
-            {best ? (
-              <Panel tint={color.action} contentStyle={styles.pitch}>
-                <Text style={styles.pitchLabel}>Put one up</Text>
-                <View style={styles.pitchRow}>
-                  <View style={styles.pitchMain}>
-                    <Text style={styles.pitchRecord}>{best.record}</Text>
-                    <Text style={styles.pitchMeta}>
-                      {best.ending ?? 'Season'}
-                      {best.blind ? ' · built blind' : ''}
-                    </Text>
-                  </View>
-                  <RatingBadge rating={best.rating} size="sm" />
-                </View>
-                <Pressable
-                  onPress={() => void send(best)}
-                  disabled={making}
-                  accessibilityRole="button"
-                  accessibilityLabel="Challenge a friend with this season"
-                  style={({ hovered, pressed }: PressState) => [
-                    styles.cta,
-                    hovered && { backgroundColor: color.actionBright },
-                    pressed && { opacity: 0.85 },
-                    making && { opacity: 0.6 },
-                  ]}
-                >
-                  <Text style={styles.ctaLabel}>{making ? 'Making a link…' : 'Challenge a friend'}</Text>
-                </Pressable>
-                <Text style={styles.pitchNote}>
-                  They get your score and your record. Never your roster.
-                </Text>
-              </Panel>
-            ) : (
-              <Panel contentStyle={styles.note}>
-                <Text style={styles.noteTitle}>No season to challenge with yet</Text>
-                <Text style={styles.noteCopy}>
-                  A challenge is built from a season the server scored, so turn on{' '}
-                  <Text style={styles.strong}>Playing for the leaderboard</Text> and finish one.
-                </Text>
-                <Pressable
-                  onPress={() => router.push('/(tabs)')}
-                  accessibilityRole="button"
-                  accessibilityLabel="Go and play a ranked season"
-                  style={({ hovered }: PressState) => [styles.quiet, hovered && { opacity: 0.8 }]}
-                >
-                  <Text style={styles.quietLabel}>Play one →</Text>
-                </Pressable>
-              </Panel>
-            )}
+            <View style={styles.header}>
+              <Text style={styles.title}>Challenges</Text>
+              <Text style={styles.subtitle}>Same seven spins, head to head</Text>
+            </View>
 
-            {failed ? (
-              <Text style={styles.failed} accessibilityLiveRegion="polite">
-                Couldn&apos;t reach your challenges. Your seasons are safe on this device.
-              </Text>
-            ) : null}
-
-            {rows.length > 0 ? (
-              <View style={styles.list}>
-                <Text style={styles.sectionTitle}>Your challenges</Text>
-                {rows.map((row) => (
-                  <Duel
-                    key={row.id}
-                    row={row}
-                    meId={me}
-                    copied={copied === row.shareToken}
-                    onCopy={() => void copy(row.shareToken)}
-                  />
-                ))}
-              </View>
-            ) : null}
+            <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+              {!isBackendConfigured ? (
+                <Panel contentStyle={styles.note}>
+                  <Text style={styles.noteTitle}>Challenges need the server</Text>
+                  <Text style={styles.noteCopy}>
+                    A challenge deals your opponent the same seven franchise-eras you were dealt, which
+                    only the server can do. Offline seasons still play and still score.
+                  </Text>
+                </Panel>
+              ) : loading ? (
+                <ActivityIndicator color={color.action} style={{ marginTop: space.xl }} />
+              ) : (
+                <>
+                  {pitchBlock}
+                  {duelsBlock}
+                </>
+              )}
+            </ScrollView>
           </>
         )}
-      </ScrollView>
+      </View>
     </Screen>
   );
 }
@@ -314,7 +371,20 @@ function Side({
   );
 }
 
+const HOW: readonly (readonly [string, string, string])[] = [
+  ['01', 'Send a link', 'Pick a season the server scored and share it with a friend.'],
+  ['02', 'Same seven spins', 'They are dealt exactly the franchise-eras you were dealt.'],
+  ['03', 'Higher rating wins', 'Both seasons are scored the same way. Your roster stays secret.'],
+];
+
 const styles = themed(() => StyleSheet.create({
+  fill: { flex: 1 },
+  page: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.xxl, gap: space.lg },
+  pageHeader: { gap: 2 },
+  how: { gap: space.md },
+  howRow: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
+  howStep: { fontFamily: font.display, fontSize: 26, color: color.actionBright, includeFontPadding: false, minWidth: 34 },
+  howText: { flex: 1, gap: 2 },
   header: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.md },
   title: {
     fontFamily: font.displayBlack,

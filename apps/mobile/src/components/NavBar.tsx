@@ -3,6 +3,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { DATASET } from '@17-0/data';
 import { Dock } from './Dock';
+import { Rail } from './Rail';
+import { useNavRail } from '@/features/fold';
 import type { DockIconName } from './DockIcons';
 import { color, font, radius, space, themed, tracking, useLayout } from '@/theme';
 
@@ -91,6 +93,7 @@ export function phoneBarHeight(insetBottom: number): number {
 export function NavBar({ state, navigation }: NavBarProps) {
   const layout = useLayout();
   const insets = useSafeAreaInsets();
+  const rail = useNavRail();
 
   // The account is reachable from the disc in the corner, not from the shelf.
   // `href: null` keeps it out of the router's links but not out of the state a
@@ -105,18 +108,21 @@ export function NavBar({ state, navigation }: NavBarProps) {
     if (!event.defaultPrevented) navigation.navigate(route.name);
   };
 
+  const items = routes.map(({ route }) => ({
+    key: route.key,
+    label: FULL_LABELS[route.name] ?? route.name,
+    short: LABELS[route.name] ?? route.name,
+    icon: route.name as DockIconName,
+  }));
+  const active = routes.findIndex(({ index }) => index === state.index);
+  const select = (position: number) => go(routes[position]!.index);
+
+  // Two pages on screen: the trailing rail, where an iPhone Duo keeps its bars.
+  if (rail) return <Rail rail={rail} items={items} activeIndex={active} onSelect={select} />;
+
   if (layout.wide) {
     return (
-      <Dock
-        activeIndex={routes.findIndex(({ index }) => index === state.index)}
-        onSelect={(position) => go(routes[position]!.index)}
-        items={routes.map(({ route }) => ({
-          key: route.key,
-          label: FULL_LABELS[route.name] ?? route.name,
-          short: LABELS[route.name] ?? route.name,
-          icon: route.name as DockIconName,
-        }))}
-      />
+      <Dock activeIndex={active} onSelect={select} items={items} />
     );
   }
 

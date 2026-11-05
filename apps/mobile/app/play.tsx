@@ -517,6 +517,7 @@ export default function Play() {
         target={targetSlot}
         blind={!showsRating(mode)}
         onSlotPress={canPick ? pressSlot : undefined}
+        fill={spread.kind === 'columns'}
       />
 
       {canPick ? (
@@ -755,7 +756,11 @@ export default function Play() {
         styles.bottomBar,
         // The keyboard is drawn over the window on iOS, so the bar rides above
         // it; the home indicator only needs clearing when it is not.
-        { bottom: keyboard, paddingBottom: keyboard > 0 ? space.sm : Math.max(space.sm, insets.bottom) },
+        spreadOn
+          ? // On a page of its own it is a tray that floats inside the page, not a
+            // slab of void glued to the bottom edge that stops short of both.
+            [styles.bottomTray, { bottom: keyboard > 0 ? keyboard + space.sm : Math.max(space.sm, insets.bottom - space.sm) }]
+          : { bottom: keyboard, paddingBottom: keyboard > 0 ? space.sm : Math.max(space.sm, insets.bottom) },
       ]}
       onLayout={(e) => setBarHeight(e.nativeEvent.layout.height)}
     >
@@ -876,52 +881,61 @@ export default function Play() {
     </View>
   );
 
-  const header = (
-    <View style={styles.header}>
-      <View style={styles.headerLeft}>
-        <Brand size={layout.wide ? 26 : 22} />
-        {mode === 'rookie' ? null : (
-          <View style={styles.modeChip}>
-            <Text style={styles.modeChipText}>{MODE_LABEL[mode]}</Text>
-          </View>
-        )}
+  // Team and era. On one page of a spread they get a line of their own: squeezed
+  // beside the brand and the count, the era was cut to "1980–19…".
+  const spinLine = (
+    <View style={styles.headerSpinLine} pointerEvents="none" {...DECORATIVE}>
+      <View style={styles.headerMetaPair}>
+        <Text style={styles.headerMetaLabel}>Team</Text>
+        <Text style={styles.headerAbbr} numberOfLines={1}>
+          {team ? team.abbr : '—'}
+        </Text>
       </View>
-      <View style={styles.headerRight}>
-        <View style={styles.headerSwap}>
-          {spinInHeader ? (
-            <View style={styles.headerSpinLine} pointerEvents="none" {...DECORATIVE}>
-              <View style={styles.headerMetaPair}>
-                <Text style={styles.headerMetaLabel}>Team</Text>
-                <Text style={styles.headerAbbr} numberOfLines={1}>
-                  {team ? team.abbr : '—'}
-                </Text>
-              </View>
-              <View style={styles.headerMetaPair}>
-                <Text style={styles.headerMetaLabel}>Era</Text>
-                <Text style={styles.headerEra} numberOfLines={1}>
-                  {shown ? eraDef(shown.era).label : '—'}
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.progressTrack} pointerEvents="none" {...DECORATIVE}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${(game.selections.length / ROSTER_SLOTS.length) * 100}%` },
-                ]}
-              />
+      <View style={styles.headerMetaPair}>
+        <Text style={styles.headerMetaLabel}>Era</Text>
+        <Text style={styles.headerEra} numberOfLines={1}>
+          {shown ? eraDef(shown.era).label : '—'}
+        </Text>
+      </View>
+    </View>
+  );
+
+  const header = (
+    <View style={styles.headerBlock}>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Brand size={layout.wide ? 26 : 22} />
+          {mode === 'rookie' ? null : (
+            <View style={styles.modeChip}>
+              <Text style={styles.modeChipText}>{MODE_LABEL[mode]}</Text>
             </View>
           )}
         </View>
-        <Text style={styles.progress}>
-          {game.selections.length}
-          <Text style={styles.progressTotal}>/{ROSTER_SLOTS.length}</Text>
-        </Text>
-        <Pressable onPress={() => router.back()} hitSlop={14} accessibilityRole="button" accessibilityLabel="Close game">
-          <Text style={styles.close}>✕</Text>
-        </Pressable>
+        <View style={styles.headerRight}>
+          <View style={styles.headerSwap}>
+            {spinInHeader && !spreadOn ? (
+              spinLine
+            ) : (
+              <View style={styles.progressTrack} pointerEvents="none" {...DECORATIVE}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${(game.selections.length / ROSTER_SLOTS.length) * 100}%` },
+                  ]}
+                />
+              </View>
+            )}
+          </View>
+          <Text style={styles.progress}>
+            {game.selections.length}
+            <Text style={styles.progressTotal}>/{ROSTER_SLOTS.length}</Text>
+          </Text>
+          <Pressable onPress={() => router.back()} hitSlop={14} accessibilityRole="button" accessibilityLabel="Close game">
+            <Text style={styles.close}>✕</Text>
+          </Pressable>
+        </View>
       </View>
+      {spinInHeader && spreadOn ? <View style={styles.headerSecond}>{spinLine}</View> : null}
     </View>
   );
 
@@ -1079,7 +1093,7 @@ const styles = themed(() => StyleSheet.create({
   listColumn: { flex: 1, minWidth: 0 },
   column: { flex: 1, minWidth: 0 },
   fieldColumn: { flex: 1, minWidth: 0, maxWidth: 480, gap: space.md, paddingTop: space.lg },
-  stage: { flex: 1, paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.lg, gap: space.md },
+  stage: { flex: 1, paddingHorizontal: space.md, paddingTop: space.md, paddingBottom: space.md, gap: space.sm },
   stageRows: { paddingTop: space.sm, paddingBottom: space.sm, justifyContent: 'center' },
   stageHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   stageTitle: {
@@ -1090,7 +1104,7 @@ const styles = themed(() => StyleSheet.create({
     color: color.textFaint,
   },
   /** Centred in whatever height the panel has: the lineup is the picture. */
-  stageField: { flex: 1, justifyContent: 'center', gap: space.md },
+  stageField: { flex: 1, justifyContent: 'center', gap: space.sm },
   stageFoot: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textDim, textAlign: 'center' },
   header: {
     flexDirection: 'row',
@@ -1101,6 +1115,8 @@ const styles = themed(() => StyleSheet.create({
     paddingBottom: space.md,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexShrink: 1 },
+  headerBlock: {},
+  headerSecond: { paddingHorizontal: space.lg, marginTop: -space.sm, paddingBottom: space.sm, alignItems: 'flex-start' },
   modeChip: {
     borderWidth: 1,
     borderColor: '#B47CFF66',
@@ -1228,6 +1244,16 @@ const styles = themed(() => StyleSheet.create({
     paddingTop: space.xs,
   },
 
+  bottomTray: {
+    left: space.sm,
+    right: space.sm,
+    paddingBottom: space.sm,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: color.line,
+    backgroundColor: color.surfaceRaised,
+    ...elevate(8),
+  },
   bottomBar: {
     position: 'absolute',
     left: 0,

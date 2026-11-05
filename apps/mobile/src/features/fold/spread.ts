@@ -226,3 +226,41 @@ export function divisionsFromSegments(
   }
   return [];
 }
+
+/**
+ * The width of the vertical bar column: what an iPhone Duo reserves on the
+ * trailing edge for its status bar and every system bar, open as a book.
+ */
+export const RAIL_WIDTH = 84;
+
+export interface Rail {
+  /** The rail's width, measured in from the window's trailing edge. */
+  readonly width: number;
+  /**
+   * How much of that width the safe area does not already hold. Zero on a
+   * Duo, where the rail lives in the vertical bar's own column. On a wide
+   * web window, which has no such column, it is all of it, and the screens
+   * have to stop short by that much.
+   */
+  readonly reserve: number;
+}
+
+/**
+ * Where the navigation goes when the app is showing two pages.
+ *
+ * Apple moves the system tab bar on iPhone Duo to a vertical bar on the
+ * trailing edge of the open display, sharing the 84 pt column with the status
+ * bar, and says a custom tab bar has to get there on its own: nothing moves
+ * it. Ours sat across the bottom of both pages instead, under one of them and
+ * beside the fold. So whenever the window is a spread -- the Duo open flat or
+ * as a book, or a browser window wide enough for the virtual seam -- the
+ * navigation is a rail in that column. One page of a phone gets the phone's
+ * bar, which is the other thing the HIG asks for: open portrait keeps
+ * horizontal bars.
+ */
+export function navRail(input: Omit<SpreadInput, 'frame'>): Rail | null {
+  const spread = computeSpread({ ...input, frame: { x: 0, y: 0, ...input.window } });
+  if (spread.kind !== 'columns') return null;
+  const width = Math.max(input.insets.right, RAIL_WIDTH);
+  return { width, reserve: width - input.insets.right };
+}

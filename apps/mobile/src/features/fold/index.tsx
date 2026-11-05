@@ -14,10 +14,10 @@ import { Platform, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foldSensor, type FoldChange } from '../../../modules/fold';
 import { useFlag } from '@/features/flags';
-import { SINGLE, computeSpread, type Division, type Hinge, type Rect, type Spread } from './spread';
+import { SINGLE, computeSpread, navRail, type Division, type Hinge, type Rail, type Rect, type Spread } from './spread';
 import { readWebFold, watchWebFold } from './web';
 
-export type { Band, Division, Hinge, Spread } from './spread';
+export type { Band, Division, Hinge, Rail, Spread } from './spread';
 
 interface FoldState {
   readonly divisions: readonly Division[];
@@ -105,4 +105,20 @@ export function useSpread(): SpreadHandle {
   );
 
   return { spread, ref, onLayout: measure };
+}
+
+/**
+ * The navigation rail, when the window is showing two pages; null otherwise.
+ * See `navRail` in `spread.ts`. Behind `dual_panel` with the rest of the
+ * spread, so turning that off restores the bottom dock too.
+ */
+export function useNavRail(): Rail | null {
+  const enabled = useFlag('dual_panel');
+  const { divisions } = useFold();
+  const window = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  return useMemo(
+    () => (enabled ? navRail({ window, insets, divisions, virtual: true }) : null),
+    [enabled, window, insets, divisions],
+  );
 }

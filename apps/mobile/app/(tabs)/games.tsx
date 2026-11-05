@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { franchise } from '@17-0/data';
+import { cardById, franchise, type BootCard } from '@17-0/data';
+import type { RosterSlot } from '@17-0/domain';
+import { Field } from '@/components/Field';
+import { SpreadLayout } from '@/components/SpreadLayout';
+import { useSpread } from '@/features/fold';
 import { ACCOUNT_DOCK_WIDTH } from '@/components/AccountButton';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
@@ -22,9 +26,18 @@ export default function Games() {
   const games = useHistoryStore((s) => s.games);
   const { start, opening } = useStartGame();
   const [expanded, setExpanded] = useState<string | null>(null);
+  /**
+   * A book on an iPhone Duo: the seasons on the leading page, the one you
+   * tapped drawn on a field on the trailing page -- the lineup as it played,
+   * rather than seven rows unfolding under the card you tapped.
+   */
+  const { spread, ref: spreadRef, onLayout: onSpreadLayout } = useSpread();
+  const paged = spread.kind === 'columns';
+  const keyOf = (game: HistoryEntry) => game.id + game.completedAt;
+  const open = paged ? (games.find((g) => keyOf(g) === expanded) ?? games[0]) : undefined;
 
-  return (
-    <Screen maxWidth={layout.wide ? 820 : undefined}>
+  const list = (
+    <View style={styles.fill}>
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <View style={styles.headerText}>
@@ -85,7 +98,9 @@ export default function Games() {
           renderItem={({ item }) => (
             <GameCard
               game={item}
-              expanded={expanded === item.id + item.completedAt}
+              // Paged, the open season is on the other page, not unfolded here.
+              expanded={paged ? false : expanded === item.id + item.completedAt}
+              chosen={paged && open !== undefined && keyOf(open) === keyOf(item)}
               onToggle={() =>
                 setExpanded(expanded === item.id + item.completedAt ? null : item.id + item.completedAt)
               }
@@ -93,6 +108,18 @@ export default function Games() {
           )}
         />
       )}
+    </View>
+  );
+
+  return (
+    <Screen maxWidth={layout.wide && !paged ? 820 : undefined} bleed={paged}>
+      <View ref={spreadRef} onLayout={onSpreadLayout} style={styles.fill}>
+        {spread.kind === 'columns' ? (
+          <SpreadLayout spread={spread} first={list} second={open ? <SeasonPage game={open} /> : <View />} />
+        ) : (
+          list
+        )}
+      </View>
     </Screen>
   );
 }
@@ -100,10 +127,13 @@ export default function Games() {
 function GameCard({
   game,
   expanded,
+  chosen = false,
   onToggle,
 }: {
   game: HistoryEntry;
   expanded: boolean;
+  /** The season open on the other page of a spread. */
+  chosen?: boolean;
   onToggle: () => void;
 }) {
   const router = useRouter();
@@ -117,7 +147,7 @@ function GameCard({
       accessibilityRole="button"
       accessibilityState={{ expanded }}
       accessibilityLabel={`${result.record.wins} and ${result.record.losses}, ${result.ending.label}, tier ${result.ending.tier}, rating ${result.finalRating.toFixed(1)}${game.mode === 'player_iq' ? ', built blind' : ''}${game.assisted ? ', assisted' : ''}`}
-      style={({ pressed }) => [styles.card, pressed && { opacity: 0.85 }]}
+      style={({ pressed }) => [styles.card, chosen && styles.cardChosen, pressed && { opacity: 0.85 }]}
     >
       <View style={[styles.stripe, { backgroundColor: accent }]} />
       <View style={styles.cardBody}>
@@ -174,7 +204,57 @@ function GameCard({
   );
 }
 
+/**
+ * One season, on a page of its own: the record, the rating and the seven as
+ * they lined up, on the same lit field they were picked onto. Tapping a slot
+ * opens that player's card.
+ */
+function SeasonPage({ game }: { game: HistoryEntry }) {
+  const router = useRouter();
+  const { result } = game;
+  const accent = result.record.losses === 0 ? color.gold : tierColor[result.ending.tier] ?? color.ice;
+  const cards: Partial<Record<RosterSlot, BootCard>> = {};
+  const abbrs: Partial<Record<RosterSlot, string>> = {};
+  for (const pick of game.roster) {
+    const card = cardById(pick.cardId);
+    if (card) cards[pick.slot] = card;
+    abbrs[pick.slot] = franchise(pick.franchiseId).abbr;
+  }
+  return (
+    <View style={styles.season}>
+      <View style={styles.seasonHead}>
+        <Text style={[styles.seasonRecord, { color: accent }]}>
+          {result.record.wins}-{result.record.losses}
+        </Text>
+        <View style={styles.cardMain}>
+          <Text style={[styles.ending, { color: accent }]}>{result.ending.label.toUpperCase()}</Text>
+          <Text style={styles.cardDate}>
+            {new Date(game.completedAt).toLocaleDateString()} · Tier {result.ending.tier}
+            {game.mode ? ` · ${MODE_LABEL[game.mode]}` : ''}
+          </Text>
+        </View>
+        <RatingBadge rating={result.finalRating} size="sm" />
+      </View>
+      <Field
+        fill
+        cards={cards}
+        franchiseAbbrs={abbrs}
+        blind={false}
+        onSlotPress={(slot) => {
+          const pick = game.roster.find((p) => p.slot === slot);
+          if (pick) router.push(`/card/${encodeURIComponent(pick.cardId)}`);
+        }}
+      />
+    </View>
+  );
+}
+
 const styles = themed(() => StyleSheet.create({
+  fill: { flex: 1 },
+  cardChosen: { borderColor: color.actionBright },
+  season: { flex: 1, padding: space.md, gap: space.md },
+  seasonHead: { flexDirection: 'row', alignItems: 'center', gap: space.md, paddingTop: space.sm },
+  seasonRecord: { fontFamily: font.display, fontSize: 40, includeFontPadding: false, ...tabular },
   // Right padding is the account disc's corner, not a margin: the disc is
   // absolutely positioned over this screen and nothing here may be drawn under
   // it. See `ACCOUNT_DOCK_WIDTH`.

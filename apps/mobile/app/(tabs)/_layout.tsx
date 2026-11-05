@@ -4,6 +4,7 @@ import { AccountButton } from '@/components/AccountButton';
 import { DOCK_HEIGHT } from '@/components/Dock';
 import { InstallBar } from '@/components/InstallBar';
 import { NavBar } from '@/components/NavBar';
+import { useNavRail } from '@/features/fold';
 import { color, themed, useLayout, useThemeId } from '@/theme';
 
 export default function TabsLayout() {
@@ -14,6 +15,7 @@ export default function TabsLayout() {
   // colours. `theme.test.ts` asserts every route does this.
   useThemeId();
   const layout = useLayout();
+  const rail = useNavRail();
   return (
     <View style={styles.root}>
       <Tabs
@@ -25,7 +27,11 @@ export default function TabsLayout() {
           // outside the tabs have no dock and reserve nothing.
           sceneStyle: {
             backgroundColor: color.void,
-            paddingBottom: layout.wide ? DOCK_HEIGHT : 0,
+            // With the rail up nothing floats at the bottom, and the screens
+            // stop short of the rail instead -- by nothing on a Duo, whose
+            // safe area already holds that column.
+            paddingBottom: rail ? 0 : layout.wide ? DOCK_HEIGHT : 0,
+            paddingRight: rail ? rail.reserve : 0,
           },
         }}
       >
