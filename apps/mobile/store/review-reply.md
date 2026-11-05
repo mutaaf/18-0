@@ -75,3 +75,11 @@ minutes:
 
 Upload the file in the reply in App Store Connect → App Review → the rejected
 submission → Reply to App Review.
+
+## Follow-up note on the 4.3 reply, sent 2026-11-05
+
+One addition to the reply above, so that my answers across this account are consistent.
+
+17-0's code was written largely with an AI coding assistant (Claude Code) under my direction. Where I said I built it, I mean that I conceived and designed the game, directed the work and am responsible for it. No commercial template or app generation service was used, and it is not built for anyone else's content.
+
+One correction: my reply for Cold Gas described 17-0 as fantasy football and Moon Club as a kids app. 17-0 is a football history puzzle, and Moon Club teaches beginners of any age how money and markets work.
