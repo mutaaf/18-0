@@ -149,3 +149,16 @@ Comments in this codebase explain *why*, usually by naming the thing that went
 wrong without them. Match that. A comment restating the code is worse than no
 comment; a comment recording the bug that made the code look strange is the
 most valuable line in the file.
+
+## Shipping: main requires green CI
+
+`main` is protected, with no admin bypass, so a direct push is rejected. Commit and push without asking, the same as always, but through a branch:
+
+```sh
+git switch -c <what-it-does> origin/main
+git push -u origin HEAD
+gh pr create --fill
+gh pr merge --auto --squash --delete-branch
+```
+
+It lands by itself once CI is green. If `git push` says a required status check is expected, this is why. If CI is red, fix the code. Never remove the protection to get something through.
