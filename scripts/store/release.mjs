@@ -2,7 +2,7 @@
  * Cut a release.
  *
  *   node scripts/store/release.mjs --bump patch
- *   node scripts/store/release.mjs --version 0.2.0 --notes-file notes.md
+ *   node scripts/store/release.mjs --version 0.2.0
  *   node scripts/store/release.mjs --bump patch --dry-run
  *
  * Bumps the marketing version, writes the release notes, tags, and hands the
@@ -14,15 +14,18 @@
  * and will not let two builds share a train and a number, and Apple shows it to
  * everyone who looks at the listing. So it is a decision, and this asks for it.
  *
- * Notes are drafted from the commits since the last tag rather than invented.
- * A draft is a starting point and deliberately not the final copy: the notes go
- * on the store page, and a list of commit subjects reads like a list of commit
- * subjects. Edit the file it prints, then pass it back with --notes-file.
+ * The notes come from `apps/mobile/store/whats-new.json`, the same entry the
+ * app's What's New sheet shows, so the store page and the sheet cannot say
+ * different things. With no entry for the new version yet, this drafts the
+ * commits since the last tag as a starting point -- a list of commit subjects
+ * reads like a list of commit subjects, so write the entry, then run again.
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { WHATS_NEW, storeText, whatsNewFor } from './whats-new.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const CONFIG = join(ROOT, 'apps/mobile/app.config.js');
@@ -90,8 +93,8 @@ function draftNotes() {
   return [
     `# ${next}`,
     '',
-    '<!-- Draft. Rewrite this as something a player would want to read, then',
-    `     pass it back:  --notes-file ${DRAFT}`,
+    '<!-- Draft. Rewrite this as an entry in apps/mobile/store/whats-new.json',
+    '     (headline, subhead, 2-4 callouts, notes; see CLAUDE.md), then run again.',
     '     Apple allows 4000 characters and shows the first few lines. -->',
     '',
     ...subjects.map((s) => `- ${s}`),
@@ -99,18 +102,22 @@ function draftNotes() {
   ].join('\n');
 }
 
-const notesFile = value('notes-file');
-const notes = value('notes') ?? (notesFile ? readFileSync(notesFile, 'utf8').trim() : null);
+if (value('notes') !== null || value('notes-file') !== null) {
+  die(`--notes and --notes-file are gone: write the ${next} entry in ${WHATS_NEW} instead,\n  so the store and the app's What's New sheet say the same thing.`);
+}
+const entry = whatsNewFor(next);
+const notes = entry ? storeText(entry) : null;
 
 console.log(`\nRELEASE  ${current} → ${next}${lastTag ? `  (since ${lastTag})` : '  (first tag)'}\n`);
 
 if (!notes) {
   mkdirSync(dirname(DRAFT), { recursive: true });
   writeFileSync(DRAFT, draftNotes());
-  console.log(`  Drafted notes from ${lastTag ? `commits since ${lastTag}` : 'the whole history'}:`);
+  console.log(`  No ${next} entry in ${WHATS_NEW}.`);
+  console.log(`  Drafted the ${lastTag ? `commits since ${lastTag}` : 'whole history'} to start it from:`);
   console.log(`      ${DRAFT}`);
-  console.log('\n  Rewrite it, then run again with:');
-  console.log(`      node scripts/store/release.mjs --version ${next} --notes-file ${DRAFT}\n`);
+  console.log('\n  Write the entry (pnpm test checks it), then run again with:');
+  console.log(`      node scripts/store/release.mjs --version ${next}\n`);
   process.exit(0);
 }
 

@@ -69,6 +69,24 @@ Full pattern, and why PostHog rather than LaunchDarkly:
 - **No club names, marks, logos or colours.** Franchises are identified by city
   — "Baltimore", not the club — and palettes are generated per franchise. The
   statistics are facts; the club name is a trademark.
+- **Every version ships its What's New, written once.**
+  `apps/mobile/store/whats-new.json` holds one entry per marketing version,
+  newest first: a `headline`, a `subhead`, 2–4 `callouts` (`art` from
+  `CALLOUT_ART` — the app icon or a dock tile, never the crown — a title of a
+  few words, one short line) and the full `notes`. The app's What's New sheet
+  (`components/WhatsNew.tsx`), the release tag (`release.mjs`, which no longer
+  takes `--notes`) and the App Store "What's New"
+  (`push-listing.mjs --whats-new-from-notes`) all read that entry, so bumping
+  `version` in `app.config.js` without writing one fails `whats-new.test.ts`.
+  The sheet shows once after an update, never on a fresh install, and never
+  under a test runner, an automated browser, or `?capture`/`?demo`/`?nowhatsnew`
+  (`features/whats-new/decide.ts`); `?whatsnew=<version>` on the web previews an
+  entry without recording anything. The copy is playful — pop culture and
+  generic football-season nods (bye weeks, trade-deadline energy, holiday
+  games, playoff races) — under hard rules: no league, club, player or brand
+  names (the test scans for the franchise nicknames and `store/lobby.json`'s
+  avoid-list), no real people, politics or tragedy, family-friendly, and every
+  claim true of the build it ships in. Write it from `git log`, not memory.
 - **Enforce rules in the build, not in prose.** The precedents:
   `assertMonotonicCalibration()`, the append-only audit trigger, the era-story
   test that fails on an unknown franchise key, the schedule build that refuses

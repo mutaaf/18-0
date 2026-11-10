@@ -1,0 +1,39 @@
+{
+  "$comment": "The one source of release notes: the in-app What's New sheet, the release tag and the App Store \"What's New\" all read this. Newest first. One entry per marketing version in app.config.js. Rules (whats-new.test.ts enforces most of them): no league, club, player or brand names; no real people, politics or tragedy; family-friendly; every claim true of the build that ships it. See CLAUDE.md.",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "headline": "We were on a bye.",
+      "subhead": "Playoff-race nerves, trade-deadline energy, and room left over for the holiday games. Here is what is new on the field.",
+      "callouts": [
+        {
+          "art": "play",
+          "title": "Seventeen and oh",
+          "line": "A season is 17 games now. Perfect means 17-0."
+        },
+        {
+          "art": "icon",
+          "title": "Fresh turf",
+          "line": "Navy stands and field-green grass, from icon to share card."
+        },
+        {
+          "art": "stats",
+          "title": "Brag, properly",
+          "line": "Shares lead with your record, and the result card rides along."
+        },
+        {
+          "art": "leaderboard",
+          "title": "Flag on the play",
+          "line": "Every name on the leaderboards can be reported now."
+        }
+      ],
+      "notes": [
+        "Seasons are 17 games long, so the perfect season is 17-0. Ratings did not move: the same seven cards earn the same rating as before, and only the record it maps to changed.",
+        "The game opens in Turf: navy stands and field-green grass, with the same look on the icon, the splash screen and the share card.",
+        "A share leads with your record and ends with a link to the game, and the result card goes with it wherever the share sheet takes an image.",
+        "Every name on the leaderboards carries a report flag, not only the rows in the plain list.",
+        "On the web, the ranked switch tells screen readers whether it is on, and banners hold their space while they load so the roster no longer jumps."
+      ]
+    }
+  ]
+}
