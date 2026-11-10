@@ -1,15 +1,16 @@
 {
-  "$comment": "The one source of release notes: the in-app What's New sheet, the release tag and the App Store \"What's New\" all read this. Newest first. One entry per marketing version in app.config.js. Rules (whats-new.test.ts enforces most of them): no league, club, player or brand names; no real people, politics or tragedy; family-friendly; every claim true of the build that ships it. See CLAUDE.md.",
+  "$comment": "The one source of release notes: the in-app What's New sheet, the release tag and the App Store \"What's New\" all read this. Newest first. One entry per marketing version in app.config.js. Rules (whats-new.test.ts enforces most of them): no league, club, player or brand names; no real people, politics or tragedy; family-friendly; every claim true of the build that ships it. See CLAUDE.md. A callout may carry \"to\" (a key of CALLOUT_DESTINATIONS in features/whats-new/notes.ts: play, games, leaderboard, challenges, stats, account): tapping it closes the sheet and opens that tab. Leave it out when the feature has no place of its own. To force the sheet without recording anything: ?whatsnew=<version> on the web, or in a development build on iOS the launch argument -whatsnew <version|current>, e.g. `xcrun simctl launch booted com.eighteenzerodcai.app -whatsnew current`.",
   "versions": [
     {
       "version": "0.1.0",
       "headline": "We were on a bye.",
-      "subhead": "Playoff-race nerves, trade-deadline energy, and room left over for the holiday games. Here is what is new on the field.",
+      "subhead": "The trade deadline just slammed shut, the playoff race is on, and the holiday games are close. Here is what is new on the field.",
       "callouts": [
         {
           "art": "play",
           "title": "Seventeen and oh",
-          "line": "A season is 17 games now. Perfect means 17-0."
+          "line": "A season is 17 games now. Perfect means 17-0.",
+          "to": "play"
         },
         {
           "art": "icon",
@@ -19,12 +20,14 @@
         {
           "art": "stats",
           "title": "Brag, properly",
-          "line": "Shares lead with your record, and the result card rides along."
+          "line": "Shares lead with your record, and the result card rides along.",
+          "to": "challenges"
         },
         {
           "art": "leaderboard",
           "title": "Flag on the play",
-          "line": "Every name on the leaderboards can be reported now."
+          "line": "Every name on the leaderboards can be reported now.",
+          "to": "leaderboard"
         }
       ],
       "notes": [

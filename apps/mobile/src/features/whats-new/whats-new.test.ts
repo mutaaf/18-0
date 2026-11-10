@@ -1,10 +1,10 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { SIM_FRANCHISES } from '@17-0/domain/sim';
 import { storeText, whatsNewFor } from '../../../../../scripts/store/whats-new.mjs';
-import { compareVersions, decideWhatsNew, isSuppressed, type WhatsNewInput } from './decide';
-import { CALLOUT_ART, RELEASE_NOTES, notesFor } from './notes';
+import { compareVersions, decideWhatsNew, forcedVersion, isSuppressed, type WhatsNewInput } from './decide';
+import { CALLOUT_ART, CALLOUT_DESTINATIONS, RELEASE_NOTES, destinationFor, notesFor } from './notes';
 
 const MOBILE = join(__dirname, '..', '..', '..');
 const ROOT = join(MOBILE, '..', '..');
@@ -75,6 +75,75 @@ describe('suppressed', () => {
   it('not for a person opening the app', () => {
     expect(isSuppressed({ nodeEnv: 'production', webdriver: false, search: '?c=abc' })).toBe(false);
     expect(isSuppressed({})).toBe(false);
+  });
+});
+
+describe('forced', () => {
+  const prod = { dev: false, current: '1.1.0' };
+  const dev = { dev: true, current: '1.1.0' };
+
+  it('by ?whatsnew= on the web, in any build', () => {
+    expect(forcedVersion({ ...prod, search: '?whatsnew=1.0.0' })).toBe('1.0.0');
+  });
+
+  it('by the -whatsnew launch argument in a development build', () => {
+    expect(forcedVersion({ ...dev, launchArg: '1.0.0' })).toBe('1.0.0');
+  });
+
+  it('never by a launch argument in a release build', () => {
+    expect(forcedVersion({ ...prod, launchArg: '1.0.0' })).toBeNull();
+  });
+
+  it('`current` means the running version', () => {
+    expect(forcedVersion({ ...dev, launchArg: 'current' })).toBe('1.1.0');
+    expect(forcedVersion({ ...prod, search: '?whatsnew=current' })).toBe('1.1.0');
+  });
+
+  it('not when nothing asks, or the argument is not a version', () => {
+    expect(forcedVersion(dev)).toBeNull();
+    expect(forcedVersion({ ...dev, search: '?c=abc', launchArg: undefined })).toBeNull();
+    expect(forcedVersion({ ...dev, launchArg: { whatsnew: true } })).toBeNull();
+    expect(forcedVersion({ ...dev, launchArg: '' })).toBeNull();
+  });
+
+  it('records nothing: the hook returns before the gate ever writes', () => {
+    // The force path is the early return in useWhatsNew; the gate is the only
+    // thing that writes the seen key. Read the source so a refactor that moves
+    // the write above the force fails here rather than on a tester's phone.
+    const hook = readFileSync(join(__dirname, 'index.ts'), 'utf8');
+    const force = hook.indexOf('if (preview)');
+    const write = hook.indexOf('AsyncStorage.setItem');
+    expect(force).toBeGreaterThan(-1);
+    expect(write).toBeGreaterThan(force);
+    expect(hook.slice(force, hook.indexOf('}', force))).toContain('return;');
+  });
+});
+
+describe('callout destinations', () => {
+  it('route a known key to its tab', () => {
+    expect(destinationFor({ to: 'play' })).toBe('/');
+    expect(destinationFor({ to: 'leaderboard' })).toBe('/leaderboard');
+    expect(destinationFor({ to: 'challenges' })).toBe('/challenges');
+  });
+
+  it('leave a card with no destination plain', () => {
+    expect(destinationFor({})).toBeNull();
+  });
+
+  it('refuse an unknown key rather than navigate nowhere', () => {
+    expect(destinationFor({ to: 'settings' as never })).toBeNull();
+    expect(destinationFor({ to: 'toString' as never })).toBeNull();
+  });
+
+  it.each(Object.entries(CALLOUT_DESTINATIONS))('%s still exists as a tab (%s)', (_key, href) => {
+    const file = href === '/' ? 'index' : href.slice(1);
+    expect(existsSync(join(MOBILE, 'app', '(tabs)', `${file}.tsx`))).toBe(true);
+  });
+
+  it.each(RELEASE_NOTES.map((n) => [n.version, n] as const))('%s points only at real places', (_v, notes) => {
+    for (const callout of notes.callouts) {
+      if (callout.to !== undefined) expect(destinationFor(callout)).not.toBeNull();
+    }
   });
 });
 

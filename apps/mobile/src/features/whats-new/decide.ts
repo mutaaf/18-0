@@ -95,3 +95,38 @@ export function isSuppressed(env: SuppressionEnv): boolean {
   }
   return false;
 }
+
+/**
+ * A version to show regardless of the gate, recording nothing -- for reading
+ * new copy on the real screen before it ships, and for the screenshot in the
+ * pull request that writes it.
+ *
+ *   - Web: `?whatsnew=<version>` on the address, as before.
+ *   - Native: the `-whatsnew <version>` launch argument, which iOS files under
+ *     NSUserDefaults' argument domain, so React Native's `Settings` reads it:
+ *
+ *       xcrun simctl launch booted com.eighteenzerodcai.app -whatsnew current
+ *
+ *     Development builds only. A launch argument cannot reach a store install
+ *     anyway, but a release build has no business reading one, and a debug
+ *     setting must not be the reason a real player's sheet looks different.
+ *
+ * `current` stands for the running version, so the command above never needs
+ * editing when the version moves.
+ */
+export interface ForceEnv {
+  readonly search?: string;
+  readonly launchArg?: unknown;
+  readonly dev: boolean;
+  readonly current: string | null;
+}
+
+export function forcedVersion(env: ForceEnv): string | null {
+  let asked: string | null = null;
+  if (env.search) asked = new URLSearchParams(env.search).get('whatsnew');
+  if (!asked && env.dev && (typeof env.launchArg === 'string' || typeof env.launchArg === 'number')) {
+    asked = String(env.launchArg);
+  }
+  if (!asked) return null;
+  return asked === 'current' ? env.current : asked;
+}

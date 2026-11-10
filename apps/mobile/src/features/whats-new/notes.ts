@@ -20,12 +20,39 @@ import source from '../../../store/whats-new.json';
 export const CALLOUT_ART = ['icon', 'play', 'games', 'leaderboard', 'challenges', 'stats'] as const;
 export type CalloutArt = (typeof CALLOUT_ART)[number];
 
+/**
+ * Where a callout can take you: the tab that holds the feature it is about.
+ * A closed list for the same reason as the art -- a typo in the JSON would be
+ * a card that closes the sheet and goes nowhere -- and the test checks that
+ * every route here still exists under `app/(tabs)`. A callout about something
+ * with no place of its own (a new look, a fix) leaves `to` out and stays a
+ * plain card.
+ */
+export const CALLOUT_DESTINATIONS = {
+  play: '/',
+  games: '/games',
+  leaderboard: '/leaderboard',
+  challenges: '/challenges',
+  stats: '/stats',
+  account: '/account',
+} as const;
+export type CalloutDestination = keyof typeof CALLOUT_DESTINATIONS;
+export type CalloutHref = (typeof CALLOUT_DESTINATIONS)[CalloutDestination];
+
 export interface Callout {
   readonly art: CalloutArt;
   /** A few words. */
   readonly title: string;
   /** One short line. */
   readonly line: string;
+  /** The feature's place in the app, if it has one. */
+  readonly to?: CalloutDestination;
+}
+
+/** The route a callout opens, or null for a card that stays plain. */
+export function destinationFor(callout: Pick<Callout, 'to'>): CalloutHref | null {
+  if (!callout.to) return null;
+  return Object.prototype.hasOwnProperty.call(CALLOUT_DESTINATIONS, callout.to) ? CALLOUT_DESTINATIONS[callout.to] : null;
 }
 
 export interface ReleaseNotes {
