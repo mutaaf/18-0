@@ -3,7 +3,8 @@
  *
  *   set -a; . .local/asc.env; set +a
  *   node scripts/store/push-listing.mjs [--dry-run] [--version 1.0]
- *                                       [--whats-new "…" | --whats-new-file notes.txt]
+ *                                       [--whats-new-from-notes | --whats-new "…"
+ *                                        | --whats-new-file notes.txt]
  *
  * `apps/mobile/store/listing.json` is the listing. This copies it to Apple, and
  * that direction is the whole point: the console is an editable text field that
@@ -21,12 +22,18 @@
  * first version — "Attribute 'whatsNew' cannot be edited at this time", which
  * reads like a transient error and is not one: there is no previous release for
  * it to be new against. Pass it from 1.1 onward.
+ *
+ * `--whats-new-from-notes` is the way to pass it: it reads the version's entry
+ * from `apps/mobile/store/whats-new.json`, the same text the app's What's New
+ * sheet shows and release.mjs writes into the tag. The other two flags stay
+ * for a one-off correction, and a correction belongs in that file too.
  */
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { asc, ascAll, patch, post, APP_ID } from './asc-client.mjs';
+import { WHATS_NEW, storeText, whatsNewFor } from './whats-new.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const LISTING = join(REPO, 'apps', 'mobile', 'store', 'listing.json');
@@ -92,17 +99,30 @@ const value = (name) => {
 const dryRun = flag('--dry-run');
 const wantVersion = value('--version');
 
-if (flag('--whats-new') && flag('--whats-new-file')) {
-  console.error('Pass --whats-new or --whats-new-file, not both.');
+if (['--whats-new', '--whats-new-file', '--whats-new-from-notes'].filter(flag).length > 1) {
+  console.error('Pass one of --whats-new-from-notes, --whats-new or --whats-new-file.');
   process.exit(1);
 }
 const notesFile = value('--whats-new-file');
+/** The notes entry for the version being pushed, or for the one app.config.js ships. */
+async function notesFromSource() {
+  const version = wantVersion
+    ?? /version:\s*'([^']+)'/.exec(await readFile(join(REPO, 'apps', 'mobile', 'app.config.js'), 'utf8'))?.[1];
+  const entry = version ? whatsNewFor(version) : null;
+  if (!entry) {
+    console.error(`No ${version ?? '(unknown)'} entry in ${WHATS_NEW}.`);
+    process.exit(1);
+  }
+  return storeText(entry);
+}
 // `undefined` and `''` mean different things here: nothing passed leaves the
 // release notes alone, and an empty string would blank them. Only the flags
 // produce a string at all.
-const whatsNew = notesFile !== undefined
-  ? (await readFile(notesFile, 'utf8')).trim()
-  : value('--whats-new');
+const whatsNew = flag('--whats-new-from-notes')
+  ? await notesFromSource()
+  : notesFile !== undefined
+    ? (await readFile(notesFile, 'utf8')).trim()
+    : value('--whats-new');
 
 const listing = JSON.parse(await readFile(LISTING, 'utf8'));
 

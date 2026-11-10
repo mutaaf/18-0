@@ -4,6 +4,7 @@ import { AccountButton } from '@/components/AccountButton';
 import { DOCK_HEIGHT } from '@/components/Dock';
 import { InstallBar } from '@/components/InstallBar';
 import { NavBar } from '@/components/NavBar';
+import { WhatsNew } from '@/components/WhatsNew';
 import { useNavRail } from '@/features/fold';
 import { color, themed, useLayout, useThemeId } from '@/theme';
 
@@ -48,6 +49,10 @@ export default function TabsLayout() {
           install prompt that covers the game is an obstruction; one that sits
           out of the way and disappears for good when dismissed is an offer. */}
       <InstallBar />
+      {/* Here rather than in the root layout: a tab is somewhere a player is
+          between games, so the sheet never lands on a spin, a result being
+          built, or the /embed frame inside another site's page. */}
+      <WhatsNew />
     </View>
   );
 }
