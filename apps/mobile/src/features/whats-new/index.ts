@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, Settings } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import { decideWhatsNew, isSuppressed } from './decide';
+import { decideWhatsNew, forcedVersion, isSuppressed } from './decide';
 import { notesFor, type ReleaseNotes } from './notes';
 
-export { notesFor, type ReleaseNotes, type Callout, type CalloutArt } from './notes';
+export {
+  destinationFor,
+  notesFor,
+  type ReleaseNotes,
+  type Callout,
+  type CalloutArt,
+  type CalloutHref,
+} from './notes';
 
 /**
  * The runtime half of the What's New sheet: which version is running, what was
@@ -36,15 +43,23 @@ function webSearch(): string | undefined {
   return Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.search : undefined;
 }
 
-/**
- * `?whatsnew=<version>` on the web shows that version's sheet and records
- * nothing -- for reading new copy on the real screen before it ships, and for
- * the screenshot in the pull request that writes it.
- */
+/** The `-whatsnew` launch argument on iOS (see `forcedVersion`). */
+function launchArg(): unknown {
+  if (Platform.OS !== 'ios') return undefined;
+  try {
+    return Settings.get('whatsnew');
+  } catch {
+    return undefined;
+  }
+}
+
 function previewVersion(): string | null {
-  const search = webSearch();
-  if (!search) return null;
-  return new URLSearchParams(search).get('whatsnew');
+  return forcedVersion({
+    search: webSearch(),
+    launchArg: __DEV__ ? launchArg() : undefined,
+    dev: __DEV__,
+    current: runningVersion(),
+  });
 }
 
 /** The notes to show this launch, or null. Resolves once, at mount. */

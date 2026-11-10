@@ -2,9 +2,17 @@ import { useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown, ReduceMotion, ZoomIn } from 'react-native-reanimated';
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { useRouter } from 'expo-router';
 import { DockIcon } from './DockIcons';
 import { Panel } from './Panel';
-import { useWhatsNew, type CalloutArt, type ReleaseNotes } from '@/features/whats-new';
+import {
+  destinationFor,
+  useWhatsNew,
+  type Callout,
+  type CalloutArt,
+  type CalloutHref,
+  type ReleaseNotes,
+} from '@/features/whats-new';
 import { DECORATIVE, color, elevate, font, radius, space, themed, tracking, type PressState } from '@/theme';
 
 /**
@@ -15,11 +23,21 @@ import { DECORATIVE, color, elevate, font, radius, space, themed, tracking, type
  * `apps/mobile/store/whats-new.json`. Mounted in the tab layout only, so it
  * never lands on a game in progress, a result being built, or the `/embed`
  * frame inside somebody else's page.
+ *
+ * A callout with a `to` is a way in, not only an announcement: tapping it
+ * closes the sheet and opens that tab, so "every name can be reported now"
+ * ends on the leaderboard with the flags rather than on whatever tab was
+ * underneath.
  */
 export function WhatsNew() {
   const [notes, dismiss] = useWhatsNew();
+  const router = useRouter();
   if (!notes) return null;
-  return <WhatsNewSheet notes={notes} onDismiss={dismiss} />;
+  const go = (href: CalloutHref) => {
+    dismiss();
+    router.navigate(href);
+  };
+  return <WhatsNewSheet notes={notes} onDismiss={dismiss} onGo={go} />;
 }
 
 // Each callout takes one of the app's own accents in turn, so four cards read
@@ -31,7 +49,15 @@ const tints = () => [color.action, color.gold, color.ice, color.ignition];
 const enter = (index: number) =>
   FadeInDown.delay(120 + index * 70).duration(320).reduceMotion(ReduceMotion.System);
 
-export function WhatsNewSheet({ notes, onDismiss }: { notes: ReleaseNotes; onDismiss: () => void }) {
+export function WhatsNewSheet({
+  notes,
+  onDismiss,
+  onGo,
+}: {
+  notes: ReleaseNotes;
+  onDismiss: () => void;
+  onGo?: (href: CalloutHref) => void;
+}) {
   const [open, setOpen] = useState(false);
   const palette = tints();
 
@@ -81,15 +107,26 @@ export function WhatsNewSheet({ notes, onDismiss }: { notes: ReleaseNotes; onDis
             <View style={styles.grid}>
               {notes.callouts.map((callout, i) => {
                 const tint = palette[i % palette.length] ?? color.action;
+                const href = onGo ? destinationFor(callout) : null;
                 return (
                   <Animated.View key={callout.title} entering={enter(i)} style={styles.cell}>
-                    <Panel tint={tint} style={styles.card} contentStyle={styles.cardBody}>
-                      <View style={styles.art} {...DECORATIVE}>
-                        <Art name={callout.art} />
-                      </View>
-                      <Text style={styles.cardTitle}>{callout.title}</Text>
-                      <Text style={styles.cardLine}>{callout.line}</Text>
-                    </Panel>
+                    {href && onGo ? (
+                      <Pressable
+                        onPress={() => onGo(href)}
+                        accessibilityRole="link"
+                        accessibilityLabel={`${callout.title}. ${callout.line}`}
+                        accessibilityHint={`Closes what's new and opens ${PLACE[href]}`}
+                        style={({ hovered, pressed }: PressState) => [
+                          styles.card,
+                          hovered && styles.cardHover,
+                          pressed && styles.cardPressed,
+                        ]}
+                      >
+                        <Card callout={callout} tint={tint} go={PLACE[href]} />
+                      </Pressable>
+                    ) : (
+                      <Card callout={callout} tint={tint} />
+                    )}
                   </Animated.View>
                 );
               })}
@@ -140,6 +177,36 @@ export function WhatsNewSheet({ notes, onDismiss }: { notes: ReleaseNotes; onDis
         </ScrollView>
       </View>
     </Modal>
+  );
+}
+
+/** What a callout's tab is called on the card and to a screen reader. */
+const PLACE: Record<CalloutHref, string> = {
+  '/': 'Play',
+  '/games': 'Games',
+  '/leaderboard': 'Leaderboards',
+  '/challenges': 'Challenges',
+  '/stats': 'My Stats',
+  '/account': 'Account',
+};
+
+function Card({ callout, tint, go }: { callout: Callout; tint: string; go?: string }) {
+  return (
+    <Panel tint={tint} style={styles.card} contentStyle={styles.cardBody}>
+      <View style={styles.art} {...DECORATIVE}>
+        <Art name={callout.art} />
+      </View>
+      <Text style={styles.cardTitle}>{callout.title}</Text>
+      <Text style={styles.cardLine}>{callout.line}</Text>
+      {go ? (
+        <View style={styles.goRow} {...DECORATIVE}>
+          <Text style={[styles.goLabel, { color: tint }]}>{go.toUpperCase()}</Text>
+          <Svg width={12} height={12} viewBox="0 0 24 24">
+            <Path d="M5 12h13M13 6l6 6-6 6" stroke={tint} strokeWidth={2.8} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        </View>
+      ) : null}
+    </Panel>
   );
 }
 
@@ -203,11 +270,17 @@ const styles = themed(() => StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -space.xs, marginTop: space.xs },
   cell: { width: '50%', padding: space.xs },
   card: { flex: 1 },
+  cardHover: { transform: [{ translateY: -2 }] },
+  cardPressed: { transform: [{ scale: 0.97 }] },
   cardBody: { padding: space.md, gap: 4, minHeight: 148 },
   art: { width: 44, height: 44, marginBottom: space.xs },
   icon: { width: 44, height: 44, borderRadius: 11 },
   cardTitle: { fontFamily: font.display, fontSize: 18, lineHeight: 20, color: color.text },
   cardLine: { fontFamily: font.body, fontSize: 12, lineHeight: 17, color: color.silver },
+  // Pinned to the foot of the card, so a short line and a long one put the
+  // way in at the same height across the grid.
+  goRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 'auto', paddingTop: space.xs },
+  goLabel: { fontFamily: font.label, fontSize: 11, letterSpacing: tracking.wide },
 
   accordion: {
     flexDirection: 'row',
