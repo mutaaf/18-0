@@ -32,8 +32,8 @@ module.exports = {
     version: '0.1.0',
     orientation: 'portrait',
     userInterfaceStyle: 'dark',
-    backgroundColor: '#07090C',
-    primaryColor: '#D50A0A',
+    backgroundColor: '#070E3A',
+    primaryColor: '#5FBB46',
     newArchEnabled: true,
 
     icon: './assets/icon.png',
@@ -56,7 +56,7 @@ module.exports = {
         foregroundImage: './assets/android-icon-foreground.png',
         backgroundImage: './assets/android-icon-background.png',
         monochromeImage: './assets/android-icon-monochrome.png',
-        backgroundColor: '#07090C',
+        backgroundColor: '#070E3A',
       },
     },
 
@@ -78,7 +78,7 @@ module.exports = {
           image: './assets/splash-icon.png',
           imageWidth: 180,
           resizeMode: 'contain',
-          backgroundColor: '#07090C',
+          backgroundColor: '#070E3A',
         },
       ],
     ],

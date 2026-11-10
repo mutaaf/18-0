@@ -93,6 +93,24 @@ label and body text clear 4.5:1 against what they sit on.
 3. That is all. The picker enumerates `THEME_LIST`, and each option paints its
    own swatch from its own palette.
 
+## The surfaces outside the app
+
+The default theme also owns everything the system paints before React does:
+the app icon, the Android adaptive-icon ground, the splash, `primaryColor`,
+the browser's first paint, the privacy page, the ledger, the link-preview card,
+the Play feature graphic and the store frames (`store/lobby.json` brand). They
+are not read through `color`, so moving `DEFAULT_THEME` does not move them.
+Turf became the default and all of them stayed Broadcast black and red until
+2026-11-10.
+
+To move them: change the colours at the top of `apps/mobile/scripts/make-icons.py`,
+`make-og.py` and `make-feature-graphic.py` and re-run them; change
+`app.config.js`, `public/index.html`, `public/privacy.html` and the dark block of
+`packages/data/src/ledger.template.html` (then rebuild the dataset); change the
+`brand` in `store/lobby.json` and run `lobby build`. The theme test fails if the
+config or the web pages disagree with `DEFAULT_THEME`. The icon only reaches
+the App Store in a new binary.
+
 ## Shipping it
 
 The picker is behind `theme_picker`, which is **off by default** — a device that

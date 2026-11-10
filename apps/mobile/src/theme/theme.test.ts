@@ -327,5 +327,39 @@ describe('full-bleed artwork', () => {
   });
 });
 
+/**
+ * What the system paints before any of this code runs: the launch screen, the
+ * Android icon ground, the browser before the bundle, the privacy page.
+ *
+ * Turf became the default and all of these stayed Broadcast black and red for
+ * a week -- the icon was a black tile, the splash was black, and then the app
+ * opened navy. Nothing failed, because none of them is read through `color`.
+ * The images themselves come from scripts/make-icons.py, make-og.py and
+ * make-feature-graphic.py, which take the same values.
+ */
+describe('the surfaces outside the app', () => {
+  const shipped = THEMES[DEFAULT_THEME].color;
+  const literal = (file: string, pattern: RegExp) =>
+    [...readFileSync(join(APP, file), 'utf8').matchAll(pattern)].map((m) => m[1]!.toUpperCase());
+
+  it('the native config paints the default ground and action', () => {
+    const grounds = literal('app.config.js', /backgroundColor:\s*'([^']+)'/g);
+    expect(grounds.length).toBeGreaterThanOrEqual(3); // app, adaptive icon, splash
+    expect(new Set(grounds)).toEqual(new Set([shipped.void.toUpperCase()]));
+    expect(literal('app.config.js', /primaryColor:\s*'([^']+)'/g)).toEqual([shipped.action.toUpperCase()]);
+  });
+
+  it('the web pages paint the default ground before anything loads', () => {
+    for (const page of ['public/index.html', 'public/privacy.html']) {
+      expect(literal(page, /<meta name="theme-color" content="([^"]+)"/g), page).toEqual([
+        shipped.void.toUpperCase(),
+      ]);
+    }
+    expect(literal('public/index.html', /html, body, #root \{ background-color: ([^;]+);/g)).toEqual([
+      shipped.void.toUpperCase(),
+    ]);
+  });
+});
+
 /** Referenced so the `Palette` import is load-bearing rather than decorative. */
 export type _Palette = Palette;
