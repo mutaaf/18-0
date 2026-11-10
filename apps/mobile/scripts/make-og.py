@@ -23,11 +23,16 @@ ROOT = Path(__file__).resolve().parent.parent
 FONTS = ROOT.parent.parent / 'node_modules' / '@expo-google-fonts'
 
 W, H = 1200, 630
-VOID = (6, 8, 15)
-GOLD = (255, 180, 0)
-GOLD_BRIGHT = (255, 209, 82)
-TEXT = (242, 245, 250)
-DIM = (154, 164, 184)
+# Turf, the palette the app ships in (src/theme/palettes.ts). These were
+# Broadcast black and red until 2026-11-10, so a shared link previewed a
+# different-looking app than the one it opened.
+VOID = (7, 14, 58)          # void
+LINE = (16, 28, 99)         # surface: yard lines, barely there
+GREEN = (95, 187, 70)       # action
+GOLD = (255, 197, 49)       # gold
+GOLD_BRIGHT = (255, 218, 107)
+TEXT = (255, 255, 255)
+DIM = (155, 169, 218)       # textDim
 
 
 def font(family: str, style: str, size: int) -> ImageFont.FreeTypeFont:
@@ -41,16 +46,16 @@ def background() -> Image.Image:
     # Yard lines, barely there — texture at full size, invisible at thumbnail
     # size, which is the right way round.
     for x in range(0, W, 60):
-        draw.line([(x, 0), (x, H)], fill=(13, 17, 28), width=1)
+        draw.line([(x, 0), (x, H)], fill=LINE, width=1)
 
-    # A gold glow behind where the crest sits, blurred so it reads as light
+    # A navy glow behind where the crest sits, blurred so it reads as light
     # rather than as a circle.
     glow = Image.new('RGB', (W, H), VOID)
-    ImageDraw.Draw(glow).ellipse([-40, 40, 620, 700], fill=(58, 40, 4))
+    ImageDraw.Draw(glow).ellipse([-40, 40, 620, 700], fill=(27, 46, 156))  # Turf navy: the same light the icon puts behind the crest
     card = Image.blend(card, glow.filter(ImageFilter.GaussianBlur(90)), 0.85)
 
-    # A single red rule along the bottom: the broadcast palette's live colour.
-    ImageDraw.Draw(card).rectangle([0, H - 8, W, H], fill=(213, 10, 10))
+    # A single field-green rule along the bottom: Turf's action colour.
+    ImageDraw.Draw(card).rectangle([0, H - 8, W, H], fill=GREEN)
     return card
 
 

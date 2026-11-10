@@ -23,7 +23,23 @@ ASSETS = ROOT / 'assets'
 SOURCE = ASSETS / 'brand' / 'lockup.png'
 
 # The app's own background, so the icon and the first frame of the app agree.
-VOID = (7, 9, 12)
+# Turf's `void` (src/theme/palettes.ts). This was Broadcast's near-black for
+# months after Turf became the default, so the icon opened onto a different
+# app than the one that launched -- a black tile, then a navy screen.
+VOID = (7, 14, 58)        # #070E3A
+# Turf's `navy`: the light behind the crest. On flat navy the gold crest sat on
+# a dark hole; lit from the middle it reads as a crest under stadium lights.
+LIT = (27, 46, 156)       # #1B2E9C
+
+
+def ground(size: int) -> Image.Image:
+    """Turf navy, lit from the centre and falling off to `void` at the edges."""
+    falloff = Image.radial_gradient('L').resize((size, size), Image.BICUBIC)
+    # radial_gradient reaches 255 at the inscribed circle; stretch it so the
+    # corners are fully `void` and the middle third is fully lit.
+    falloff = falloff.point(lambda v: max(0, min(255, int((v - 60) * 1.6))))
+    return Image.composite(Image.new('RGB', (size, size), VOID),
+                           Image.new('RGB', (size, size), LIT), falloff)
 
 
 def artwork() -> Image.Image:
@@ -41,7 +57,7 @@ def fit(piece: Image.Image, size: int, pad: int) -> tuple[Image.Image, tuple[int
 
 def on_void(piece: Image.Image, size: int, pad: int) -> Image.Image:
     """Flattened onto the brand black. iOS rejects an icon with alpha."""
-    canvas = Image.new('RGB', (size, size), VOID)
+    canvas = ground(size)
     art, at = fit(piece, size, pad)
     canvas.paste(art, at, art)
     return canvas
@@ -79,7 +95,9 @@ def wordmark(size: int, pad: float = 0.10) -> Image.Image:
             high = mid - 1
 
     font = ImageFont.truetype(str(face), low)
-    parts = (('18-', (242, 245, 250)), ('0', (255, 180, 0)))
+    # Measured as '17-0' above but drawn as '18-0' until 2026-11-10: the rename
+    # missed this line, and every browser tab still said 18-0.
+    parts = (('17-', (255, 255, 255)), ('0', (255, 197, 49)))
     width = sum(draw.textlength(text, font=font) for text, _ in parts)
     bounds = draw.textbbox((0, 0), '17-0', font=font)
     x = (box - width) / 2
@@ -175,7 +193,7 @@ def main() -> None:
     # Android adaptive foreground. Only the middle ~66% of the canvas survives
     # the launcher's mask, so the crest is kept well inside it.
     transparent(art, 1024, 250).save(ASSETS / 'android-icon-foreground.png')
-    Image.new('RGB', (1024, 1024), VOID).save(ASSETS / 'android-icon-background.png')
+    ground(1024).save(ASSETS / 'android-icon-background.png')
 
     # Themed icons: a flat silhouette, tinted by the launcher.
     silhouette = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
