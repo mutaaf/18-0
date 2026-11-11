@@ -1,0 +1,4 @@
+appId: com.eighteenzerodcai.app
+---
+# The page's reveals and the reel run on timers Maestro can't see.
+- swipe: { start: "50%,50%", end: "50%,50%", duration: 2500 }
