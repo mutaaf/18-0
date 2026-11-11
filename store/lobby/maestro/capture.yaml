@@ -1,0 +1,41 @@
+# Five store shots from the real app (scripts/store/capture-lobby.sh runs this per device).
+# Stops short of "Reveal your result", so no season reaches a leaderboard.
+appId: com.eighteenzerodcai.app
+---
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Pick your lens.*"
+    timeout: 90000
+- runFlow: settle.yaml
+- takeScreenshot: 1-modes
+# GM Mode: names only.
+- scrollUntilVisible:
+    element: "Play GM Mode.*"
+    direction: DOWN
+- tapOn: "Play GM Mode.*"
+- runFlow: spin.yaml
+- takeScreenshot: 2-spin
+- runFlow: leave.yaml
+# Scout: the stat line, no grade.
+- scrollUntilVisible:
+    element: "Play Scout.*"
+    direction: DOWN
+- tapOn: "Play Scout.*"
+- runFlow: spin.yaml
+- takeScreenshot: 3-scout
+- runFlow: leave.yaml
+# Rookie: every rating.
+- scrollUntilVisible:
+    element: "Play Rookie.*"
+    direction: DOWN
+- tapOn: "Play Rookie.*"
+- runFlow: spin.yaml
+- takeScreenshot: 4-rookie
+- runFlow: leave.yaml
+- tapOn: "Leaderboards|Ranks"
+- extendedWaitUntil:
+    visible: "All Time"
+    timeout: 30000
+- runFlow: settle.yaml
+- takeScreenshot: 5-leaderboard

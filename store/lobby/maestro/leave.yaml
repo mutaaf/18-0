@@ -1,0 +1,11 @@
+appId: com.eighteenzerodcai.app
+---
+- tapOn: "Close game"
+- runFlow:
+    when: { visible: "Discard the game in progress" }
+    commands:
+      - tapOn: "Discard the game in progress"
+- runFlow:
+    when: { visible: "Discard" }
+    commands:
+      - tapOn: "Discard"
