@@ -1,8 +1,14 @@
-PURPOSE AND AUDIENCE. 17-0 is a pro football history game for teenage and adult football fans. Each spin deals one franchise and one era; the player takes one real season from it to fill a seven-slot roster, and the finished roster is rated against the era each season was played in and given a projected 17-game record. The goal is a perfect 17-0 season, about once in 6,000 games. No wagers, prizes, purchases or ads.
+ON THE 4.3 / 4.2.6 REVIEW OF NOV 5. Our Resolution Center reply that day answers Apple's nine questions in full. In short:
+- Original game, not a variant of a category. 17-0 is a football history puzzle: no league, no weekly matchups, no live scoring, no drafting against other people, no trivia question bank, no money. A spin deals a franchise and an era; you take one real season from it, seven times, and an era-adjusted rating model of our own projects a 17-game record.
+- Original content. 4,872 real player seasons across 32 franchises and 7 eras, rated by a deterministic model the server re-runs to verify every ranked season.
+- Not built from a template or an app generation service, and not made for anyone else's content. I designed it and am the content provider; the code was written for this game, largely with an AI coding assistant under my direction.
+- Since that review: the store name now says what the game is ("17-0: Perfect Season Builder"), a new icon and design, a two-page layout for iPhone Duo, and an in-app What's New.
+
+PURPOSE AND AUDIENCE. For teenage and adult football fans. The goal is a perfect 17-0 season, about once in 6,000 games. No wagers, prizes, purchases or ads.
 
 NO DEMO ACCOUNT IS NEEDED. The app signs in anonymously on first launch, with no prompt and no sign-up screen. The app opens on the Play tab: scroll to the three modes and tap one (Play Rookie shows every rating, Play Scout shows stat lines only, Play GM Mode shows names only), then spin and pick seven times; Reveal your result shows the rating and record. The Ranks tab, second in the bottom bar, holds the leaderboards.
 
-SIGNING IN IS OPTIONAL. The Account screen (avatar disc, top right of any screen) offers Sign in with Apple and Google; nothing in the game is gated behind either. Signing in links the provider to the anonymous account already in use, so seasons carry over and survive losing the device, and it is what puts a ranked season on the public board.
+SIGNING IN IS OPTIONAL. The Account screen (avatar disc, top right of any screen) offers Sign in with Apple and Google; nothing in the game is gated behind either. Signing in keeps your seasons and puts a ranked season on the public board.
 
 4.8: Sign in with Apple is offered wherever Google is, enforced in code: if Google is configured without Apple, iOS shows no sign-in buttons at all.
 
