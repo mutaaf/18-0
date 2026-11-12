@@ -257,7 +257,7 @@ export const FLAGS = {
   share_beta: {
     key: 'share_beta',
     kind: 'toggle',
-    summary: 'Shows the TestFlight share panel inside the iOS app. The website always shows it.',
+    summary: 'Shows the TestFlight share panel inside the iOS app. The website has its own banner (BetaBanner).',
     owner: 'mutaaf',
     removeBy: '2027-03-01',
     fallback: false,
