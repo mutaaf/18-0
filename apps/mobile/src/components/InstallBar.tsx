@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as Clipboard from 'expo-clipboard';
 import { usePathname } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
 import {
@@ -16,6 +16,7 @@ import {
   type InstallKind,
 } from '@/features/install';
 import { useHistoryStore } from '@/state/history';
+import { useFold, useNavRail } from '@/features/fold';
 import { DOCK_HEIGHT } from './Dock';
 import { phoneBarHeight } from './NavBar';
 import { color, elevate, font, radius, space, themed, tracking, type PressState, useLayout } from '@/theme';
@@ -44,6 +45,20 @@ import { color, elevate, font, radius, space, themed, tracking, type PressState,
 export function InstallBar() {
   const insets = useSafeAreaInsets();
   const layout = useLayout();
+  const rail = useNavRail();
+  const { divisions } = useFold();
+  const screen = useWindowDimensions();
+  // Two pages up: the prompt belongs to the trailing page, beside the rail.
+  // Centred on the window it sat across the seam -- half of it over each
+  // page, and on a Duo, over the crease.
+  const fold = divisions.find((d) => d.height > d.width);
+  const placement = rail
+    ? {
+        bottom: Math.max(insets.bottom, space.lg),
+        left: fold ? fold.x + fold.width : screen.width / 2,
+        right: rail.width,
+      }
+    : { bottom: layout.wide ? DOCK_HEIGHT : phoneBarHeight(insets.bottom) };
   const pathname = usePathname();
   const games = useHistoryStore((s) => s.games);
 
@@ -115,7 +130,7 @@ export function InstallBar() {
         styles.stage,
         // Asked, not guessed: the prompt sits on the bar rather than over
         // it, so it has to agree with the bar about where the bar ends.
-        { bottom: layout.wide ? DOCK_HEIGHT : phoneBarHeight(insets.bottom) },
+        placement,
       ]}
       pointerEvents="box-none"
     >

@@ -53,7 +53,19 @@ Things the SDK settles that are easy to get wrong, and that the code relies on:
   nothing, because the safe area already holds the column. On a wide browser
   window it takes its own 84 pt column, via the tab scene's `paddingRight`.
   Tabletop is portrait and keeps the bottom bar, which is also what the HIG
-  asks for in open portrait.
+  asks for in open portrait. The selected tab is a lit Turf pill, and the
+  shelf keeps 120 pt clear for the status bar only on a Duo (where
+  `rail.reserve` is 0); a browser has no status bar in that column.
+- **Closed, the bar's ground is edge to edge and its tabs are not.** The outer
+  display keeps its status bar in a vertical strip, so the phone bar pads its
+  tabs by the side insets: nothing sits under the clock, and Play centres on
+  the column the screen is drawn in.
+- **Navigation reserves space inside the screen, not around it.** The tab
+  layout hands each `Screen` what the dock or rail covers (`useChrome`), and
+  the screen pads inside its own backdrop. Padding the scene drew bare ground:
+  a dead band under the floating dock and a dead strip beside the rail. The
+  install prompt follows the same geometry and sits in the trailing page when
+  the rail is up, never across the seam.
 - **Safari's fold APIs are a preview behind feature flags** (Settings > Apps >
   Safari > Advanced > Feature Flags), and are unavailable in `WKWebView`.
   Only the JS API is read: one device report has Safari's

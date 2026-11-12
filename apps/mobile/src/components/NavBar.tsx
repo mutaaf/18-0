@@ -127,7 +127,20 @@ export function NavBar({ state, navigation }: NavBarProps) {
   }
 
   return (
-    <View style={[styles.bar, { paddingBottom: barPadding(insets.bottom) }]}>
+    <View
+      style={[
+        styles.bar,
+        {
+          paddingBottom: barPadding(insets.bottom),
+          // The ground runs edge to edge, the tabs do not. A closed iPhone Duo
+          // keeps its status bar in a vertical strip on one side, and the bar
+          // laid five tabs across it: Stats under the clock, and Play centred
+          // on the glass rather than on the column the screen is drawn in.
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      ]}
+    >
       {routes.map(({ route, index }) => {
         const active = state.index === index;
         const isPlay = route.name === 'index';

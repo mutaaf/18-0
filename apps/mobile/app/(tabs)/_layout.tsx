@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { AccountButton } from '@/components/AccountButton';
+import { ChromeProvider } from '@/components/chrome';
 import { DOCK_HEIGHT } from '@/components/Dock';
 import { InstallBar } from '@/components/InstallBar';
 import { NavBar } from '@/components/NavBar';
@@ -17,23 +19,24 @@ export default function TabsLayout() {
   useThemeId();
   const layout = useLayout();
   const rail = useNavRail();
+  // What the navigation floats over. With the rail up nothing floats at the
+  // bottom, and the screens stop short of the rail instead -- by nothing on a
+  // Duo, whose safe area already holds that column.
+  const chrome = useMemo(
+    () => ({ bottom: rail ? 0 : layout.wide ? DOCK_HEIGHT : 0, right: rail ? rail.reserve : 0 }),
+    [rail, layout.wide],
+  );
   return (
+    <ChromeProvider value={chrome}>
     <View style={styles.root}>
       <Tabs
         tabBar={(props) => <NavBar state={props.state} navigation={props.navigation as never} />}
         screenOptions={{
           headerShown: false,
-          // The dock floats over the content rather than taking a column away
-          // from it, so a tab screen stops short of where it sits. Screens
-          // outside the tabs have no dock and reserve nothing.
-          sceneStyle: {
-            backgroundColor: color.void,
-            // With the rail up nothing floats at the bottom, and the screens
-            // stop short of the rail instead -- by nothing on a Duo, whose
-            // safe area already holds that column.
-            paddingBottom: rail ? 0 : layout.wide ? DOCK_HEIGHT : 0,
-            paddingRight: rail ? rail.reserve : 0,
-          },
+          // No padding here: the scene sits outside each screen's backdrop,
+          // so padding it drew bare ground under the dock. Each `Screen`
+          // stops its content short instead (`useChrome`).
+          sceneStyle: { backgroundColor: color.void },
         }}
       >
         <Tabs.Screen name="games" options={{ title: 'Games' }} />
@@ -54,6 +57,7 @@ export default function TabsLayout() {
           built, or the /embed frame inside another site's page. */}
       <WhatsNew />
     </View>
+    </ChromeProvider>
   );
 }
 
