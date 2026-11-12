@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Line, Pattern, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { DECORATIVE, color, themed, useLayout, useThemeId } from '@/theme';
+import { useChrome } from './chrome';
 
 /**
  * The stadium bowl: two blown-out light sources bleeding in from the upper
@@ -99,10 +100,14 @@ export function Screen({
   bleed?: boolean;
 }) {
   const layout = useLayout();
+  const chrome = useChrome();
   return (
     <View style={styles.root}>
       <StadiumBackdrop />
-      <SafeAreaView style={styles.safe} edges={bleed ? edges.filter((e) => e !== 'left' && e !== 'right') : edges}>
+      <SafeAreaView
+        style={[styles.safe, { paddingBottom: chrome.bottom, paddingRight: chrome.right }]}
+        edges={bleed ? edges.filter((e) => e !== 'left' && e !== 'right') : edges}
+      >
         <View style={[styles.column, { maxWidth: bleed ? undefined : maxWidth ?? Math.min(layout.maxWidth, 620) }]}>
           {children}
         </View>

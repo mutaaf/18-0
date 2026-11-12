@@ -45,8 +45,11 @@ export function Rail({
         {
           width: rail.width,
           // Clear of the status bar at the top of the column and of the
-          // account disc at its foot.
-          top: insets.top + STATUS_CLEARANCE,
+          // account disc at its foot. Only a Duo has a status bar in this
+          // column -- its safe area already holds it, so it reserves nothing.
+          // A browser window has none, and keeping 120 pt clear there pushed
+          // the shelf below the middle for no reason.
+          top: insets.top + (rail.reserve === 0 ? STATUS_CLEARANCE : space.lg),
           bottom: Math.max(insets.bottom, space.md) + ACCOUNT_CLEARANCE,
         },
       ]}
@@ -70,9 +73,12 @@ export function Rail({
 }
 
 function RailTile({ item, active, onPress }: { item: DockItemSpec; active: boolean; onPress: () => void }) {
+  // The selected tab is a lit pill, the way Turf marks every selected thing.
+  // It was a 3 pt hairline on the leading edge, which on a Duo sits against
+  // the content and was easy to read as part of the page rather than the rail.
   const lit = useAnimatedStyle(() => ({
     opacity: withSpring(active ? 1 : 0, { damping: 18, reduceMotion: ReduceMotion.System }),
-    transform: [{ scaleY: withSpring(active ? 1 : 0.3, { damping: 14, reduceMotion: ReduceMotion.System }) }],
+    transform: [{ scale: withSpring(active ? 1 : 0.85, { damping: 14, reduceMotion: ReduceMotion.System }) }],
   }));
   const icon = useAnimatedStyle(() => ({
     transform: [{ scale: withSpring(active ? 1.12 : 1, { damping: 12, stiffness: 220, reduceMotion: ReduceMotion.System }) }],
@@ -91,7 +97,6 @@ function RailTile({ item, active, onPress }: { item: DockItemSpec; active: boole
         pressed && styles.tilePressed,
       ]}
     >
-      {/* The lit edge faces the content, the way a selected page's tab does. */}
       <Animated.View style={[styles.lit, lit]} pointerEvents="none" />
       <Animated.View style={icon}>
         <DockIcon name={item.icon} size={ICON} />
@@ -103,7 +108,7 @@ function RailTile({ item, active, onPress }: { item: DockItemSpec; active: boole
   );
 }
 
-const ICON = 38;
+const ICON = 40;
 const SHELF_RADIUS = 30;
 /** The status bar's share of the column on a Duo: the time and its rings. */
 const STATUS_CLEARANCE = 120;
@@ -120,38 +125,38 @@ const styles = themed(() =>
       zIndex: 15,
     },
     shelf: {
-      width: 66,
+      width: 70,
       alignItems: 'center',
       gap: space.xs,
       paddingVertical: space.sm,
       borderRadius: SHELF_RADIUS,
     },
     tile: {
-      width: 60,
+      width: 62,
       alignItems: 'center',
       gap: 3,
-      paddingVertical: 5,
+      paddingVertical: 6,
       borderRadius: 18,
     },
     tileHover: { backgroundColor: '#FFFFFF0D' },
     tilePressed: { transform: [{ scale: 0.92 }] },
     lit: {
-      position: 'absolute',
-      left: -3,
-      top: 10,
-      bottom: 10,
-      width: 3,
-      borderRadius: 2,
-      backgroundColor: color.actionBright,
+      position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+      borderRadius: 18,
+      backgroundColor: color.actionGlow,
+      borderWidth: 1,
+      borderColor: color.actionDeep,
     },
     label: {
       fontFamily: font.label,
-      fontSize: 9,
+      // 9 pt was the dock's size for a pointer-sized tile. These are read at
+      // arm's length on a phone, by kids as often as not.
+      fontSize: 10,
       letterSpacing: tracking.wide,
       textTransform: 'uppercase',
       color: color.textFaint,
     },
-    labelOn: { color: color.actionBright },
+    labelOn: { color: color.actionBright, fontFamily: font.bodyBold },
   }),
 );
 
