@@ -16,8 +16,8 @@ import { color, font, radius, space, themed, tracking, type PressState } from '@
  * fold, the wheel and the picks on the other -- so the invitation says so
  * rather than "download our app".
  *
- * **On the web it always shows.** That is the site, and the site is where the
- * link belongs.
+ * **Not on the web.** The site leads with `BetaBanner`, the same link at the
+ * top of the front page; a second invitation further down repeated it.
  *
  * **In the native app it is behind `share_beta`, off by default.** The same
  * bundle is the App Store build, and an App Store app that advertises its own
@@ -35,7 +35,7 @@ export function BetaInvite() {
   const offeredNative = useFlag('share_beta');
   const [copied, setCopied] = useState(false);
   const web = Platform.OS === 'web';
-  if (!web && !(Platform.OS === 'ios' && offeredNative)) return null;
+  if (!(Platform.OS === 'ios' && offeredNative)) return null;
 
   const share = async () => {
     track('app_link_opened', { target: 'testflight_share' });

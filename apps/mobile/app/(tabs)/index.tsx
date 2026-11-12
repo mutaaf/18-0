@@ -16,6 +16,7 @@ import { Screen } from '@/components/Screen';
 import { SpreadLayout } from '@/components/SpreadLayout';
 import { useSpread } from '@/features/fold';
 import { SectionHead } from '@/components/SectionHead';
+import { BetaBanner } from '@/components/BetaBanner';
 import { BetaInvite } from '@/components/BetaInvite';
 import { GetTheApp } from '@/components/GetTheApp';
 import { OnWatch } from '@/components/OnWatch';
@@ -477,8 +478,8 @@ export default function Home() {
         <LeaderboardStrip onPress={() => router.push('/(tabs)/leaderboard')} />
       </Reveal>
 
-      {/* The beta, as something to pass on. Always on the site; inside the app
-          only once `share_beta` is turned on -- see BetaInvite. */}
+      {/* The beta, as something to pass on, inside the app once `share_beta`
+          is turned on. The site has BetaBanner at the top instead. */}
       <Reveal delay={270}>
         <BetaInvite />
       </Reveal>
@@ -570,6 +571,7 @@ export default function Home() {
             spread={spread}
             first={
               <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+                <BetaBanner />
                 {billboard}
                 {loop}
                 {aside}
@@ -589,6 +591,8 @@ export default function Home() {
           />
         ) : (
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            {/* The beta, above everything: web only -- see BetaBanner. */}
+            <BetaBanner />
             {layout.wide ? null : (
               <View style={styles.header}>
                 <Brand size={36} subtitle="Est. 2026" />
