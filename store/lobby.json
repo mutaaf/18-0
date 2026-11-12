@@ -32,16 +32,16 @@
   },
   "raw": { "iphone": "store/lobby/raw/iphone", "ipad": "store/lobby/raw/ipad" },
   "capture": {
-    "command": "",
-    "notes": "Seeded from App Store Connect (the 1.0 captures, real dataset). apps/mobile/assets/store/screenshots holds the same five per device. Next: a Maestro/simctl script on the Store 69 + iPad 13 sims that plays a scripted GM-mode spin."
+    "command": "scripts/store/capture-lobby.sh <EighteenZero.app> <iphone-udid> <ipad-udid>",
+    "notes": "Shot from a real simulator build (iPhone 6.9\" + iPad 13\") with Maestro flows in store/lobby/maestro, status bar at 9:41. Raws are quality-90 JPEG; the old *.png web captures are gitignored and lose to the .jpg."
   },
   "shots": [
     { "id": "modes", "raw": "1-modes", "layout": "cover", "title": "Seven picks. *One perfect season.*", "sub": "Each spin deals a franchise and an era. Take a player, fill a slot, live with it." },
-    { "id": "spin", "raw": "2-spin", "layout": "hero", "kicker": "The spin", "title": "One team. One era. *Your call.*", "sub": "A 2001 quarterback or the 2000 defense? Every spin is a new puzzle.", "badge": "Sixty years deep" },
+    { "id": "spin", "raw": "2-spin", "layout": "hero", "kicker": "The spin", "title": "One team. One era. *Your call.*", "sub": "GM Mode gives you a name, a team and a year. Nothing else." },
     { "id": "scout", "raw": "3-scout", "layout": "spotlight", "focus": [0.42, 0.6, 0.62], "kicker": "Scout mode", "title": "Read the stats. _Trust your gut._", "sub": "Scout shows the stat line and hides the grade." },
-    { "id": "rookie", "raw": "4-rookie", "layout": "tilt", "kicker": "Rookie mode", "title": "Every rating, *era-adjusted.*", "sub": "Computed from what actually happened, against the era it happened in.", "badge": "Pure skill" },
+    { "id": "rookie", "raw": "4-rookie", "layout": "tilt", "kicker": "Rookie mode", "title": "Every rating, *era-adjusted.*", "sub": "Computed from what actually happened, against the era it happened in.", "badge": "Since 1980" },
     { "id": "leaders", "raw": "5-leaderboard", "layout": "bleed", "kicker": "Leaderboards", "title": "Chase the *undefeated season.*", "sub": "17-0 lands about once every 6,000 games. Boards for all time, this month, this week.", "badge": "1 in 6,000" }
   ],
-  "feature": { "title": "Seven picks. *One perfect season.*", "sub": "Sixty years of pro football, rated against its era." },
+  "feature": { "title": "Seven picks. *One perfect season.*", "sub": "Every season since 1980, rated against its era." },
   "avoid": ["NFL", "Super Bowl", "Madden", "ESPN", "Fantasy Football"]
 }
