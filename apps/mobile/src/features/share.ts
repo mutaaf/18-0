@@ -1,5 +1,4 @@
 import { Platform, Share, type View } from 'react-native';
-import { captureRef } from 'react-native-view-shot';
 import * as Clipboard from 'expo-clipboard';
 import * as Sharing from 'expo-sharing';
 import type { GameResult } from '@17-0/domain';
@@ -12,6 +11,17 @@ import {
   shareText,
   webShareRoute,
 } from './share-text';
+
+/**
+ * The capture library, loaded on the first share rather than at launch.
+ *
+ * On the web `react-native-view-shot` drags in html2canvas -- about 430 KB of
+ * source, the largest third-party module in the entry bundle -- to serve a
+ * button most sessions never press. Importing it here moves it to its own
+ * chunk, fetched the moment somebody shares.
+ */
+const capture: typeof import('react-native-view-shot').captureRef = async (...args) =>
+  (await import('react-native-view-shot')).captureRef(...args);
 
 /**
  * Where a share actually points.
@@ -58,7 +68,7 @@ export async function prepareWebShareFile(
   const nav = webNavigator();
   if (!nav?.share || typeof File === 'undefined') return null;
   try {
-    const dataUri = await captureRef(cardRef, { format: 'png', quality: 1, result: 'data-uri' });
+    const dataUri = await capture(cardRef, { format: 'png', quality: 1, result: 'data-uri' });
     const blob = await (await fetch(dataUri)).blob();
     const file = new File([blob], shareFileName(result), { type: 'image/png' });
     if (nav.canShare && !nav.canShare({ files: [file] })) return null;
@@ -99,7 +109,7 @@ export async function shareResult(
   if (!cardRef.current) return fallback();
 
   try {
-    const file = await captureRef(cardRef, { format: 'png', quality: 1 });
+    const file = await capture(cardRef, { format: 'png', quality: 1 });
 
     if (Platform.OS === 'ios') {
       await Share.share({ url: file, message });
@@ -155,7 +165,7 @@ async function shareOnWeb(
   // slow capture never costs the clipboard its gesture.
   if (route === 'copy') {
     try {
-      const dataUri = await captureRef(cardRef, { format: 'png', quality: 1, result: 'data-uri' });
+      const dataUri = await capture(cardRef, { format: 'png', quality: 1, result: 'data-uri' });
       const link = document.createElement('a');
       link.href = dataUri;
       link.download = shareFileName(result);

@@ -270,6 +270,8 @@ export default function Leaderboard() {
     return index < 0 ? null : { rank: index + 1, row: rows[index]!, above: rows[index - 1] ?? null };
   }, [rows, me]);
 
+  /** No rest of the field: the podium takes the trailing page in a spread. */
+  const sparse = rows.length <= 3;
   const ratings = useMemo(() => rows.map((r) => r.finalRating), [rows]);
     const ratingBoard = board !== 'points';
   const ready = isBackendConfigured && !loading && !failed && (board === 'points' ? scores.length > 0 : rows.length > 0);
@@ -450,11 +452,23 @@ export default function Leaderboard() {
               {controls}
               {/* What the board is asking, and its shape. The rows -- or the
                   reason there are none yet -- are opposite. */}
-              {ready && ratingBoard ? summary : null}
+              {ready && ratingBoard && !sparse ? summary : null}
             </ScrollView>
           }
           second={
-            ratingBoard && ready ? (
+            ratingBoard && ready && sparse ? (
+              // Three or fewer seasons and there is no "rest of the field" to
+              // list. The podium used to stay on the leading page under the
+              // controls while the trailing page said only that the board was
+              // short -- one crowded page beside an empty one. A young board
+              // puts its podium where the list would be.
+              <ScrollView contentContainerStyle={[styles.scroll, styles.panelTop]} showsVerticalScrollIndicator={false}>
+                {summary}
+                <Text style={styles.sectionLabel}>
+                  {rows.length === 1 ? 'One season' : `${COUNT_WORDS[rows.length] ?? rows.length} seasons`} on the board so far
+                </Text>
+              </ScrollView>
+            ) : ratingBoard && ready ? (
               // Virtualised: fifty rows that each open into a seven-player
               // roster is exactly the list FlashList recycles well, and this
               // panel is nothing but that list.
@@ -463,7 +477,6 @@ export default function Leaderboard() {
                 keyExtractor={(row) => row.gameSessionId}
                 renderItem={({ item, index }) => <View style={styles.flashRow}>{entry(item, index)}</View>}
                 ListHeaderComponent={<Text style={[styles.sectionLabel, styles.sectionLabelTop]}>The rest of the field</Text>}
-                ListEmptyComponent={<Text style={[styles.sectionLabel, styles.sectionLabelTop]}>Only three on the board so far</Text>}
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
               />
@@ -489,6 +502,8 @@ export default function Leaderboard() {
   );
 }
 
+
+const COUNT_WORDS: Record<number, string> = { 2: 'Two', 3: 'Three' };
 
 /**
  * The top three, given the space the top three deserve.
