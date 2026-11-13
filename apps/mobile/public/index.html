@@ -122,5 +122,12 @@
   <body>
     <noscript>17-0 needs JavaScript to run.</noscript>
     <div id="root"></div>
+    <!-- Box Office, the portfolio's web analytics (mutaafaziz.com/boxoffice):
+         anonymous page views and two game events, relayed to PostHog through
+         mutaafaziz.com. It honours GPC and Do Not Track, masks every input, and
+         is a no-op on any host Cast List does not map to the game, so the
+         GitHub Pages mirror sends nothing. The relay drops events with no
+         Referer, so this site must never send Referrer-Policy: no-referrer. -->
+    <script async src="https://mutaafaziz.com/boxoffice/v1/insights.js"></script>
   </body>
 </html>

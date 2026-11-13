@@ -121,3 +121,21 @@ one that makes a profile useful to look at.
 `signOut()` calls `resetAnalytics()`, which clears the stored device id and the
 identified account. Without it the next person to pick up the phone would be
 filed under the account that just left.
+
+## Box Office, on the web build only
+
+`public/index.html` also loads Box Office (`mutaafaziz.com/boxoffice`), the
+portfolio-wide web analytics: page views, autocapture, masked session replay,
+relayed to the portfolio's PostHog project through mutaafaziz.com with the IP
+truncated and GPC/DNT honoured. Cast List maps `18-0.co` to this game; any
+other host (the GitHub Pages mirror) gets a no-op loader.
+
+`features/boxoffice.web.ts` translates two telemetry events into the shared
+portfolio vocabulary -- `play_started` -> `game_start {mode, ranked}`,
+`roster_completed` -> `game_over {wins, losses, mode, ending, rating_band}` --
+and `features/boxoffice.ts`, which iOS and Android get, does nothing. The apps
+send nothing new until their App Privacy label says so. `privacy.html` has the
+matching section; change both together.
+
+Never set `Referrer-Policy: no-referrer` on the site: the relay drops any event
+without a Referer.
