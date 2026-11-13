@@ -13,3 +13,4 @@ export {
 export * from './layout';
 export * from './press';
 export * from './a11y';
+export * from './team';

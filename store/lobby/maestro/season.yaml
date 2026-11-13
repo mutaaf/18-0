@@ -1,0 +1,36 @@
+appId: com.eighteenzerodcai.app
+---
+# A whole season, to the result, for the two shots the store set never had:
+# a full field and the reveal. Played CASUAL -- the switch is ranked by
+# default -- so the season stays on the simulator and no board ever sees it.
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Pick your lens.*"
+    timeout: 90000
+- runFlow: settle.yaml
+- scrollUntilVisible:
+    element: "Play for the leaderboard"
+    direction: DOWN
+- tapOn: "Play for the leaderboard"
+- assertVisible:
+    text: "Play for the leaderboard"
+    checked: false
+- scrollUntilVisible:
+    element: "Play Rookie.*"
+    direction: UP
+- tapOn: "Play Rookie.*"
+- repeat:
+    times: 7
+    commands:
+      - runFlow: pick.yaml
+- takeScreenshot: 6-field
+- tapOn: "Reveal your result"
+- extendedWaitUntil:
+    visible: "Build another roster"
+    timeout: 60000
+# Not settle.yaml: its long press at the centre lands on a button here, and
+# the first capture of this screen was the home page it opened.
+- waitForAnimationToEnd:
+    timeout: 6000
+- takeScreenshot: 7-result

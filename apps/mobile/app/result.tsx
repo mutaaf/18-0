@@ -31,6 +31,7 @@ import {
   space,
   tabular,
   themed,
+  teamInk,
   tierColor,
   tracking,
   type PressState,
@@ -550,7 +551,11 @@ export default function Result() {
                 {displayName(card)}
               </Text>
               <Text style={styles.rosterMeta} numberOfLines={1}>
-                {franchise(card.franchiseId).abbr} · {card.year} · {eraLabel(card.era)}
+                <Text style={[styles.rosterTeam, { color: teamInk(franchise(card.franchiseId).color) }]}>
+                  {franchise(card.franchiseId).abbr} {card.year}
+                </Text>
+                {'  ·  '}
+                {eraLabel(card.era)}
               </Text>
             </View>
             <RatingBadge rating={card.rating} size="sm" />
@@ -893,6 +898,7 @@ const styles = themed(() => StyleSheet.create({
   rosterSlot: { fontFamily: font.label, fontSize: 11, letterSpacing: tracking.wide, width: 38 },
   rosterMain: { flex: 1, minWidth: 0 },
   rosterName: { fontFamily: font.heading, fontSize: 16, color: color.text },
+  rosterTeam: { fontFamily: font.displayBlack, fontSize: 13, letterSpacing: 0.5 },
   rosterMeta: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint },
 
   line: {

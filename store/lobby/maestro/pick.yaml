@@ -1,0 +1,13 @@
+appId: com.eighteenzerodcai.app
+---
+# One pick: spin, aim at the first open position, take the first player the
+# list offers for it. Rookie mode, so every row carries its rating.
+- runFlow: spin.yaml
+- tapOn:
+    text: ".* slot\\. Empty\\..*"
+    index: 0
+- runFlow: settle.yaml
+- tapOn:
+    text: ".*\\. (QB|RB|WR|TE|DEF)\\. \\d{4} .*Rating .*"
+    index: 0
+- runFlow: settle.yaml

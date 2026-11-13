@@ -16,7 +16,7 @@ Pillow is not a project dependency — this runs by hand when the brand changes,
 which is rarely.
 """
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / 'assets'
@@ -30,6 +30,10 @@ VOID = (7, 14, 58)        # #070E3A
 # Turf's `navy`: the light behind the crest. On flat navy the gold crest sat on
 # a dark hole; lit from the middle it reads as a crest under stadium lights.
 LIT = (27, 46, 156)       # #1B2E9C
+# Turf's field (`turfLit`, `turfDeep`'s lit stripe) and `action`, the sideline.
+TURF = (15, 58, 29)
+TURF_LIT = (22, 74, 37)
+ACTION = (95, 187, 70)    # #5FBB46
 
 
 def ground(size: int) -> Image.Image:
@@ -46,6 +50,68 @@ def artwork() -> Image.Image:
     """The crest with its transparent margin removed."""
     art = Image.open(SOURCE).convert('RGBA')
     return art.crop(art.getbbox())
+
+
+# Where the crest's lettered ribbon starts, in lockup pixels. Everything above
+# it -- crown, ball, lights and the numerals -- is what the icon keeps.
+RIBBON_TOP = 1012
+
+
+def crest(art: Image.Image) -> Image.Image:
+    """
+    The crest without its ribbon, for anything drawn at icon size.
+
+    The full lockup put "SPIN. BUILD. CHASE PERFECTION." and a second, smaller
+    17 and 0 on a ribbon under the numerals. At 60 points that lettering is a
+    gold smear, and it cost the numerals -- the one thing an icon must say --
+    almost half their height. Cut above the ribbon, "17-0" fills the tile, and
+    the edge is faded so it reads as standing on the field rather than cropped.
+    """
+    piece = Image.open(SOURCE).convert('RGBA').crop((40, 0, 1460, RIBBON_TOP))
+    w, h = piece.size
+    fade = Image.new('L', (w, h), 255)
+    draw = ImageDraw.Draw(fade)
+    for i in range(40):
+        draw.line([(0, h - 40 + i), (w, h - 40 + i)], fill=int(255 * (1 - i / 40)))
+    piece.putalpha(Image.composite(piece.getchannel('A'), Image.new('L', (w, h), 0), fade))
+    return piece
+
+
+def field(size: int, horizon: int) -> Image.Image:
+    """Turf in perspective under the crest: mowing stripes, chalk, a lit sideline."""
+    layer = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    vx, vy, n = size / 2, horizon - size * 0.9, 14
+    at = lambda x, y: vx + (x - vx) * (y - vy) / (size - vy)
+    for k in range(n):
+        x0 = -size * 0.6 + k * (size * 2.2 / n)
+        x1 = x0 + size * 2.2 / n
+        draw.polygon([(at(x0, horizon), horizon), (at(x1, horizon), horizon), (x1, size), (x0, size)],
+                     fill=TURF_LIT if k % 2 else TURF)
+    chalk = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+    lines = ImageDraw.Draw(chalk)
+    for k in range(0, n + 1, 2):
+        x0 = -size * 0.6 + k * (size * 2.2 / n)
+        lines.line([(at(x0, horizon), horizon), (x0, size)], fill=(236, 244, 238, 60), width=max(1, size // 256))
+    lines.line([(0, horizon), (size, horizon)], fill=ACTION + (230,), width=max(2, size // 128))
+    layer.alpha_composite(chalk)
+    # Night falls toward the bottom edge, so the tile ends in the app's own void.
+    shade = Image.new('L', (size, size), 0)
+    rows = ImageDraw.Draw(shade)
+    for y in range(horizon, size):
+        rows.line([(0, y), (size, y)], fill=int(150 * ((y - horizon) / (size - horizon)) ** 1.4))
+    layer.alpha_composite(Image.merge('RGBA', (*(Image.new('L', (size, size), c) for c in VOID), shade)))
+    return layer
+
+
+def tile(piece: Image.Image, size: int) -> Image.Image:
+    """The icon: the crest standing on the field, under the lights. No alpha."""
+    canvas = ground(size).convert('RGBA')
+    horizon = int(size * 0.80)
+    canvas.alpha_composite(field(size, horizon))
+    art, (x, _) = fit(piece, size, int(size * 0.05))
+    canvas.alpha_composite(art, (x, horizon - art.size[1] + int(size * 0.03)))
+    return canvas.convert('RGB')
 
 
 def fit(piece: Image.Image, size: int, pad: int) -> tuple[Image.Image, tuple[int, int]]:
@@ -157,7 +223,7 @@ def maskable(piece: Image.Image, size: int) -> tuple[Image.Image, int]:
     return on_void(piece, size, pad), pad
 
 
-def pwa(art: Image.Image) -> None:
+def pwa(art: Image.Image, top: Image.Image) -> None:
     """
     The icons the installed web app uses.
 
@@ -169,12 +235,12 @@ def pwa(art: Image.Image) -> None:
     icons = ROOT / 'public' / 'icons'
 
     # `purpose: "any"`. Drawn as given, so it keeps the full-bleed framing.
-    on_void(art, 512, 20).save(icons / 'icon-512.png')
-    on_void(art, 192, 8).save(icons / 'icon-192.png')
+    tile(top, 512).save(icons / 'icon-512.png')
+    tile(top, 192).save(icons / 'icon-192.png')
 
     # iOS applies its own superellipse and promises no safe zone, so this
     # matches the App Store icon rather than the maskable one.
-    on_void(art, 180, 7).save(icons / 'apple-touch-icon.png')
+    tile(top, 180).save(icons / 'apple-touch-icon.png')
 
     mask, pad = maskable(art, 512)
     mask.save(icons / 'maskable-512.png')
@@ -186,18 +252,21 @@ def pwa(art: Image.Image) -> None:
 
 def main() -> None:
     art = artwork()
+    top = crest(art)
 
     # iOS and the store listing. No alpha, no rounding — the system does that.
-    on_void(art, 1024, 40).save(ASSETS / 'icon.png')
+    tile(top, 1024).save(ASSETS / 'icon.png')
 
     # Android adaptive foreground. Only the middle ~66% of the canvas survives
     # the launcher's mask, so the crest is kept well inside it.
-    transparent(art, 1024, 250).save(ASSETS / 'android-icon-foreground.png')
-    ground(1024).save(ASSETS / 'android-icon-background.png')
+    transparent(top, 1024, 250).save(ASSETS / 'android-icon-foreground.png')
+    background = ground(1024).convert('RGBA')
+    background.alpha_composite(field(1024, int(1024 * 0.66)))
+    background.convert('RGB').save(ASSETS / 'android-icon-background.png')
 
     # Themed icons: a flat silhouette, tinted by the launcher.
     silhouette = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
-    shape, at = fit(art, 1024, 250)
+    shape, at = fit(top, 1024, 250)
     white = Image.new('RGBA', shape.size, (255, 255, 255, 255))
     silhouette.paste(white, at, shape)
     silhouette.save(ASSETS / 'android-icon-monochrome.png')
@@ -215,7 +284,7 @@ def main() -> None:
     # reads when everything else has blurred.
     wordmark(96).save(ASSETS / 'favicon.png')
 
-    pwa(art)
+    pwa(art, top)
 
     for name in ('icon.png', 'android-icon-foreground.png', 'android-icon-background.png',
                  'android-icon-monochrome.png', 'splash-icon.png', 'favicon.png'):

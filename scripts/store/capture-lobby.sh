@@ -6,6 +6,7 @@
 # at the very top of the capture, and Lobby's phone frame put the Dynamic Island over the
 # score and the Leaderboards title. A simulator build lays out around the island.
 set -e
+export MAESTRO_DRIVER_STARTUP_TIMEOUT=${MAESTRO_DRIVER_STARTUP_TIMEOUT:-240000}  # a fresh simulator needs longer than the default to start the driver
 cd "$(dirname $0)/../.."
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 export PATH="$HOME/.maestro/bin:$PATH" MAESTRO_CLI_NO_ANALYTICS=1
@@ -22,7 +23,8 @@ shoot() { # udid kind
   # The raws are quality-90 JPEG, as Lobby's other apps keep them: *.png is ignored here.
   T=$(mktemp -d)
   maestro --udid $UDID test --test-output-dir $T store/lobby/maestro/capture.yaml
-  for f in $(find $T -name '[1-5]-*.png'); do sips -s format jpeg -s formatOptions 90 $f --out store/lobby/raw/$2/$(basename $f .png).jpg >/dev/null; done
+  maestro --udid $UDID test --test-output-dir $T store/lobby/maestro/season.yaml
+  for f in $(find $T -name '[1-9]-*.png'); do sips -s format jpeg -s formatOptions 90 $f --out store/lobby/raw/$2/$(basename $f .png).jpg >/dev/null; done
 }
 shoot $IPHONE iphone
 shoot $IPAD ipad
