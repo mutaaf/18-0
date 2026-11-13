@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  LayoutAnimation,
   AccessibilityInfo,
+  Easing,
   ActivityIndicator,
   Keyboard,
   Platform,
@@ -29,11 +31,50 @@ import { useHistoryStore } from '@/state/history';
 import { tellHost } from '@/features/embed';
 import { ratingBucket, track } from '@/features/telemetry';
 import { rankedComplete, rankedSelect, rankedSpin } from '@/features/ranked';
+import { rankedOpening, withTimeout } from '@/features/start-game';
 import { DECORATIVE, color, elevate, font, positionColor, radius, space, tabular, themed, tracking, type PressState, useLayout, useThemeId } from '@/theme';
 
 /** How many names blur past before the reel settles on the result. */
 const REEL_LENGTH = 18;
 const REEL_DURATION = 1150;
+/** How long a ranked spin may take before the season goes on unranked. */
+const SPIN_TIMEOUT = 8000;
+/** How long the landed team and era rest in the hero before the list takes over. */
+const HERO_HOLD = 450;
+
+/**
+ * Animate the next layout change on iOS, where LayoutAnimation is native and
+ * reliable. The hero collapsing and returning used to happen in one frame,
+ * shoving the field 190 points at the same moment it played its own bounce.
+ */
+/** The reel's own deceleration (SpinReel), sampled to time the ticks. */
+const REEL_EASE = Easing.bezier(0.12, 0.85, 0.2, 1);
+
+/**
+ * When each of the last few names crosses the window, in ms from the start.
+ * A tick per crossing is what makes the wheel feel like it has mass: a blur
+ * you cannot feel, then four distinct clicks as it loses momentum, then the
+ * landing. Computed from the same curve the reel animates on, so the clicks
+ * land on the names rather than near them.
+ */
+function reelTicks(): number[] {
+  const target = REEL_LENGTH;
+  const ticks: number[] = [];
+  for (let k = target - 3; k <= target; k++) {
+    for (let t = 0; t <= 1; t += 0.004) {
+      if (REEL_EASE(t) * target >= k - 0.5) {
+        ticks.push(Math.round(t * REEL_DURATION));
+        break;
+      }
+    }
+  }
+  return ticks;
+}
+const REEL_TICKS = reelTicks();
+
+function easeNextLayout() {
+  if (Platform.OS === 'ios') LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+}
 
 export default function Play() {
   // Subscribes this screen to the palette. React Navigation memoizes the
@@ -84,6 +125,29 @@ export default function Play() {
   const [assistArmed, setAssistArmed] = useState(false);
   /** A ranked action is in flight. The server decides; we wait for it. */
   const [awaitingServer, setAwaitingServer] = useState(false);
+  /** A spin is between tap and landing; a ref, so a double tap in one frame is refused. */
+  const spinBusy = useRef(false);
+  const tickTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => tickTimers.current.forEach(clearTimeout), []);
+  const revealing = useRef(false);
+  /**
+   * The landed spin rests in the hero briefly before the list replaces it.
+   * The swap used to happen in the frame the reel stopped, so nobody ever saw
+   * where it stopped.
+   */
+  const [heroHeld, setHeroHeld] = useState(false);
+  const heroTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdHero = useCallback(() => {
+    if (heroTimer.current) clearTimeout(heroTimer.current);
+    setHeroHeld(true);
+    heroTimer.current = setTimeout(() => {
+      easeNextLayout();
+      setHeroHeld(false);
+    }, HERO_HOLD);
+  }, []);
+  useEffect(() => () => {
+    if (heroTimer.current) clearTimeout(heroTimer.current);
+  }, []);
   const [targetSlot, setTargetSlot] = useState<RosterSlot | null>(null);
   /** Live touch count, for the three-finger spin. */
   const fingers = useRef(0);
@@ -205,7 +269,8 @@ export default function Play() {
   }, []);
 
   const doSpin = useCallback(async (event?: { shiftKey?: boolean }) => {
-    if (spinning || complete || awaitingServer) return;
+    if (spinning || complete || awaitingServer || spinBusy.current) return;
+    spinBusy.current = true;
     const assist = fingers.current >= 3 || event?.shiftKey === true;
     setSelectedId(null);
     setNotice(null);
@@ -215,13 +280,19 @@ export default function Play() {
     setPositionFilter('ALL');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 
-    const land = async () => {
+    const land = async (): Promise<{ sequence: number; franchiseId: string; era: EraKey } | null> => {
+      // The ranked session may still be opening -- Home no longer waits for
+      // it -- and a spin dealt locally meanwhile could never be ranked.
+      const opening = rankedOpening();
+      if (opening) await opening;
+      // Read fresh: the session may have attached after this render.
+      const now = useGameStore.getState();
       // In a ranked game the wheel turns on the server. A client that could
       // choose its own franchise-era could choose the seven holding the best
       // cards in the dataset.
-      if (game.ranked && game.serverSessionId) {
-        const issued = await rankedSpin(game.serverSessionId, assist);
-        if (issued.ok) {
+      if (now.ranked && now.serverSessionId) {
+        const issued = await withTimeout(rankedSpin(now.serverSessionId, assist), SPIN_TIMEOUT);
+        if (issued?.ok) {
           const spun = {
             sequence: issued.value.sequence,
             franchiseId: issued.value.franchiseId,
@@ -230,19 +301,21 @@ export default function Play() {
           game.applyServerSpin(spun, issued.value.assisted);
           return spun;
         }
-        if (issued.kind === 'refused') {
+        if (issued?.kind === 'refused') {
           setNotice(issued.message);
           return null;
         }
-        // The connection went, not the game. Finish it offline, unranked.
-        game.downgrade(issued.message);
-        setNotice(`${issued.message} This season will not be ranked.`);
+        // The connection went, or never answered: not the game. Finish it
+        // offline, unranked, rather than leaving the wheel turning.
+        const message = issued?.message ?? 'The server did not answer in time.';
+        game.downgrade(message);
+        setNotice(`${message} This season will not be ranked.`);
       }
 
       const result = game.spin({ assist });
       if (!result) {
         setNotice('No franchise-era left with a player for your open slots.');
-        track('spin_dead_end', { filled: game.selections.length });
+        track('spin_dead_end', { filled: useGameStore.getState().selections.length });
         return null;
       }
       track('spin_completed', {
@@ -250,13 +323,9 @@ export default function Play() {
         franchise: result.franchiseId,
         era: result.era,
         rigged: assist,
-        filled: game.selections.length,
+        filled: useGameStore.getState().selections.length,
       });
       if (assist) track('spin_rigged', { sequence: result.sequence });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      AccessibilityInfo.announceForAccessibility(
-        `${franchise(result.franchiseId).name}, ${eraDef(result.era).name}. Choose a player.`,
-      );
       return result;
     };
 
@@ -286,26 +355,55 @@ export default function Play() {
         eras: [...decoys.map((c) => eraDef(c.era).label), landed ? eraDef(landed.era).label : '?'],
       });
 
+    /**
+     * The wheel stops when both have happened: the reel has travelled, and the
+     * answer is in.
+     *
+     * The reel used to stop on its timer whatever the server had said. A slow
+     * ranked spin landed on "?", the panel went back to "Awaiting spin" with
+     * the button live, and a second tap opened a second spin on the server.
+     * Now a late answer holds the wheel -- button disabled -- and lands it the
+     * moment the answer arrives. The landing haptic and the announcement fire
+     * here, at the stop, for both paths: before, an offline spin buzzed twice
+     * on the tap and not at all when the reel stopped, and a ranked spin never
+     * buzzed.
+     */
+    let reelDone = reduceMotion;
+    let landed: { franchiseId: string; era: EraKey } | null | undefined;
+    const finish = () => {
+      if (reelTimer.current) clearTimeout(reelTimer.current);
+      spinBusy.current = false;
+      setAwaitingServer(false);
+      if (landed) {
+        holdHero();
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        AccessibilityInfo.announceForAccessibility(
+          `${franchise(landed.franchiseId).name}, ${eraDef(landed.era).name}. Choose a player.`,
+        );
+      }
+      setSpinning(false);
+      setReel(null);
+    };
+
     if (!reduceMotion) {
       showReel(null);
       setSpinning(true);
+      tickTimers.current.forEach(clearTimeout);
+      tickTimers.current = REEL_TICKS.map((at) =>
+        setTimeout(() => Haptics.selectionAsync().catch(() => {}), at),
+      );
       if (reelTimer.current) clearTimeout(reelTimer.current);
       reelTimer.current = setTimeout(() => {
-        setSpinning(false);
-        setReel(null);
+        reelDone = true;
+        if (landed !== undefined) finish();
+        else setAwaitingServer(true);
       }, REEL_DURATION + 120);
     }
 
-    const result = await land();
-    if (!result) {
-      // Nothing landed. Stop the theatre rather than leaving it turning.
-      if (reelTimer.current) clearTimeout(reelTimer.current);
-      setSpinning(false);
-      setReel(null);
-      return;
-    }
-    if (!reduceMotion) showReel(result);
-  }, [awaitingServer, complete, game, reduceMotion, spinning]);
+    landed = await land();
+    if (landed && !reduceMotion) showReel(landed);
+    if (reelDone || !landed) finish();
+  }, [awaitingServer, complete, game, holdHero, reduceMotion, spinning]);
 
   const assign = useCallback(
     async (card: BootCard, slot: RosterSlot) => {
@@ -330,6 +428,7 @@ export default function Play() {
       setNotice(null);
       setTargetSlot(null);
       setPositionFilter('ALL');
+      easeNextLayout();
       setLastPick({ card, slot });
 
       // The pick clears the board below — the filters and the player list both
@@ -338,7 +437,7 @@ export default function Play() {
       // that no longer has anything on it. Going back to the top puts the
       // team, the era and the next spin where they can be seen and acted on,
       // which is the whole loop.
-      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
 
       /**
        * The pick lands instantly and the server is told behind it.
@@ -398,8 +497,16 @@ export default function Play() {
   );
 
   const reveal = useCallback(async () => {
+    // One reveal. A second tap during the server's answer completed the game
+    // and asked the server to score it twice.
+    if (revealing.current) return;
+    revealing.current = true;
     const result = game.complete();
-    if (!result) return;
+    if (!result) {
+      revealing.current = false;
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
 
     // The roster is scored twice, independently: here, and on the server from
     // the spins and picks it recorded. The model is deterministic and both
@@ -408,9 +515,9 @@ export default function Play() {
     // rather than quietly shown a number that will not match the board.
     if (game.ranked && game.serverSessionId && game.serverIdempotencyKey) {
       setAwaitingServer(true);
-      const scored = await rankedComplete(game.serverSessionId, game.serverIdempotencyKey);
+      const scored = await withTimeout(rankedComplete(game.serverSessionId, game.serverIdempotencyKey), 12000);
       setAwaitingServer(false);
-      if (scored.ok) {
+      if (scored?.ok) {
         // A model disagreement explains a drift, so it is worth saying which
         // it was: "the numbers differ" is alarming, "your app is a version
         // behind the server" is actionable.
@@ -433,7 +540,7 @@ export default function Play() {
         }
       } else {
         game.downgrade(
-          scored.kind === 'refused'
+          scored?.kind === 'refused'
             ? scored.message
             : 'Could not reach the server. This season stayed on this device.',
         );
@@ -468,7 +575,8 @@ export default function Play() {
       assisted: game.assisted,
       spins: game.spins.length,
     });
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    // No haptic here: the result screen locks the record with its own, tiered
+    // by wins, and a Success a second before it made the reveal buzz twice.
     router.replace('/result');
   }, [game, record, router]);
 
@@ -496,7 +604,7 @@ export default function Play() {
   // The controls panel of a spread is a phone's width on an iPhone Duo (371
   // points beside the fold), so it hands off exactly as a phone does. A
   // desktop's virtual panel is tall enough to keep the hero.
-  const spinInHeader = canPick && (spreadOn ? layout.height < 820 : !layout.wide);
+  const spinInHeader = canPick && !heroHeld && (spreadOn ? layout.height < 820 : !layout.wide);
 
   // --- pieces, composed differently per breakpoint -------------------------
 
@@ -663,15 +771,21 @@ export default function Play() {
   const wheelButton = complete ? (
     <Pressable
       onPress={reveal}
+      disabled={awaitingServer}
       accessibilityRole="button"
       accessibilityLabel="Reveal your result"
+      accessibilityState={{ busy: awaitingServer }}
       style={({ pressed, hovered }: PressState) => [
         styles.revealButton,
         hovered && styles.lift,
         pressed && { opacity: 0.85 },
       ]}
     >
-      <Text style={styles.revealLabel}>Reveal Result</Text>
+      {awaitingServer ? (
+        <ActivityIndicator color={color.onAction} />
+      ) : (
+        <Text style={styles.revealLabel}>Reveal Result</Text>
+      )}
     </Pressable>
   ) : (
     <Pressable
