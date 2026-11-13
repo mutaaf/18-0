@@ -360,6 +360,19 @@ They are deliberately not in `eas.json`. Not because the anon key is sensitive
 it can be rotated without a commit. An *empty* value in `eas.json` would be
 worse than none at all: it shadows the secret rather than falling back to it.
 
+### TestFlight, three times a day
+
+`release.yml` runs on a schedule at 07:00, 13:00 and 19:00 US Central. Each run
+builds main on EAS, uploads it, and `scripts/store/beta-release.mjs` waits for
+Apple to process it, answers export compliance, writes What to Test from the PR
+titles merged since the last beta, adds it to the public group (link
+`Q79YnwEs`) and submits it for Beta App Review. The `testflight` tag marks the
+commit of the last beta; a scheduled run with nothing new in `apps/mobile` or
+`packages` since then skips the build rather than spending one.
+
+It never touches the App Store version or the listing. To cut one now:
+`gh workflow run release.yml -f platform=ios`.
+
 ### 4. Standalone iPhone via EAS — needs an Apple account
 
 `eas build -p ios --profile preview` needs a paid Apple Developer membership

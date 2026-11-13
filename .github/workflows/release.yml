@@ -42,8 +42,20 @@ on:
         description: "What's New text (a tag release takes this from the tag instead)"
         type: string
         required: false
+      listing:
+        description: Also push the store listing (only works while a version is editable)
+        type: boolean
+        default: false
   push:
     tags: ['v*']
+  # TestFlight three times a day: 07:00, 13:00 and 19:00 US Central. Each run
+  # builds main, uploads it and hands it to the public beta group -- but only
+  # when the app changed since the last beta (the `testflight` tag), because an
+  # unchanged build costs an EAS build and an hour of runner for nothing.
+  schedule:
+    - cron: '0 13 * * *'
+    - cron: '0 19 * * *'
+    - cron: '0 1 * * *'
 
 run-name: Release ${{ inputs.profile || 'production' }} for ${{ inputs.platform || 'all' }}
 
@@ -64,13 +76,46 @@ env:
   EAS_BUILD_NO_EXPO_GO_WARNING: true
 
 jobs:
+  # A scheduled run builds only when something the app is made of changed since
+  # the last beta. Every other trigger builds unconditionally; this job is
+  # skipped for them, and `go` is empty rather than 'false'.
+  changed:
+    name: Anything new since the last beta?
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.diff.outputs.go }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          set -euo pipefail
+          if ! git rev-parse -q --verify refs/tags/testflight >/dev/null; then
+            echo 'go=true' >> "$GITHUB_OUTPUT"
+          elif git diff --quiet testflight HEAD -- apps/mobile packages pnpm-lock.yaml ':(exclude)apps/mobile/store' ':(exclude)apps/mobile/public'; then
+            echo 'go=false' >> "$GITHUB_OUTPUT"
+            echo "::notice title=No new beta::Nothing in the app changed since $(git rev-parse --short testflight); skipping the build."
+          else
+            echo 'go=true' >> "$GITHUB_OUTPUT"
+          fi
+
   ios:
     name: iOS
+    needs: changed
     # A tag push carries no inputs at all, so every condition here is written as
     # a negative: an absent platform means both of them, which is what a tag
-    # should do.
-    if: inputs.platform != 'android'
+    # should do. `!cancelled()` because `changed` is skipped on every trigger
+    # but the schedule, and a skipped need otherwise skips this job too.
+    if: >-
+      !cancelled()
+      && inputs.platform != 'android'
+      && needs.changed.outputs.go != 'false'
     runs-on: ubuntu-latest
+    permissions:
+      # To move the `testflight` tag once testers have the build.
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -125,7 +170,14 @@ jobs:
         # assigned — the only arrangement under which two releases cut an hour
         # apart cannot land on the same number, which App Store Connect rejects.
         # Anything that supplies a number from this side fights that.
-        run: eas build --platform ios --profile ${{ inputs.profile || 'production' }} --non-interactive --wait
+        #
+        # --json prints the finished build on stdout (the log goes to stderr),
+        # and the number EAS assigned is what TestFlight knows the build by.
+        id: build
+        run: |
+          set -euo pipefail
+          eas build --platform ios --profile ${{ inputs.profile || 'production' }} --non-interactive --wait --json > "$RUNNER_TEMP/build.json"
+          echo "number=$(jq -r '.[0].appBuildVersion' "$RUNNER_TEMP/build.json")" >> "$GITHUB_OUTPUT"
 
       - name: Point the submit profile at the App Store Connect API key
         if: >-
@@ -178,9 +230,33 @@ jobs:
         working-directory: apps/mobile
         run: eas submit --platform ios --profile production --latest --non-interactive
 
-      - name: Push the listing and the release notes
+      - name: Hand it to TestFlight testers
         if: >-
           (github.event_name != 'workflow_dispatch' || inputs.submit)
+          && (inputs.profile || 'production') == 'production'
+        env:
+          EXPO_ASC_API_KEY_PATH: ${{ runner.temp }}/asc-api-key.p8
+          EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        # `eas submit` ends when Apple has the binary. Testers get nothing until
+        # it is processed, cleared for export compliance and put in a group --
+        # which is what this waits for and does. What to Test is the merged PR
+        # titles since the last beta.
+        run: |
+          set -euo pipefail
+          SINCE=()
+          if git rev-parse -q --verify refs/tags/testflight >/dev/null; then SINCE=(--since testflight); fi
+          node scripts/store/beta-release.mjs --build "${{ steps.build.outputs.number }}" "${SINCE[@]}"
+          git tag -f testflight HEAD
+          git push -f origin refs/tags/testflight
+
+      - name: Push the listing and the release notes
+        # Only a version tag, or a dispatch that asks for it. A TestFlight build
+        # has no business editing the store page, and while a version is in App
+        # Review nothing is editable, so the push would fail a build that
+        # otherwise reached testers.
+        if: >-
+          (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.submit && inputs.listing))
           && (inputs.profile || 'production') == 'production'
         env:
           # Reuses the key the submit step already decoded.
@@ -227,7 +303,8 @@ jobs:
   # release nobody reads.
   android-ready:
     name: Android preflight
-    if: inputs.platform != 'ios'
+    # The schedule is TestFlight; Play has its own track and no account yet.
+    if: inputs.platform != 'ios' && github.event_name != 'schedule'
     runs-on: ubuntu-latest
     outputs:
       ready: ${{ steps.check.outputs.ready }}
