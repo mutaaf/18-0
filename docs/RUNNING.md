@@ -362,8 +362,10 @@ worse than none at all: it shadows the secret rather than falling back to it.
 
 ### TestFlight, three times a day
 
-`release.yml` runs on a schedule at 07:00, 13:00 and 19:00 US Central. Each run
-builds main on EAS, uploads it, and `scripts/store/beta-release.mjs` waits for
+`ios-github.yml` runs on a schedule at 07:00, 13:00 and 19:00 US Central. Each
+run builds main on GitHub's `xcode-27` runner (free, since the repository is
+public; Xcode 26 cannot build the fold module), signs it with the distribution
+certificate, uploads it with `altool`, and `scripts/store/beta-release.mjs` waits for
 Apple to process it, answers export compliance, writes What to Test from the PR
 titles merged since the last beta, adds it to the public group (link
 `Q79YnwEs`) and submits it for Beta App Review. The `testflight` tag marks the
@@ -371,7 +373,12 @@ commit of the last beta; a scheduled run with nothing new in `apps/mobile` or
 `packages` since then skips the build rather than spending one.
 
 It never touches the App Store version or the listing. To cut one now:
-`gh workflow run release.yml -f platform=ios`.
+`gh workflow run ios-github.yml`.
+
+`release.yml` still builds on EAS and is the fallback. GitHub builds take their
+number from App Store Connect (`scripts/store/next-build-number.mjs`) while EAS
+keeps its own counter, so run `eas build:version:set -p ios` with that number
+before falling back, or Apple rejects the repeat after the upload.
 
 ### 4. Standalone iPhone via EAS — needs an Apple account
 

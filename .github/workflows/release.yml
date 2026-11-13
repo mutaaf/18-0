@@ -48,14 +48,6 @@ on:
         default: false
   push:
     tags: ['v*']
-  # TestFlight three times a day: 07:00, 13:00 and 19:00 US Central. Each run
-  # builds main, uploads it and hands it to the public beta group -- but only
-  # when the app changed since the last beta (the `testflight` tag), because an
-  # unchanged build costs an EAS build and an hour of runner for nothing.
-  schedule:
-    - cron: '0 13 * * *'
-    - cron: '0 19 * * *'
-    - cron: '0 1 * * *'
 
 run-name: Release ${{ inputs.profile || 'production' }} for ${{ inputs.platform || 'all' }}
 
@@ -76,42 +68,18 @@ env:
   EAS_BUILD_NO_EXPO_GO_WARNING: true
 
 jobs:
-  # A scheduled run builds only when something the app is made of changed since
-  # the last beta. Every other trigger builds unconditionally; this job is
-  # skipped for them, and `go` is empty rather than 'false'.
-  changed:
-    name: Anything new since the last beta?
-    if: github.event_name == 'schedule'
-    runs-on: ubuntu-latest
-    outputs:
-      go: ${{ steps.diff.outputs.go }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - id: diff
-        run: |
-          set -euo pipefail
-          if ! git rev-parse -q --verify refs/tags/testflight >/dev/null; then
-            echo 'go=true' >> "$GITHUB_OUTPUT"
-          elif git diff --quiet testflight HEAD -- apps/mobile packages pnpm-lock.yaml ':(exclude)apps/mobile/store' ':(exclude)apps/mobile/public'; then
-            echo 'go=false' >> "$GITHUB_OUTPUT"
-            echo "::notice title=No new beta::Nothing in the app changed since $(git rev-parse --short testflight); skipping the build."
-          else
-            echo 'go=true' >> "$GITHUB_OUTPUT"
-          fi
-
   ios:
     name: iOS
-    needs: changed
     # A tag push carries no inputs at all, so every condition here is written as
     # a negative: an absent platform means both of them, which is what a tag
-    # should do. `!cancelled()` because `changed` is skipped on every trigger
-    # but the schedule, and a skipped need otherwise skips this job too.
-    if: >-
-      !cancelled()
-      && inputs.platform != 'android'
-      && needs.changed.outputs.go != 'false'
+    # should do.
+    #
+    # The TestFlight schedule moved to ios-github.yml, which builds on a GitHub
+    # runner instead of EAS. This is the fallback. GitHub builds take their
+    # number from App Store Connect and EAS keeps its own counter, so before
+    # running this bring EAS level or Apple rejects the repeat an hour in:
+    #   eas build:version:set -p ios   # to: node scripts/store/next-build-number.mjs
+    if: inputs.platform != 'android'
     runs-on: ubuntu-latest
     permissions:
       # To move the `testflight` tag once testers have the build.
@@ -303,8 +271,7 @@ jobs:
   # release nobody reads.
   android-ready:
     name: Android preflight
-    # The schedule is TestFlight; Play has its own track and no account yet.
-    if: inputs.platform != 'ios' && github.event_name != 'schedule'
+    if: inputs.platform != 'ios'
     runs-on: ubuntu-latest
     outputs:
       ready: ${{ steps.check.outputs.ready }}

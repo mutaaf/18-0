@@ -25,8 +25,15 @@ on:
         description: Hand the build to the public TestFlight group
         type: boolean
         default: true
+  # TestFlight three times a day: 07:00, 13:00 and 19:00 US Central. A run
+  # builds only when the app changed since the last beta (the `testflight`
+  # tag), and always hands the build to testers.
+  schedule:
+    - cron: '0 13 * * *'
+    - cron: '0 19 * * *'
+    - cron: '0 1 * * *'
 
-run-name: iOS on GitHub${{ inputs.xcode && format(' (Xcode {0})', inputs.xcode) || '' }}
+run-name: iOS on GitHub${{ github.event_name == 'schedule' && ' (scheduled)' || '' }}${{ inputs.xcode && format(' (Xcode {0})', inputs.xcode) || '' }}
 
 permissions:
   contents: read
@@ -38,8 +45,37 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # A scheduled run builds only when something the app is made of changed since
+  # the last beta. Every other trigger builds unconditionally; this job is
+  # skipped for them, and `go` is empty rather than 'false'.
+  changed:
+    name: Anything new since the last beta?
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.diff.outputs.go }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          set -euo pipefail
+          if ! git rev-parse -q --verify refs/tags/testflight >/dev/null; then
+            echo 'go=true' >> "$GITHUB_OUTPUT"
+          elif git diff --quiet testflight HEAD -- apps/mobile packages pnpm-lock.yaml ':(exclude)apps/mobile/store' ':(exclude)apps/mobile/public'; then
+            echo 'go=false' >> "$GITHUB_OUTPUT"
+            echo "::notice title=No new beta::Nothing in the app changed since $(git rev-parse --short testflight); skipping the build."
+          else
+            echo 'go=true' >> "$GITHUB_OUTPUT"
+          fi
+
   ios:
     name: Build, sign, upload
+    needs: changed
+    # `!cancelled()` because `changed` is skipped on a dispatch, and a skipped
+    # need otherwise skips this job too.
+    if: ${{ !cancelled() && needs.changed.outputs.go != 'false' }}
     # Not macos-26: the Duo module (apps/mobile/modules/fold) uses UIHinge and the iOS 27
     # window APIs, which Xcode 26 cannot see -- the first run here failed on
     # "cannot find type 'UIHinge' in scope". `xcode-27` is GitHub's macOS 27
@@ -179,7 +215,7 @@ jobs:
           xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$EXPO_ASC_KEY_ID" --apiIssuer "$EXPO_ASC_ISSUER_ID"
 
       - name: Hand it to TestFlight testers
-        if: inputs.testers
+        if: github.event_name == 'schedule' || inputs.testers
         run: |
           set -euo pipefail
           SINCE=()
