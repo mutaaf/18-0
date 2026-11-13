@@ -174,7 +174,7 @@
           What the game collects, why, who it goes to, and how to have it
           removed. Written against what the code actually does.
         </p>
-        <p class="updated">Last updated 30 October 2026</p>
+        <p class="updated">Last updated 12 November 2026</p>
       </div>
     </header>
 
@@ -192,8 +192,12 @@
         not need one. The iPhone and Android apps carry no ads and no
         advertising identifiers. The browser version at 18-0.co shows ads,
         described below. There is no tracking across other apps or websites by
-        the game itself, and nothing is sold or shared with data brokers. There is no error monitoring and no session replay in the game.
-        It sends gameplay analytics to one processor, described below.
+        the game itself, and nothing is sold or shared with data brokers. There is
+        no error monitoring, and the apps have no session replay. The game sends
+        gameplay analytics to one processor, PostHog, described below; the
+        browser version also runs the publisher's anonymous site analytics,
+        described under <a href="#web-analytics">Site analytics in the browser
+        version</a>.
       </p>
 
       <h2>Playing without an account</h2>
@@ -293,6 +297,40 @@
           apps or websites.
         </p>
       </div>
+
+      <h2 id="web-analytics">Site analytics in the browser version</h2>
+      <p>
+        The browser version at 18-0.co also loads Box Office, the publisher's
+        anonymous usage analytics for all of its sites, from mutaafaziz.com. It
+        records which pages are viewed and what is tapped, when a season starts
+        and how it ended (the record and mode, never the roster), the kind of
+        device and browser, and the site that sent you, under a random
+        identifier kept in your browser's storage. It is relayed to PostHog, in the
+        United States, through mutaafaziz.com.
+      </p>
+      <ul>
+        <li>
+          <strong>Approximate location only.</strong> Your IP address is
+          shortened before it is passed on, so PostHog can tell a city or
+          country and nothing finer. The full address is not stored, and
+          cookies are neither set nor forwarded.
+        </li>
+        <li>
+          <strong>Masked session replays.</strong> A visit may be recorded as a
+          replay of how the page was used, so broken screens can be found. Every
+          text field is masked before anything leaves the browser.
+        </li>
+        <li>
+          <strong>Your browser's privacy signals are honoured.</strong> If it
+          sends Global Privacy Control or Do Not Track, the analytics do not
+          load at all.
+        </li>
+      </ul>
+      <p>
+        It is anonymous: it is not joined to your account, your display name or
+        your ranked games, and it is not used for advertising. The iPhone and
+        Android apps do not include it.
+      </p>
 
       <h2>Ads in the browser version</h2>
       <p>

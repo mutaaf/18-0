@@ -1,4 +1,5 @@
 import { DATASET } from '@17-0/data';
+import { forwardToBoxOffice } from '@/features/boxoffice';
 
 /**
  * Gameplay telemetry (PRFAQ §33).
@@ -100,6 +101,7 @@ export function track(name: EventName, props: Record<string, string | number | b
   };
   ring.push(event);
   if (ring.length > RING_SIZE) ring.shift();
+  forwardToBoxOffice(event);
   try {
     sink?.(event);
   } catch {
