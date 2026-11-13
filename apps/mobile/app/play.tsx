@@ -32,7 +32,7 @@ import { tellHost } from '@/features/embed';
 import { ratingBucket, track } from '@/features/telemetry';
 import { rankedComplete, rankedSelect, rankedSpin } from '@/features/ranked';
 import { rankedOpening, withTimeout } from '@/features/start-game';
-import { DECORATIVE, color, elevate, font, positionColor, radius, space, tabular, themed, tracking, type PressState, useLayout, useThemeId } from '@/theme';
+import { DECORATIVE, color, elevate, font, positionColor, radius, space, tabular, themed, teamInk, teamWash, tracking, type PressState, useLayout, useThemeId } from '@/theme';
 
 /** How many names blur past before the reel settles on the result. */
 const REEL_LENGTH = 18;
@@ -686,6 +686,7 @@ export default function Play() {
               style={[
                 styles.heroAbbr,
                 layout.roomy && styles.heroAbbrRoomy,
+                team && { color: teamInk(team.color) },
                 !team && styles.heroWaiting,
               ]}
               numberOfLines={1}
@@ -719,6 +720,7 @@ export default function Play() {
               style={[
                 styles.heroEraYears,
                 layout.roomy && styles.heroEraYearsRoomy,
+                team && { color: teamInk(team.color) },
                 !shown && styles.heroWaiting,
               ]}
               numberOfLines={1}
@@ -812,7 +814,9 @@ export default function Play() {
 
   const spinPanel = (
     <View style={styles.stack}>
-      {spinInHeader ? (layout.short ? null : storyLine) : hero}
+      {/* Seven picks in, the hero has nothing left to say: it read "Ready ·
+          Awaiting spin" over a full field with the reveal button below. */}
+      {complete ? null : spinInHeader ? (layout.short ? null : storyLine) : hero}
 
       {assistArmed && !canPick && !complete ? (
         <Text style={styles.assistHint}>Three fingers down — this spin will find the best card left.</Text>
@@ -997,17 +1001,21 @@ export default function Play() {
 
   // Team and era. On one page of a spread they get a line of their own: squeezed
   // beside the brand and the count, the era was cut to "1980–19…".
+  /**
+   * The landed spin, kept in view while you pick: a badge in the franchise's
+   * colour, the era set as large as the team. It was "TEAM HOU  ERA 2010-2014"
+   * in 9-point labels and grey 12-point years -- the two facts the whole pick
+   * turns on, printed like a footnote.
+   */
+  const ink = team ? teamInk(team.color) : color.text;
   const spinLine = (
     <View style={styles.headerSpinLine} pointerEvents="none" {...DECORATIVE}>
-      <View style={styles.headerMetaPair}>
-        <Text style={styles.headerMetaLabel}>Team</Text>
-        <Text style={styles.headerAbbr} numberOfLines={1}>
+      <View style={[styles.headerBadge, team && { backgroundColor: teamWash(team.color), borderColor: teamWash(team.color, 0.6) }]}>
+        <Text style={[styles.headerAbbr, { color: ink }]} numberOfLines={1}>
           {team ? team.abbr : '—'}
         </Text>
-      </View>
-      <View style={styles.headerMetaPair}>
-        <Text style={styles.headerMetaLabel}>Era</Text>
-        <Text style={styles.headerEra} numberOfLines={1}>
+        <View style={[styles.headerBadgeRule, { backgroundColor: ink }]} />
+        <Text style={[styles.headerEra, { color: ink }]} numberOfLines={1}>
           {shown ? eraDef(shown.era).label : '—'}
         </Text>
       </View>
@@ -1254,26 +1262,30 @@ const styles = themed(() => StyleSheet.create({
   /** Pairs are grouped by spacing: 5pt binds a label to its value, 14pt separates
       the two pairs. Without that contrast the line reads as four evenly-spaced
       words rather than two facts. */
-  headerSpinLine: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'flex-end', gap: 14 },
-  headerMetaPair: { flexDirection: 'row', alignItems: 'baseline', gap: 5, flexShrink: 1, minWidth: 0 },
-  headerMetaLabel: {
-    fontFamily: font.label,
-    fontSize: 9,
-    letterSpacing: tracking.wide,
-    textTransform: 'uppercase',
-    color: color.textFaint,
-    includeFontPadding: false,
+  headerSpinLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
+  headerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: color.line,
+    flexShrink: 1,
+    minWidth: 0,
   },
+  headerBadgeRule: { width: 1, height: 16, opacity: 0.45 },
   headerAbbr: {
     fontFamily: font.displayBlack,
-    fontSize: 17,
+    fontSize: 20,
     color: color.text,
     letterSpacing: tracking.tight,
     includeFontPadding: false,
   },
   headerEra: {
-    fontFamily: font.bodyBold,
-    fontSize: 12,
+    fontFamily: font.displayBlack,
+    fontSize: 18,
     letterSpacing: tracking.wide,
     color: color.textDim,
     flexShrink: 1,
@@ -1333,14 +1345,14 @@ const styles = themed(() => StyleSheet.create({
   heroWaiting: { fontSize: 30, lineHeight: 36, color: color.textFaint, letterSpacing: tracking.tight },
   heroEraYears: {
     fontFamily: font.displayBlack,
-    fontSize: 38,
-    lineHeight: 42,
+    fontSize: 46,
+    lineHeight: 50,
     color: color.text,
     letterSpacing: tracking.tight,
     includeFontPadding: false,
     ...tabular,
   },
-  heroEraYearsRoomy: { fontSize: 46, lineHeight: 50 },
+  heroEraYearsRoomy: { fontSize: 58, lineHeight: 62 },
   heroEraName: {
     fontFamily: font.label,
     fontSize: 13,

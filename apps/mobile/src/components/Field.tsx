@@ -10,12 +10,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Defs, G, Line, LinearGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { ROSTER_SLOTS, SLOT_POSITION, type RosterSlot } from '@17-0/domain';
-import type { BootCard } from '@17-0/data';
+import { franchise, type BootCard } from '@17-0/data';
 import { SLOT_HEIGHT, TOUCHLINE, formation } from './field-geometry';
 import { useFold } from '@/features/fold';
 import { gpu } from '@/features/gpu';
 import { bendOf } from '@/features/gpu/color';
-import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking, useLayout, useThemeId } from '@/theme';
+import { DECORATIVE, color, font, positionColor, radius, space, tabular, teamInk, themed, tracking, useLayout, useThemeId } from '@/theme';
 
 const SLOT_LABEL: Record<RosterSlot, string> = {
   QB: 'Quarterback',
@@ -201,9 +201,22 @@ function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, width, 
             {surname(card)}
           </Text>
           <View style={styles.slotMeta}>
-            <Text style={[styles.slotYear, { fontSize: 10 * scale }]}>
-              {franchiseAbbr ?? ''} '{String(card.year).slice(2)}
-            </Text>
+            {/* The season is the card -- a team and a year -- so it reads at a
+                glance, in that franchise's colour, rather than as grey small
+                print under the name. */}
+            <View style={styles.slotSeason}>
+              <Text
+                style={[
+                  styles.slotTeam,
+                  { color: teamInk(franchise(card.franchiseId).color), fontSize: 10 * scale },
+                ]}
+              >
+                {franchiseAbbr ?? ''}
+              </Text>
+              <Text style={[styles.slotYear, { color: teamInk(franchise(card.franchiseId).color), fontSize: 13 * scale }]}>
+                '{String(card.year).slice(2)}
+              </Text>
+            </View>
             <Text style={[styles.slotRating, { color: accent, fontSize: 14 * scale }]}>
               {blind ? '' : card.rating.toFixed(1)}
             </Text>
@@ -253,7 +266,9 @@ function Spark({ angle, accent, far }: { angle: number; accent: string; far: boo
 }
 
 function surname(card: BootCard): string {
-  if (card.position === 'DEF') return `${card.year}`;
+  // The meta line under it already carries the team and the year, so a
+  // defense named by its year read "1980 / ATL '80".
+  if (card.position === 'DEF') return 'Defense';
   const parts = card.name.trim().split(' ');
   return parts.length > 1 ? parts.slice(1).join(' ') : card.name;
 }
@@ -388,7 +403,9 @@ const styles = themed(() => StyleSheet.create({
     includeFontPadding: false,
   },
   slotMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 1 },
-  slotYear: { fontFamily: font.bodyRegular, fontSize: 10, color: color.textFaint },
+  slotSeason: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
+  slotTeam: { fontFamily: font.label, letterSpacing: tracking.wide, includeFontPadding: false },
+  slotYear: { fontFamily: font.display, includeFontPadding: false, ...tabular },
   slotRating: { fontFamily: font.display, fontSize: 14, includeFontPadding: false },
   slotEmptyLabel: {
     fontFamily: font.bodyRegular,

@@ -32,14 +32,15 @@
   },
   "raw": { "iphone": "store/lobby/raw/iphone", "ipad": "store/lobby/raw/ipad" },
   "capture": {
-    "command": "scripts/store/capture-lobby.sh <EighteenZero.app> <iphone-udid> <ipad-udid>",
+    "command": "scripts/store/capture-lobby.sh <SeventeenZero.app> <iphone-udid> <ipad-udid>",
     "notes": "Shot from a real simulator build (iPhone 6.9\" + iPad 13\") with Maestro flows in store/lobby/maestro, status bar at 9:41. Raws are quality-90 JPEG; the old *.png web captures are gitignored and lose to the .jpg."
   },
   "shots": [
     { "id": "modes", "raw": "1-modes", "layout": "cover", "title": "Seven picks. *One perfect season.*", "sub": "Each spin deals a franchise and an era. Take a player, fill a slot, live with it." },
+    { "id": "result", "raw": "7-result", "layout": "hero", "kicker": "The reveal", "title": "Seven cards. *One record.*", "sub": "Your roster becomes a projected season. The same seven always earn the same record." },
+    { "id": "field", "raw": "6-field", "layout": "tilt", "kicker": "Build the lineup", "title": "Every rating, *era-adjusted.*", "sub": "Computed from what actually happened, against the era it happened in.", "badge": "Since 1980" },
     { "id": "spin", "raw": "2-spin", "layout": "hero", "kicker": "The spin", "title": "One team. One era. *Your call.*", "sub": "GM Mode gives you a name, a team and a year. Nothing else." },
     { "id": "scout", "raw": "3-scout", "layout": "spotlight", "focus": [0.42, 0.6, 0.62], "kicker": "Scout mode", "title": "Read the stats. _Trust your gut._", "sub": "Scout shows the stat line and hides the grade." },
-    { "id": "rookie", "raw": "4-rookie", "layout": "tilt", "kicker": "Rookie mode", "title": "Every rating, *era-adjusted.*", "sub": "Computed from what actually happened, against the era it happened in.", "badge": "Since 1980" },
     { "id": "leaders", "raw": "5-leaderboard", "layout": "bleed", "kicker": "Leaderboards", "title": "Chase the *undefeated season.*", "sub": "17-0 lands about once every 6,000 games. Boards for all time, this month, this week.", "badge": "1 in 6,000" }
   ],
   "feature": { "title": "Seven picks. *One perfect season.*", "sub": "Every season since 1980, rated against its era." },

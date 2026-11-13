@@ -5,7 +5,7 @@ import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { franchise, type BootCard } from '@17-0/data';
 import { useCardStats } from '@/features/stat-lines';
 import { showsRating, showsStats, type GameMode } from '@/state/game';
-import { color, font, positionColor, radius, space, tabular, themed, tracking, type PressState, useThemeId } from '@/theme';
+import { color, font, positionColor, radius, space, tabular, teamInk, teamWash, themed, tracking, type PressState, useThemeId } from '@/theme';
 
 /**
  * A player card, not a spreadsheet row.
@@ -101,8 +101,12 @@ export const PlayerCard = memo(function PlayerCard({
               {name}
             </Text>
             <View style={styles.metaRow}>
-              <Text style={styles.team}>{team.abbr}</Text>
-              <Text style={styles.year}>{card.year}</Text>
+              {/* Team and year are what the player is choosing between, so they
+                  carry the franchise's colour and the year is set large. */}
+              <View style={[styles.season, { backgroundColor: teamWash(teamColor) }]}>
+                <Text style={[styles.team, { color: teamInk(teamColor) }]}>{team.abbr}</Text>
+                <Text style={[styles.year, { color: teamInk(teamColor) }]}>{card.year}</Text>
+              </View>
               {showsStats(mode)
                 ? stats.slice(0, 3).map((stat) => (
                     <Text key={stat.label} style={styles.stat}>
@@ -189,8 +193,16 @@ const styles = themed(() => StyleSheet.create({
   body: { flex: 1, minWidth: 0, gap: 2 },
   name: { fontFamily: font.heading, fontSize: 19, color: color.text, includeFontPadding: false },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm, flexWrap: 'wrap' },
+  season: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
   team: { fontFamily: font.label, fontSize: 12, color: color.silver, letterSpacing: tracking.wide },
-  year: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textFaint, ...tabular },
+  year: { fontFamily: font.display, fontSize: 15, color: color.text, ...tabular, includeFontPadding: false },
   stat: { fontSize: 12 },
   statValue: { fontFamily: font.bodyBold, color: color.textDim, ...tabular },
   statLabel: { fontFamily: font.bodyRegular, color: color.textFaint, fontSize: 11 },
