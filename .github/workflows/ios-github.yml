@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       xcode:
-        description: "Xcode version, e.g. 26.6 (blank: the runner's default)"
+        description: "Xcode version, e.g. 27.1 (blank: the runner's default)"
         type: string
         required: false
       testers:
@@ -40,7 +40,12 @@ concurrency:
 jobs:
   ios:
     name: Build, sign, upload
-    runs-on: macos-26
+    # Not macos-26: the Duo module (modules/fold) uses UIHinge and the iOS 27
+    # window APIs, which Xcode 26 cannot see -- the first run here failed on
+    # "cannot find type 'UIHinge' in scope". `xcode-27` is GitHub's macOS 27
+    # image with Xcode 27; it is labelled preview, and "Pick Xcode" still
+    # refuses a beta toolchain.
+    runs-on: xcode-27
     timeout-minutes: 120
     permissions:
       contents: write # the `testflight` tag
