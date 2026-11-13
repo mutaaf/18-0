@@ -40,7 +40,7 @@ concurrency:
 jobs:
   ios:
     name: Build, sign, upload
-    # Not macos-26: the Duo module (modules/fold) uses UIHinge and the iOS 27
+    # Not macos-26: the Duo module (apps/mobile/modules/fold) uses UIHinge and the iOS 27
     # window APIs, which Xcode 26 cannot see -- the first run here failed on
     # "cannot find type 'UIHinge' in scope". `xcode-27` is GitHub's macOS 27
     # image with Xcode 27; it is labelled preview, and "Pick Xcode" still
