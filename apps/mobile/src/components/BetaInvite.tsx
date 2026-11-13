@@ -16,7 +16,7 @@ import { color, font, radius, space, themed, tracking, type PressState } from '@
  * fold, the wheel and the picks on the other -- so the invitation says so
  * rather than "download our app".
  *
- * **Not on the web.** The site leads with `BetaBanner`, the same link at the
+ * **Not on the web.** The site leads with the download showcase, the same link at the
  * top of the front page; a second invitation further down repeated it.
  *
  * **In the native app it is behind `share_beta`, off by default.** The same

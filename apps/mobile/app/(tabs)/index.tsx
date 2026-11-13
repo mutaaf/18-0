@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -16,7 +16,7 @@ import { Screen } from '@/components/Screen';
 import { SpreadLayout } from '@/components/SpreadLayout';
 import { useSpread } from '@/features/fold';
 import { SectionHead } from '@/components/SectionHead';
-import { BetaBanner } from '@/components/BetaBanner';
+import { Showcase, showcaseOffered } from '@/components/showcase/Showcase';
 import { BetaInvite } from '@/components/BetaInvite';
 import { GetTheApp } from '@/components/GetTheApp';
 import { OnWatch } from '@/components/OnWatch';
@@ -65,6 +65,11 @@ export default function Home() {
    * Tabletop is portrait and stays one column.
    */
   const { spread, ref: spreadRef, onLayout: onSpreadLayout } = useSpread();
+  // Web only, never in a frame, never on Android -- see Showcase.web.tsx.
+  const showcase = useMemo(showcaseOffered, []);
+  const outer = useRef<ScrollView>(null);
+  const [stage, setStage] = useState(0);
+  const [lobbyAt, setLobbyAt] = useState(0);
   const paged = spread.kind === 'columns';
   const game = useGameStore();
   const games = useHistoryStore((s) => s.games);
@@ -479,7 +484,7 @@ export default function Home() {
       </Reveal>
 
       {/* The beta, as something to pass on, inside the app once `share_beta`
-          is turned on. The site has BetaBanner at the top instead. */}
+          is turned on. The site leads with the Showcase instead. */}
       <Reveal delay={270}>
         <BetaInvite />
       </Reveal>
@@ -563,15 +568,13 @@ export default function Home() {
     </Reveal>
   );
 
-  return (
-    <Screen maxWidth={layout.wide && !paged ? layout.maxWidth : undefined} bleed={paged}>
+  const lobby = (
       <View ref={spreadRef} onLayout={onSpreadLayout} style={styles.fill}>
         {spread.kind === 'columns' ? (
           <SpreadLayout
             spread={spread}
             first={
               <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
-                <BetaBanner />
                 {billboard}
                 {loop}
                 {aside}
@@ -591,8 +594,6 @@ export default function Home() {
           />
         ) : (
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            {/* The beta, above everything: web only -- see BetaBanner. */}
-            <BetaBanner />
             {layout.wide ? null : (
               <View style={styles.header}>
                 <Brand size={36} subtitle="Est. 2026" />
@@ -632,6 +633,45 @@ export default function Home() {
           </ScrollView>
         )}
       </View>
+  );
+
+  if (!showcase) {
+    return (
+      <Screen maxWidth={layout.wide && !paged ? layout.maxWidth : undefined} bleed={paged}>
+        {lobby}
+      </Screen>
+    );
+  }
+
+  // The site leads with the download: the showcase scrolls first, full width,
+  // and then the lobby fills exactly one window below it -- the same lobby,
+  // with its own column(s) scrolling inside, as if you had scrolled into the
+  // app. The column cap Screen would apply moves onto the lobby, so the
+  // showcase can bleed edge to edge.
+  return (
+    <Screen bleed>
+      <ScrollView
+        ref={outer}
+        style={styles.fill}
+        showsVerticalScrollIndicator={false}
+        onLayout={(e) => setStage(e.nativeEvent.layout.height)}
+      >
+        <Showcase onPlay={() => outer.current?.scrollTo({ y: lobbyAt, animated: true })} />
+        <View
+          onLayout={(e) => setLobbyAt(e.nativeEvent.layout.y)}
+          style={[styles.stage, stage ? { height: stage } : null]}
+        >
+          <View
+            style={[
+              styles.fill,
+              styles.lobbyColumn,
+              { maxWidth: paged ? undefined : layout.wide ? layout.maxWidth : Math.min(layout.maxWidth, 620) },
+            ]}
+          >
+            {lobby}
+          </View>
+        </View>
+      </ScrollView>
     </Screen>
   );
 }
@@ -738,6 +778,9 @@ const styles = themed(() => StyleSheet.create({
   content: { paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: 140, gap: space.xxl },
   header: { paddingBottom: space.sm },
   fill: { flex: 1 },
+  /** One window tall once measured; until then a floor so it is never zero. */
+  stage: { minHeight: 600 },
+  lobbyColumn: { width: '100%', alignSelf: 'center' },
   /** One page of the spread. The top clears the account disc's old corner
       only on the trailing page, which no longer has it: the rail took it. */
   page: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.xxl, gap: space.xl },
