@@ -1,0 +1,193 @@
+name: iOS on GitHub
+
+# The same TestFlight build release.yml makes, compiled on a GitHub macOS runner
+# instead of EAS. The repository is public, so these minutes are free, and the
+# upload goes straight to App Store Connect rather than through the EAS submit
+# queue (which held build 13 for most of an hour).
+#
+# Expo is still the framework: `expo prebuild` writes the native project exactly
+# as it does for EAS and for `pnpm verify:builds`. Only the build machine and
+# the upload change.
+#
+# Secrets: the iOS signing three and the ASC key three that release.yml
+# documents, plus the five EXPO_PUBLIC_* values the JavaScript bundle is built
+# with. EAS injected those from its own environment; a build without them
+# installs fine and silently has no leaderboard, no analytics and no sign-in.
+
+on:
+  workflow_dispatch:
+    inputs:
+      xcode:
+        description: "Xcode version, e.g. 26.6 (blank: the runner's default)"
+        type: string
+        required: false
+      testers:
+        description: Hand the build to the public TestFlight group
+        type: boolean
+        default: true
+
+run-name: iOS on GitHub${{ inputs.xcode && format(' (Xcode {0})', inputs.xcode) || '' }}
+
+permissions:
+  contents: read
+
+# Shared with release.yml: two builders asking Apple for "the next number" at
+# the same moment would both get the same one.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  ios:
+    name: Build, sign, upload
+    runs-on: macos-26
+    timeout-minutes: 120
+    permissions:
+      contents: write # the `testflight` tag
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+      EXPO_PUBLIC_POSTHOG_KEY: ${{ secrets.EXPO_PUBLIC_POSTHOG_KEY }}
+      EXPO_PUBLIC_POSTHOG_HOST: ${{ secrets.EXPO_PUBLIC_POSTHOG_HOST }}
+      EXPO_PUBLIC_AUTH_PROVIDERS: ${{ secrets.EXPO_PUBLIC_AUTH_PROVIDERS }}
+      EXPO_ASC_API_KEY_PATH: ${{ github.workspace }}/../private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
+      EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the `testflight` tag, and What to Test since it
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Pick Xcode
+        env:
+          WANT: ${{ inputs.xcode }}
+        # Never a beta: App Store Connect refuses anything a beta Xcode built,
+        # after the upload rather than before it.
+        run: |
+          set -euo pipefail
+          X=/Applications/Xcode.app
+          if [ -n "$WANT" ]; then X="/Applications/Xcode_${WANT}.app"; fi
+          if [ ! -d "$X" ]; then echo "::error::$X is not on this runner"; ls -d /Applications/Xcode*.app; exit 1; fi
+          sudo xcode-select -s "$X"
+          xcodebuild -version
+          if xcodebuild -version | grep -qi beta || [[ "$X" == *[Bb]eta* ]]; then
+            echo "::error::$X is a beta; App Store Connect will not take its builds"; exit 1
+          fi
+
+      - name: Signing material and the API key
+        id: sign
+        env:
+          P12: ${{ secrets.IOS_DIST_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          ASC_KEY: ${{ secrets.ASC_API_KEY_BASE64 }}
+        # A throwaway keychain, unlocked for the length of the run and put on
+        # the search list, because codesign only looks on the search list and
+        # the login keychain on a runner is locked with a password nobody has.
+        # The partition list stops codesign blocking on a "allow access?"
+        # dialog that nobody is there to click.
+        run: |
+          set -euo pipefail
+          umask 077
+          KC="$RUNNER_TEMP/signing.keychain-db"
+          KC_PW=$(openssl rand -hex 24)
+          security create-keychain -p "$KC_PW" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KC_PW" "$KC"
+          printf '%s' "$P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -k "$KC_PW" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/dist.p12"
+
+          printf '%s' "$PROFILE" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+          security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/profile.plist")
+          TEAM=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$RUNNER_TEMP/profile.plist")
+          # Xcode 16 moved where it looks; put it in both.
+          for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$d"; cp "$RUNNER_TEMP/profile.mobileprovision" "$d/$UUID.mobileprovision"
+          done
+          echo "uuid=$UUID" >> "$GITHUB_OUTPUT"
+          echo "team=$TEAM" >> "$GITHUB_OUTPUT"
+
+          # altool finds the key by name in ./private_keys of its working
+          # directory or ~/.appstoreconnect/private_keys -- not by path.
+          mkdir -p "$(dirname "$EXPO_ASC_API_KEY_PATH")" "$HOME/.appstoreconnect/private_keys"
+          printf '%s' "$ASC_KEY" | base64 --decode > "$EXPO_ASC_API_KEY_PATH"
+          cp "$EXPO_ASC_API_KEY_PATH" "$HOME/.appstoreconnect/private_keys/"
+
+      - name: Next build number
+        id: number
+        run: echo "n=$(node scripts/store/next-build-number.mjs)" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Prebuild
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          npx expo prebuild --platform ios --clean
+          WS=$(ls -d ios/*.xcworkspace | head -1)
+          NAME=$(basename "$WS" .xcworkspace)
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ steps.number.outputs.n }}" "ios/$NAME/Info.plist"
+          node ../../scripts/store/sign-manual.mjs "ios/$NAME.xcodeproj" "${{ steps.sign.outputs.team }}" "${{ steps.sign.outputs.uuid }}" com.eighteenzerodcai.app
+          echo "WS=$WS" >> "$GITHUB_ENV"
+          echo "SCHEME=$NAME" >> "$GITHUB_ENV"
+
+      - name: Archive
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            archive | xcbeautify --renderer github-actions
+
+      - name: Export the .ipa
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/export.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>teamID</key><string>${{ steps.sign.outputs.team }}</string>
+            <key>provisioningProfiles</key><dict>
+              <key>com.eighteenzerodcai.app</key><string>${{ steps.sign.outputs.uuid }}</string>
+            </dict>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" -exportOptionsPlist "$RUNNER_TEMP/export.plist"
+          ls -la "$RUNNER_TEMP/export"
+
+      - name: Upload to App Store Connect
+        run: |
+          set -euo pipefail
+          IPA=$(ls "$RUNNER_TEMP"/export/*.ipa | head -1)
+          xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$EXPO_ASC_KEY_ID" --apiIssuer "$EXPO_ASC_ISSUER_ID"
+
+      - name: Hand it to TestFlight testers
+        if: inputs.testers
+        run: |
+          set -euo pipefail
+          SINCE=()
+          if git rev-parse -q --verify refs/tags/testflight >/dev/null; then SINCE=(--since testflight); fi
+          node scripts/store/beta-release.mjs --build "${{ steps.number.outputs.n }}" "${SINCE[@]}"
+          git tag -f testflight HEAD
+          git push -f origin refs/tags/testflight
+
+      - name: Discard the signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+          rm -rf "$RUNNER_TEMP/profile.mobileprovision" "$RUNNER_TEMP/profile.plist" \
+                 "$(dirname "$EXPO_ASC_API_KEY_PATH")" "$HOME/.appstoreconnect/private_keys" \
+                 "$HOME/Library/MobileDevice/Provisioning Profiles" \
+                 "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
