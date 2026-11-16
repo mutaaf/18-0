@@ -10,7 +10,7 @@
  * Deploy: supabase functions deploy complete-game
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { audit, beginRequest, corsHeaders, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
+import { audit, beginRequest, corsHeaders, instrument, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
 import {
   DEFAULT_SCORING_CONFIG,
   ROSTER_SLOTS,
@@ -99,7 +99,7 @@ function toResponse(row: Record<string, unknown>) {
   };
 }
 
-Deno.serve(async (req) => {
+Deno.serve(instrument('complete-game', async (req) => {
   const ctx = beginRequest(req);
   const CORS = corsHeaders(req);
   // Both, and in this order: `extra` was previously accepted and never spread,
@@ -358,4 +358,4 @@ Deno.serve(async (req) => {
   if (!recorded) log('error', ctx, { event: 'completion_unaudited', session_id: session.id });
 
   return json({ result: toResponse(saved), replayed: false, versions });
-});
+}));

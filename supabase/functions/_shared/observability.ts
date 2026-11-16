@@ -176,3 +176,92 @@ export function corsHeaders(req: Request): Record<string, string> {
     'access-control-allow-methods': 'POST, OPTIONS',
   };
 }
+
+/**
+ * One summary line per request, and a JSON 500 instead of a dead connection.
+ *
+ * The functions already log their *decisions* (`audit`), but a request that
+ * never reached a decision -- refused at validation, or thrown out of the
+ * handler by a bug -- left nothing at all: an uncaught exception in
+ * `Deno.serve` is a bare 500 with no request id, no function name and no line
+ * in the logs that says which of the functions it was. Wrapping each handler
+ * here gives every request exactly one `request_finished` line, whatever
+ * happened inside:
+ *
+ *   {"event":"request_finished","function":"spin","status":200,"outcome":"ok",
+ *    "duration_ms":143,"request_id":"…","client":"ios"}
+ *
+ * and a `request_crashed` line with the error's class when the handler throws.
+ * Never the body, the headers or the caller -- the audit row already ties a
+ * request id to an account where that is warranted, and logs are read by more
+ * people than the audit table is.
+ *
+ * Search the function logs for `request_crashed`, or for `"outcome":"error"`,
+ * to find every server failure; docs/observability.md has the queries.
+ */
+export function instrument(
+  fn: string,
+  handler: (req: Request) => Promise<Response> | Response,
+): (req: Request) => Promise<Response> {
+  return async (req: Request) => {
+    // A preflight is the browser's business, not a request worth a line.
+    if (req.method === 'OPTIONS') return await handler(req);
+    const startedAt = performance.now();
+    const supplied = req.headers.get('x-request-id');
+    const client = (req.headers.get('x-client') ?? 'unknown').slice(0, 32);
+    const line = (level: 'info' | 'warn' | 'error', fields: Record<string, unknown>) => {
+      const text = JSON.stringify({
+        level,
+        ts: new Date().toISOString(),
+        function: fn,
+        client,
+        duration_ms: Math.round(performance.now() - startedAt),
+        ...fields,
+      });
+      if (level === 'error') console.error(text);
+      else if (level === 'warn') console.warn(text);
+      else console.log(text);
+    };
+
+    try {
+      const response = await handler(req);
+      const status = response.status;
+      const outcome = status < 400 ? 'ok' : status < 500 ? 'rejected' : 'error';
+      // The refusal code is the one thing worth reading out of a body, and
+      // only a failure has one. Read from a clone so the caller still gets it.
+      let code: string | undefined;
+      if (status >= 400) {
+        try {
+          const body = await response.clone().json();
+          if (typeof body?.error === 'string') code = body.error.slice(0, 64);
+        } catch {
+          // Not JSON. The status says enough.
+        }
+      }
+      line(outcome === 'error' ? 'error' : outcome === 'rejected' ? 'warn' : 'info', {
+        event: 'request_finished',
+        request_id: response.headers.get('x-request-id') ?? supplied ?? null,
+        status,
+        outcome,
+        ...(code ? { code } : {}),
+      });
+      return response;
+    } catch (thrown) {
+      const requestId = supplied && UUID.test(supplied) ? supplied : crypto.randomUUID();
+      line('error', {
+        event: 'request_crashed',
+        request_id: requestId,
+        status: 500,
+        outcome: 'error',
+        error_class: thrown instanceof Error ? thrown.name : typeof thrown,
+        // Capped. Server messages are ours and Postgres's rather than a
+        // player's, and the cap is so one enormous message cannot swamp a line.
+        error: (thrown instanceof Error ? thrown.message : String(thrown)).slice(0, 200),
+      });
+      return new Response(JSON.stringify({ error: 'internal', requestId }), {
+        status: 500,
+        headers: { 'content-type': 'application/json', 'x-request-id': requestId, ...corsHeaders(req) },
+      });
+    }
+  };
+}

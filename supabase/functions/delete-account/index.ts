@@ -14,10 +14,10 @@
  * resolves to an account.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { audit, beginRequest, corsHeaders, log, traceHeaders } from '../_shared/observability.ts';
+import { audit, beginRequest, corsHeaders, instrument, log, traceHeaders } from '../_shared/observability.ts';
 
 
-Deno.serve(async (req) => {
+Deno.serve(instrument('delete-account', async (req) => {
   const CORS = corsHeaders(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -90,7 +90,7 @@ Deno.serve(async (req) => {
   });
 
   return json({ ok: true, sessionsRemoved: sessions ?? 0 });
-});
+}));
 
 /**
  * Asks PostHog to delete everything held under this account id.

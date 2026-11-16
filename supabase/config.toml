@@ -405,3 +405,9 @@ verify_jwt = false
 
 [functions.delete-account]
 verify_jwt = false
+
+# Read-only and unauthenticated on purpose: the synthetic monitor calls it with
+# no account, and what it answers (a version, a card count, a latency) is
+# nothing a caller could not already learn by playing. See functions/health.
+[functions.health]
+verify_jwt = false
