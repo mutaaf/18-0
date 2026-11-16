@@ -94,6 +94,37 @@ describes — turning a near-miss into an explanation:
 | `recordBands` | `config.ts` | How wide each ending is |
 | `eliteDepth`, `chemistry` | `config.ts` | Small, deliberately |
 
+## Player feedback
+
+After a season, a player can open "Ratings look off?" under the roster and
+mark any of their seven as deserving a higher (▲) or lower (▼) rating
+(`app/result.tsx`, `features/rating-feedback.ts`, flag `rating_feedback`).
+Each opinion is one row in `rating_feedback` (migration 0025): one per player,
+per card, per model version, changed or withdrawn by tapping again. Votes made
+offline queue on the device and go with the next flush.
+
+It changes nothing by itself. A rating is deterministic and every published
+score depends on it, so feedback is *evidence for the next refit*, read by a
+person:
+
+```sql
+select * from ops_rating_feedback where model_version = '1.4.0' limit 50;
+```
+
+`net` is too-low minus too-high among distinct voters; `rating_now` is the
+card's current rating beside the average `rating_shown`. What to do with it:
+
+- **Ignore small numbers.** A handful of votes on a card is taste. Look for
+  cards with many voters and a lopsided `net`, and for *patterns* across
+  cards -- a whole position, era or archetype leaning one way says more about
+  the model than any single season does.
+- **Fix the model, not the card.** A hand-edited rating is exactly what
+  invariant 1 forbids. A pattern points at an input (a weight, an era
+  adjustment, a position curve); change that, rebuild the dataset, refit the
+  calibration and the gates, and bump `version`.
+- **Read the next version afresh.** Feedback is keyed by model version, so the
+  summary of a new model starts empty and says whether the refit landed.
+
 ## Commands
 
 ```bash

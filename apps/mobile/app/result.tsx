@@ -9,6 +9,8 @@ import { EASE_OUT, Layer, SkipLayer, keyframes, useTimeline } from '@/components
 import { CUE, ROSTER_STEP, Scoreboard } from '@/components/Scoreboard';
 import { Celebration } from '@/components/Celebration';
 import { Screen } from '@/components/Screen';
+import { SpreadLayout } from '@/components/SpreadLayout';
+import { useSpread } from '@/features/fold';
 import { RatingBadge } from '@/components/RatingBadge';
 import { ShareCard, type ShareRosterRow } from '@/components/ShareCard';
 import { AdSlot } from '@/components/AdSlot';
@@ -20,6 +22,14 @@ import { APP_URL_LABEL, prepareWebShareFile, shareResult, type ShareOutcome } fr
 import { track } from '@/features/telemetry';
 import { askForReminders, scheduleStreakReminder } from '@/features/reminders';
 import { currentUser, hideSeason } from '@/services/supabase';
+import { useFlag } from '@/features/flags';
+import {
+  feedbackKey,
+  flushRatingFeedback,
+  giveRatingFeedback,
+  useRatingFeedback,
+  type RatingVerdict,
+} from '@/features/rating-feedback';
 import { lookupCard, useGameStore } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
 import {
@@ -75,6 +85,7 @@ const SHARE_NOTE: Record<ShareOutcome, string | null> = {
 };
 
 export default function Result() {
+  const { spread, ref: spreadRef, onLayout: onSpreadLayout } = useSpread();
   // Subscribes this screen to the palette. React Navigation memoizes the
   // element it was handed, so a theme change reaches the component that
   // *creates* this screen's children or it reaches nothing -- which showed up
@@ -92,6 +103,15 @@ export default function Result() {
 
   const cardRef = useRef<View>(null);
   const [shareNote, setShareNote] = useState<string | null>(null);
+  // "Rate the ratings": folded away until a player asks for it, so a finished
+  // season reads as a result and not a survey. See features/rating-feedback.
+  const ratingFeedback = useFlag('rating_feedback');
+  const [rating, setRating] = useState(false);
+  const verdicts = useRatingFeedback((s) => s.verdicts);
+  useEffect(() => {
+    // Anything voted while offline goes now.
+    void flushRatingFeedback();
+  }, []);
   /** The card as a file, made before the tap on a browser whose share sheet takes one. */
   const shareFile = useRef<File | null>(null);
   /** Optimistic: the row flips immediately and reverts if the server refuses. */
@@ -513,16 +533,43 @@ export default function Result() {
   const detail = (
     <View style={styles.detailColumn}>
       <View style={styles.panel}>
-        <Text style={styles.panelTitle}>Roster</Text>
+        <View style={styles.panelHead}>
+          <Text style={[styles.panelTitle, styles.panelTitleInline]}>Roster</Text>
+          {ratingFeedback ? (
+            <Pressable
+              onPress={() => setRating((on) => !on)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: rating }}
+              accessibilityLabel={rating ? 'Done rating the ratings' : 'Rate the ratings'}
+            >
+              {({ hovered }: PressState) => (
+                <Text style={[styles.rateToggle, (hovered || rating) && styles.rateToggleOn]}>
+                  {rating ? 'Done' : 'Ratings look off?'}
+                </Text>
+              )}
+            </Pressable>
+          ) : null}
+        </View>
+        {rating ? (
+          <Text style={styles.rateHint}>
+            ▲ if a season deserves more, ▼ if less. It goes into the next model, never this score.
+          </Text>
+        ) : null}
         {rosterCards.map(({ slot, card }, index) => (
           <Layer key={slot} t={line.t} at={CUE.roster + index * ROSTER_STEP}>
             {/* Every name in the app opens its card. A player who has just
                 been told a roster scored 92.6 will want to look at the seven
                 seasons that did it. */}
+            {/* The arrows sit beside the row's press target rather than in it:
+                a button inside a button is invalid on the web, and React says
+                so on every render. */}
+            <View style={styles.rosterLine}>
             <Pressable
               onPress={() => router.push(`/card/${encodeURIComponent(card.id)}`)}
               style={({ hovered, pressed }: PressState) => [
                 styles.rosterRow,
+                styles.rosterPress,
                 hovered && { backgroundColor: '#FFFFFF0A' },
                 pressed && { opacity: 0.85 },
               ]}
@@ -542,8 +589,28 @@ export default function Result() {
                 {eraLabel(card.era)}
               </Text>
             </View>
-            <RatingBadge rating={card.rating} size="sm" />
+            {rating ? null : <RatingBadge rating={card.rating} size="sm" />}
             </Pressable>
+            {rating ? (
+              <Verdicts
+                name={displayName(card)}
+                current={verdicts[feedbackKey(result.ratingModelVersion, card.id)]}
+                onVerdict={(verdict) =>
+                  giveRatingFeedback({
+                    cardId: card.id,
+                    modelVersion: result.ratingModelVersion,
+                    ratingShown: card.rating,
+                    verdict,
+                  })
+                }
+              />
+            ) : null}
+            {rating ? (
+              <View style={styles.badgeSlot}>
+                <RatingBadge rating={card.rating} size="sm" />
+              </View>
+            ) : null}
+            </View>
           </Layer>
         ))}
       </View>
@@ -613,10 +680,8 @@ export default function Result() {
     </View>
   );
 
-  return (
-    <Screen maxWidth={layout.wide ? 760 : undefined}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Layer t={line.t} at={CUE.plate} distance={0} style={styles.header}>
+  const header = (
+      <Layer t={line.t} at={CUE.plate} distance={0} style={styles.header}>
           <Brand size={22} tint={perfect ? color.goldBright : undefined} />
           <Pressable
             onPress={() => router.replace(homeRoute())}
@@ -626,10 +691,39 @@ export default function Result() {
             <Text style={styles.close}>✕</Text>
           </Pressable>
         </Layer>
+  );
 
-        {verdict}
-        {detail}
-      </ScrollView>
+  // Open as a book, the record and its verdict take one page and the roster
+  // with how it scored the other: one column down the middle put the crease
+  // through the record.
+  const paged = spread.kind !== 'single';
+
+  return (
+    <Screen maxWidth={paged ? undefined : layout.wide ? 760 : undefined} bleed={paged}>
+      <View ref={spreadRef} onLayout={onSpreadLayout} style={styles.fill}>
+        {paged ? (
+          <SpreadLayout
+            spread={spread}
+            first={
+              <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+                {header}
+                {verdict}
+              </ScrollView>
+            }
+            second={
+              <ScrollView contentContainerStyle={[styles.scroll, styles.scrollSecond]} showsVerticalScrollIndicator={false}>
+                {detail}
+              </ScrollView>
+            }
+          />
+        ) : (
+          <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+            {header}
+            {verdict}
+            {detail}
+          </ScrollView>
+        )}
+      </View>
 
       {/* Rendered off-screen at a fixed size so the captured image is identical
           on every device, and hidden from assistive tech. */}
@@ -661,6 +755,49 @@ export default function Result() {
   );
 }
 
+/**
+ * Two small arrows beside a rating. Tapping the lit one again takes the
+ * opinion back, so a mis-tap costs nothing.
+ */
+function Verdicts({
+  name,
+  current,
+  onVerdict,
+}: {
+  name: string;
+  current: RatingVerdict | undefined;
+  onVerdict: (verdict: RatingVerdict | null) => void;
+}) {
+  const tap = (verdict: RatingVerdict) => {
+    Haptics.selectionAsync().catch(() => {});
+    onVerdict(current === verdict ? null : verdict);
+  };
+  return (
+    <View style={styles.verdicts}>
+      <Pressable
+        onPress={() => tap('too_low')}
+        hitSlop={4}
+        accessibilityRole="button"
+        accessibilityState={{ selected: current === 'too_low' }}
+        accessibilityLabel={`${name} deserves a higher rating`}
+        style={[styles.verdict, current === 'too_low' && styles.verdictUp]}
+      >
+        <Text style={[styles.verdictGlyph, current === 'too_low' && { color: color.positive }]}>▲</Text>
+      </Pressable>
+      <Pressable
+        onPress={() => tap('too_high')}
+        hitSlop={4}
+        accessibilityRole="button"
+        accessibilityState={{ selected: current === 'too_high' }}
+        accessibilityLabel={`${name} deserves a lower rating`}
+        style={[styles.verdict, current === 'too_high' && styles.verdictDown]}
+      >
+        <Text style={[styles.verdictGlyph, current === 'too_high' && { color: color.negative }]}>▼</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 function Line({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <View style={styles.line}>
@@ -673,6 +810,8 @@ function Line({ label, value, tone }: { label: string; value: string; tone?: str
 const styles = themed(() => StyleSheet.create({
   blank: { flex: 1 },
   scroll: { paddingHorizontal: space.lg, paddingBottom: 60, gap: space.lg },
+  scrollSecond: { paddingTop: space.lg },
+  fill: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -881,6 +1020,35 @@ const styles = themed(() => StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: space.sm,
   },
+  rosterLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: color.line,
+  },
+  rosterPress: { flex: 1, minWidth: 0, borderBottomWidth: 0 },
+  // Badges differ in width by a digit; a fixed slot keeps every row's arrows
+  // in one column.
+  badgeSlot: { width: 58, alignItems: 'flex-end' },
+  panelHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: space.sm },
+  panelTitleInline: { marginBottom: 0 },
+  rateToggle: { fontFamily: font.bodyRegular, fontSize: 11, color: color.textFaint, textDecorationLine: 'underline' },
+  rateToggleOn: { color: color.silver },
+  rateHint: { fontFamily: font.bodyRegular, fontSize: 11, lineHeight: 16, color: color.textDim, marginBottom: space.xs },
+  verdicts: { flexDirection: 'row', gap: 6 },
+  verdict: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: color.line,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verdictUp: { borderColor: color.positive, backgroundColor: color.actionGlow },
+  verdictDown: { borderColor: color.negative, backgroundColor: '#FFFFFF08' },
+  verdictGlyph: { fontSize: 11, color: color.textFaint },
   rosterRow: {
     flexDirection: 'row',
     alignItems: 'center',

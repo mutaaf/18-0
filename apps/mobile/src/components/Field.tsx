@@ -228,7 +228,9 @@ function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, width, 
         </Text>
       )}
       <View style={[styles.slotUnderline, { backgroundColor: filled ? accent : color.line }]} />
-      {filled && burst === card.id ? <Sparks key={card.id} accent={accent} /> : null}
+      {/* Its own key: the landing card above is a sibling keyed by card.id,
+          and two children with one key is a React error on every pick. */}
+      {filled && burst === card.id ? <Sparks key={`sparks-${card.id}`} accent={accent} /> : null}
     </Pressable>
   );
 }

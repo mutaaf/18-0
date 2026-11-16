@@ -291,6 +291,19 @@ export const FLAGS = {
     removeBy: '2027-11-01',
     fallback: true,
   },
+  /**
+   * The "rate the ratings" control under a finished season's roster. Players
+   * asked for a more realistic model; this collects which cards they think are
+   * off, for a person to read at the next refit. Never touches a score.
+   */
+  rating_feedback: {
+    key: 'rating_feedback',
+    kind: 'toggle',
+    summary: 'Lets a player mark any of their seven as rated too low or too high after a season, for the next model refit.',
+    owner: 'mutaaf',
+    removeBy: '2027-06-01',
+    fallback: true,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof FLAGS;
