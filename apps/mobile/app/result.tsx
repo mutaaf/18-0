@@ -17,6 +17,7 @@ import { SLOT_RESULTS } from '@/features/ads-policy';
 import { homeRoute, isEmbedded, tellHost } from '@/features/embed';
 import { standing } from '@/features/frame-standing';
 import { APP_URL_LABEL, prepareWebShareFile, shareResult, type ShareOutcome } from '@/features/share';
+import { track } from '@/features/telemetry';
 import { askForReminders, scheduleStreakReminder } from '@/features/reminders';
 import { currentUser, hideSeason } from '@/services/supabase';
 import { lookupCard, useGameStore } from '@/state/game';
@@ -291,6 +292,7 @@ export default function Result() {
   const share = () => {
     setShareNote(null);
     void shareResult(cardRef, result, shareRows, shareFile.current).then((outcome) => {
+      track('result_shared', { outcome });
       setShareNote(SHARE_NOTE[outcome]);
     });
   };
@@ -934,3 +936,5 @@ const styles = themed(() => StyleSheet.create({
   },
   captureHost: { position: 'absolute', left: -10000, top: 0, opacity: 0 },
 }));
+
+export { RouteError as ErrorBoundary } from '@/components/RouteError';

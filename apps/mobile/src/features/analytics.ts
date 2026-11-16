@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { uuid } from '@/features/uuid';
 import { setSink, type TelemetryEvent } from '@/features/telemetry';
+import { parseStack } from '@/features/diagnostics/errors';
 
 /**
  * Product analytics, when they are configured.
@@ -86,6 +87,14 @@ async function send(path: string, body: unknown): Promise<void> {
     // Dropped on purpose. Analytics that can break the game is worse than no
     // analytics, and the local ring buffer still has everything.
   }
+}
+
+/**
+ * Sends whatever is queued now. For the one caller that cannot wait for the
+ * timer: web vitals, measured on the way out of a page (`vitals.web.ts`).
+ */
+export function flushAnalytics(): Promise<void> {
+  return flush();
 }
 
 async function flush(): Promise<void> {
@@ -182,6 +191,41 @@ const base = (): Record<string, unknown> => ({
 });
 
 /**
+ * An error report in the shape PostHog's error tracking reads.
+ *
+ * Telemetry events are flat -- strings, numbers, booleans -- because the local
+ * ring and the console are. PostHog groups exceptions from `$exception_list`,
+ * a nested structure, so it is built here, on the way out, from the flat
+ * fields `features/diagnostics/report.ts` wrote. The flat ones are kept too:
+ * they are what an insight can filter on.
+ */
+function exceptionProperties(props: Readonly<Record<string, unknown>>): Record<string, unknown> {
+  const stack = typeof props.$exception_stack_trace_raw === 'string' ? props.$exception_stack_trace_raw : '';
+  const frames = parseStack(stack).map((frame) => ({
+    platform: 'web:javascript',
+    function: frame.function,
+    filename: frame.filename,
+    lineno: frame.lineno,
+    colno: frame.colno,
+    in_app: !/node_modules/.test(frame.filename),
+  }));
+  return {
+    ...props,
+    $exception_list: [
+      {
+        type: props.$exception_type,
+        value: props.$exception_message,
+        mechanism: { handled: props.$exception_handled === true, synthetic: false, type: props.$exception_source },
+        ...(frames.length ? { stacktrace: { type: 'raw', frames } } : {}),
+      },
+    ],
+    // PostHog groups on this when it is present, instead of on the frames --
+    // which on a minified web bundle change with every deploy.
+    $exception_fingerprint: props.$exception_fingerprint,
+  };
+}
+
+/**
  * Ask PostHog which flags this player has.
  *
  * `/decide` is the same free-tier product as the events above -- flags and
@@ -241,7 +285,10 @@ export function startAnalytics(): void {
       queue.push({
         event: event.name,
         distinct_id: identified ?? (await deviceId()),
-        properties: { ...event.props, ...base() },
+        properties: {
+          ...(event.name === '$exception' ? exceptionProperties(event.props) : event.props),
+          ...base(),
+        },
         timestamp: new Date(event.at).toISOString(),
       });
       if (queue.length >= BATCH_LIMIT) void flush();

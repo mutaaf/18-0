@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import { startAds } from '@/features/ads';
 import { startAnalytics } from '@/features/analytics';
+import { startDiagnostics, useDiagnostics } from '@/features/diagnostics';
 import { startFlags } from '@/features/flags';
 import { FoldProvider } from '@/features/fold';
 import { startStatLines } from '@/features/stat-lines';
@@ -22,6 +23,15 @@ import { color, font, startTheme, themed } from '@/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
+// Before the first render, not in an effect: an error thrown while the first
+// screen draws should land in a handler rather than in nothing.
+startDiagnostics();
+
+// A render error anywhere below this layout replaces the app with a recovery
+// screen rather than a blank one, and is reported. Routes with something at
+// stake (play, result) export their own, so a bug there costs only that screen.
+export { RouteError as ErrorBoundary } from '@/components/RouteError';
+
 export default function RootLayout() {
   useThemeFlagGuard();
   const [ready, error] = useFonts({
@@ -35,6 +45,7 @@ export default function RootLayout() {
   useEffect(() => {
     if (ready || error) SplashScreen.hideAsync().catch(() => {});
   }, [ready, error]);
+  useDiagnostics(Boolean(ready || error));
 
   // Installs a second sink on the telemetry that already exists. With no
   // PostHog key configured this does nothing at all and makes no network call,
