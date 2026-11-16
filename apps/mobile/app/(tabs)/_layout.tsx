@@ -62,3 +62,5 @@ export default function TabsLayout() {
 }
 
 const styles = themed(() => StyleSheet.create({ root: { flex: 1, backgroundColor: color.void } }));
+
+export { RouteError as ErrorBoundary } from '@/components/RouteError';

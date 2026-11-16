@@ -63,7 +63,28 @@ export type EventName =
    * exactly these two properties, so a variant that is resolved but never
    * reported is a variant with no denominator. See `features/flags`.
    */
-  | '$feature_flag_called';
+  | '$feature_flag_called'
+  /**
+   * Diagnostics (`features/diagnostics`, docs/observability.md). Gated by the
+   * `diagnostics` flag and by a browser's GPC/DNT signal, so none of these is
+   * sent where either says no.
+   *
+   * `$exception` is PostHog's error-tracking event, spelled their way for the
+   * reason `$feature_flag_called` is: their issue grouping only reads an event
+   * of exactly this name. The props here are flat; `analytics.ts` rebuilds
+   * `$exception_list` on the way out.
+   */
+  | '$exception'
+  /** Cold start to the first screen a player can use, once per launch. */
+  | 'app_started'
+  /** The last launch ended with the app in front and no JS error: a native crash, OOM or watchdog kill. */
+  | 'app_unclean_exit'
+  /** LCP, CLS and INP on the web build, once per page. */
+  | 'web_vitals'
+  /** Every Edge Function call and ranked insert: how long, and how it ended. */
+  | 'server_call'
+  /** A ranked season fell back to unranked, wherever in the game it happened. */
+  | 'season_downgraded';
 
 export interface TelemetryEvent {
   readonly name: EventName;
@@ -89,21 +110,56 @@ export const ratingBucket = (rating: number): string => {
   return '<72';
 };
 
+/**
+ * Events tracked before any sink was installed, handed to the first one.
+ *
+ * The sink arrives in the root layout's effect, and diagnostics start before
+ * the first render -- so a crash reported from the previous launch, or the
+ * start-up time, was being tracked into a ring with nobody listening, and
+ * reached the console and never PostHog. Capped, because with no PostHog key
+ * configured no sink ever arrives.
+ */
+const HELD_LIMIT = 100;
+let held: TelemetryEvent[] = [];
+
 export function setSink(next: Sink | null): void {
   sink = next;
+  if (!next || held.length === 0) return;
+  const early = held;
+  held = [];
+  for (const event of early) {
+    try {
+      next(event);
+    } catch {
+      // Same rule as track(): telemetry must never be able to break gameplay.
+    }
+  }
 }
 
-export function track(name: EventName, props: Record<string, string | number | boolean> = {}): void {
+/**
+ * `at` is for an event reported after the fact -- a crash from the previous
+ * launch is sent on this one, and filing it under now would put it in the
+ * wrong release's error rate.
+ */
+export function track(
+  name: EventName,
+  props: Record<string, string | number | boolean> = {},
+  at: number = Date.now(),
+): void {
   const event: TelemetryEvent = {
     name,
-    at: Date.now(),
+    at,
     props: { ...props, dataset: DATASET.version, model: DATASET.ratingModelVersion },
   };
   ring.push(event);
   if (ring.length > RING_SIZE) ring.shift();
   forwardToBoxOffice(event);
+  if (!sink) {
+    if (held.length < HELD_LIMIT) held.push(event);
+    return;
+  }
   try {
-    sink?.(event);
+    sink(event);
   } catch {
     // Telemetry must never be able to break gameplay.
   }
@@ -145,7 +201,9 @@ export function summarise(): SessionSummary {
     picks: count('player_selected'),
     rejected: count('selection_rejected'),
     deadEnds: count('spin_dead_end'),
-    gamesFinished: count('result_revealed'),
+    // `roster_completed`, not `result_revealed`: the latter is declared but
+    // nothing sends it, so the console's "Games finished" always read zero.
+    gamesFinished: count('roster_completed'),
     riggedSpins: count('spin_rigged'),
     medianPickSeconds: gaps.length ? Number(gaps[Math.floor(gaps.length / 2)]!.toFixed(1)) : null,
   };

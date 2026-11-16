@@ -7,6 +7,7 @@ import { Screen } from '@/components/Screen';
 import { OperatorConsole } from '@/components/OperatorConsole';
 import { amOperator } from '@/services/operator';
 import { recentEvents, summarise } from '@/features/telemetry';
+import { diagnosticsAllowed } from '@/features/diagnostics';
 import {
   clearOverrides,
   flagDefinition,
@@ -135,6 +136,8 @@ export default function Admin() {
         <FlagsSection />
 
         <StatLinesSection />
+
+        <DiagnosticsSection />
 
         <View style={styles.warn}>
           <Text style={styles.warnText}>
@@ -360,6 +363,47 @@ function StatLinesSection() {
       <Metric label="Bundled revision" value={bundled.slice(0, 12)} />
       <Metric label="Applied revision" value={revision ? revision.slice(0, 12) : '—'} />
       <Metric label="Cards corrected" value={String(corrected)} />
+    </Section>
+  );
+}
+
+/**
+ * The error reporter, proved from the device it runs on.
+ *
+ * A reporter is the one piece of code whose failure is silent by definition,
+ * so it needs a way to be exercised on demand: each row throws the kind of
+ * error it names, and the report shows up in the recent events below and, with
+ * the flag on, in PostHog's error tracking within a flush (15 seconds). The
+ * messages start with "Operator test" so they can be filtered out of any
+ * dashboard. Behind the console's gate like everything else here.
+ */
+function DiagnosticsSection() {
+  const [boom, setBoom] = useState(false);
+  if (boom) throw new Error('Operator test: render error from the console');
+  return (
+    <Section title="Diagnostics">
+      <Text style={styles.help}>
+        {diagnosticsAllowed()
+          ? 'Error reports, start-up time and server-call health are being sent to PostHog.'
+          : 'Diagnostics are off on this device: the flag is off, or the browser asked not to be tracked.'}
+      </Text>
+      <ActionRow label="Throw while rendering this screen" action="Throw" destructive onPress={() => setBoom(true)} />
+      <ActionRow
+        label="Throw outside React"
+        action="Throw"
+        destructive
+        onPress={() =>
+          setTimeout(() => {
+            throw new Error('Operator test: uncaught error from the console');
+          }, 0)
+        }
+      />
+      <ActionRow
+        label="Reject a promise nobody catches"
+        action="Reject"
+        destructive
+        onPress={() => void Promise.reject(new Error('Operator test: unhandled rejection from the console'))}
+      />
     </Section>
   );
 }

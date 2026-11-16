@@ -116,6 +116,11 @@ The handle is sent, because the player chose it and it is already on a public
 leaderboard. That is the one identifier a human could recognise, and it is the
 one that makes a profile useful to look at.
 
+Error reports, crash counts, start-up time, web vitals and server-call
+timings travel the same pipe under their own kill switch, the `diagnostics`
+flag. What they carry, and what they never do, is in
+[`observability.md`](observability.md).
+
 ## Sign-out
 
 `signOut()` calls `resetAnalytics()`, which clears the stored device id and the

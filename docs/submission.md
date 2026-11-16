@@ -144,12 +144,22 @@ there, and with no third-party sign-in offered, 4.8 does not apply.
 
 ## App Store — App Privacy
 
-Two types collected, both **linked to the user**, both **not used for tracking**.
+Five types collected, all **linked to the user**, none **used for tracking**.
 
 | Type | Category | Purpose | Linked | Tracking |
 |---|---|---|---|---|
 | Usage Data | Product Interaction | Analytics | Yes | No |
 | Identifiers | User ID | Analytics, App Functionality | Yes | No |
+| Diagnostics | Crash Data | App Functionality, Analytics | Yes | No |
+| Diagnostics | Performance Data | App Functionality, Analytics | Yes | No |
+| Diagnostics | Other Diagnostic Data | App Functionality, Analytics | Yes | No |
+
+The three Diagnostics rows are the error reports, crash-on-next-launch reports,
+start-up time and server-call timings that `features/diagnostics` sends
+(docs/observability.md). **They must be on the label before a build carrying
+them goes to review**; until then the `diagnostics` flag can be held off in
+PostHog, which stops them on every device without a release. Linked, because
+they ride on the same PostHog identifier as the gameplay events.
 
 Nothing else. Specifically **not** collected: contact info beyond the sign-in
 provider's own handling, location, contacts, health, financial info, browsing
@@ -171,6 +181,10 @@ Same declaration, different form.
 - **App activity → App interactions**: collected, not shared, processed
   ephemerally = no, required = no, purpose = Analytics
 - **Device or other IDs**: collected, not shared, purpose = Analytics
+- **App info and performance → Crash logs, Diagnostics, Other app performance
+  data**: collected, not shared, processed ephemerally = no, required = no,
+  purpose = App functionality, Analytics (the `diagnostics` reports;
+  docs/observability.md)
 - **Data is encrypted in transit**: yes
 - **Users can request data deletion**: yes, in-app — Account screen
 

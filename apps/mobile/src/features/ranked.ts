@@ -4,6 +4,7 @@ import { DATASET } from '@17-0/data';
 import { currentUser, ensureSession, isBackendConfigured, supabase } from '@/services/supabase';
 import { uuid } from '@/features/uuid';
 import type { GameMode } from '@/state/game';
+import { noteServerCall } from '@/features/diagnostics/health';
 
 /**
  * A game played against the server.
@@ -53,21 +54,40 @@ const refused = (reason: string): RankedResult<never> => ({
 
 async function invoke<T>(fn: string, body: Record<string, unknown>): Promise<RankedResult<T>> {
   if (!supabase) return offline('Ranked play needs a connection.');
+  // Minted here and sent, so the Edge Function logs and audits this request
+  // under the same id the client reports it with: a slow or failed spin in
+  // PostHog can be looked up in the function's logs by `request_id`.
+  // `beginRequest` accepts a well-formed one and never trusts it as unique.
+  const requestId = uuid();
+  const started = Date.now();
   try {
     const { data, error } = await supabase.functions.invoke(fn, {
       body,
       // The trail records which platform asked, so "only iOS is seeing this"
       // is answerable. Not identifying: three possible values, no device id.
-      headers: { 'x-client': Platform.OS },
+      headers: { 'x-client': Platform.OS, 'x-request-id': requestId },
     });
     if (error) {
       // A refusal arrives as a non-2xx with a JSON body; anything else is the
       // network, and the two mean very different things to the player.
       const payload = await readError(error);
+      const status = (error as { context?: { status?: number } }).context?.status;
+      const errorClass = (error as { name?: string }).name;
+      noteServerCall(fn, payload ? 'refused' : 'offline', Date.now() - started, {
+        reason: payload ?? undefined,
+        status: typeof status === 'number' ? status : undefined,
+        errorClass,
+        requestId,
+      });
       return payload ? refused(payload) : offline('Could not reach the server.');
     }
+    noteServerCall(fn, 'ok', Date.now() - started, { requestId });
     return { ok: true, value: data as T };
-  } catch {
+  } catch (thrown) {
+    noteServerCall(fn, 'offline', Date.now() - started, {
+      errorClass: thrown instanceof Error ? thrown.name : 'unknown',
+      requestId,
+    });
     return offline('Could not reach the server.');
   }
 }
@@ -108,6 +128,7 @@ export async function beginRanked(
   if (!me) return offline('Could not start a session.');
 
   const idempotencyKey = uuid();
+  const started = Date.now();
   const { data, error } = await supabase
     .from('game_sessions')
     .insert({
@@ -119,6 +140,12 @@ export async function beginRanked(
     })
     .select('id')
     .single();
+  // The insert that opens a ranked game is the one server call that is not an
+  // Edge Function, so it is reported under its own name. The refusal reasons
+  // are Postgres's, and only the class of it is kept.
+  noteServerCall('open-session', error || !data ? 'refused' : 'ok', Date.now() - started, {
+    ...(error ? { reason: error.code ?? 'insert_failed' } : {}),
+  });
   if (error || !data) {
     // Three different refusals arrive here as one failed insert, and they need
     // three different sentences. The gameday one is a race a player can

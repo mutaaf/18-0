@@ -88,7 +88,15 @@ module.exports = {
     // the environment so it has to be a .js file. Without it every build
     // command stops and asks to create a *second* project.
     owner: 'mutaaf',
-    extra: { eas: { projectId: 'ea84b387-544b-46ac-a0e1-0e0f9a5ea492' } },
+    //
+    // `buildId` is what an error report says it came from on the web, which has
+    // no build number of its own: the commit Vercel or the Pages workflow built.
+    // Native builds report their store build number instead
+    // (features/diagnostics/context.ts), so this is only the fallback there.
+    extra: {
+      eas: { projectId: 'ea84b387-544b-46ac-a0e1-0e0f9a5ea492' },
+      buildId: (process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.GITHUB_SHA ?? '').slice(0, 7) || null,
+    },
 
     experiments: { typedRoutes: true, ...(baseUrl ? { baseUrl } : {}) },
   },

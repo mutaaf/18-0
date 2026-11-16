@@ -262,6 +262,35 @@ export const FLAGS = {
     removeBy: '2027-03-01',
     fallback: false,
   },
+
+  /**
+   * Diagnostics reports, on or off.
+   *
+   * A kill switch over one category of data rather than a feature: error
+   * reports (`$exception`), start-up time, web vitals, server-call latency and
+   * downgrades (`features/diagnostics`, docs/observability.md). On is the
+   * product -- a crash nobody hears about is a crash nobody fixes -- so the
+   * fallback is on.
+   *
+   * Two reasons to have the switch at all. A bug that throws in a loop is
+   * capped per device by the limiter, but a bug on every device at once is
+   * still a lot of devices, and the PostHog free tier is a budget. And this is
+   * the first data the native apps send under the App Privacy label's
+   * Diagnostics heading: if that label and this build ever disagree, the honest
+   * fix is the switch, not a release.
+   *
+   * Like every toggle it must exist in PostHog before it ships
+   * (`scripts/posthog-flags.ts --apply`), or a PostHog that answers without
+   * mentioning it switches diagnostics off everywhere.
+   */
+  diagnostics: {
+    key: 'diagnostics',
+    kind: 'toggle',
+    summary: 'Sends error reports, start-up time, web vitals and server-call health to PostHog. Off records and sends none of them.',
+    owner: 'mutaaf',
+    removeBy: '2027-11-01',
+    fallback: true,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof FLAGS;

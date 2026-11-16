@@ -1615,3 +1615,5 @@ const styles = themed(() => StyleSheet.create({
   },
   actionSlotLabel: { fontFamily: font.label, fontSize: 13, letterSpacing: tracking.wide, color: color.onAction },
 }));
+
+export { RouteError as ErrorBoundary } from '@/components/RouteError';

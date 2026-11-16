@@ -174,7 +174,7 @@
           What the game collects, why, who it goes to, and how to have it
           removed. Written against what the code actually does.
         </p>
-        <p class="updated">Last updated 12 November 2026</p>
+        <p class="updated">Last updated 16 November 2026</p>
       </div>
     </header>
 
@@ -192,8 +192,10 @@
         not need one. The iPhone and Android apps carry no ads and no
         advertising identifiers. The browser version at 18-0.co shows ads,
         described below. There is no tracking across other apps or websites by
-        the game itself, and nothing is sold or shared with data brokers. There is
-        no error monitoring, and the apps have no session replay. The game sends
+        the game itself, and nothing is sold or shared with data brokers. The
+        game reports its own errors and how quickly it responds, described under
+        <a href="#diagnostics">Error and performance reports</a>, and the apps
+        have no session replay. The game sends
         gameplay analytics to one processor, PostHog, described below; the
         browser version also runs the publisher's anonymous site analytics,
         described under <a href="#web-analytics">Site analytics in the browser
@@ -297,6 +299,53 @@
           apps or websites.
         </p>
       </div>
+
+      <h2 id="diagnostics">Error and performance reports</h2>
+      <p>
+        When something in the game breaks or runs slowly, it tells us, so it can
+        be fixed without waiting for someone to write in. These reports go to
+        the same processor as the gameplay analytics, PostHog, in the United
+        States, under the same random identifier.
+      </p>
+      <h3>What is sent</h3>
+      <ul>
+        <li>
+          <strong>Errors.</strong> The kind of error, its message and where in
+          the game's code it happened, the screen you were on (which screen,
+          never what was on it), the game's version and build, and which
+          features were switched on. Anything in a message that looks like an
+          email address, an access token or an account identifier is removed on
+          your device before it is sent.
+        </li>
+        <li>
+          <strong>Crashes.</strong> If the app closed unexpectedly while you
+          were using it, the next time it opens it says so, with the screen and
+          version it happened on.
+        </li>
+        <li>
+          <strong>Speed.</strong> How long the game took to open, how long each
+          request to the game's server took and whether it succeeded, and in the
+          browser version the standard page-speed measurements (how long the
+          page took to draw, how much it jumped around, and how quickly it
+          answered a tap). When a server request fails or is slow, its request
+          identifier is included, so it can be matched to the record of server
+          requests described above.
+        </li>
+        <li>
+          <strong>Ranked seasons that fell back to unranked,</strong> and the
+          kind of reason, such as a slow connection.
+        </li>
+      </ul>
+      <h3>What is never sent</h3>
+      <p>
+        The same things as above: no email address, no sign-in identity, no
+        roster, no players, and no exact ratings.
+      </p>
+      <p>
+        In the browser, if your browser sends Global Privacy Control or Do Not
+        Track, none of these reports are sent. They can also be switched off for
+        everyone at once without an app update.
+      </p>
 
       <h2 id="web-analytics">Site analytics in the browser version</h2>
       <p>
