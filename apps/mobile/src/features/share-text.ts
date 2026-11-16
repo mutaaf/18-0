@@ -39,18 +39,28 @@ export function shareHeadline(result: ShareableResult): string {
   return `I went ${wins}-${losses} on ${APP_NAME}.`;
 }
 
+/**
+ * One square per pick, in slot order, banded like the app's rating badges
+ * (`ratingTone`). This is the part people post.
+ *
+ * The share used to list all seven seasons, names and ratings -- a block of
+ * text nobody pastes into a group chat, and nobody did: dozens of seasons a
+ * day, and no posts. A row of squares is short, says how good the roster was
+ * without spoiling it, and makes the obvious reply "how did you do?".
+ */
+export function shareGrid(roster: readonly ShareTextRow[]): string {
+  return roster
+    .map((r) => (r.rating >= 97 ? '🟪' : r.rating >= 93 ? '🟩' : r.rating >= 88 ? '🟦' : r.rating >= 80 ? '🟨' : '🟥'))
+    .join('');
+}
+
 /** The share without its link, for a share sheet that carries the URL separately. */
 export function shareBody(result: ShareableResult, roster: readonly ShareTextRow[]): string {
   const perfect = result.ending.key === 'PERFECT';
-  const lines = roster.map(
-    (r) => `${r.slot.padEnd(4)} ${r.name} '${String(r.year).slice(2)}  ${r.rating.toFixed(1)}`,
-  );
-  const parts = [
-    shareHeadline(result),
-    `${result.ending.label} · Rating ${result.finalRating.toFixed(1)} · Tier ${result.ending.tier}`,
-  ];
-  if (lines.length) parts.push('', ...lines);
-  parts.push('', perfect ? 'A perfect season. Beat it.' : 'Can you beat this roster?');
+  const parts = [shareHeadline(result)];
+  if (roster.length) parts.push(shareGrid(roster));
+  parts.push(`${result.ending.label} · Tier ${result.ending.tier}`);
+  parts.push(perfect ? 'A perfect season. Beat it.' : 'Can you beat it?');
   return parts.join('\n');
 }
 
