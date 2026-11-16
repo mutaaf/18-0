@@ -102,7 +102,10 @@ export default function Home() {
    * whether a finished season is *shown*, which is safe in the one direction
    * the result screen offers it.
    */
-  const [ranked, setRanked] = useState(true);
+  // Remembered across launches: the switch used to come back on every time the
+  // app opened, so a player who plays casual had to turn it off before every
+  // first season of the day.
+  const [ranked, setRanked] = useState(() => useGameStore.getState().preferRanked);
   // Two things can be opening a ranked session: a mode card, which goes
   // through the shared hook, and the gameday marquee, which does not --
   // gameday always tries the server whatever the switch says. The switch is
@@ -135,6 +138,10 @@ export default function Home() {
    * that was started and never played is not progress — it was clutter on the
    * one screen that should be a single obvious decision.
    */
+  // The quick Play bar's mode: the last lens played, unless that was a gameday,
+  // which has its own way in and is not always open.
+  const quickMode: GameMode = game.mode === 'gameday' ? 'scout' : game.mode;
+  const quickKind = !ranked || !isBackendConfigured ? 'Casual' : quickMode === 'rookie' ? 'Practice' : 'Ranked';
   const inProgress = game.status !== 'idle' && game.filled > 0
     && game.filled < ROSTER_SLOTS.length;
 
@@ -296,6 +303,40 @@ export default function Home() {
         />
       </Reveal>
 
+      {/* One tap from the front page to a spinning wheel, in the mode you
+          played last and the way you left the ranked switch. Choosing a
+          different lens is what the cards below are for; the common case is
+          "again", and it used to take a scroll, a card and a Spin. */}
+      {inProgress ? null : (
+        <Reveal delay={70}>
+          <Pressable
+            onPress={() => start(quickMode, { ranked })}
+            disabled={opening}
+            accessibilityRole="button"
+            accessibilityLabel={`Play ${MODE_LABEL[quickMode]}, ${quickKind.toLowerCase()}. The first spin starts right away.`}
+            style={({ pressed, hovered }: PressState) => [
+              styles.quick,
+              hovered && styles.closerGoHover,
+              (pressed || opening) && { opacity: 0.88 },
+            ]}
+          >
+            <View style={styles.quickText}>
+              <Text style={styles.quickLabel}>Play {MODE_LABEL[quickMode]}</Text>
+              <Text style={styles.quickSub}>{quickKind} · the wheel spins right away</Text>
+            </View>
+            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M5 12h13 M13 6l6 6-6 6"
+                stroke={color.onAction}
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </Pressable>
+        </Reveal>
+      )}
+
       {inProgress ? (
         <Reveal delay={80} style={styles.resume}>
           <View style={styles.resumeTrack}>
@@ -373,7 +414,10 @@ export default function Home() {
             on={ranked}
             busy={opening}
             onToggle={() => {
-              setRanked((was: boolean) => !was);
+              setRanked((was: boolean) => {
+                useGameStore.getState().setPreferRanked(!was);
+                return !was;
+              });
               Haptics.selectionAsync().catch(() => {});
             }}
           />
@@ -851,6 +895,28 @@ const styles = themed(() => StyleSheet.create({
     textShadowRadius: 18,
   },
 
+  quick: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    minHeight: 64,
+    paddingHorizontal: space.xl,
+    paddingVertical: space.md,
+    borderRadius: radius.md,
+    backgroundColor: color.action,
+    shadowColor: color.action,
+    shadowOpacity: 0.45,
+    ...elevate(8),
+  },
+  quickText: { flex: 1, minWidth: 0 },
+  quickLabel: {
+    fontFamily: font.display,
+    fontSize: 22,
+    letterSpacing: tracking.wide,
+    textTransform: 'uppercase',
+    color: color.onAction,
+  },
+  quickSub: { fontFamily: font.body, fontSize: 12, color: color.onAction, opacity: 0.8, marginTop: 2 },
   resume: {
     borderWidth: 1,
     borderColor: color.lineBright,

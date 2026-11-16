@@ -77,7 +77,9 @@ describe('ads sit only on the pauses', () => {
     const source = read(APP, 'result.tsx');
     const brk = source.indexOf('await betweenSeasons()');
     expect(brk).toBeGreaterThan(0);
-    expect(brk).toBeLessThan(source.indexOf('game.startGame()', brk));
+    // Build Another starts the season through useStartGame's `start(...)`.
+    const next = source.indexOf('await start(', brk);
+    expect(next).toBeGreaterThan(brk);
   });
 
   it('a banner holds its height while it loads, and lets `hidden` collapse it', () => {

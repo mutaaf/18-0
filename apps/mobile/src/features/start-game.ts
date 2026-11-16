@@ -54,7 +54,12 @@ export function rankedOpening(): Promise<void> | null {
 export interface StartGame {
   /** True while a ranked session is being opened. */
   readonly opening: boolean;
-  readonly start: (mode: GameMode, options?: { ranked?: boolean }) => Promise<void>;
+  /**
+   * Starts a season and opens the play screen with its first wheel already
+   * spinning. `replace` swaps the current screen for it (Build Another from the
+   * result) instead of stacking the play screen on top.
+   */
+  readonly start: (mode: GameMode, options?: { ranked?: boolean; replace?: boolean }) => Promise<void>;
 }
 
 export function useStartGame(): StartGame {
@@ -65,7 +70,7 @@ export function useStartGame(): StartGame {
   const [opening, setOpening] = useState(false);
 
   const start = useCallback(
-    async (mode: GameMode, { ranked = true }: { ranked?: boolean } = {}) => {
+    async (mode: GameMode, { ranked = true, replace = false }: { ranked?: boolean; replace?: boolean } = {}) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
       // Read from the store rather than taken as an argument: a caller that had
       // to know whether a game was already in progress would be a caller that
@@ -73,7 +78,11 @@ export function useStartGame(): StartGame {
       const replacing = useGameStore.getState().status !== 'idle';
       track('play_started', { mode, replacing, ranked });
       const game = useGameStore.getState();
-      game.startGame(mode, { ranked });
+      // The player's ranked choice is remembered for the next season, and the
+      // first wheel spins on arrival: pressing Play and then Spin was two taps
+      // for one decision.
+      game.setPreferRanked(ranked);
+      game.startGame(mode, { ranked, autoSpin: true });
       if (!ranked) {
         generation += 1;
         pending = null;
@@ -113,7 +122,8 @@ export function useStartGame(): StartGame {
         pending = token;
       }
 
-      router.push('/play');
+      if (replace) router.replace('/play');
+      else router.push('/play');
     },
     [router],
   );

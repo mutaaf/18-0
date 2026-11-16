@@ -449,6 +449,21 @@ export default function Play() {
     if (reelDone || !landed) finish();
   }, [awaitingServer, complete, holdHero, reduceMotion, spinning]);
 
+  /**
+   * One-tap starts (Play on the front page, Build Another on the result) hand
+   * the first spin to this screen: it goes as soon as the screen is up rather
+   * than waiting for a second tap on Spin. A ranked season still waits for its
+   * session -- `doSpin` awaits `rankedOpening()` -- so this cannot deal a spin
+   * locally that the server should have issued.
+   */
+  useEffect(() => {
+    if (game.status !== 'ready_to_spin' || game.spins.length > 0) return;
+    const timer = setTimeout(() => {
+      if (useGameStore.getState().consumeAutoSpin()) void doSpin();
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [game.status, game.spins.length, doSpin]);
+
   const assign = useCallback(
     async (card: BootCard, slot: RosterSlot) => {
       const game = useGameStore.getState();
