@@ -304,6 +304,32 @@ export const FLAGS = {
     removeBy: '2027-06-01',
     fallback: true,
   },
+
+  /**
+   * Paid respins: the ↻ control on a landed spin, the purchase sheet, and the
+   * "Clean only" switch on the boards. See docs/respins.md.
+   *
+   * Off until the two in-app purchases are approved and the server is
+   * deployed. A respin button that opens a sheet with no products in it --
+   * because App Store Connect has not cleared them, or because the
+   * `redeem-purchase` function is not live -- is a purchase that fails in
+   * front of a player, and in front of App Review. So the fallback is off, and
+   * the owner turns it on in PostHog once both are true
+   * (`scripts/posthog-flags.ts --apply` creates it, off).
+   *
+   * Surface only, like every flag. The server's rules for a respin do not
+   * read this, and the ↻ mark on a season the server says was respun is shown
+   * whatever this says: a mark that disappeared with a toggle would let a
+   * respun season pass as a clean one.
+   */
+  respins: {
+    key: 'respins',
+    kind: 'toggle',
+    summary: 'Offers paid respins (iOS purchase; spending on every platform) and the Clean only board filter. The ↻ mark always shows.',
+    owner: 'mutaaf',
+    removeBy: '2027-06-01',
+    fallback: false,
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof FLAGS;

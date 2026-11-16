@@ -43,6 +43,14 @@ const REASONS: Record<string, string> = {
   no_playable_spin: 'No franchise-era can fill an open slot.',
   assist_not_allowed_in_gameday: 'The rigged spin is not allowed on a gameday.',
   assist_not_allowed_in_challenge: 'The rigged spin is not allowed in a challenge.',
+  // A respin's refusals (supabase/functions/respin, docs/respins.md).
+  no_respins: 'You have no respins left.',
+  respin_already_used: 'This season has already used its respin.',
+  respin_not_allowed_in_challenge: 'A challenge replays the same seven spins, so it has no respins.',
+  spin_not_current: 'Only the spin that just landed can be respun.',
+  spin_changed: 'That spin changed underneath the respin. Nothing was charged.',
+  no_other_spin: 'No other franchise-era can fill your open slots. Nothing was charged.',
+  respin_same_bucket: 'The respin landed where it started. Nothing was charged.',
 };
 
 const refused = (reason: string): RankedResult<never> => ({
@@ -52,7 +60,7 @@ const refused = (reason: string): RankedResult<never> => ({
   message: REASONS[reason] ?? 'The server refused that.',
 });
 
-async function invoke<T>(fn: string, body: Record<string, unknown>): Promise<RankedResult<T>> {
+export async function invoke<T>(fn: string, body: Record<string, unknown>): Promise<RankedResult<T>> {
   if (!supabase) return offline('Ranked play needs a connection.');
   // Minted here and sent, so the Edge Function logs and audits this request
   // under the same id the client reports it with: a slow or failed spin in

@@ -10,6 +10,7 @@ import {
   shareFileName,
   shareText,
   webShareRoute,
+  type ShareMarks,
 } from './share-text';
 
 /**
@@ -97,10 +98,11 @@ export async function shareResult(
   result: GameResult,
   roster: readonly ShareRosterRow[],
   prepared: File | null = null,
+  marks: ShareMarks = {},
 ): Promise<ShareOutcome> {
-  if (Platform.OS === 'web') return shareOnWeb(cardRef, result, roster, prepared);
+  if (Platform.OS === 'web') return shareOnWeb(cardRef, result, roster, prepared, marks);
 
-  const message = shareText(result, roster);
+  const message = shareText(result, roster, marks);
   const fallback = async (): Promise<ShareOutcome> => {
     await Share.share(Platform.OS === 'ios' ? { message, url: SHARE_URL } : { message });
     return 'text';
@@ -131,9 +133,10 @@ async function shareOnWeb(
   result: GameResult,
   roster: readonly ShareRosterRow[],
   prepared: File | null,
+  marks: ShareMarks,
 ): Promise<ShareOutcome> {
   const nav = webNavigator();
-  const message = shareText(result, roster);
+  const message = shareText(result, roster, marks);
   const route = webShareRoute({
     share: typeof nav?.share === 'function',
     fileReady: prepared !== null,
@@ -146,7 +149,7 @@ async function shareOnWeb(
       await nav!.share!(
         route === 'files'
           ? { files: [prepared], text: message }
-          : { text: shareBody(result, roster), url: SHARE_URL },
+          : { text: shareBody(result, roster, marks), url: SHARE_URL },
       );
       return route === 'files' ? 'image' : 'link';
     } catch (error) {

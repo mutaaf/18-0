@@ -26,6 +26,7 @@ import {
   toRatedSeason,
   type BootCard,
 } from '@17-0/data';
+import { drawUniform } from '@17-0/respins/client';
 
 /**
  * The gameplay state machine (PRFAQ §29), persisted so an in-progress game
@@ -107,6 +108,14 @@ interface GameState {
    * an honest run and a helped one are never confused.
    */
   assisted: boolean;
+  /**
+   * How many respins this season has spent (docs/respins.md).
+   *
+   * For a ranked season this mirrors `game_sessions.respins_used`, which the
+   * server stamped -- the board's ↻ reads that, never this. For a casual one it
+   * is the only record, and it decides the ↻ in the history and on the result.
+   */
+  respinsUsed: number;
 
   /**
    * A ranked game is played against the server: it issues the spins and scores
@@ -126,6 +135,12 @@ interface GameState {
   attachServerSession: (id: string, idempotencyKey: string) => void;
   /** Records a spin the server issued, rather than one this device invented. */
   applyServerSpin: (spin: SpinResult, assisted: boolean) => void;
+  /**
+   * Replace the spin that just landed with a respin's draw. The caller has
+   * already paid for it -- on the server, which also drew it for a ranked
+   * season -- so this only records the result.
+   */
+  applyRespin: (spin: SpinResult) => void;
   /**
    * Drop out of ranked and carry on offline.
    *
@@ -202,6 +217,42 @@ function bestAvailableCombo(
   return best ? { franchiseId: best.franchiseId, era: best.era } : null;
 }
 
+/**
+ * Every franchise-era the local wheel could land on right now: the season's
+ * pool (the day's franchises on a gameday) narrowed to those with a card that
+ * fits an open slot. The same set the server's wheel draws from, which is why
+ * it is what the respin sheet counts for its "1 in N".
+ */
+export function openBuckets(
+  state: Pick<GameState, 'selections' | 'mode' | 'gamedayKey'>,
+): { franchiseId: string; era: EraKey }[] {
+  const roster = rosterFrom(state.selections);
+  const key = state.gamedayKey;
+  const pool =
+    state.mode === 'gameday' && key
+      ? DATASET.combos.filter((c) => gamedayFranchises(key).has(c.franchiseId))
+      : DATASET.combos;
+  return pool
+    .filter((combo) =>
+      spinHasPlayableOption(eligibleCards(combo.franchiseId, combo.era as EraKey).map(toRatedSeason), roster),
+    )
+    .map((combo) => ({ franchiseId: combo.franchiseId, era: combo.era as EraKey }));
+}
+
+/**
+ * A casual respin's draw: uniform over the open franchise-eras, leaving out
+ * the one being replaced -- the rule the server applies to a ranked one
+ * (`drawUniform` in packages/respins). Not committed: the caller pays first.
+ */
+export function drawLocalRespin(
+  state: Pick<GameState, 'selections' | 'mode' | 'gamedayKey' | 'spins'>,
+): SpinResult | null {
+  const current = state.spins[state.spins.length - 1];
+  if (!current) return null;
+  const drawn = drawUniform(openBuckets(state), [current]);
+  return drawn ? { sequence: current.sequence, franchiseId: drawn.franchiseId, era: drawn.era } : null;
+}
+
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
@@ -213,6 +264,7 @@ export const useGameStore = create<GameState>()(
       mode: 'rookie',
       gamedayKey: null,
       assisted: false,
+      respinsUsed: 0,
       ranked: false,
       serverSessionId: null,
       serverIdempotencyKey: null,
@@ -226,6 +278,7 @@ export const useGameStore = create<GameState>()(
           startedAt: Date.now(),
           result: null,
           assisted: false,
+          respinsUsed: 0,
           mode: mode ?? state.mode,
           gamedayKey: (mode ?? state.mode) === 'gameday' ? (gamedayAt()?.key ?? null) : null,
           ranked: options?.ranked ?? false,
@@ -243,6 +296,17 @@ export const useGameStore = create<GameState>()(
           status: 'spun',
           assisted: state.assisted || assisted,
         })),
+
+      applyRespin: (spin) =>
+        set((state) => {
+          const last = state.spins[state.spins.length - 1];
+          if (!last || last.sequence !== spin.sequence) return state;
+          return {
+            spins: [...state.spins.slice(0, -1), spin],
+            status: 'spun',
+            respinsUsed: state.respinsUsed + 1,
+          };
+        }),
 
       downgrade: (note) =>
         set({ ranked: false, serverSessionId: null, serverIdempotencyKey: null, serverNote: note }),
@@ -329,7 +393,7 @@ export const useGameStore = create<GameState>()(
       abandon: () =>
         set({
           status: 'idle', spins: [], selections: [], startedAt: null, result: null,
-          assisted: false, gamedayKey: null,
+          assisted: false, respinsUsed: 0, gamedayKey: null,
         }),
     }),
     {
@@ -342,6 +406,7 @@ export const useGameStore = create<GameState>()(
         startedAt: s.startedAt,
         result: s.result,
         assisted: s.assisted,
+        respinsUsed: s.respinsUsed,
         mode: s.mode,
         gamedayKey: s.gamedayKey,
       }),

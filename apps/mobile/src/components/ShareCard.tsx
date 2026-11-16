@@ -32,7 +32,9 @@ export const ShareCard = forwardRef<View, {
   result: GameResult;
   roster: readonly ShareRosterRow[];
   assisted?: boolean;
-}>(function ShareCard({ result, roster, assisted }, ref) {
+  /** The season spent a respin: the card says so, as every board does. */
+  respun?: boolean;
+}>(function ShareCard({ result, roster, assisted, respun }, ref) {
   const perfect = result.ending.key === 'PERFECT';
   const accent = perfect ? color.gold : tierColor[result.ending.tier] ?? color.text;
 
@@ -94,6 +96,7 @@ export const ShareCard = forwardRef<View, {
 
       <View style={styles.foot}>
         {assisted ? <Text style={styles.assisted}>ASSISTED RUN</Text> : null}
+        {respun ? <Text style={styles.assisted}>↻ RESPIN USED</Text> : null}
         <Text style={styles.cta}>
           {perfect ? 'A perfect season. Beat it.' : 'Can you beat this roster?'}
         </Text>

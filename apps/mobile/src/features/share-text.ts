@@ -30,6 +30,15 @@ export const SHARE_URL = `${APP_URL}/`;
 type ShareableResult = Pick<GameResult, 'record' | 'ending' | 'finalRating'>;
 
 /**
+ * What a shared season has to own up to. A season that spent a respin says so
+ * in its share as it does on every board (docs/respins.md): a share is the
+ * one place the season travels without the board's ↻ beside it.
+ */
+export interface ShareMarks {
+  readonly respun?: boolean;
+}
+
+/**
  * The first line, and the only one some previews show: the record, in the
  * player's own voice. "I went 15-2 on 17-0." It is the record the screen
  * shows, so it is true of every season, assisted or not.
@@ -55,18 +64,27 @@ export function shareGrid(roster: readonly ShareTextRow[]): string {
 }
 
 /** The share without its link, for a share sheet that carries the URL separately. */
-export function shareBody(result: ShareableResult, roster: readonly ShareTextRow[]): string {
+export function shareBody(
+  result: ShareableResult,
+  roster: readonly ShareTextRow[],
+  marks: ShareMarks = {},
+): string {
   const perfect = result.ending.key === 'PERFECT';
   const parts = [shareHeadline(result)];
   if (roster.length) parts.push(shareGrid(roster));
-  parts.push(`${result.ending.label} · Tier ${result.ending.tier}`);
+  // A respun season says so wherever it travels, the same as the ↻ on the boards.
+  parts.push(`${result.ending.label} · Tier ${result.ending.tier}${marks.respun ? ' · ↻ respin' : ''}`);
   parts.push(perfect ? 'A perfect season. Beat it.' : 'Can you beat it?');
   return parts.join('\n');
 }
 
 /** The plain-text share, with the link last: what lands on a clipboard or in a native sheet. */
-export function shareText(result: ShareableResult, roster: readonly ShareTextRow[]): string {
-  return `${shareBody(result, roster)}\n${SHARE_URL}`;
+export function shareText(
+  result: ShareableResult,
+  roster: readonly ShareTextRow[],
+  marks: ShareMarks = {},
+): string {
+  return `${shareBody(result, roster, marks)}\n${SHARE_URL}`;
 }
 
 /** A filename someone can find again in their downloads. */

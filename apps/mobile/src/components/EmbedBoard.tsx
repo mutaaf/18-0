@@ -107,7 +107,7 @@ export function EmbedBoard() {
             <View key={row.gameSessionId} style={styles.row}>
               <Text style={styles.rank}>{index + 4}</Text>
               <Text style={styles.handle} numberOfLines={1}>
-                {row.handle}
+                {row.handle}{row.respun ? ' ↻' : ''}
               </Text>
               <Text style={styles.record}>
                 {row.wins}-{row.losses}
@@ -144,7 +144,7 @@ function Step({ row, place }: { row: LeaderboardRow; place: 1 | 2 | 3 }) {
       ) : null}
       <Text style={[styles.place, won && styles.placeFirst]}>{place}</Text>
       <Text style={[styles.stepHandle, won && styles.stepHandleFirst]} numberOfLines={1}>
-        {row.handle}
+        {row.handle}{row.respun ? ' ↻' : ''}
       </Text>
       <Text style={[styles.stepRating, { color: tint }]}>{row.finalRating.toFixed(1)}</Text>
       <Text style={styles.stepRecord}>

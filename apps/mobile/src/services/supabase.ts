@@ -77,7 +77,21 @@ export interface LeaderboardRow {
   readonly endingKey: string;
   readonly tier: string;
   readonly completedAt: string;
+  /**
+   * The season spent a respin, and wears the ↻ (0027). False when the server
+   * predates the column -- every season then was clean.
+   */
+  readonly respun: boolean;
 }
+
+/**
+ * Read with `*` rather than a column list wherever a board may gain a column.
+ *
+ * The app and the migrations ship separately. A list naming `respun` would
+ * break every board on a server that has not run 0027 yet; `*` returns it
+ * when it exists and nothing when it does not.
+ */
+const BOARD_COLUMNS = '*';
 
 export type LeaderboardPeriod = 'all_time' | 'month' | 'week';
 
@@ -102,14 +116,16 @@ export async function fetchLeaderboard(
   limit = 50,
   onFresh?: (rows: LeaderboardRow[]) => void,
   board: RatingBoard = 'player_iq',
+  /** Seasons with no respin only: each player's best *clean* season (0027). */
+  clean = false,
 ): Promise<LeaderboardRow[]> {
   if (!supabase) return [];
   // A board that is thirty seconds out of date is a board. An empty panel
   // while the network answers is not, and that is what every tab switch used
   // to show.
   const read = await cached<LeaderboardRow[]>(
-    `leaderboard:${board}:${period}:${limit}`,
-    () => loadLeaderboard(period, limit, board),
+    `leaderboard:${board}:${period}:${limit}${clean ? ':clean' : ''}`,
+    () => loadLeaderboard(period, limit, board, clean),
     { ttl: 30_000, ...(onFresh ? { onFresh } : {}) },
   );
   return read.value ?? [];
@@ -119,6 +135,7 @@ async function loadLeaderboard(
   period: LeaderboardPeriod,
   limit: number,
   board: RatingBoard,
+  clean: boolean,
 ): Promise<LeaderboardRow[]> {
   if (!supabase) return [];
   const from = since(period);
@@ -129,16 +146,21 @@ async function loadLeaderboard(
   // — as this did — drops a player whose best run on a roster was months ago
   // but who replayed that roster this week: the view kept only the old row, and
   // the window then removed it. They vanished from the board entirely.
-  const query = from
+  //
+  // A clean board is a different deduplication -- a player's best season with
+  // no respin, not their best season with the respun ones struck out -- so it
+  // is always the function, `since => null` for all time. `clean` is sent only
+  // when asked for, so a server without 0027 still answers the ordinary board.
+  const query = from || clean
     ? supabase
-        .rpc(source.since, { since: from })
-        .select('game_session_id, user_id, handle, final_rating, record_wins, record_losses, ending_key, tier, completed_at')
+        .rpc(source.since, clean ? { since: from, clean: true } : { since: from })
+        .select(BOARD_COLUMNS)
         .order('final_rating', { ascending: false })
         .order('completed_at', { ascending: true })
         .limit(limit)
     : supabase
         .from(source.view)
-        .select('game_session_id, user_id, handle, final_rating, record_wins, record_losses, ending_key, tier, completed_at')
+        .select(BOARD_COLUMNS)
         .order('final_rating', { ascending: false })
         .order('completed_at', { ascending: true })
         .limit(limit);
@@ -161,6 +183,7 @@ async function loadLeaderboard(
     endingKey: r.ending_key as string,
     tier: r.tier as string,
     completedAt: r.completed_at as string,
+    respun: r.respun === true,
   }));
 }
 
@@ -170,6 +193,8 @@ export interface PointsRow {
   readonly points: number;
   readonly seasons: number;
   readonly bestRating: number | null;
+  /** How many of those seasons spent a respin; their total wears the ↻. */
+  readonly respunSeasons: number;
 }
 
 /**
@@ -183,15 +208,16 @@ export async function fetchPoints(
   period: LeaderboardPeriod,
   limit = 50,
   onFresh?: (rows: PointsRow[]) => void,
+  clean = false,
 ): Promise<PointsRow[]> {
   if (!supabase) return [];
   const read = await cached<PointsRow[]>(
-    `points:${period}:${limit}`,
+    `points:${period}:${limit}${clean ? ':clean' : ''}`,
     async () => {
       const from = since(period);
-      const query = from
-        ? supabase!.rpc('leaderboard_points_since', { since: from })
-        : supabase!.from('leaderboard_points').select('user_id, handle, points, seasons, best_rating');
+      const query = from || clean
+        ? supabase!.rpc('leaderboard_points_since', clean ? { since: from, clean: true } : { since: from })
+        : supabase!.from('leaderboard_points').select(BOARD_COLUMNS);
       const { data, error } = await query;
       if (error) throw error;
       const rows = (Array.isArray(data) ? data : [data]) as Record<string, unknown>[];
@@ -202,6 +228,7 @@ export async function fetchPoints(
           points: Number(r.points ?? 0),
           seasons: Number(r.seasons ?? 0),
           bestRating: r.best_rating === null ? null : Number(r.best_rating),
+          respunSeasons: Number(r.respun_seasons ?? 0),
         }))
         // The view groups rather than orders, so the ranking is applied here.
         .sort((a, b) => b.points - a.points)
@@ -227,14 +254,15 @@ export async function fetchGamedayBoard(
   key: string | null,
   limit = 50,
   onFresh?: (rows: LeaderboardRow[]) => void,
+  clean = false,
 ): Promise<LeaderboardRow[]> {
   if (!supabase) return [];
   const read = await cached<LeaderboardRow[]>(
-    `gameday:${key ?? 'live'}:${limit}`,
+    `gameday:${key ?? 'live'}:${limit}${clean ? ':clean' : ''}`,
     async () => {
       const { data, error } = await supabase!
-        .rpc('leaderboard_gameday', { p_key: key })
-        .select('game_session_id, user_id, handle, final_rating, record_wins, record_losses, ending_key, tier, completed_at')
+        .rpc('leaderboard_gameday', clean ? { p_key: key, clean: true } : { p_key: key })
+        .select(BOARD_COLUMNS)
         .order('final_rating', { ascending: false })
         .order('completed_at', { ascending: true })
         .limit(limit);
@@ -250,6 +278,7 @@ export async function fetchGamedayBoard(
         endingKey: r.ending_key as string,
         tier: r.tier as string,
         completedAt: r.completed_at as string,
+        respun: r.respun === true,
       }));
     },
     // Shorter than the other boards on purpose: a one-day board is the one
@@ -868,6 +897,8 @@ export interface Transferable {
   readonly seasons: number;
   /** False for an account that is already permanent: this is not a merge tool. */
   readonly eligible: boolean;
+  /** The respin balance that moves with them (0026). 0 on a server without it. */
+  readonly respins: number;
 }
 
 export async function transferableSeasons(): Promise<Transferable | null> {
@@ -876,7 +907,11 @@ export async function transferableSeasons(): Promise<Transferable | null> {
   if (error) return null;
   const row = Array.isArray(data) ? data[0] : data;
   if (!row) return null;
-  return { seasons: Number(row.seasons ?? 0), eligible: row.eligible === true };
+  return {
+    seasons: Number(row.seasons ?? 0),
+    eligible: row.eligible === true,
+    respins: Math.max(0, Number(row.respins ?? 0)),
+  };
 }
 
 /** Returns the ticket id, or null if there is nothing to hand over. */
