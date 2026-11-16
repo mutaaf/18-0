@@ -72,6 +72,9 @@ module.exports = {
       // The iOS 27 SDK kills an app without a scene delegate at launch; see the plugin.
       './plugins/with-scene-lifecycle',
       './plugins/without-push-entitlement',
+      // StoreKit 2 for the respin packs (docs/respins.md). Its iOS side is a
+      // Swift package the Podfile pulls; the store code only loads on iOS.
+      'expo-iap',
       [
         'expo-splash-screen',
         {

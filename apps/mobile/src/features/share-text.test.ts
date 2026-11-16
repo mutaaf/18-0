@@ -33,6 +33,13 @@ describe('what a shared result says', () => {
     expect(shareText(season(15, 2) as never, roster).split('\n')[0]).toBe('I went 15-2 on 17-0.');
   });
 
+  it('owns up to a respin, as the boards do, and says nothing when there was none', () => {
+    expect(shareText(season(17, 0, 'PERFECT', 'Perfect') as never, roster, { respun: true })).toContain(
+      ' · ↻ respin\n',
+    );
+    expect(shareText(season(17, 0, 'PERFECT', 'Perfect') as never, roster)).not.toContain('↻');
+  });
+
   it('ends with the link to the game, the canonical page and nothing appended', () => {
     expect(SHARE_URL).toBe(`${APP_URL}/`);
     expect(SHARE_URL).toBe('https://18-0.co/');
@@ -105,7 +112,8 @@ describe('the result screen', () => {
   it('offers Share, and prepares the card before the tap', () => {
     expect(source).toContain('accessibilityLabel="Share this result"');
     expect(source).toContain('prepareWebShareFile(cardRef, result)');
-    expect(source).toContain('shareResult(cardRef, result, shareRows, shareFile.current)');
+    // The prepared card goes in fourth; what follows it (the ↻ mark, docs/respins.md) is not this test's business.
+    expect(source).toContain('shareResult(cardRef, result, shareRows, shareFile.current');
   });
 
   it('writes its share notes without an em-dash', () => {

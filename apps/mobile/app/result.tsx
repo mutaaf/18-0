@@ -31,6 +31,7 @@ import {
   type RatingVerdict,
 } from '@/features/rating-feedback';
 import { lookupCard, useGameStore } from '@/state/game';
+import { RESPIN_MARK } from '@17-0/respins/client';
 import { useHistoryStore } from '@/state/history';
 import {
   DECORATIVE,
@@ -295,7 +296,7 @@ export default function Result() {
     setShareNote(null);
     const context = { wins, brag, platform: Platform.OS };
     track('share_tapped', context);
-    void shareResult(cardRef, result, shareRows, shareFile.current).then((outcome) => {
+    void shareResult(cardRef, result, shareRows, shareFile.current, { respun: game.respinsUsed > 0 }).then((outcome) => {
       setShareNote(SHARE_NOTE[outcome]);
       // Every outcome, cancelled included: a tap that ends in a closed sheet
       // is the most useful number this event can have.
@@ -411,7 +412,7 @@ export default function Result() {
         </Layer>
       ) : null}
 
-      {game.mode === 'player_iq' || game.assisted ? (
+      {game.mode === 'player_iq' || game.assisted || game.respinsUsed > 0 ? (
         <Layer t={line.t} at={CUE.tail} style={styles.badgeRow}>
           {game.mode === 'player_iq' ? (
             <View style={[styles.badge, styles.badgeBlind]}>
@@ -421,6 +422,11 @@ export default function Result() {
           {game.assisted ? (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>Assisted · not counted</Text>
+            </View>
+          ) : null}
+          {game.respinsUsed > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{RESPIN_MARK} Respin used · marked on the boards</Text>
             </View>
           ) : null}
         </Layer>
@@ -781,7 +787,7 @@ export default function Result() {
         collapsable={false}
         {...DECORATIVE}
       >
-        <ShareCard ref={cardRef} result={result} roster={shareRows} assisted={game.assisted} />
+        <ShareCard ref={cardRef} result={result} roster={shareRows} assisted={game.assisted} respun={game.respinsUsed > 0} />
       </View>
 
       {/* Last child so it sits over everything, and pointer-transparent so it

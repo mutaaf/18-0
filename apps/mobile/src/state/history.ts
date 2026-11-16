@@ -16,6 +16,11 @@ export interface HistoryEntry {
   readonly result: GameResult;
   /** True when the three-finger spin was used. Kept out of every record. */
   readonly assisted?: boolean;
+  /**
+   * True when the season spent a respin (docs/respins.md). Marked with ↻ in
+   * the history the way the boards mark it; it still counts.
+   */
+  readonly respun?: boolean;
   /** Which mode this season was built in. */
   readonly mode?: GameMode;
   /**

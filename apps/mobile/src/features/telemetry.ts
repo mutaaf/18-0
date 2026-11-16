@@ -63,6 +63,10 @@ export type EventName =
   | 'handle_claimed'
   | 'account_deleted'
   | 'theme_changed'
+  /** Respins (docs/respins.md): the sheet, a purchase, a spend. No prices, no ids. */
+  | 'respin_sheet_opened'
+  | 'respin_purchased'
+  | 'respin_spent'
   /**
    * Feature flags. The `$`-prefixed name is not a typo and not ours: PostHog
    * computes an experiment's exposure from an event called exactly this, with

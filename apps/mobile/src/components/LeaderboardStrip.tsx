@@ -57,7 +57,7 @@ export function LeaderboardStrip({ onPress }: { onPress: () => void }) {
           <Row
             key={row.gameSessionId}
             rank={i + 1}
-            name={row.handle}
+            name={row.respun ? `${row.handle} ↻` : row.handle}
             record={`${row.wins}-${row.losses}`}
             rating={row.finalRating}
             tier={row.tier}

@@ -9,7 +9,8 @@ import { useFonts } from 'expo-font';
 import { startAds } from '@/features/ads';
 import { startAnalytics } from '@/features/analytics';
 import { startDiagnostics, useDiagnostics } from '@/features/diagnostics';
-import { startFlags } from '@/features/flags';
+import { startFlags, useFlag } from '@/features/flags';
+import { startRespinStore } from '@/features/respins';
 import { FoldProvider } from '@/features/fold';
 import { startStatLines } from '@/features/stat-lines';
 import { useThemeFlagGuard } from '@/features/theme-flag';
@@ -75,6 +76,13 @@ export default function RootLayout() {
     // async cross-origin script; with no fill every call resolves at once.
     startAds();
   }, []);
+
+  // App Store transactions the server never confirmed are redeemed at launch
+  // (docs/respins.md). iOS only; a no-op everywhere else.
+  const respinsOn = useFlag('respins');
+  useEffect(() => {
+    void startRespinStore(respinsOn);
+  }, [respinsOn]);
 
   // A challenge arrives as `?c=<token>` on the site's own address rather than
   // as a path of its own. The site is a static export on GitHub Pages, which

@@ -205,7 +205,9 @@
       <h2>Playing without an account</h2>
       <p>
         You can play without signing in or giving us anything. Casual games are
-        held on your device and never sent anywhere.
+        held on your device and never sent anywhere. The one exception is a
+        respin you choose to spend in one: the server is told that a respin was
+        spent, so it can take it off your balance, and nothing about the game.
       </p>
 
       <h2>What is stored when you play ranked</h2>
@@ -252,6 +254,39 @@
         Apple lets you hide it behind a private relay address, and that works
         here. Signing in attaches the provider to the anonymous account you
         already have, so the seasons you have already played come with you.
+      </p>
+
+      <h2 id="purchases">Buying respins</h2>
+      <p>
+        Respins can be bought in the iPhone app, through Apple's in-app
+        purchase. Apple handles the payment: we never see your card, your
+        Apple ID, your name or your billing address. Respins cannot be bought
+        in the browser version or the Android app.
+      </p>
+      <p>
+        So that a respin you bought is yours on every device you sign in on,
+        the balance is held on the server, against the same account
+        identifier ranked play uses (an anonymous one is created if you do not
+        have one). For each purchase we keep:
+      </p>
+      <ul>
+        <li>
+          <strong>Apple's transaction identifier</strong>, the product (which
+          pack), when it was bought, and whether it was a real purchase or one
+          made in Apple's test environment. Apple signs this information; the
+          server checks the signature before adding any respins, and the
+          identifier is what stops one purchase being counted twice.
+        </li>
+        <li>
+          <strong>Each respin spent</strong>: when, and which ranked season it
+          was spent in (or, for a casual game, that one was spent).
+        </li>
+      </ul>
+      <p>
+        A ranked season that used a respin is marked with ↻ on the public
+        leaderboards. That mark is the only part of any of this anyone else can
+        see. Purchases are not sent to analytics with any price or transaction
+        identifier.
       </p>
 
       <h2>Gameplay analytics</h2>
@@ -432,6 +467,13 @@
         corresponds to any account, any name, or any game. It is kept because an
         integrity record that the person it records can erase is not an
         integrity record.
+      </p>
+      <p>
+        The record of respin purchases and spends is kept the same way, for the
+        same reason and for accounting: Apple's transaction identifier, the
+        pack, the date, and the account identifier, which after deletion
+        corresponds to nobody. Any respins left on a deleted account are lost;
+        Apple handles refunds for purchases.
       </p>
 
       <h2>Children</h2>

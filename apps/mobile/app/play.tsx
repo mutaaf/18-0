@@ -26,6 +26,8 @@ import { SpinReel } from '@/components/SpinReel';
 import { PlayerCard } from '@/components/PlayerCard';
 import { Screen } from '@/components/Screen';
 import { Unfold } from '@/components/Unfold';
+import { RespinControl } from '@/components/Respin';
+import { useFlag } from '@/features/flags';
 import { SpreadLayout } from '@/components/SpreadLayout';
 import { useSpread } from '@/features/fold';
 import { MODE_LABEL, lookupCard, showsRating, slotsForCard, useGameStore } from '@/state/game';
@@ -285,6 +287,25 @@ export default function Play() {
    * tapping Spin and the wheel lands on the best card still available. On a
    * pointer device the equivalent is Shift-click.
    */
+  /**
+   * A respin replaced the spin that just landed (docs/respins.md). Whatever
+   * the player had started doing with the old franchise-era -- a highlighted
+   * card, a targeted slot, a search -- belonged to a pool that is gone.
+   */
+  const respinsOn = useFlag('respins');
+  const onRespun = useCallback(
+    (message: string) => {
+      setSelectedId(null);
+      setTargetSlot(null);
+      setQuery('');
+      setPositionFilter('ALL');
+      setLastPick(null);
+      setNotice(message);
+      holdHero();
+    },
+    [holdHero],
+  );
+
   const trackTouches = useCallback((count: number) => {
     fingers.current = count;
     setAssistArmed(count >= 3);
@@ -597,6 +618,7 @@ export default function Play() {
       completedAt: Date.now(),
       result,
       assisted: game.assisted,
+      ...(game.respinsUsed > 0 ? { respun: true } : {}),
       mode: game.mode,
       ...(game.gamedayKey ? { gamedayKey: game.gamedayKey } : {}),
       roster: game.selections.map((s) => {
@@ -618,6 +640,7 @@ export default function Play() {
       ending: result.ending.key,
       mode: game.mode,
       assisted: game.assisted,
+      respun: game.respinsUsed > 0,
       spins: game.spins.length,
     });
     // No haptic here: the result screen locks the record with its own, tiered
@@ -862,6 +885,12 @@ export default function Play() {
       {/* Seven picks in, the hero has nothing left to say: it read "Ready ·
           Awaiting spin" over a full field with the reveal button below. */}
       {complete ? null : spinInHeader ? (layout.short ? null : storyLine) : hero}
+
+      {/* Beside the landed spin, quietly: a paid redraw of this turn. Off
+          until the flag is, and gone the moment a pick is made from it. */}
+      <Unfold gap={space.md}>
+        {respinsOn && canPick ? <RespinControl onRespun={onRespun} /> : null}
+      </Unfold>
 
       {/* Each of these opens its own room rather than shoving the field and
           the list down in one frame -- see `Unfold`. */}

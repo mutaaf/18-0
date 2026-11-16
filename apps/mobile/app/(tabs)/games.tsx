@@ -148,7 +148,7 @@ function GameCard({
       onPress={onToggle}
       accessibilityRole="button"
       accessibilityState={{ expanded }}
-      accessibilityLabel={`${result.record.wins} and ${result.record.losses}, ${result.ending.label}, tier ${result.ending.tier}, rating ${result.finalRating.toFixed(1)}${game.mode === 'player_iq' ? ', built blind' : ''}${game.assisted ? ', assisted' : ''}`}
+      accessibilityLabel={`${result.record.wins} and ${result.record.losses}, ${result.ending.label}, tier ${result.ending.tier}, rating ${result.finalRating.toFixed(1)}${game.mode === 'player_iq' ? ', built blind' : ''}${game.assisted ? ', assisted' : ''}${game.respun ? ', used a respin' : ''}`}
       style={({ pressed }) => [styles.card, chosen && styles.cardChosen, pressed && { opacity: 0.85 }]}
     >
       <View style={[styles.stripe, { backgroundColor: accent }]} />
@@ -163,6 +163,7 @@ function GameCard({
               {date.toLocaleDateString()} · Tier {result.ending.tier}
               {game.mode ? ` · ${MODE_LABEL[game.mode]}` : ''}
               {game.assisted ? ' · Assisted' : ''}
+              {game.respun ? ' · ↻ Respin' : ''}
             </Text>
           </View>
           <RatingBadge rating={result.finalRating} size="sm" />

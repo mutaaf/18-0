@@ -65,6 +65,9 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
   const [elsewhere, setElsewhere] = useState<SocialProvider | null>(null);
   /** How many ranked seasons this anonymous account could take with it. */
   const [carryable, setCarryable] = useState(0);
+  /** Respins bought on this anonymous account: they come along too (0026). */
+  const [carryRespins, setCarryRespins] = useState(0);
+  const carrying = carryable > 0 || carryRespins > 0;
 
   const refresh = useCallback(async () => {
     if (!isBackendConfigured) return;
@@ -114,7 +117,10 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
         // the count is fetched before the prompt is drawn rather than after
         // the player has been promised something.
         void transferableSeasons().then((t) => {
-          if (t?.eligible) setCarryable(t.seasons);
+          if (t?.eligible) {
+            setCarryable(t.seasons);
+            setCarryRespins(t.respins);
+          }
         });
       }
       setNote(redirected.error ?? 'Sign-in did not complete.');
@@ -378,9 +384,12 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
             {carryable > 0
               ? ` Your ${carryable} ranked ${carryable === 1 ? 'season' : 'seasons'} from this device can come with you.`
               : ' Anything played on this device stays here.'}
+            {carryRespins > 0
+              ? ` Your ${carryRespins} ${carryRespins === 1 ? 'respin comes' : 'respins come'} with you.`
+              : ''}
           </Text>
           <Pressable
-            onPress={() => connect(elsewhere, true, carryable > 0)}
+            onPress={() => connect(elsewhere, true, carrying)}
             disabled={busy}
             accessibilityRole="button"
             accessibilityLabel={`Sign in to the existing ${providerLabel(elsewhere)} account`}
@@ -392,7 +401,11 @@ export function AccountPanel({ rank }: { rank?: number | null } = {}) {
             ]}
           >
             <Text style={styles.claimLabel}>
-              {carryable > 0 ? 'Use that account and bring my seasons' : 'Use that account'}
+              {carryable > 0
+                ? 'Use that account and bring my seasons'
+                : carrying
+                  ? 'Use that account and bring my respins'
+                  : 'Use that account'}
             </Text>
           </Pressable>
         </>

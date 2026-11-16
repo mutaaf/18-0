@@ -34,6 +34,7 @@ import { ReportButton } from '@/components/ReportButton';
 import { Avatar } from '@/components/Avatar';
 import { RankGate } from '@/components/RankGate';
 import { useFlag } from '@/features/flags';
+import { RespinMark } from '@/components/Respin';
 import { track } from '@/features/telemetry';
 import {
   fetchGamedayBoard,
@@ -190,6 +191,14 @@ export default function Leaderboard() {
   // somebody on a board that is no longer there.
   const board: Board = chosen === 'gameday' && !gamedayOffered ? 'rating' : chosen;
   const [period, setPeriod] = useState<LeaderboardPeriod>('all_time');
+  /**
+   * Seasons with no respin only (docs/respins.md). Each player's best clean
+   * season, not the marked board with rows struck out -- the server dedupes
+   * differently for it. Offered with the respins themselves.
+   */
+  const respinsOn = useFlag('respins');
+  const [cleanChosen, setClean] = useState(false);
+  const clean = respinsOn && cleanChosen;
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [scores, setScores] = useState<PointsRow[]>([]);
   const [me, setMe] = useState<Identity | null>(null);
@@ -203,7 +212,7 @@ export default function Leaderboard() {
     current.current = period;
   }, [period]);
 
-  const load = useCallback(async (p: LeaderboardPeriod, b: Board) => {
+  const load = useCallback(async (p: LeaderboardPeriod, b: Board, onlyClean: boolean) => {
     if (!isBackendConfigured) return;
     setLoading(true);
     setFailed(false);
@@ -213,9 +222,14 @@ export default function Leaderboard() {
       if (b === 'gameday') {
         const key = gamedayAt() ? null : (day?.key ?? null);
         setRows(
-          await fetchGamedayBoard(key, 50, (fresh) => {
-            if (current.current === p) setRows(fresh);
-          }),
+          await fetchGamedayBoard(
+            key,
+            50,
+            (fresh) => {
+              if (current.current === p) setRows(fresh);
+            },
+            onlyClean,
+          ),
         );
         setLoading(false);
         return;
@@ -232,12 +246,18 @@ export default function Leaderboard() {
             if (current.current === p) setRows(fresh);
           },
           b === 'scout' ? 'scout' : 'player_iq',
+          onlyClean,
         ),
       );
       setScores(
-        await fetchPoints(p, 50, (fresh) => {
-          if (current.current === p) setScores(fresh);
-        }),
+        await fetchPoints(
+          p,
+          50,
+          (fresh) => {
+            if (current.current === p) setScores(fresh);
+          },
+          onlyClean,
+        ),
       );
     } catch {
       // Without this the app tells a player they are first to post a score
@@ -251,8 +271,8 @@ export default function Leaderboard() {
   // Switching board refetches: Scout and GM Mode are different views, and the
   // one already on screen is not an approximation of the other.
   useEffect(() => {
-    void load(period, board);
-  }, [period, board, load]);
+    void load(period, board, clean);
+  }, [period, board, clean, load]);
 
   useEffect(() => {
     void identity()
@@ -371,6 +391,27 @@ export default function Leaderboard() {
           </Pressable>
         ))}
       </View>
+
+      {respinsOn ? (
+        <View style={styles.tabs}>
+          <Pressable
+            onPress={() => setClean((on) => !on)}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: clean }}
+            accessibilityLabel="Clean only"
+            accessibilityHint="Shows only seasons that used no respin"
+            style={({ hovered }: PressState) => [
+              styles.tab,
+              hovered && { borderColor: color.action },
+              clean && styles.tabActive,
+            ]}
+          >
+            <Text style={[styles.tabLabel, clean && { color: color.actionBright }]}>
+              {clean ? 'CLEAN ONLY' : 'ALL SEASONS · ↻ MARKED'}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
     </>
   ) : null;
 
@@ -393,7 +434,7 @@ export default function Leaderboard() {
         <Text style={styles.noticeTitle}>Couldn't reach the rankings</Text>
         <Text style={styles.noticeCopy}>Your seasons are safe on this device.</Text>
         <Pressable
-          onPress={() => void load(period, board)}
+          onPress={() => void load(period, board, clean)}
           accessibilityRole="button"
           accessibilityLabel="Retry loading the leaderboard"
           style={styles.retry}
@@ -576,6 +617,8 @@ function PodiumCard({ row, rank, wide }: { row: LeaderboardRow; rank: number; wi
         </View>
         <Text style={[styles.podiumHandle, lead && styles.podiumHandleLead]} numberOfLines={1}>
           {row.handle}
+          {row.respun ? ' ' : ''}
+          {row.respun ? <RespinMark /> : null}
         </Text>
         <View style={styles.podiumMeta}>
           <Text style={[styles.podiumRecord, { color: accent }]}>
@@ -703,6 +746,7 @@ function Entry({
               <Text style={styles.handle} numberOfLines={1}>
                 {row.handle}
               </Text>
+              {row.respun ? <RespinMark /> : null}
               {isMe ? <Text style={styles.you}>YOU</Text> : null}
               <Text style={[styles.record, { color: accent }]}>
                 {row.wins}-{row.losses}
@@ -815,6 +859,7 @@ function PointsBoard({
                 </Text>
                 <Text style={styles.pointsMeta}>
                   {row.seasons} {row.seasons === 1 ? 'season' : 'seasons'}
+                  {row.respunSeasons > 0 ? ` · ${row.respunSeasons} ↻` : ''}
                 </Text>
               </View>
               <Text style={styles.pointsValue}>{points.format(row.points)}</Text>
@@ -838,6 +883,7 @@ function RostrumStep({ row, place, isMe }: { row: PointsRow; place: number; isMe
       <Text style={[styles.stepName, lead && styles.stepNameLead]} numberOfLines={1}>
         {row.handle}
         {isMe ? ' ·' : ''}
+        {row.respunSeasons > 0 ? ' ↻' : ''}
       </Text>
       <Text style={[styles.stepPoints, lead && styles.stepPointsLead]}>
         {points.format(row.points)}
