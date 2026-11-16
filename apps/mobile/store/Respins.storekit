@@ -1,0 +1,53 @@
+{
+  "identifier" : "5E1B7C2A",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "9C3A0E01",
+      "localizations" : [
+        {
+          "description" : "Redraw a spin you don't want. Three of them.",
+          "displayName" : "3 Respins",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.eighteenzerodcai.app.respins.3",
+      "referenceName" : "Respins - 3",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "2.99",
+      "familyShareable" : false,
+      "internalID" : "9C3A0E02",
+      "localizations" : [
+        {
+          "description" : "Redraw a spin you don't want. Twelve of them.",
+          "displayName" : "12 Respins",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.eighteenzerodcai.app.respins.12",
+      "referenceName" : "Respins - 12",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}
