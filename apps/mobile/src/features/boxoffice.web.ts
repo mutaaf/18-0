@@ -1,4 +1,5 @@
 import type { TelemetryEvent } from '@/features/telemetry';
+import { clean, translate } from '@/features/boxoffice-queue';
 
 /**
  * The browser build's game events, handed to Box Office.
@@ -31,21 +32,24 @@ function boxoffice(): BoxOffice | null {
 
 export function forwardToBoxOffice(event: TelemetryEvent): void {
   try {
-    const p = event.props;
-    if (event.name === 'play_started') {
-      boxoffice()?.track('game_start', { mode: p.mode, ranked: p.ranked });
-    } else if (event.name === 'roster_completed') {
-      // `record` is "wins-losses"; the portfolio dashboards want the numbers.
-      const [wins, losses] = String(p.record ?? '').split('-').map(Number);
-      boxoffice()?.track('game_over', {
-        wins,
-        losses,
-        mode: p.mode,
-        ending: p.ending,
-        rating_band: p.rating,
-      });
-    }
+    // The same translation the iOS app uses (`boxoffice-queue.ts`); the loader
+    // checks nothing, so the vocabulary's own check runs here too.
+    const t = translate(event);
+    const props = t && clean(t.name, t.props);
+    if (t && props) boxoffice()?.track(t.name, props);
   } catch {
     // Analytics must never be able to break a game.
   }
+}
+
+/**
+ * The browser honours Global Privacy Control and Do Not Track instead of an
+ * in-game switch (privacy.html, "Site analytics in the browser version").
+ */
+export const usageStatsSupported = false;
+export async function usageStatsOn(): Promise<boolean> {
+  return false;
+}
+export async function setUsageStats(_on: boolean): Promise<boolean> {
+  return false;
 }

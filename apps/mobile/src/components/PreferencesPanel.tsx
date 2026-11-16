@@ -3,24 +3,30 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { GlassSurface } from './GlassSurface';
 import { ThemePicker } from './ThemePicker';
 import { reminderState, setReminders, type ReminderState } from '@/features/reminders';
+import { setUsageStats, usageStatsOn, usageStatsSupported } from '@/features/boxoffice';
 import { color, font, radius, space, themed, tracking, type PressState } from '@/theme';
 
 /**
  * The things a player is actually allowed to change.
  *
  * Deliberately short. Every row here moves something that already exists --
- * the palette the whole app is painted in, and whether the one notification
- * this game sends is sent. A settings screen fills up with switches that
+ * the palette the whole app is painted in, whether the one notification
+ * this game sends is sent, and (on iPhone) whether usage counts are shared.
+ * A settings screen fills up with switches that
  * describe intentions rather than control anything, and the way to not have
  * that screen is to refuse the first one.
  */
 export function PreferencesPanel() {
   const [reminders, setState] = useState<ReminderState | null>(null);
   const [busy, setBusy] = useState(false);
+  // null until read; the row only exists where the app shares anything (iOS).
+  const [usage, setUsage] = useState<boolean | null>(null);
+  const [usageBusy, setUsageBusy] = useState(false);
 
   useEffect(() => {
     let alive = true;
     void reminderState().then((state) => alive && setState(state));
+    if (usageStatsSupported) void usageStatsOn().then((v) => alive && setUsage(v));
     return () => {
       alive = false;
     };
@@ -36,6 +42,13 @@ export function PreferencesPanel() {
     setBusy(false);
   }, [busy, reminders]);
 
+  const toggleUsage = useCallback(async () => {
+    if (usageBusy || usage === null) return;
+    setUsageBusy(true);
+    setUsage(await setUsageStats(!usage));
+    setUsageBusy(false);
+  }, [usageBusy, usage]);
+
   return (
     <GlassSurface round={0.04} maxRound={radius.lg} style={styles.panel}>
       <Text style={styles.eyebrow}>Preferences</Text>
@@ -48,9 +61,25 @@ export function PreferencesPanel() {
         {reminders === null ? (
           <ActivityIndicator color={color.textFaint} />
         ) : reminders === 'unsupported' || reminders === 'blocked' ? null : (
-          <Toggle on={reminders === 'on'} busy={busy} onPress={toggle} />
+          <Toggle label="Streak reminders" on={reminders === 'on'} busy={busy} onPress={toggle} />
         )}
       </View>
+
+      {/* Box Office usage events (features/boxoffice.ios.ts). Off deletes the
+          queue and the install id; nothing else in the app reads this. */}
+      {usageStatsSupported && usage !== null ? (
+        <View style={styles.row}>
+          <View style={styles.rowText}>
+            <Text style={styles.rowTitle}>Share usage stats</Text>
+            <Text style={styles.rowCopy}>
+              {usage
+                ? 'A few counts, like a season started or how it ended, with a random id made on this phone. No name, roster, location or advertising id.'
+                : 'Off. Nothing is sent, and the random id is deleted.'}
+            </Text>
+          </View>
+          <Toggle label="Share usage stats" on={usage} busy={usageBusy} onPress={toggleUsage} />
+        </View>
+      ) : null}
 
       {/* Renders nothing until `theme_picker` is rolled out, which is why the
           divider belongs to it rather than sitting above it. */}
@@ -67,14 +96,14 @@ export function PreferencesPanel() {
  * because permission was declined is worse than a knob that simply moves when
  * the answer arrives.
  */
-function Toggle({ on, busy, onPress }: { on: boolean; busy: boolean; onPress: () => void }) {
+function Toggle({ label, on, busy, onPress }: { label: string; on: boolean; busy: boolean; onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
       disabled={busy}
       accessibilityRole="switch"
       accessibilityState={{ checked: on, disabled: busy }}
-      accessibilityLabel="Streak reminders"
+      accessibilityLabel={label}
       style={({ hovered, pressed }: PressState) => [
         styles.track,
         on && styles.trackOn,
