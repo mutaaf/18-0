@@ -789,6 +789,50 @@ export async function reportHandle(
   return { ok: true };
 }
 
+/** A player's opinion of a card's rating. See supabase/migrations/0025. */
+export type RatingVerdict = 'too_low' | 'too_high';
+
+/**
+ * Records (or changes) one opinion. True once the server has it, false on
+ * anything else -- the caller keeps it queued and tries again later, because a
+ * vote made offline is still a vote (invariant 3).
+ */
+export async function saveRatingFeedback(input: {
+  cardId: string;
+  modelVersion: string;
+  ratingShown: number;
+  verdict: RatingVerdict;
+}): Promise<boolean> {
+  if (!supabase) return false;
+  if (!(await ensureSession())) return false;
+  const me = await currentUser();
+  if (!me) return false;
+  const { error } = await supabase.from('rating_feedback').upsert(
+    {
+      user_id: me.id,
+      card_id: input.cardId,
+      model_version: input.modelVersion,
+      rating_shown: Math.round(input.ratingShown * 10) / 10,
+      verdict: input.verdict,
+    },
+    { onConflict: 'user_id,card_id,model_version' },
+  );
+  return !error;
+}
+
+/** Takes an opinion back. True once nothing of it is left on the server. */
+export async function withdrawRatingFeedback(cardId: string, modelVersion: string): Promise<boolean> {
+  if (!supabase) return false;
+  if (!(await ensureSession())) return false;
+  const me = await currentUser();
+  if (!me) return false;
+  const { error } = await supabase
+    .from('rating_feedback')
+    .delete()
+    .match({ user_id: me.id, card_id: cardId, model_version: modelVersion });
+  return !error;
+}
+
 /** Turns the handle-policy trigger's error into something a person can act on. */
 export function explainHandleRejection(message: string): string | null {
   const cooldown = /handle_cooldown:(\S+)/.exec(message);
