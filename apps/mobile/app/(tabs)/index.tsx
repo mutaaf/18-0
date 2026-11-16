@@ -19,6 +19,7 @@ import { SpreadLayout } from '@/components/SpreadLayout';
 import { useSpread } from '@/features/fold';
 import { SectionHead } from '@/components/SectionHead';
 import { Showcase, showcaseOffered } from '@/components/showcase/Showcase';
+import { LensNudge } from '@/components/LensNudge';
 import { BetaInvite } from '@/components/BetaInvite';
 import { GetTheApp } from '@/components/GetTheApp';
 import { OnWatch } from '@/components/OnWatch';
@@ -334,6 +335,7 @@ export default function Home() {
               />
             </Svg>
           </Pressable>
+          <LensNudge compact />
         </Reveal>
       )}
 
