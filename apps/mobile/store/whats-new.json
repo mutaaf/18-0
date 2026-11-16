@@ -2,6 +2,46 @@
   "$comment": "The one source of release notes: the in-app What's New sheet, the release tag and the App Store \"What's New\" all read this. Newest first. One entry per marketing version in app.config.js. Rules (whats-new.test.ts enforces most of them): no league, club, player or brand names; no real people, politics or tragedy; family-friendly; every claim true of the build that ships it. See CLAUDE.md. A callout may carry \"to\" (a key of CALLOUT_DESTINATIONS in features/whats-new/notes.ts: play, games, leaderboard, challenges, stats, account): tapping it closes the sheet and opens that tab. Leave it out when the feature has no place of its own. To force the sheet without recording anything: ?whatsnew=<version> on the web, or in a development build on iOS the launch argument -whatsnew <version|current>, e.g. `xcrun simctl launch booted com.eighteenzerodcai.app -whatsnew current`.",
   "versions": [
     {
+      "version": "1.1.0",
+      "headline": "Two-minute drill.",
+      "subhead": "The holiday games are close and the playoff picture is filling in. Here is what is new before kickoff.",
+      "callouts": [
+        {
+          "art": "play",
+          "title": "Click, click, thump",
+          "line": "The wheel ticks as it slows and lands with a thump you can feel.",
+          "to": "play"
+        },
+        {
+          "art": "icon",
+          "title": "Wear the colours",
+          "line": "Every team and era is set big, in its own colours."
+        },
+        {
+          "art": "leaderboard",
+          "title": "Respins",
+          "line": "Redraw one spin a season. Respun seasons wear a ↻ on the boards.",
+          "to": "leaderboard"
+        },
+        {
+          "art": "games",
+          "title": "Ratings look off?",
+          "line": "After a season, tell us which of your seven feel too high or too low."
+        }
+      ],
+      "notes": [
+        "The wheel clicks as it slows and lands with a thump on iPhone, and it waits for the server's answer before it stops.",
+        "The team and era you spin are set large in that franchise's colours: in the header, on the field and in every list.",
+        "A new icon: the crest over a field under the lights.",
+        "Respins: redraw the spin that just landed, once a season, before you pick. Packs of 3 or 12 are sold in the app. A respun season carries a ↻ on every board, and the boards can show clean seasons only.",
+        "Under your roster after a season, \"Ratings look off?\" lets you mark any of your seven as rated too high or too low. It shapes the next model and never changes a score.",
+        "Sharing is shorter: your record, one square per pick and a link. A big season puts the share button first.",
+        "Smoother play: the player list arrives without a hitch, notices slide in instead of jumping, and the result counts up at your screen's full speed.",
+        "On iPhone Duo the result, stats, account and card screens split across the fold, and nothing hides under the tab bar on wider screens.",
+        "If something breaks, the app sends an error report so it can be fixed. It carries nothing that identifies you."
+      ]
+    },
+    {
       "version": "0.1.0",
       "headline": "We were on a bye.",
       "subhead": "The trade deadline just slammed shut, the playoff race is on, and the holiday games are close. Here is what is new on the field.",
