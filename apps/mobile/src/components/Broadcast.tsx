@@ -301,10 +301,14 @@ export function ImpactRing({
 /**
  * A number that rolls onto its value instead of appearing at it.
  *
- * Stepped at ~24fps rather than per frame, because each tick re-renders the
- * result screen and twenty of them read as a scoreboard rolling over while
- * sixty would only cost more. The value is raw; callers round or fix it, so one
- * ticker serves both a win total and a rating to one decimal.
+ * Driven by `requestAnimationFrame`, so each step lands on a display frame at
+ * whatever rate the screen runs -- it used to be a 42 ms `setTimeout`, which
+ * at 120 Hz put a new number on every fifth frame at an uneven interval and
+ * read as a stutter rather than a roll. Frames are not renders, though: the
+ * value is quantised to `step` and only a change of the shown number sets
+ * state, so a 0-17 win count costs seventeen renders however fast the screen
+ * is. Pass the precision the caller displays (1 for a record, 0.1 for a
+ * rating). The loop ends on the last value; nothing runs after the roll.
  *
  * Two things force the true number: `settled`, which covers Reduce Motion, the
  * skip tap and the timeline's own failsafe, and a local timer, because
@@ -316,45 +320,48 @@ export function useRoll(
   start: number,
   duration: number,
   settled: boolean,
+  step = 1,
 ): number {
   const [value, setValue] = useState(target);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const stop = () => {
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = null;
-    };
-
     if (settled) {
-      stop();
       setValue(target);
       return;
     }
 
     let cancelled = false;
+    let frame = 0;
     let began = 0;
-    setValue(from);
-    const failsafe = setTimeout(() => !cancelled && setValue(target), start + duration + 700);
+    const snap = (n: number) => Math.round(n / step) * step;
+    setValue(snap(from));
+    const failsafe = setTimeout(() => {
+      cancelAnimationFrame(frame);
+      if (!cancelled) setValue(target);
+    }, start + duration + 700);
 
-    const tick = () => {
+    const tick = (now: number) => {
       if (cancelled) return;
-      const p = Math.min(1, (Date.now() - began) / duration);
-      setValue(from + (target - from) * (1 - (1 - p) ** 3));
-      if (p < 1) timer.current = setTimeout(tick, 42);
+      if (!began) began = now;
+      const p = Math.min(1, (now - began) / duration);
+      // The last frame is the target itself, not its rounding: the caller's own
+      // formatting decides how 87.25 is shown, exactly as it does when settled.
+      setValue(p < 1 ? snap(from + (target - from) * (1 - (1 - p) ** 3)) : target);
+      if (p < 1) frame = requestAnimationFrame(tick);
+      else clearTimeout(failsafe);
     };
 
-    timer.current = setTimeout(() => {
-      began = Date.now();
-      tick();
+    const delay = setTimeout(() => {
+      frame = requestAnimationFrame(tick);
     }, start);
 
     return () => {
       cancelled = true;
-      stop();
+      clearTimeout(delay);
       clearTimeout(failsafe);
+      cancelAnimationFrame(frame);
     };
-  }, [target, from, start, duration, settled]);
+  }, [target, from, start, duration, settled, step]);
 
   return value;
 }

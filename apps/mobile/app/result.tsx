@@ -136,24 +136,6 @@ export default function Result() {
   const line = useTimeline(CUE.end, result?.finalRating);
 
   /**
-   * The celebration is not its own event.
-   *
-   * Mounted with the screen it threw confetti over a panel that had not
-   * finished building and a record that still said 0-0 -- two moments a second
-   * apart, neither of which was the moment. It belongs to the frame the tier
-   * stamps on, and to that frame only.
-   */
-  const [onAir, setOnAir] = useState(false);
-  useEffect(() => {
-    if (line.settled) {
-      setOnAir(true);
-      return;
-    }
-    const at = setTimeout(() => setOnAir(true), CUE.stamp);
-    return () => clearTimeout(at);
-  }, [line.settled]);
-
-  /**
    * The card image, captured once the build has finished and before anybody
    * reaches for Share. On the tap it is too late: Safari stops treating the
    * tap as a gesture during the capture and refuses the share sheet
@@ -661,10 +643,20 @@ export default function Result() {
       </View>
 
       {/* Last child so it sits over everything, and pointer-transparent so it
-          cannot swallow the Share or Build Another buttons underneath. */}
-      {onAir ? (
-        <Celebration intensity={celebration} palette={[accent, color.text, color.silver]} perfect={perfect} />
-      ) : null}
+          cannot swallow the Share or Build Another buttons underneath.
+
+          The celebration is not its own event. Started with the screen it threw
+          confetti over a panel that had not finished building and a record that
+          still said 0-0; it belongs to the frame the tier stamps on, after the
+          record has locked and buzzed. It is mounted now and goes off on that
+          cue by itself, so the cue costs this screen no re-render and the show
+          has done its setup before its first frame (see `Celebration`). */}
+      <Celebration
+        intensity={celebration}
+        palette={[accent, color.text, color.silver]}
+        perfect={perfect}
+        at={line.settled ? 0 : CUE.stamp}
+      />
     </Screen>
   );
 }

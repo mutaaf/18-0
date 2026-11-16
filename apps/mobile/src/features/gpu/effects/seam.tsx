@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import { StyleSheet } from 'react-native';
-import { Canvas, Fill, Shader, Skia, useClock } from '@shopify/react-native-skia';
-import { useDerivedValue, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated';
+import { Canvas, Fill, Shader, Skia } from '@shopify/react-native-skia';
+import { useDerivedValue, useSharedValue, withSpring } from 'react-native-reanimated';
+import { useEffectClock } from '../clock';
 import { rgb } from '../color';
 
 /**
@@ -57,8 +58,8 @@ export default function SeamGlow({
   colors: { green: string; ice: string; shade: string };
 }) {
   const effect = useMemo(() => Skia.RuntimeEffect.Make(SOURCE), []);
-  const reduced = useReducedMotion();
-  const clock = useClock();
+  // Paused off screen, in the background and under Reduce Motion: see `../clock`.
+  const { clock, reduced } = useEffectClock();
   const bent = useSharedValue(bend);
   const size = useSharedValue({ width: 0, height: 0 });
 

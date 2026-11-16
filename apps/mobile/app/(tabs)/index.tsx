@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useShallow } from 'zustand/react/shallow';
 import * as Haptics from 'expo-haptics';
 import { RankedSwitch } from '@/components/RankedSwitch';
 import Svg, { Path } from 'react-native-svg';
@@ -72,7 +73,13 @@ export default function Home() {
   const [stage, setStage] = useState(0);
   const [lobbyAt, setLobbyAt] = useState(0);
   const paged = spread.kind === 'columns';
-  const game = useGameStore();
+  // Only what the resume card draws. Home stays mounted under the play screen
+  // for the whole game, and subscribed to the whole store it re-rendered on
+  // every spin, every pick and every server reply. Actions are stable and read
+  // off the store when called.
+  const game = useGameStore(
+    useShallow((s) => ({ status: s.status, filled: s.selections.length, mode: s.mode })),
+  );
   const games = useHistoryStore((s) => s.games);
   const stats = useMemo(() => computeStats(games), [games]);
   /**
@@ -128,8 +135,8 @@ export default function Home() {
    * that was started and never played is not progress — it was clutter on the
    * one screen that should be a single obvious decision.
    */
-  const inProgress = game.status !== 'idle' && game.selections.length > 0
-    && game.selections.length < ROSTER_SLOTS.length;
+  const inProgress = game.status !== 'idle' && game.filled > 0
+    && game.filled < ROSTER_SLOTS.length;
 
   /**
    * Into the gameday.
@@ -145,24 +152,25 @@ export default function Home() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
     setGamedayNote(null);
     track('play_started', { mode: 'gameday', ranked: isBackendConfigured, gameday: day.key });
-    game.startGame('gameday', { ranked: isBackendConfigured });
+    const store = useGameStore.getState();
+    store.startGame('gameday', { ranked: isBackendConfigured });
 
     if (isBackendConfigured) {
       setOpeningGameday(true);
       try {
         const opened = await withTimeout(beginRanked('gameday'), 8000);
         if (opened?.ok) {
-          game.attachServerSession(opened.value.sessionId, opened.value.idempotencyKey);
+          store.attachServerSession(opened.value.sessionId, opened.value.idempotencyKey);
           track('gameday_started', { gameday: day.key });
         } else {
           const reason = opened?.message ?? 'The server did not answer in time.';
-          game.downgrade(reason);
+          store.downgrade(reason);
           setGamedayNote(`${reason} This season stays on this device.`);
           track('ranked_downgraded', { reason, mode: 'gameday' });
         }
       } catch (error) {
         const reason = error instanceof Error ? error.message : 'Gameday could not start.';
-        game.downgrade(reason);
+        store.downgrade(reason);
         setGamedayNote(`${reason} This season stays on this device.`);
         track('ranked_downgraded', { reason, mode: 'gameday' });
       } finally {
@@ -173,13 +181,13 @@ export default function Home() {
   };
 
   const resume = () => {
-    track('game_resumed', { filled: game.selections.length, mode: game.mode });
+    track('game_resumed', { filled: game.filled, mode: game.mode });
     router.push('/play');
   };
 
   const discard = () => {
-    track('game_abandoned', { filled: game.selections.length });
-    game.abandon();
+    track('game_abandoned', { filled: game.filled });
+    useGameStore.getState().abandon();
   };
 
   /**
@@ -294,7 +302,7 @@ export default function Home() {
             <View
               style={[
                 styles.resumeFill,
-                { width: `${(game.selections.length / ROSTER_SLOTS.length) * 100}%` },
+                { width: `${(game.filled / ROSTER_SLOTS.length) * 100}%` },
               ]}
             />
           </View>
@@ -302,14 +310,14 @@ export default function Home() {
             <View style={styles.resumeMain}>
               <Text style={styles.resumeTitle}>Resume your game</Text>
               <Text style={styles.resumeMeta}>
-                {game.selections.length} of {ROSTER_SLOTS.length} filled ·{' '}
+                {game.filled} of {ROSTER_SLOTS.length} filled ·{' '}
                 {MODE_LABEL[game.mode]}
               </Text>
             </View>
             <Pressable
               onPress={resume}
               accessibilityRole="button"
-              accessibilityLabel={`Resume game, ${game.selections.length} of seven filled`}
+              accessibilityLabel={`Resume game, ${game.filled} of seven filled`}
               style={({ hovered }: PressState) => [styles.resumeGo, hovered && styles.lift]}
             >
               <Text style={styles.resumeGoLabel}>Resume</Text>
