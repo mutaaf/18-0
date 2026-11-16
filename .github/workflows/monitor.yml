@@ -1,0 +1,55 @@
+name: Monitor
+
+# Is 17-0 up, for a player? Every fifteen minutes: the site and its pages, a
+# full casual season played offline in headless Chrome, the Edge Functions and
+# Auth and one leaderboard read, the TestFlight schedule and CI on main.
+#
+# A failure opens one GitHub issue labelled `incident`; later runs keep it
+# current and close it on recovery (scripts/monitor/incident.mjs). Only the run
+# that *opens* an incident fails, so GitHub emails once per outage rather than
+# every fifteen minutes of it.
+#
+# It never plays a ranked game and never writes to production -- see the header
+# of scripts/monitor/checks.mjs. Runbook: docs/observability.md.
+
+on:
+  schedule:
+    # Off the hour and the half-hour on purpose: GitHub delays, and sometimes
+    # drops, scheduled runs at :00 when every other repository fires at once.
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/monitor
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run the checks
+        id: checks
+        # The incident step decides what a failure means; this one only measures.
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/monitor/checks.mjs --json results.json
+      - name: Open, update or close the incident
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/monitor/incident.mjs results.json
