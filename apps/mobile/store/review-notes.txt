@@ -16,6 +16,8 @@ SIGNING IN IS OPTIONAL. The Account screen (avatar disc, top right of any screen
 
 1.2: The only user-generated content is a display name on the leaderboard. Names are checked against a denylist by the database when set, so a blocked name is refused rather than published. Every name on every leaderboard carries a report flag (the small flag at the top right of each podium card and at the end of each row), and a reported name can be hidden.
 
+USAGE COUNTS (NEW IN 1.1.0). No SDK. A few counts (app opened, season started, season ended with its record) and a random install id go to our relay at mutaafaziz.com, which cuts the IP and forwards them to PostHog. Account -> Preferences -> "Share usage stats" turns them off and deletes the id. App Privacy: Product Interaction and Device ID, Analytics, linked, not tracking. No IDFA, no ATT.
+
 EXTERNAL SERVICES. Supabase (database, anonymous and optional sign-in, server-side scoring of ranked seasons, leaderboard). PostHog (first-party analytics and feature flags; no advertising identifier, no tracking). Sign in with Apple and Google Sign-In (optional). Season statistics from nflverse (CC BY 4.0) and Pro-Football-Reference (licensed), bundled at build time. No AI services.
 
 REGIONS. No differences. The app is the same in every territory and plays fully offline; only the leaderboard needs a connection.

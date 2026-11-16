@@ -144,12 +144,14 @@ there, and with no third-party sign-in offered, 4.8 does not apply.
 
 ## App Store — App Privacy
 
-Five types collected, all **linked to the user**, none **used for tracking**.
+Five types collected through 1.0, six from **1.1.0**, all **linked to the
+user**, none **used for tracking**.
 
 | Type | Category | Purpose | Linked | Tracking |
 |---|---|---|---|---|
 | Usage Data | Product Interaction | Analytics | Yes | No |
 | Identifiers | User ID | Analytics, App Functionality | Yes | No |
+| Identifiers | Device ID (from 1.1.0) | Analytics | Yes | No |
 | Diagnostics | Crash Data | App Functionality, Analytics | Yes | No |
 | Diagnostics | Performance Data | App Functionality, Analytics | Yes | No |
 | Diagnostics | Other Diagnostic Data | App Functionality, Analytics | Yes | No |
@@ -160,6 +162,28 @@ start-up time and server-call timings that `features/diagnostics` sends
 them goes to review**; until then the `diagnostics` flag can be held off in
 PostHog, which stops them on every device without a release. Linked, because
 they ride on the same PostHog identifier as the gameplay events.
+
+**From 1.1.0 the iPhone app also sends Box Office usage events**
+(`features/boxoffice.ios.ts`, the owner's call 2026-11-16; box-office AGENTS.md
+rule 6, the Cold Gas pattern): `session_start {returning, days_since_last}`,
+`game_start {mode, ranked}` and `game_over {wins, losses, mode, ending,
+rating_band}` -- numbers, flags and enums only -- with a random install id kept
+in AsyncStorage, POSTed in PostHog's `/batch/` shape to
+`https://mutaafaziz.com/boxoffice/e/batch/` with `Referer: https://18-0.co/`
+and `$geoip_disable`. They add Usage Data → **Product Interaction** (already on
+the label for Analytics, so no new row) and Identifiers → **Device ID**
+(Analytics, **linked**, **not tracking**). Account → Preferences → "Share usage
+stats" turns them off and deletes the id and the queue. Android sends nothing
+(`boxoffice.ts` is a no-op there) until the Play Data safety form says so.
+
+**Setting it is by hand, and it must be in the same submission as 1.1.0.**
+App Privacy has no API (see below). In App Store Connect → the app → App
+Privacy → Edit: under Identifiers tick *Device ID*; purpose *Analytics* only;
+linked to the user's identity **Yes**; used for tracking **No**. Check that
+Usage Data → *Product Interaction* still has *Analytics*, linked, not tracking.
+**Publish** it while preparing the 1.1.0 submission, not before (1.0 under
+review sends none of this) and not after (a 1.1.0 build must never be live
+under a label without it).
 
 Nothing else. Specifically **not** collected: contact info beyond the sign-in
 provider's own handling, location, contacts, health, financial info, browsing

@@ -199,7 +199,9 @@
         gameplay analytics to one processor, PostHog, described below; the
         browser version also runs the publisher's anonymous site analytics,
         described under <a href="#web-analytics">Site analytics in the browser
-        version</a>.
+        version</a>, and from version 1.1.0 the iPhone app sends a few usage
+        counts to the same publisher's analytics, described under
+        <a href="#app-usage">Usage counts in the iPhone app</a>.
       </p>
 
       <h2>Playing without an account</h2>
@@ -413,9 +415,41 @@
       </ul>
       <p>
         It is anonymous: it is not joined to your account, your display name or
-        your ranked games, and it is not used for advertising. The iPhone and
-        Android apps do not include it.
+        your ranked games, and it is not used for advertising. The apps do not
+        load it; the iPhone app's own usage counts are described next.
       </p>
+
+      <h2 id="app-usage">Usage counts in the iPhone app</h2>
+      <p>
+        From version 1.1.0 the iPhone app sends a few usage counts to the same
+        publisher analytics (Box Office, relayed to PostHog in the United States
+        through mutaafaziz.com): that the app was opened (whether you had opened
+        it before, and how many days ago), that a season started (its mode and
+        whether it was ranked) and how it ended (the record, the ending, the
+        mode and the rating as a band). Each carries the app's version and a
+        random identifier made on your phone the first time a count is kept.
+      </p>
+      <ul>
+        <li>
+          <strong>Numbers and fixed choices only.</strong> Never your display
+          name, your roster, a card, your account or any text you typed. The
+          identifier is not your account id and is not sent with your games or
+          to the game's own server.
+        </li>
+        <li>
+          <strong>No location and no advertising id.</strong> The relay strips
+          cookies and shortens your IP address before passing a count on, and
+          the counts ask PostHog not to derive a location at all. No advertising
+          identifier is read and nothing is used to track you across other apps.
+        </li>
+        <li>
+          <strong>Your switch.</strong> Account, Preferences, "Share usage
+          stats". Turning it off stops the counts at once and deletes the
+          identifier and anything not yet sent; turning it back on makes a new
+          identifier. Deleting the app deletes it too. The Android app does not
+          send these counts.
+        </li>
+      </ul>
 
       <h2>Ads in the browser version</h2>
       <p>

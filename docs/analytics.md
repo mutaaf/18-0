@@ -135,12 +135,26 @@ relayed to the portfolio's PostHog project through mutaafaziz.com with the IP
 truncated and GPC/DNT honoured. Cast List maps `18-0.co` to this game; any
 other host (the GitHub Pages mirror) gets a no-op loader.
 
-`features/boxoffice.web.ts` translates two telemetry events into the shared
+`features/boxoffice-queue.ts` translates two telemetry events into the shared
 portfolio vocabulary -- `play_started` -> `game_start {mode, ranked}`,
 `roster_completed` -> `game_over {wins, losses, mode, ending, rating_band}` --
-and `features/boxoffice.ts`, which iOS and Android get, does nothing. The apps
-send nothing new until their App Privacy label says so. `privacy.html` has the
-matching section; change both together.
+and checks every prop against it (numbers in a range, flags, enums; anything
+else is dropped). `boxoffice.web.ts` hands the result to the loader.
+
+**From 1.1.0 the iPhone app sends them too**, plus `session_start {returning,
+days_since_last}`: `boxoffice.ios.ts` keeps a capped queue (300, oldest
+dropped) and a random install id in AsyncStorage, and POSTs batches of up to 50
+in PostHog's `/batch/` shape to `mutaafaziz.com/boxoffice/e/batch/` with
+`Referer: https://18-0.co/` (the relay admits an event only by a
+general-audience Cast List page), `platform: ios`, `audience: general`,
+`release` and `$geoip_disable: true` -- ten seconds after the last event or when
+the app goes to the background. No SDK, no autocapture, no replays, no IDFA, no
+ATT. A development build prints its batches instead (launch argument
+`-boxoffice send` to send for real). Account → Preferences → "Share usage
+stats" turns it off and deletes the queue and the id. Android gets
+`boxoffice.ts`, which does nothing, until the Play Data safety form says so.
+The App Store label rows are in `submission.md`; `privacy.html` has the
+matching section ("Usage counts in the iPhone app"); change all three together.
 
 Never set `Referrer-Policy: no-referrer` on the site: the relay drops any event
 without a Referer.

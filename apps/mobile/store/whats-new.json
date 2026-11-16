@@ -38,7 +38,8 @@
         "Sharing is shorter: your record, one square per pick and a link. A big season puts the share button first.",
         "Smoother play: the player list arrives without a hitch, notices slide in instead of jumping, and the result counts up at your screen's full speed.",
         "On iPhone Duo the result, stats, account and card screens split across the fold, and nothing hides under the tab bar on wider screens.",
-        "If something breaks, the app sends an error report so it can be fixed. It carries nothing that identifies you."
+        "If something breaks, the app sends an error report so it can be fixed. It carries nothing that identifies you.",
+        "On iPhone, a few usage counts (a season started, how it ended) go to the publisher's own analytics with a random id made on your phone. Account, Preferences, Share usage stats turns them off and deletes the id."
       ]
     },
     {
