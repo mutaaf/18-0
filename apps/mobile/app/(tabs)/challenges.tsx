@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { DockSpacer } from '@/components/chrome';
 import { Screen } from '@/components/Screen';
 import { SpreadLayout } from '@/components/SpreadLayout';
 import { useSpread } from '@/features/fold';
@@ -208,6 +209,7 @@ export default function Challenges() {
                   <Text style={styles.subtitle}>Same seven spins, head to head</Text>
                 </View>
                 {pitchBlock}
+                <DockSpacer />
               </ScrollView>
             }
             second={
@@ -230,6 +232,7 @@ export default function Challenges() {
                     ))}
                   </Panel>
                 )}
+                <DockSpacer />
               </ScrollView>
             }
           />
@@ -257,6 +260,7 @@ export default function Challenges() {
                   {duelsBlock}
                 </>
               )}
+              <DockSpacer />
             </ScrollView>
           </>
         )}
@@ -381,7 +385,10 @@ const styles = themed(() => StyleSheet.create({
   fill: { flex: 1 },
   page: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.xxl, gap: space.lg },
   pageHeader: { gap: 2 },
-  how: { gap: space.md },
+  // Padding belongs to `contentStyle` (see Panel). With only a gap here the
+  // heading sat on the panel's top edge and its first letters were cut off by
+  // the rounded corner.
+  how: { padding: space.lg, gap: space.md },
   howRow: { flexDirection: 'row', gap: space.md, alignItems: 'flex-start' },
   howStep: { fontFamily: font.display, fontSize: 26, color: color.actionBright, includeFontPadding: false, minWidth: 34 },
   howText: { flex: 1, gap: 2 },
@@ -435,7 +442,9 @@ const styles = themed(() => StyleSheet.create({
   noteTitle: { fontFamily: font.heading, fontSize: 17, color: color.text },
   noteCopy: { fontFamily: font.bodyRegular, fontSize: 13, lineHeight: 19, color: color.textFaint },
   strong: { color: color.gold },
-  quiet: { alignSelf: 'flex-start', paddingVertical: space.xs },
+  // A 44-point target laid out at the label's height (see AccountPanel's
+  // dangerLink): the negative margin returns what minHeight adds.
+  quiet: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', marginVertical: -10 },
   quietLabel: { fontFamily: font.label, fontSize: 12, letterSpacing: tracking.wide, color: color.actionBright },
 
   failed: { fontFamily: font.bodyRegular, fontSize: 13, color: color.textFaint },

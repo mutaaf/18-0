@@ -568,7 +568,9 @@ const styles = themed(() => StyleSheet.create({
   providerRow: { gap: space.sm },
 
   dangerZone: { marginTop: space.sm, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: color.line, gap: space.sm },
-  dangerLink: { alignSelf: 'flex-start', paddingVertical: 4 },
+  // 44 points tall to press, laid out at the 24 the label needs: the negative
+  // margin gives back what the minimum adds, so nothing around it moves.
+  dangerLink: { alignSelf: 'flex-start', minHeight: 44, minWidth: 44, justifyContent: 'center', marginVertical: -10 },
   dangerLinkLabel: { fontFamily: font.bodyRegular, fontSize: 12, color: color.textFaint, textDecorationLine: 'underline' },
   dangerCopy: { fontFamily: font.bodyRegular, fontSize: 12, lineHeight: 18, color: color.textDim },
   dangerRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },

@@ -108,6 +108,37 @@ export function useSpread(): SpreadHandle {
 }
 
 /**
+ * What a window-wide overlay has to leave out to keep its content on one page
+ * of a book-open fold: a modal sheet is centred on the window, and on an iPhone
+ * Duo the window's centre is the crease, so the What's New sheet and the
+ * report dialog both opened folded down the middle. Zero everywhere else,
+ * including a wide browser window's virtual seam -- that is a gutter between
+ * panels, not hardware, and a dialog may cross it.
+ *
+ * The page is the trailing one, beside the rail, unless the leading one is
+ * wider. Behind `dual_panel` with the rest of the fold layout.
+ */
+export function useFoldPage(): { readonly left: number; readonly right: number } {
+  const enabled = useFlag('dual_panel');
+  const { divisions } = useFold();
+  const window = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  return useMemo(() => {
+    const fold = enabled
+      ? divisions.find((d) => d.height > d.width && d.x > 0 && d.x + d.width < window.width)
+      : undefined;
+    if (!fold) return { left: 0, right: 0 };
+    // The far edge keeps its safe inset: on a Duo the trailing one is the
+    // vertical bar, which a sheet must not run under either.
+    const leading = fold.x - insets.left;
+    const trailing = window.width - insets.right - (fold.x + fold.width);
+    return trailing >= leading
+      ? { left: fold.x + fold.width, right: insets.right }
+      : { left: insets.left, right: window.width - fold.x };
+  }, [enabled, divisions, window.width, insets.left, insets.right]);
+}
+
+/**
  * The navigation rail, when the window is showing two pages; null otherwise.
  * See `navRail` in `spread.ts`. Behind `dual_panel` with the rest of the
  * spread, so turning that off restores the bottom dock too.

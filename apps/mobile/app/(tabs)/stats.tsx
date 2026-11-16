@@ -2,6 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { eraLabel, franchise } from '@17-0/data';
 import { useMemo } from 'react';
+import { DockSpacer } from '@/components/chrome';
 import { Screen } from '@/components/Screen';
 import { SpreadLayout } from '@/components/SpreadLayout';
 import { ModeRing, RatingTrend, WinsChart } from '@/components/charts';
@@ -35,8 +36,7 @@ export default function Stats() {
   }, [games]);
 
   if (stats.played === 0) {
-    return (
-      <Screen maxWidth={layout.wide ? 820 : undefined}>
+    const blank = (
         <View style={styles.blank}>
           <Text style={styles.blankTitle}>Your record starts empty</Text>
           <Text style={styles.blankCopy}>
@@ -54,6 +54,16 @@ export default function Stats() {
           <Text style={styles.blankNote}>
             17-0 lands about once every 6,000 games. 16-1 about once every 49.
           </Text>
+        </View>
+    );
+    // Measured and split like the full screen. Centred on the whole window,
+    // a first-time player on an iPhone Duo got this message and its button
+    // folded down the middle -- the empty state is the first thing the tab
+    // ever shows, so it is the one that most needed to respect the crease.
+    return (
+      <Screen bleed={spread.kind !== 'single'} maxWidth={layout.wide ? 820 : undefined}>
+        <View ref={spreadRef} onLayout={onSpreadLayout} style={styles.fill}>
+          {spread.kind !== 'single' ? <SpreadLayout spread={spread} first={blank} second={<View />} /> : blank}
         </View>
       </Screen>
     );
@@ -157,11 +167,13 @@ export default function Stats() {
             first={
               <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
                 {record}
+                <DockSpacer />
               </ScrollView>
             }
             second={
               <ScrollView contentContainerStyle={[styles.scroll, styles.scrollSecond]} showsVerticalScrollIndicator={false}>
                 {habits}
+                <DockSpacer />
               </ScrollView>
             }
           />
@@ -169,6 +181,7 @@ export default function Stats() {
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
             {record}
             {habits}
+            <DockSpacer />
           </ScrollView>
         )}
       </View>

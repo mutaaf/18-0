@@ -27,7 +27,12 @@ import { color, elevate, font, radius, space, themed, tracking } from '@/theme';
 
 /** How far the swell reaches, in neighbours. */
 const REACH = 2;
-const BASE = 42;
+/**
+ * A tile at rest. 44, not the 42 it was: the dock is what an iPad in landscape
+ * navigates with, by finger, and at 42 every tab was under the 44-point
+ * minimum a touch target is held to.
+ */
+const BASE = 44;
 const PEAK = 70;
 
 export interface DockItemSpec {

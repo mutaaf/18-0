@@ -7,6 +7,7 @@ import { Field } from '@/components/Field';
 import { SpreadLayout } from '@/components/SpreadLayout';
 import { useSpread } from '@/features/fold';
 import { ACCOUNT_DOCK_WIDTH } from '@/components/AccountButton';
+import { DockSpacer } from '@/components/chrome';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
 import Svg, { Path } from 'react-native-svg';
@@ -90,6 +91,7 @@ export default function Games() {
           data={games}
           keyExtractor={(game) => game.id + game.completedAt}
           contentContainerStyle={styles.scroll}
+          ListFooterComponent={<DockSpacer />}
           showsVerticalScrollIndicator={false}
           initialNumToRender={8}
           maxToRenderPerBatch={8}

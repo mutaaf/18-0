@@ -241,7 +241,10 @@ const styles = themed(() => StyleSheet.create({
     borderTopColor: color.line,
     marginTop: space.xs,
   },
-  stat: { flex: 1, gap: 1 },
+  // Sized by their labels, not split four equal ways: at 320 points a quarter
+  // of the card is narrower than "HEARTBREAK" in tracked capitals, and it
+  // broke mid-word into "HEARTBR / EAK".
+  stat: { flexGrow: 1, flexShrink: 0, gap: 1 },
   statValue: {
     fontFamily: font.display,
     fontSize: 20,

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { DockSpacer } from '@/components/chrome';
 import { Screen } from '@/components/Screen';
+import { SpreadLayout } from '@/components/SpreadLayout';
+import { useSpread } from '@/features/fold';
 import { AccountPanel } from '@/components/AccountPanel';
 import { CareerPanel } from '@/components/CareerPanel';
 import { LevelPanel } from '@/components/LevelPanel';
@@ -37,6 +40,7 @@ export default function Account() {
   // colours. `theme.test.ts` asserts every route does this.
   useThemeId();
   const layout = useLayout();
+  const { spread, ref: spreadRef, onLayout: onSpreadLayout } = useSpread();
   const [me, setMe] = useState<Identity | null>(null);
   const [rank, setRank] = useState<number | null>(null);
 
@@ -54,29 +58,74 @@ export default function Account() {
     void load();
   }, [load]);
 
+  const header = (
+    <View style={styles.header}>
+      <Text style={styles.title}>Account</Text>
+      <Text style={styles.subtitle}>
+        {me?.named ? me.handle : 'Your name, your card, your seasons'}
+      </Text>
+    </View>
+  );
+
+  // Two pages: who you are on the leading one, what you have done on the
+  // trailing one. As one centred column the manager card, the name field and
+  // the sign-in buttons all ran across an iPhone Duo's fold.
+  if (spread.kind !== 'single') {
+    return (
+      <Screen bleed>
+        <View ref={spreadRef} onLayout={onSpreadLayout} style={styles.fill}>
+          <SpreadLayout
+            spread={spread}
+            first={
+              <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+                {header}
+                <View style={styles.body}>
+                  <LevelPanel />
+                  <AccountPanel rank={rank} />
+                </View>
+                <DockSpacer />
+              </ScrollView>
+            }
+            second={
+              <ScrollView contentContainerStyle={[styles.scroll, styles.second]} showsVerticalScrollIndicator={false}>
+                <View style={styles.body}>
+                  <CareerPanel />
+                  <RhythmPanel />
+                  <PreferencesPanel />
+                </View>
+                <DockSpacer />
+              </ScrollView>
+            }
+          />
+        </View>
+      </Screen>
+    );
+  }
+
   return (
     <Screen maxWidth={layout.wide ? 760 : undefined}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Account</Text>
-          <Text style={styles.subtitle}>
-            {me?.named ? me.handle : 'Your name, your card, your seasons'}
-          </Text>
-        </View>
-        <View style={styles.body}>
-          <LevelPanel />
-          <AccountPanel rank={rank} />
-          <CareerPanel />
-          <RhythmPanel />
-          <PreferencesPanel />
-        </View>
-      </ScrollView>
+      <View ref={spreadRef} onLayout={onSpreadLayout} style={styles.fill}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+          {header}
+          <View style={styles.body}>
+            <LevelPanel />
+            <AccountPanel rank={rank} />
+            <CareerPanel />
+            <RhythmPanel />
+            <PreferencesPanel />
+          </View>
+          <DockSpacer />
+        </ScrollView>
+      </View>
     </Screen>
   );
 }
 
 const styles = themed(() => StyleSheet.create({
+  fill: { flex: 1 },
   scroll: { paddingBottom: 140 },
+  // Level with the first panel on the leading page, below its title.
+  second: { paddingTop: space.lg + 52 },
   header: { paddingHorizontal: space.lg, paddingTop: space.lg, paddingBottom: space.md },
   title: {
     fontFamily: font.displayBlack,
