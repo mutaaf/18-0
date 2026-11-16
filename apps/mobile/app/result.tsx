@@ -31,6 +31,7 @@ import {
   type RatingVerdict,
 } from '@/features/rating-feedback';
 import { lookupCard, useGameStore } from '@/state/game';
+import { useStartGame } from '@/features/start-game';
 import { RESPIN_MARK } from '@17-0/respins/client';
 import { useHistoryStore } from '@/state/history';
 import {
@@ -304,13 +305,18 @@ export default function Result() {
     });
   };
 
+  const { start } = useStartGame();
   const buildAnother = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     // Web only, capped, and resolved at once with no fill (features/ads.ts).
-    // Before startGame, so a break never sits on top of a spinning reel.
+    // Before the start, so a break never sits on top of a spinning reel.
     await betweenSeasons();
-    game.startGame();
-    router.replace('/play');
+    // The same way in as Play on the front page: the same lens, the ranked
+    // switch as the player left it, and the first wheel already spinning.
+    // This used to call startGame() bare, which defaults to unranked -- so a
+    // ranked player who pressed Build Another was quietly playing for nothing
+    // from their second season on. A gameday season goes back to its own lens.
+    const mode = game.mode === 'gameday' ? 'scout' : game.mode;
+    await start(mode, { ranked: useGameStore.getState().preferRanked, replace: true });
   };
 
   // Confetti over a 4-13 would read as mockery, so the celebration only starts

@@ -124,6 +124,17 @@ interface GameState {
    * which is why it stays the default.
    */
   ranked: boolean;
+  /**
+   * The ranked switch as the player last left it, remembered across launches
+   * and seasons. `ranked` is what this season is (a downgrade clears it); this
+   * is what the player asked for, which is what the next season should be.
+   */
+  preferRanked: boolean;
+  /**
+   * Spin the first wheel as soon as the play screen is up. Set by the one-tap
+   * ways into a season (Play, Build Another), consumed once, never persisted.
+   */
+  autoSpin: boolean;
   /** The row in `game_sessions` this game belongs to, once one exists. */
   serverSessionId: string | null;
   /** Replay protection for the completion, minted with the session. */
@@ -131,7 +142,10 @@ interface GameState {
   /** Why a ranked game stopped being ranked, if it did. */
   serverNote: string | null;
 
-  startGame: (mode?: GameMode, options?: { ranked?: boolean }) => void;
+  startGame: (mode?: GameMode, options?: { ranked?: boolean; autoSpin?: boolean }) => void;
+  setPreferRanked: (on: boolean) => void;
+  /** True once if a one-tap start asked for the first wheel to spin itself. */
+  consumeAutoSpin: () => boolean;
   attachServerSession: (id: string, idempotencyKey: string) => void;
   /** Records a spin the server issued, rather than one this device invented. */
   applyServerSpin: (spin: SpinResult, assisted: boolean) => void;
@@ -266,6 +280,8 @@ export const useGameStore = create<GameState>()(
       assisted: false,
       respinsUsed: 0,
       ranked: false,
+      preferRanked: true,
+      autoSpin: false,
       serverSessionId: null,
       serverIdempotencyKey: null,
       serverNote: null,
@@ -282,10 +298,19 @@ export const useGameStore = create<GameState>()(
           mode: mode ?? state.mode,
           gamedayKey: (mode ?? state.mode) === 'gameday' ? (gamedayAt()?.key ?? null) : null,
           ranked: options?.ranked ?? false,
+          autoSpin: options?.autoSpin ?? false,
           serverSessionId: null,
           serverIdempotencyKey: null,
           serverNote: null,
         })),
+
+      setPreferRanked: (on) => set({ preferRanked: on }),
+
+      consumeAutoSpin: () => {
+        if (!get().autoSpin) return false;
+        set({ autoSpin: false });
+        return true;
+      },
 
       attachServerSession: (id, idempotencyKey) =>
         set({ serverSessionId: id, serverIdempotencyKey: idempotencyKey }),
@@ -409,6 +434,7 @@ export const useGameStore = create<GameState>()(
         respinsUsed: s.respinsUsed,
         mode: s.mode,
         gamedayKey: s.gamedayKey,
+        preferRanked: s.preferRanked,
       }),
     },
   ),
