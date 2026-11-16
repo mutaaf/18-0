@@ -1,10 +1,6 @@
-ON THE 4.3 / 4.2.6 REVIEW OF NOV 5. Our Resolution Center reply that day answers Apple's nine questions in full. In short:
-- Original game, not a variant of a category. 17-0 is a football history puzzle: no league, no weekly matchups, no live scoring, no drafting against other people, no trivia question bank, no money. A spin deals a franchise and an era; you take one real season from it, seven times, and an era-adjusted rating model of our own projects a 17-game record.
-- Original content. 4,872 real player seasons across 32 franchises and 7 eras, rated by a deterministic model the server re-runs to verify every ranked season.
-- Not built from a template or an app generation service, and not made for anyone else's content. I designed it and am the content provider; the code was written for this game, largely with an AI coding assistant under my direction.
-- Since that review: the store name now says what the game is ("17-0: Perfect Season Builder"), a new icon and design, a two-page layout for iPhone Duo, and an in-app What's New.
+ON THE 4.3 / 4.2.6 REVIEW OF NOV 5. Our Resolution Center reply that day answers all nine questions. In short: an original football history puzzle (no league, matchups, live scoring, drafting against people, trivia bank, wagers or cash prizes); 4,872 real player seasons rated by our own era-adjusted model, which the server re-runs to verify ranked seasons; not built from a template or app generation service. I designed it and am the content provider. Since then: a store name that says what it is, a new icon and design, an iPhone Duo layout and an in-app What's New.
 
-PURPOSE AND AUDIENCE. For teenage and adult football fans. The goal is a perfect 17-0 season, about once in 6,000 games. No wagers, prizes, purchases or ads.
+PURPOSE AND AUDIENCE. For teenage and adult football fans. The goal is a perfect 17-0 season, about once in 6,000 games. No wagers, prizes or ads. One optional in-app purchase from 1.1.0 (below).
 
 NO DEMO ACCOUNT IS NEEDED. The app signs in anonymously on first launch, with no prompt and no sign-up screen. The app opens on the Play tab: scroll to the three modes and tap one (Play Rookie shows every rating, Play Scout shows stat lines only, Play GM Mode shows names only), then spin and pick seven times; Reveal your result shows the rating and record. The Ranks tab, second in the bottom bar, holds the leaderboards.
 
@@ -18,8 +14,10 @@ SIGNING IN IS OPTIONAL. The Account screen (avatar disc, top right of any screen
 
 USAGE COUNTS (NEW IN 1.1.0). No SDK. A few counts (app opened, season started, season ended with its record) and a random install id go to our relay at mutaafaziz.com, which cuts the IP and forwards them to PostHog. Account -> Preferences -> "Share usage stats" turns them off and deletes the id. App Privacy: Product Interaction and Device ID, Analytics, linked, not tracking. No IDFA, no ATT.
 
-EXTERNAL SERVICES. Supabase (database, anonymous and optional sign-in, server-side scoring of ranked seasons, leaderboard). PostHog (first-party analytics and feature flags; no advertising identifier, no tracking). Sign in with Apple and Google Sign-In (optional). Season statistics from nflverse (CC BY 4.0) and Pro-Football-Reference (licensed), bundled at build time. No AI services.
+IN-APP PURCHASES (NEW IN 1.1.0). Two consumables: 3 Respins ($0.99), 12 Respins ($2.99). A respin redraws the franchise and era a spin landed on, one per season. Tap Play, Spin The Wheel; when it lands, "Respin" appears under the team and era (at 0 it opens the purchase sheet, which states the odds). A respun season is marked on every leaderboard and never counts for the perfect-season board, so money cannot buy a ranking. Verified server-side (StoreKit 2); no sign-in needed. Not a wager; wins nothing.
 
-REGIONS. No differences. The app is the same in every territory and plays fully offline; only the leaderboard needs a connection.
+EXTERNAL SERVICES. Supabase (database, anonymous and optional sign-in, server-side scoring of ranked seasons, leaderboard). PostHog (first-party analytics and feature flags; no advertising identifier, no tracking). Sign in with Apple and Google Sign-In (optional). Apple In-App Purchase (StoreKit 2) for respins. Season statistics from nflverse (CC BY 4.0) and Pro-Football-Reference (licensed), bundled at build time. No AI services.
 
-THIRD-PARTY MATERIAL. No team names, logos, marks or colours: franchises are identified by city only and every palette is generated. Player names appear with statistics from their real seasons, factual data used as fantasy football and sports-reference sites use it. No player photographs or likenesses are shown.
+REGIONS. The same app in every territory. It plays fully offline; only the leaderboard and buying respins need a connection.
+
+THIRD-PARTY MATERIAL. No team names, logos, marks or colours: franchises are identified by city only and every palette is generated. Player names appear with their real seasons' statistics, factual data used as sports-reference sites use it. No player photographs or likenesses are shown.
