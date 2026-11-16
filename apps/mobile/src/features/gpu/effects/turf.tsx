@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import { StyleSheet } from 'react-native';
-import { Canvas, Fill, Shader, Skia, useClock } from '@shopify/react-native-skia';
-import { useDerivedValue, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Canvas, Fill, Shader, Skia } from '@shopify/react-native-skia';
+import { useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useEffectClock } from '../clock';
 import { rgb } from '../color';
 
 /**
@@ -77,8 +78,8 @@ export default function TurfShader({
   colors: { deep: string; lit: string; glow: string };
 }) {
   const effect = useMemo(() => Skia.RuntimeEffect.Make(SOURCE), []);
-  const reduced = useReducedMotion();
-  const clock = useClock();
+  // Paused off screen, in the background and under Reduce Motion: see `../clock`.
+  const { clock, reduced } = useEffectClock();
   const folded = useSharedValue(bend);
 
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import {
   LayoutAnimation,
   AccessibilityInfo,
@@ -24,6 +25,7 @@ import { Field } from '@/components/Field';
 import { SpinReel } from '@/components/SpinReel';
 import { PlayerCard } from '@/components/PlayerCard';
 import { Screen } from '@/components/Screen';
+import { Unfold } from '@/components/Unfold';
 import { SpreadLayout } from '@/components/SpreadLayout';
 import { useSpread } from '@/features/fold';
 import { MODE_LABEL, lookupCard, showsRating, slotsForCard, useGameStore } from '@/state/game';
@@ -96,7 +98,22 @@ export default function Play() {
   const spreadOn = spread.kind !== 'single';
   /** The field has a place of its own, so it is not stacked under the spin. */
   const fieldApart = spreadOn || layout.wide;
-  const game = useGameStore();
+  /**
+   * The fields this screen draws, and nothing else. Subscribed to the whole
+   * store, every write -- a server session attaching, a result being stored --
+   * re-rendered the screen and handed every callback below a new `game`, which
+   * is what made the rows' memo worthless. Actions are read off the store when
+   * they are called.
+   */
+  const game = useGameStore(
+    useShallow((s) => ({
+      status: s.status,
+      spins: s.spins,
+      selections: s.selections,
+      mode: s.mode,
+      assisted: s.assisted,
+    })),
+  );
   const record = useHistoryStore((s) => s.record);
 
   const [spinning, setSpinning] = useState(false);
@@ -171,7 +188,7 @@ export default function Play() {
   }, []);
 
   useEffect(() => {
-    if (game.status === 'idle') game.startGame();
+    if (game.status === 'idle') useGameStore.getState().startGame();
   }, [game.status]);
 
   /**
@@ -256,7 +273,12 @@ export default function Play() {
   }, [eligible, positionFilter, query, mode]);
 
   const selected = selectedId ? eligible.find((c) => c.id === selectedId) ?? null : null;
-  const targetSlots = selected ? slotsForCard(selected, game.selections) : [];
+  const targetSlots = useMemo(
+    () => (selected ? slotsForCard(selected, game.selections) : []),
+    [selected, game.selections],
+  );
+  /** Rows mounted so far; see `useGrowing`. */
+  const mounted = useGrowing(eligible);
 
   /**
    * The three-finger spin: hold three fingers anywhere on the screen while
@@ -271,6 +293,7 @@ export default function Play() {
   const doSpin = useCallback(async (event?: { shiftKey?: boolean }) => {
     if (spinning || complete || awaitingServer || spinBusy.current) return;
     spinBusy.current = true;
+    const game = useGameStore.getState();
     const assist = fingers.current >= 3 || event?.shiftKey === true;
     setSelectedId(null);
     setNotice(null);
@@ -403,10 +426,11 @@ export default function Play() {
     landed = await land();
     if (landed && !reduceMotion) showReel(landed);
     if (reelDone || !landed) finish();
-  }, [awaitingServer, complete, game, holdHero, reduceMotion, spinning]);
+  }, [awaitingServer, complete, holdHero, reduceMotion, spinning]);
 
   const assign = useCallback(
     async (card: BootCard, slot: RosterSlot) => {
+      const game = useGameStore.getState();
       const outcome = game.select(card, slot);
       if (!outcome.ok) {
         track('selection_rejected', { slot, reason: outcome.message });
@@ -464,7 +488,7 @@ export default function Play() {
         });
       }
     },
-    [game],
+    [blind],
   );
 
   /**
@@ -472,7 +496,9 @@ export default function Play() {
    * the player second is how people actually think about a lineup — and it
    * removes the second tap that the RB1/RB2 picker used to need.
    */
-  const pressSlot = useCallback(
+  // Stable, so the memoized field is not redrawn by every keystroke in the
+  // search box just because this closure was rebuilt.
+  const pressSlot = useStable(
     (slot: RosterSlot) => {
       if (!canPick || filled[slot]) return;
 
@@ -493,14 +519,33 @@ export default function Play() {
       if (next) track('slot_targeted', { slot: next });
       Haptics.selectionAsync().catch(() => {});
     },
-    [assign, canPick, eligible, filled, game.selections, selectedId, targetSlot],
   );
+
+  /**
+   * One handler for every row, rather than two fresh closures per row per
+   * render. With them inline, `PlayerCard`'s memo never held: picking a
+   * running back, typing a letter or tapping a chip re-rendered every row in
+   * the list, SVG wash and all.
+   */
+  const pickCard = useStable((card: BootCard) => {
+    const slots = slotsForCard(card, game.selections);
+    if (targetSlot && slots.includes(targetSlot)) assign(card, targetSlot);
+    else if (slots.length === 1) assign(card, slots[0]!);
+    else setSelectedId(selectedId === card.id ? null : card.id);
+  });
+  const openDetails = useStable((card: BootCard) => {
+    track('player_details_opened', { position: card.position });
+    router.push(`/card/${encodeURIComponent(card.id)}`);
+  });
 
   const reveal = useCallback(async () => {
     // One reveal. A second tap during the server's answer completed the game
     // and asked the server to score it twice.
     if (revealing.current) return;
     revealing.current = true;
+    // The state as the tap found it, as the render-time `game` used to be: the
+    // record below is written from this, not from whatever a downgrade leaves.
+    const game = useGameStore.getState();
     const result = game.complete();
     if (!result) {
       revealing.current = false;
@@ -578,7 +623,7 @@ export default function Play() {
     // No haptic here: the result screen locks the record with its own, tiered
     // by wins, and a Success a second before it made the reveal buzz twice.
     router.replace('/result');
-  }, [game, record, router]);
+  }, [record, router]);
 
   const shown = spin && canPick ? { franchiseId: spin.franchiseId, era: spin.era } : null;
   const team = shown ? franchise(shown.franchiseId) : null;
@@ -818,35 +863,45 @@ export default function Play() {
           Awaiting spin" over a full field with the reveal button below. */}
       {complete ? null : spinInHeader ? (layout.short ? null : storyLine) : hero}
 
-      {assistArmed && !canPick && !complete ? (
-        <Text style={styles.assistHint}>Three fingers down — this spin will find the best card left.</Text>
-      ) : null}
+      {/* Each of these opens its own room rather than shoving the field and
+          the list down in one frame -- see `Unfold`. */}
+      <Unfold gap={space.md}>
+        {assistArmed && !canPick && !complete ? (
+          <Text style={styles.assistHint}>Three fingers down — this spin will find the best card left.</Text>
+        ) : null}
+      </Unfold>
 
-      {game.assisted ? (
-        <View style={styles.assistedFlag}>
-          <Text style={styles.assistedFlagText}>
-            Assisted run · this season won't count toward records
-          </Text>
-        </View>
-      ) : null}
+      <Unfold gap={space.md}>
+        {game.assisted ? (
+          <View style={styles.assistedFlag}>
+            <Text style={styles.assistedFlagText}>
+              Assisted run · this season won't count toward records
+            </Text>
+          </View>
+        ) : null}
+      </Unfold>
 
-      {notice ? (
-        <Text style={styles.notice} accessibilityLiveRegion="polite">
-          {notice}
-        </Text>
-      ) : null}
+      <Unfold gap={space.md}>
+        {notice ? (
+          <Text style={styles.notice} accessibilityLiveRegion="polite">
+            {notice}
+          </Text>
+        ) : null}
+      </Unfold>
 
-      {lastPick ? (
-        <View style={styles.lastPick} accessibilityLiveRegion="polite">
-          <Text style={[styles.lastPickSlot, { color: positionColor[lastPick.card.position] }]}>
-            {lastPick.slot}
-          </Text>
-          <Text style={styles.lastPickName} numberOfLines={1}>
-            {displayName(lastPick.card)} '{String(lastPick.card.year).slice(2)}
-          </Text>
-          <Text style={styles.lastPickLocked}>Locked in</Text>
-        </View>
-      ) : null}
+      <Unfold gap={space.md}>
+        {lastPick ? (
+          <View style={styles.lastPick} accessibilityLiveRegion="polite">
+            <Text style={[styles.lastPickSlot, { color: positionColor[lastPick.card.position] }]}>
+              {lastPick.slot}
+            </Text>
+            <Text style={styles.lastPickName} numberOfLines={1}>
+              {displayName(lastPick.card)} '{String(lastPick.card.year).slice(2)}
+            </Text>
+            <Text style={styles.lastPickLocked}>Locked in</Text>
+          </View>
+        ) : null}
+      </Unfold>
 
       {/* Stacked under the spin on a phone. On a wide screen the field moves
           into its own column and stays there -- see `fieldPanel`. */}
@@ -956,29 +1011,19 @@ export default function Play() {
       </Text>
 
       <View style={styles.list}>
-        {visible.map((card, index) => {
-          const slots = slotsForCard(card, game.selections);
-          return (
-            <PlayerCard
-              key={card.id}
-              card={card}
-              index={index}
-              name={displayName(card)}
-              selected={selectedId === card.id}
-              disabled={slots.length === 0}
-              mode={mode}
-              onPress={() => {
-                if (targetSlot && slots.includes(targetSlot)) assign(card, targetSlot);
-                else if (slots.length === 1) assign(card, slots[0]!);
-                else setSelectedId(selectedId === card.id ? null : card.id);
-              }}
-              onDetails={() => {
-                track('player_details_opened', { position: card.position });
-                router.push(`/card/${encodeURIComponent(card.id)}`);
-              }}
-            />
-          );
-        })}
+        {visible.slice(0, mounted).map((card, index) => (
+          <PlayerCard
+            key={card.id}
+            card={card}
+            index={index}
+            name={displayName(card)}
+            selected={selectedId === card.id}
+            disabled={slotsForCard(card, game.selections).length === 0}
+            mode={mode}
+            onPress={pickCard}
+            onDetails={openDetails}
+          />
+        ))}
         {visible.length === 0 ? (
           <Text style={styles.empty}>Nothing here fits an open slot.</Text>
         ) : null}
@@ -1173,6 +1218,71 @@ export default function Play() {
       </View>
     </Screen>
   );
+}
+
+/**
+ * A callback whose identity never changes and which always runs the latest
+ * render's version of `fn`. For handlers handed to memoized children: the
+ * child keeps its memo, and the handler still sees current state.
+ */
+function useStable<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) => R {
+  const latest = useRef(fn);
+  latest.current = fn;
+  return useCallback((...args: A) => latest.current(...args), []);
+}
+
+/** Rows mounted with the list, and how many more follow on each frame after. */
+const FIRST_ROWS = 12;
+const ROWS_PER_FRAME = 12;
+
+/**
+ * How many of a spin's rows are mounted so far.
+ *
+ * A spin used to mount every eligible row in the frame it landed -- sixty or a
+ * hundred cards, each a gradient, an entrance animation and two buttons -- and
+ * that one commit was the hitch you could feel between the reel stopping and
+ * the list appearing. The first dozen is more than fills any screen and is
+ * what the entrance stagger animates anyway (`PlayerCard` caps it at twelve);
+ * the rest arrive a batch per frame behind them, below the fold, where nobody
+ * sees the difference.
+ *
+ * Not a virtualized list, on purpose: the rows share one scroll with the hero
+ * and the field, `scrollTo` and `verify:fold` both read that scroll, and a
+ * spin is at most a hundred-odd rows -- the cost was mounting them at once,
+ * not having them mounted.
+ *
+ * Keyed on the spin's list rather than the filtered one, so typing in the
+ * search box never sends rows back through the queue. And with a timer behind
+ * the frames, because a row that never mounts is a player nobody can pick.
+ */
+function useGrowing(list: readonly unknown[]): number {
+  const [grown, setGrown] = useState<{ of: readonly unknown[]; n: number }>({ of: list, n: FIRST_ROWS });
+  // Read synchronously: the render a new spin lands in must not inherit the
+  // last spin's count and mount every row at once.
+  const n = grown.of === list ? grown.n : FIRST_ROWS;
+
+  useEffect(() => {
+    if (list.length <= FIRST_ROWS) return;
+    let frame = 0;
+    let count = FIRST_ROWS;
+    const failsafe = setTimeout(() => {
+      cancelAnimationFrame(frame);
+      setGrown({ of: list, n: list.length });
+    }, 1000);
+    const grow = () => {
+      count += ROWS_PER_FRAME;
+      setGrown({ of: list, n: count });
+      if (count < list.length) frame = requestAnimationFrame(grow);
+      else clearTimeout(failsafe);
+    };
+    frame = requestAnimationFrame(grow);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(failsafe);
+    };
+  }, [list]);
+
+  return n;
 }
 
 function Chip({

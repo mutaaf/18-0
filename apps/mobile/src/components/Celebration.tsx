@@ -21,6 +21,15 @@ import { DECORATIVE, color } from '@/theme';
  * Every piece of either is `pointerEvents="none"` in an absolutely-positioned
  * overlay, so nothing here can swallow a tap or gate the content underneath.
  * Reduce Motion renders nothing at all.
+ *
+ * **Mounted with the screen, live on its cue.** The result screen used to
+ * mount this at the frame the tier stamps on, so that one frame paid for a
+ * whole-screen re-render, an accessibility query, loading the effect, a
+ * measure pass and planning three hundred pieces -- and the first frames of
+ * the show, which are the burst, were the ones dropped, while the rating
+ * counted up underneath. Now everything that costs anything happens during
+ * the record's roll (`ARM_LEAD` before the cue), with the show's clock held at
+ * zero, and the cue itself only starts clocks.
  */
 
 const GpuFireworks = gpu(() => import('@/features/gpu/effects/fireworks'));
@@ -37,6 +46,13 @@ interface Piece {
   readonly ratio: number;
 }
 
+/**
+ * How far ahead of its cue the show is set up. Long enough for the effect to
+ * load and measure; late enough to stay off the screen's first frames, which
+ * are building the panel.
+ */
+const ARM_LEAD = 600;
+
 const GOLD = [color.gold, color.goldBright, color.goldDeep, '#FFF1C2', color.ignitionBright];
 
 export function Celebration({
@@ -46,14 +62,30 @@ export function Celebration({
   palette,
   /** Gold rings and a longer, denser burst. */
   perfect = false,
+  /** Milliseconds from mount until it goes off. 0 is now. */
+  at = 0,
 }: {
   intensity: number;
   palette: readonly string[];
   perfect?: boolean;
+  at?: number;
 }) {
   const { width, height } = useWindowDimensions();
   const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [armed, setArmed] = useState(at <= 0);
+  const [live, setLive] = useState(at <= 0);
   const { divisions } = useFold();
+
+  // Measured from mount, as every cue on the result screen is. A cue moving
+  // to 0 -- the skip tap -- fires at once; once live it stays live.
+  useEffect(() => {
+    const arm = setTimeout(() => setArmed(true), Math.max(0, at - ARM_LEAD));
+    const go = setTimeout(() => setLive(true), Math.max(0, at));
+    return () => {
+      clearTimeout(arm);
+      clearTimeout(go);
+    };
+  }, [at]);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,7 +116,7 @@ export function Celebration({
     }));
   }, [width, strength, perfect]);
 
-  if (enabled !== true || strength <= 0) return null;
+  if (enabled !== true || strength <= 0 || !armed) return null;
 
   // The hinge, in window coordinates: shells rise out of it. A book's fold
   // launches from its foot, a tabletop's from the crease up into the top page.
@@ -97,16 +129,19 @@ export function Celebration({
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none" {...DECORATIVE}>
-      <Flash color={perfect ? color.goldBright : colors[0]!} strength={strength} />
-      {perfect ? <Rings width={width} /> : null}
+      {live ? <Flash color={perfect ? color.goldBright : colors[0]!} strength={strength} /> : null}
+      {live && perfect ? <Rings width={width} /> : null}
       <GpuFireworks
         intensity={strength}
         palette={perfect ? [...GOLD, color.text] : [...colors, color.goldBright]}
         perfect={perfect}
         origin={origin}
-        fallback={pieces.map((piece) => (
-          <Confetto key={piece.key} piece={piece} fallTo={height + 80} />
-        ))}
+        live={live}
+        fallback={
+          live
+            ? pieces.map((piece) => <Confetto key={piece.key} piece={piece} fallTo={height + 80} />)
+            : null
+        }
       />
     </View>
   );

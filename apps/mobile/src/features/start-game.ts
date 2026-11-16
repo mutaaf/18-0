@@ -59,7 +59,9 @@ export interface StartGame {
 
 export function useStartGame(): StartGame {
   const router = useRouter();
-  const game = useGameStore();
+  // No subscription: this hook only ever calls the store's actions, and
+  // subscribing to all of it re-rendered Home -- mounted under the play screen
+  // the whole game -- on every spin and every pick.
   const [opening, setOpening] = useState(false);
 
   const start = useCallback(
@@ -70,6 +72,7 @@ export function useStartGame(): StartGame {
       // could be wrong about it.
       const replacing = useGameStore.getState().status !== 'idle';
       track('play_started', { mode, replacing, ranked });
+      const game = useGameStore.getState();
       game.startGame(mode, { ranked });
       if (!ranked) {
         generation += 1;
@@ -112,7 +115,7 @@ export function useStartGame(): StartGame {
 
       router.push('/play');
     },
-    [game, router],
+    [router],
   );
 
   return { opening, start };

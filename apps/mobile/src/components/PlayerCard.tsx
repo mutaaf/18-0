@@ -38,8 +38,12 @@ export const PlayerCard = memo(function PlayerCard({
   /** Player IQ: no rating, no stats, and no detail screen to peek at. */
   /** Decides whether this row shows a rating, a stat line, or neither. */
   mode: GameMode;
-  onPress: () => void;
-  onDetails: () => void;
+  /**
+   * Handed the card rather than closed over it, so one stable handler serves
+   * every row and the memo above actually holds when the list re-renders.
+   */
+  onPress: (card: BootCard) => void;
+  onDetails: (card: BootCard) => void;
 }) {
   // Memoized, and a theme change moves none of these props. Without the
   // subscription the roster keeps the old palette until something else forces
@@ -84,7 +88,7 @@ export const PlayerCard = memo(function PlayerCard({
           accessibilityLabel={`${name}. ${card.position}. ${card.year} ${team.name}.${
             showsRating(mode) ? ` Rating ${card.rating.toFixed(1)}.` : ''
           }${disabled ? ' Already on your roster.' : ''}`}
-          onPress={disabled ? undefined : onPress}
+          onPress={disabled ? undefined : () => onPress(card)}
           onHoverIn={() => setHovered(true)}
           onHoverOut={() => setHovered(false)}
           onPressIn={() => setPressed(true)}
@@ -133,7 +137,7 @@ export const PlayerCard = memo(function PlayerCard({
             the mode withholds, so this is a way to see the card, not a way
             around the rules of the game you chose. */}
         <Pressable
-            onPress={onDetails}
+            onPress={() => onDetails(card)}
             accessibilityRole="button"
             accessibilityLabel={`Details for ${name}`}
             style={({ hovered: over, pressed: down }: PressState) => [

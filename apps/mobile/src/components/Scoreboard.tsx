@@ -108,7 +108,6 @@ export function Scoreboard({
   // stop on the same frame the record locks and the flare belongs to a number
   // that has finished moving.
   const lossRoll = useRoll(losses, 0, CUE.digits + 60, ROLL - 60, settled);
-  const ratingRoll = useRoll(rating, 0, CUE.rating, 620, settled);
   const shownWins = Math.round(winRoll);
   const shownLosses = Math.round(lossRoll);
 
@@ -142,8 +141,8 @@ export function Scoreboard({
   /**
    * Every layer of the graphic, built once.
    *
-   * The three tickers above re-render this component roughly twenty times a
-   * second while they roll. Built in the render body, each of these is a fresh
+   * The two record tickers above re-render this component once per number
+   * they pass. Built in the render body, each of these is a fresh
    * Animated node attached and detached on every one of those passes — which is
    * the difference between a sequence that holds 60fps on a mid-range phone and
    * one that does not.
@@ -321,14 +320,30 @@ export function Scoreboard({
               TIER <Text style={{ color: accent }}>{tier}</Text>
             </Text>
             <View style={styles.metaDot} />
-            <Text style={styles.metaRating}>
-              {ratingRoll.toFixed(1)}
-              <Text style={styles.metaLabel}> RATING</Text>
-            </Text>
+            <RatingFigure rating={rating} settled={settled} />
           </Animated.View>
         </View>
       </View>
     </View>
+  );
+}
+
+/**
+ * The rating, counting up.
+ *
+ * Its own component because it changes on nearly every frame of its roll --
+ * at a tenth of a point, 0 to 90 is nine hundred shown values in 620 ms -- and
+ * as a value in `Scoreboard` each of those frames re-rendered the whole panel:
+ * both digits, the pip strip and every animated layer, at the moment the
+ * celebration is starting over it. Here a frame re-renders one line of text.
+ */
+function RatingFigure({ rating, settled }: { rating: number; settled: boolean }) {
+  const shown = useRoll(rating, 0, CUE.rating, 620, settled, 0.1);
+  return (
+    <Text style={styles.metaRating}>
+      {shown.toFixed(1)}
+      <Text style={styles.metaLabel}> RATING</Text>
+    </Text>
   );
 }
 

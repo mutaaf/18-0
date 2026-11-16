@@ -26,12 +26,18 @@ export default function Fireworks({
   palette,
   perfect,
   origin,
+  live = true,
 }: {
   intensity: number;
   palette: readonly string[];
   perfect: boolean;
   /** The fold, in window coordinates. */
   origin: { x: number; y: number } | null;
+  /**
+   * False while the show is being set up ahead of its cue: loaded, measured
+   * and planned, with its clock held at zero. See `Celebration`.
+   */
+  live?: boolean;
 }) {
   // The overlay is measured rather than assumed to be the window: on a wide
   // screen the result sits in a column, and a show laid out across the window
@@ -56,6 +62,7 @@ export default function Fireworks({
         palette={palette}
         perfect={perfect}
         origin={origin ? { x: origin.x - box.x, y: origin.y - box.y } : null}
+        live={live}
       />
     </View>
   );
@@ -68,6 +75,7 @@ function Show({
   palette,
   perfect,
   origin,
+  live,
 }: {
   width: number;
   height: number;
@@ -75,6 +83,7 @@ function Show({
   palette: readonly string[];
   perfect: boolean;
   origin: { x: number; y: number } | null;
+  live: boolean;
 }) {
   const show = useMemo<ShowPlan>(
     () => buildShow({ width, height, intensity, perfect, origin, colors: palette.length }),
@@ -86,8 +95,9 @@ function Show({
   const clock = useSharedValue(0);
 
   useEffect(() => {
+    if (!live) return;
     clock.value = withTiming(show.duration, { duration: show.duration * 1000, easing: Easing.linear });
-  }, [clock, show.duration]);
+  }, [clock, show.duration, live]);
 
   const picture = useDerivedValue(() => {
     const t = clock.value;

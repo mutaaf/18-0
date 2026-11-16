@@ -273,7 +273,11 @@ function surname(card: BootCard): string {
   return parts.length > 1 ? parts.slice(1).join(' ') : card.name;
 }
 
-export function Field({
+/**
+ * Memoized: the play screen re-renders on every keystroke in its search box and
+ * every chip tap, and none of those move the lineup.
+ */
+export const Field = memo(function Field({
   cards,
   franchiseAbbrs,
   highlight,
@@ -297,6 +301,9 @@ export function Field({
    */
   fill?: boolean;
 }) {
+  // Memoized, so a palette change has to reach it through a subscription of
+  // its own. See `StadiumBackdrop` for the same note.
+  useThemeId();
   const layout = useLayout();
   // A desktop window has the room for a bigger lineup graphic; a phone does not.
   const scale = fill ? 1.25 : layout.roomy ? 1.35 : layout.wide ? 1.2 : 1;
@@ -345,7 +352,7 @@ export function Field({
       </View>
     </View>
   );
-}
+});
 
 export const ALL_SLOTS = ROSTER_SLOTS;
 
