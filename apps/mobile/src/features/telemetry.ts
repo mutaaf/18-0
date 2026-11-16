@@ -28,6 +28,9 @@ export type EventName =
   | 'selection_rejected'
   | 'roster_completed'
   | 'result_revealed'
+  // The Share button pressed, then (as result_shared) how it went: the gap
+  // between the two is everyone who opened the sheet and closed it.
+  | 'share_tapped'
   | 'result_shared'
   // A player marking one of their seven as rated too low or too high (or
   // taking that back). Evidence for the next refit; never read by a score.

@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { APP_URL } from './links';
 import {
+  shareGrid,
   SHARE_URL,
   isShareCancel,
   shareBody,
@@ -42,11 +43,18 @@ describe('what a shared result says', () => {
     expect(shareBody(season(15, 2) as never, roster)).not.toContain(APP_URL);
   });
 
-  it('carries the roster and the verdict', () => {
+  it('carries a grid and the verdict, not a wall of names', () => {
     const text = shareText(season(15, 2) as never, roster);
-    expect(text).toContain('Contender · Rating 91.2 · Tier A');
-    expect(text).toContain("QB   A. Passer '07  97.1");
-    expect(text).toContain('Can you beat this roster?');
+    expect(text).toContain('Contender · Tier A');
+    expect(text).toContain('Can you beat it?');
+    expect(text).not.toContain('A. Passer');
+    // Short enough to paste anywhere: headline, grid, verdict, ask, link.
+    expect(text.split('\n')).toHaveLength(5);
+  });
+
+  it('bands each pick like the rating badges, in slot order', () => {
+    const rows = [97.1, 93, 88, 80, 79.9].map((rating, i) => ({ slot: `S${i}`, name: 'x', year: 2000, rating }));
+    expect(shareGrid(rows)).toBe('🟪🟩🟦🟨🟥');
   });
 
   it('a perfect season says so', () => {

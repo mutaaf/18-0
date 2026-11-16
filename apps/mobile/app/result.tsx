@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { ROSTER_SLOTS, isPerfectionDenied, type RosterSlot } from '@17-0/domain';
@@ -293,9 +293,13 @@ export default function Result() {
 
   const share = () => {
     setShareNote(null);
+    const context = { wins, brag, platform: Platform.OS };
+    track('share_tapped', context);
     void shareResult(cardRef, result, shareRows, shareFile.current).then((outcome) => {
-      track('result_shared', { outcome });
       setShareNote(SHARE_NOTE[outcome]);
+      // Every outcome, cancelled included: a tap that ends in a closed sheet
+      // is the most useful number this event can have.
+      track('result_shared', { ...context, outcome });
     });
   };
 
@@ -313,6 +317,16 @@ export default function Result() {
   const celebration = perfect ? 1 : wins >= 17 ? 0.92 : wins >= 15 ? 0.7 : wins >= 12 ? 0.45 : wins >= 10 ? 0.25 : 0;
 
   const beatBest = previousBest !== null && result.finalRating > previousBest;
+
+  /**
+   * A season worth posting gets Share as the main button, with the record on
+   * it. Dozens of people a day finished seasons and nobody posted one: Share
+   * was the quiet button beside a bright green Build Another, and the moment
+   * somebody is proudest of a result is the moment to hand them the button.
+   */
+  const brag = perfect || heartbreak || wins >= 12 || beatBest;
+  const recordText = `${wins}-${result.record.losses}`;
+
   const toPerfect = Math.max(0, PERFECT_THRESHOLD - result.finalRating);
   const progress = Math.min(1, result.finalRating / PERFECT_THRESHOLD);
 
@@ -483,30 +497,64 @@ export default function Result() {
       ) : null}
 
       <Layer t={line.t} at={CUE.tail + 120} style={styles.actions}>
-        <Pressable
-          style={({ pressed, hovered }: PressState) => [
-            styles.primary,
-            hovered && styles.lift,
-            pressed && { opacity: 0.88 },
-          ]}
-          onPress={buildAnother}
-          accessibilityRole="button"
-          accessibilityLabel="Build another roster"
-        >
-          <Text style={styles.primaryLabel}>Build Another</Text>
-        </Pressable>
-        <Pressable
-          style={({ pressed, hovered }: PressState) => [
-            styles.secondary,
-            hovered && { borderColor: color.gold },
-            pressed && { opacity: 0.85 },
-          ]}
-          onPress={share}
-          accessibilityRole="button"
-          accessibilityLabel="Share this result"
-        >
-          <Text style={styles.secondaryLabel}>Share</Text>
-        </Pressable>
+        {brag ? (
+          <>
+            <Pressable
+              style={({ pressed, hovered }: PressState) => [
+                styles.primary,
+                hovered && styles.lift,
+                pressed && { opacity: 0.88 },
+              ]}
+              onPress={share}
+              accessibilityRole="button"
+              accessibilityLabel="Share this result"
+              accessibilityHint={`Posts your ${recordText} season`}
+            >
+              <Text style={styles.primaryLabel} numberOfLines={1} adjustsFontSizeToFit>
+                Post your {recordText}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed, hovered }: PressState) => [
+                styles.secondary,
+                hovered && { borderColor: color.gold },
+                pressed && { opacity: 0.85 },
+              ]}
+              onPress={buildAnother}
+              accessibilityRole="button"
+              accessibilityLabel="Build another roster"
+            >
+              <Text style={styles.secondaryLabel}>Again</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Pressable
+              style={({ pressed, hovered }: PressState) => [
+                styles.primary,
+                hovered && styles.lift,
+                pressed && { opacity: 0.88 },
+              ]}
+              onPress={buildAnother}
+              accessibilityRole="button"
+              accessibilityLabel="Build another roster"
+            >
+              <Text style={styles.primaryLabel}>Build Another</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed, hovered }: PressState) => [
+                styles.secondary,
+                hovered && { borderColor: color.gold },
+                pressed && { opacity: 0.85 },
+              ]}
+              onPress={share}
+              accessibilityRole="button"
+              accessibilityLabel="Share this result"
+            >
+              <Text style={styles.secondaryLabel}>Share {recordText}</Text>
+            </Pressable>
+          </>
+        )}
       </Layer>
 
       {shareNote ? (
