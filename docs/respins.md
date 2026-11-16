@@ -217,7 +217,12 @@ package during `pod install`.
    `node scripts/store/iap.mjs` (dry run, reads only) and
    `node scripts/store/iap.mjs --apply`. It never submits.
 3. **Review screenshot.** Each IAP needs a screenshot of the purchase sheet
-   (any device size), attached in App Store Connect → In-App Purchases.
+   (any device size). Done 2026-11-16 for both packs (the image lives in App
+   Store Connect; `store/` captures are gitignored): a Release build run from Xcode
+   on an iPhone 17 Pro Max simulator with `store/Respins.storekit` in the
+   scheme, `respins` defaulted on for that build only and the PostHog key
+   blanked so the default applied, driven to the sheet with Maestro. Both
+   products then read READY_TO_SUBMIT.
 4. **Deploy the server** (see `docs/RUNNING.md`): `supabase db push` (0026,
    0027), `pnpm --filter @17-0/respins build:edge`, then
    `supabase functions deploy spin respin redeem-purchase`, and

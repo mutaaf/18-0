@@ -29,7 +29,7 @@ module.exports = {
     name: 'Seventeen Zero',
     slug: 'eighteen-zero',
     scheme: 'eighteenzero',
-    version: '0.1.0',
+    version: '1.1.0',
     orientation: 'portrait',
     userInterfaceStyle: 'dark',
     backgroundColor: '#070E3A',
