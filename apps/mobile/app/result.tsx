@@ -32,6 +32,7 @@ import {
 } from '@/features/rating-feedback';
 import { lookupCard, useGameStore } from '@/state/game';
 import { useStartGame } from '@/features/start-game';
+import { LensNudge } from '@/components/LensNudge';
 import { RESPIN_MARK } from '@17-0/respins/client';
 import { useHistoryStore } from '@/state/history';
 import {
@@ -331,7 +332,10 @@ export default function Result() {
    * was the quiet button beside a bright green Build Another, and the moment
    * somebody is proudest of a result is the moment to hand them the button.
    */
-  const brag = perfect || heartbreak || wins >= 12 || beatBest;
+  // A personal best only earns the big Share button when it is also a winning
+  // season: a new player's first 2-15 can be their best yet, and "Post your
+  // 2-15" was not the moment anyone wants to be handed.
+  const brag = perfect || heartbreak || wins >= 12 || (beatBest && wins >= 10);
   const recordText = `${wins}-${result.record.losses}`;
 
   const toPerfect = Math.max(0, PERFECT_THRESHOLD - result.finalRating);
@@ -568,6 +572,10 @@ export default function Result() {
           </>
         )}
       </Layer>
+
+      {/* "Try GM Mode?" / "Try Rookie?" from the last few seasons in this lens:
+          right where the evidence was just made. Hidden after "Not now". */}
+      <LensNudge replace />
 
       {shareNote ? (
         <Text style={styles.note} accessibilityLiveRegion="polite">

@@ -135,6 +135,8 @@ interface GameState {
    * ways into a season (Play, Build Another), consumed once, never persisted.
    */
   autoSpin: boolean;
+  /** Finished-season count before a lens suggestion may show again ("Not now"). */
+  lensSnoozeUntil: number;
   /** The row in `game_sessions` this game belongs to, once one exists. */
   serverSessionId: string | null;
   /** Replay protection for the completion, minted with the session. */
@@ -144,6 +146,7 @@ interface GameState {
 
   startGame: (mode?: GameMode, options?: { ranked?: boolean; autoSpin?: boolean }) => void;
   setPreferRanked: (on: boolean) => void;
+  snoozeLens: (until: number) => void;
   /** True once if a one-tap start asked for the first wheel to spin itself. */
   consumeAutoSpin: () => boolean;
   attachServerSession: (id: string, idempotencyKey: string) => void;
@@ -275,13 +278,16 @@ export const useGameStore = create<GameState>()(
       selections: [],
       startedAt: null,
       result: null,
-      mode: 'rookie',
+      // Everyone starts in Scout, the ranked lens; the game suggests Rookie or
+      // GM Mode from how they actually play (features/lens.ts).
+      mode: 'scout',
       gamedayKey: null,
       assisted: false,
       respinsUsed: 0,
       ranked: false,
       preferRanked: true,
       autoSpin: false,
+      lensSnoozeUntil: 0,
       serverSessionId: null,
       serverIdempotencyKey: null,
       serverNote: null,
@@ -305,6 +311,7 @@ export const useGameStore = create<GameState>()(
         })),
 
       setPreferRanked: (on) => set({ preferRanked: on }),
+      snoozeLens: (until) => set({ lensSnoozeUntil: until }),
 
       consumeAutoSpin: () => {
         if (!get().autoSpin) return false;
@@ -435,6 +442,7 @@ export const useGameStore = create<GameState>()(
         mode: s.mode,
         gamedayKey: s.gamedayKey,
         preferRanked: s.preferRanked,
+        lensSnoozeUntil: s.lensSnoozeUntil,
       }),
     },
   ),
