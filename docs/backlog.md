@@ -422,6 +422,31 @@ reading it rather than reading its label.
 
 ---
 
+## 16. Respins: built, flagged off, waiting on the owner
+
+**What.** Paid respins (docs/respins.md) are built end to end: the ledger and
+board migrations (0026, 0027), the `respin` and `redeem-purchase` functions,
+the iOS purchase flow and the ↻ marks. They ship behind the `respins` flag,
+off, because they need things only the owner can do: the Paid Applications
+agreement, `scripts/store/iap.mjs --apply`, a review screenshot per product,
+the migrations and functions deployed with `IAP_ACCEPT_SANDBOX=true`, and the
+flag created in PostHog. The full list is in docs/respins.md, "Getting the
+packs live".
+
+**Follow-ups, deliberately not built.**
+- App Store Server Notifications V2 for refunds. Needs a URL set in App Store
+  Connect. The verifier is already the right one; the runbook covers refunds by
+  hand until then.
+- `scripts/monitor/checks.mjs` probes the four older functions' front doors.
+  Add `respin` and `redeem-purchase` once they are deployed, not before, or
+  the monitor files an outage for a function that was never live.
+- `scripts/verify/e2e.mjs` plays against a hosted instance. A respin path in
+  it (spend, then try to cheat it) belongs there once the function is live;
+  until then `supabase/tests/respins.sql` is the database-level proof.
+
+**Still true?** `select count(*) from entitlements` on the hosted database
+says whether anything has been sold yet.
+
 ## Gotchas that cost time
 
 - **A service worker caches the dev bundle.** Editing a file and reloading

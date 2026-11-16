@@ -13,12 +13,8 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { audit, beginRequest, corsHeaders, instrument, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
 
-const ROSTER_SLOTS = ['QB', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'DEF'] as const;
-type RosterSlot = (typeof ROSTER_SLOTS)[number];
-
-const SLOT_POSITION: Record<RosterSlot, string> = {
-  QB: 'QB', RB1: 'RB', RB2: 'RB', WR1: 'WR', WR2: 'WR', TE1: 'TE', DEF: 'DEF',
-};
+import { CANDIDATE_CEILING, ROSTER_SLOTS, readWheel, type RosterSlot } from '../_shared/wheel.ts';
+import { drawUniform } from '../_shared/respins.ts';
 
 
 /** Spins per minute per player. A human cannot outpace this; a script can. */
@@ -197,60 +193,19 @@ Deno.serve(instrument('spin', async (req) => {
     if (gamedayFranchises.length === 0) return await refuse('no_playable_spin', 409);
   }
 
-  const openPositions = [...new Set(
-    ROSTER_SLOTS.filter((slot) => !filled.has(slot)).map((slot) => SLOT_POSITION[slot]),
-  )];
-
-  // Identities already on the roster cannot be offered again (PRFAQ §42).
-  let usedEntities: string[] = [];
-  if (selections && selections.length > 0) {
-    const { data: usedCards } = await admin
-      .from('season_cards')
-      .select('entity_id')
-      .in('id', selections.map((s) => s.card_id));
-    usedEntities = (usedCards ?? []).map((c) => c.entity_id as string);
+  // Every franchise-era that still offers a playable card for an open slot,
+  // read by the same code `respin` draws from (see _shared/wheel.ts).
+  const wheel = await readWheel(admin, selections ?? [], gamedayFranchises);
+  if (!wheel.ok) {
+    if (wheel.reason === 'lookup_failed') {
+      log('error', ctx, { event: 'spin_lookup_failed', reason: wheel.detail ?? 'unknown' });
+    }
+    return await refuse(wheel.reason, wheel.reason === 'lookup_failed' ? 500 : 409);
   }
-
-  // Every franchise-era that still offers a playable card for an open slot.
-  let query = admin
-    .from('season_cards')
-    .select('franchise_id, era_key, rating')
-    .in('position', openPositions)
-    // A retired card is one a rebuilt dataset no longer contains. Its row stays
-    // so the seasons played with it still resolve, but the wheel must never
-    // deal it again -- the client's bundle has never heard of it (0020).
-    .is('retired_at', null)
-    .order('rating', { ascending: false });
-  if (usedEntities.length > 0) query = query.not('entity_id', 'in', `(${usedEntities.join(',')})`);
-  if (gamedayFranchises) query = query.in('franchise_id', gamedayFranchises);
-
-  /**
-   * The ceiling has to sit above the whole live dataset, not near it.
-   *
-   * On the first spin of a game every position is open, so this query is
-   * "every live card", ordered by rating. A cap below that count silently
-   * drops the tail -- and because the order is by rating descending, what it
-   * drops is the weakest cards, which are exactly the ones that make a thin
-   * franchise-era spinnable at all. A bucket whose every card fell past the cut
-   * would simply stop being offered, with nothing logged and nothing to notice.
-   *
-   * It was 4,000 and the dataset reached 4,872 when 1980-1998 came in. No
-   * franchise-era lost its last card -- checked, the 4,000th row rated 71.82
-   * and every bucket still had something above it -- so this was one era away
-   * from being a real bug rather than a latent one.
-   */
-  const CANDIDATE_CEILING = 25_000;
-
-  const { data: candidates, error: candidateError } = await query.limit(CANDIDATE_CEILING);
-  if (candidateError) {
-    log('error', ctx, { event: 'spin_lookup_failed', reason: candidateError.message });
-    return await refuse('lookup_failed', 500);
-  }
-  if (!candidates || candidates.length === 0) return await refuse('no_playable_spin', 409);
   // Hitting the ceiling means the tail was truncated and some franchise-era may
   // no longer be reachable. Cheap to check, and the alternative is finding out
   // from a player who says a team stopped coming up.
-  if (candidates.length === CANDIDATE_CEILING) {
+  if (wheel.truncated) {
     log('error', ctx, {
       event: 'spin_candidates_truncated',
       reason: `the candidate query returned the full ${CANDIDATE_CEILING} it was allowed; raise the ceiling`,
@@ -259,18 +214,14 @@ Deno.serve(instrument('spin', async (req) => {
 
   // The three-finger spin lands on the bucket holding the single best card
   // still available. Recorded as assisted here, where the client cannot undo it.
+  // Otherwise every distinct franchise-era is equally likely -- 1 in N, which
+  // is what the respin purchase sheet tells a player, so it has to stay true.
   const assist = body.assist === true;
   const chosen = assist
-    ? candidates[0]!
+    ? wheel.candidates[0]!
     : (() => {
-        const seen = new Set<string>();
-        const buckets = candidates.filter((c) => {
-          const key = `${c.franchise_id}:${c.era_key}`;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-        return buckets[Math.floor(Math.random() * buckets.length)]!;
+        const bucket = drawUniform(wheel.buckets)!;
+        return { franchise_id: bucket.franchiseId, era_key: bucket.era };
       })();
 
   const sequence = spinCount + 1;

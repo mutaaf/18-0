@@ -229,7 +229,8 @@ PGPASSWORD="$SUPABASE_DB_PASSWORD" \
   psql "$(cat supabase/.temp/pooler-url)" -f supabase/seed/0001_dataset.sql
 
 pnpm --filter @17-0/domain build:edge               # the functions carry this
-supabase functions deploy spin select complete-game delete-account health
+pnpm --filter @17-0/respins build:edge              # and this (docs/respins.md)
+supabase functions deploy spin select complete-game delete-account health respin redeem-purchase
 
 set -a; . .local/hosted.env; set +a
 node scripts/verify/e2e.mjs                         # every check must pass

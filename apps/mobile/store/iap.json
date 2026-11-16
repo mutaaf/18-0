@@ -1,0 +1,34 @@
+{
+  "$comment": "The two respin packs as App Store Connect shows them. scripts/store/iap.mjs pushes this file; packages/respins/test/iap.test.ts fails if a product id, count or price here disagrees with RESPIN_PACKS. Display name max 30 characters, description max 45. See docs/respins.md.",
+  "reviewNote": "Respins are a consumable that redraws the franchise and era a spin just landed on, before the player picks from it. To find it: tap Play, then Spin The Wheel; when the spin lands, a \"↻ Respin\" button with the player's balance appears under the team and era. With a balance of 0 it opens the purchase sheet with both packs. One respin can be used per season. A season that used one is marked ↻ on every leaderboard and never counts toward the perfect-season board; the sheet states the odds (every eligible franchise-era is equally likely). Purchases are verified server-side from the StoreKit 2 signed transaction and credited to the player's account; an account is created automatically (anonymously) when needed, so no sign-in is required to buy.",
+  "products": [
+    {
+      "productId": "com.eighteenzerodcai.app.respins.3",
+      "referenceName": "Respins - 3",
+      "type": "CONSUMABLE",
+      "usd": "0.99",
+      "respins": 3,
+      "familySharable": false,
+      "localizations": {
+        "en-US": {
+          "name": "3 Respins",
+          "description": "Redraw a spin you don't want. Three of them."
+        }
+      }
+    },
+    {
+      "productId": "com.eighteenzerodcai.app.respins.12",
+      "referenceName": "Respins - 12",
+      "type": "CONSUMABLE",
+      "usd": "2.99",
+      "respins": 12,
+      "familySharable": false,
+      "localizations": {
+        "en-US": {
+          "name": "12 Respins",
+          "description": "Redraw a spin you don't want. Twelve of them."
+        }
+      }
+    }
+  ]
+}

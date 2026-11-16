@@ -119,3 +119,13 @@ measured before the real historical dataset exists:
 - `play.ts` — spins, a continuous player-skill model, and an omniscient
   reachability solver (bipartite matching over spins and slots) that gives a
   hard upper bound on how often 17-0 is attainable.
+
+## Respins do not touch any of this
+
+A respin (docs/respins.md) replaces which franchise-era a turn was dealt, not
+how a roster is scored, so it changes nothing here and never bumps `version`.
+It does change the wheel a season was built from: "about once every 6,000
+games" is measured on seven spins with no second chance, so it describes clean
+seasons only, and the perfect-season board counts only those
+(`leaderboard_perfect`, 0027). The simulation is not rerun for respins: a
+respun season is a different game, marked ↻, not a sample of this one.

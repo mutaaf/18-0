@@ -41,6 +41,12 @@ the other one is.
 **Nothing bought or earned may affect a ranked run.** The leaderboard is the reason
 anyone comes back. A purchasable advantage turns it into a table of who spent most.
 
+> **Superseded for respins (owner's decision, November 2026).** Paid respins are
+> usable in ranked play, and every season that used one is marked ↻ on every
+> board, filterable out with "Clean only", and never counted on the perfect-season
+> board. The ledger below is built, as `public.entitlements`. See
+> [`docs/respins.md`](respins.md).
+
 ## The reward that works
 
 Reward **extra ranked attempts**, not extra spins. An extra spin inside a run rerolls
