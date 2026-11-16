@@ -51,9 +51,12 @@ the next report (`errors.ts`, `Limiter`, tested).
 PostHog stops every report on every device that can reach PostHog, without a
 release.
 
-**Proving it end to end.** `/admin` → Diagnostics has three buttons that throw
-a render error, an uncaught error and an unhandled rejection. Their messages
-start with `Operator test`, which every dashboard tile filters out.
+**Proving it end to end.** On a device, `/admin` → Diagnostics has three
+buttons that throw a render error, an uncaught error and an unhandled
+rejection. Their messages start with `Operator test`, which every dashboard
+tile filters out. `/admin` is stripped from the web export (`metro.config.js`),
+so on the web throw from the browser console instead -- the same handlers
+catch it: `setTimeout(() => { throw new Error('Operator test') })`.
 
 ### From the server (`supabase/functions/_shared/observability.ts`)
 
