@@ -11,7 +11,7 @@
  * ranked game goes through this endpoint.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { audit, beginRequest, corsHeaders, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
+import { audit, beginRequest, corsHeaders, instrument, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
 
 const ROSTER_SLOTS = ['QB', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'DEF'] as const;
 type RosterSlot = (typeof ROSTER_SLOTS)[number];
@@ -26,7 +26,7 @@ const SPINS_PER_MINUTE = 40;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-Deno.serve(async (req) => {
+Deno.serve(instrument('spin', async (req) => {
   const CORS = corsHeaders(req);
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -315,4 +315,4 @@ Deno.serve(async (req) => {
     spin: { sequence, franchiseId: chosen.franchise_id, era: chosen.era_key },
     assisted: assist || session.assisted,
   });
-});
+}));
