@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+import { View } from 'react-native';
 
 /**
  * How much of a tab screen the navigation floats over, on each edge.
@@ -24,4 +25,22 @@ export const ChromeProvider = ChromeContext.Provider;
 /** Zero outside the tabs: a screen with no navigation over it reserves nothing. */
 export function useChrome(): Chrome {
   return useContext(ChromeContext);
+}
+
+/**
+ * The floating dock's reserve, spent at the end of a scroll rather than
+ * around it.
+ *
+ * `Screen` used to stop its content `chrome.bottom` short of the window, so on
+ * a wide window every scroll ended in a hard horizontal cut a dock's height
+ * above the bottom edge: cards sliced through the middle, beside a band of
+ * bare stadium, under a dock drawn as glass precisely so that things pass
+ * beneath it. The scroll now runs to the edge and ends with this, so the last
+ * row can still be scrolled clear of the dock. It is the last child of every
+ * tab screen's scroll (`chrome.test.ts`), and nothing on a phone, whose bar
+ * does not float.
+ */
+export function DockSpacer() {
+  const { bottom } = useChrome();
+  return bottom > 0 ? <View style={{ height: bottom, pointerEvents: 'none' }} /> : null;
 }

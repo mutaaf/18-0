@@ -7,6 +7,7 @@ import {
   reportHandle,
   type ReportReason,
 } from '@/services/supabase';
+import { useFoldPage } from '@/features/fold';
 import { color, font, radius, space, themed, tracking, type PressState } from '@/theme';
 
 /**
@@ -22,6 +23,7 @@ import { color, font, radius, space, themed, tracking, type PressState } from '@
  */
 export function ReportButton({ userId, handle }: { userId: string; handle: string }) {
   const [open, setOpen] = useState(false);
+  const page = useFoldPage();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +62,11 @@ export function ReportButton({ userId, handle }: { userId: string; handle: strin
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
-        <Pressable style={styles.backdrop} onPress={close} accessibilityLabel="Dismiss">
+        <Pressable
+          style={[styles.backdrop, { paddingLeft: space.lg + page.left, paddingRight: space.lg + page.right }]}
+          onPress={close}
+          accessibilityLabel="Dismiss"
+        >
           {/* Stops a tap inside the sheet from closing it. */}
           <Pressable style={styles.sheet} onPress={() => {}}>
             {done ? (
@@ -108,7 +114,10 @@ export function ReportButton({ userId, handle }: { userId: string; handle: strin
 }
 
 const styles = themed(() => StyleSheet.create({
-  flag: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', opacity: 0.4 },
+  // 44 to press in the 32 it is laid out in. `hitSlop` covered the gap on
+  // native, but react-native-web ignores it, so on the web the flag was a
+  // 32-point target sitting on a row that opens a roster when missed.
+  flag: { width: 44, height: 44, margin: -6, alignItems: 'center', justifyContent: 'center', opacity: 0.4 },
   flagGlyph: { fontSize: 13, color: color.textFaint },
 
   backdrop: {
@@ -159,6 +168,6 @@ const styles = themed(() => StyleSheet.create({
     color: color.onAction,
     textTransform: 'uppercase',
   },
-  cancel: { minHeight: 40, alignItems: 'center', justifyContent: 'center' },
+  cancel: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   cancelLabel: { fontFamily: font.bodyRegular, fontSize: 13, color: color.textDim },
 }));

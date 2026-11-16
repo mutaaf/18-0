@@ -25,6 +25,7 @@ import {
 } from '@17-0/data';
 import { lookupCard } from '@/state/game';
 import { FlashList } from '@shopify/flash-list';
+import { DockSpacer } from '@/components/chrome';
 import { Screen } from '@/components/Screen';
 import { SpreadLayout } from '@/components/SpreadLayout';
 import { RatingRidge } from '@/components/charts';
@@ -453,6 +454,7 @@ export default function Leaderboard() {
               {/* What the board is asking, and its shape. The rows -- or the
                   reason there are none yet -- are opposite. */}
               {ready && ratingBoard && !sparse ? summary : null}
+              <DockSpacer />
             </ScrollView>
           }
           second={
@@ -467,6 +469,7 @@ export default function Leaderboard() {
                 <Text style={styles.sectionLabel}>
                   {rows.length === 1 ? 'One season' : `${COUNT_WORDS[rows.length] ?? rows.length} seasons`} on the board so far
                 </Text>
+                <DockSpacer />
               </ScrollView>
             ) : ratingBoard && ready ? (
               // Virtualised: fifty rows that each open into a seven-player
@@ -477,6 +480,7 @@ export default function Leaderboard() {
                 keyExtractor={(row) => row.gameSessionId}
                 renderItem={({ item, index }) => <View style={styles.flashRow}>{entry(item, index)}</View>}
                 ListHeaderComponent={<Text style={[styles.sectionLabel, styles.sectionLabelTop]}>The rest of the field</Text>}
+                ListFooterComponent={<DockSpacer />}
                 contentContainerStyle={styles.scroll}
                 showsVerticalScrollIndicator={false}
               />
@@ -487,6 +491,7 @@ export default function Leaderboard() {
                 ) : (
                   content
                 )}
+                <DockSpacer />
               </ScrollView>
             )
           }
@@ -495,6 +500,7 @@ export default function Leaderboard() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {heading}
         {body}
+        <DockSpacer />
       </ScrollView>
       )}
       </View>

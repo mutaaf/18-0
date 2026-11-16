@@ -12,6 +12,7 @@ import { Brand } from '@/components/Brand';
 import { GamedayHero, gamedayMarqueeDay } from '@/components/GamedayHero';
 import { Crown } from '@/components/Crown';
 import { Hall } from '@/components/Hall';
+import { DockSpacer } from '@/components/chrome';
 import { Screen } from '@/components/Screen';
 import { SpreadLayout } from '@/components/SpreadLayout';
 import { useSpread } from '@/features/fold';
@@ -579,6 +580,7 @@ export default function Home() {
                 {loop}
                 {aside}
                 {footer}
+                <DockSpacer />
               </ScrollView>
             }
             second={
@@ -589,6 +591,7 @@ export default function Home() {
                 </Reveal>
                 {closer}
                 <AdSlot id={SLOT_HOME} />
+                <DockSpacer />
               </ScrollView>
             }
           />
@@ -630,6 +633,7 @@ export default function Home() {
                 Web only, never in a frame, collapses with no fill. */}
             <AdSlot id={SLOT_HOME} />
             {footer}
+            <DockSpacer />
           </ScrollView>
         )}
       </View>

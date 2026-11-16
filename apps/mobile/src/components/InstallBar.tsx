@@ -59,6 +59,11 @@ export function InstallBar() {
         right: rail.width,
       }
     : { bottom: layout.wide ? DOCK_HEIGHT : phoneBarHeight(insets.bottom) };
+  // A phone's width, or less. The bar used to be the same four pieces at 320
+  // points as at 1,440 -- glyph, title, two-line subtitle, button -- and on an
+  // iPhone SE that came to a quarter of the screen, with the subtitle cut off
+  // mid-sentence. Narrow, the glyph goes and the subtitle keeps one line.
+  const narrow = screen.width < 400;
   const pathname = usePathname();
   const games = useHistoryStore((s) => s.games);
 
@@ -136,15 +141,17 @@ export function InstallBar() {
     >
       <View style={[styles.bar, elevate(8)]}>
         <View style={styles.row}>
-          <View style={styles.mark}>
-            {needsTransfer ? <BoxGlyph /> : <HomeGlyph />}
-          </View>
+          {narrow ? null : (
+            <View style={styles.mark}>
+              {needsTransfer ? <BoxGlyph /> : <HomeGlyph />}
+            </View>
+          )}
 
           <View style={styles.copyBlock}>
             <Text style={styles.title}>
               {needsTransfer ? 'Bring your seasons over' : 'Put 17-0 on your home screen'}
             </Text>
-            <Text style={styles.sub} numberOfLines={2}>
+            <Text style={styles.sub} numberOfLines={narrow ? 1 : 2}>
               {needsTransfer
                 ? 'This device starts empty. Copy the code in your browser and paste it here.'
                 : 'Opens full screen, plays offline, and keeps every season you have built.'}
@@ -166,7 +173,6 @@ export function InstallBar() {
           {needsTransfer ? null : (
             <Pressable
               onPress={hide}
-              hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel="Dismiss the install prompt"
               style={styles.close}
@@ -262,14 +268,22 @@ function Action({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ hovered, pressed }: PressState) => [
-        styles.action,
-        primary && styles.actionPrimary,
-        hovered && { opacity: 0.88 },
-        pressed && { opacity: 0.75 },
-      ]}
+      // The press target is 44 tall and the pill inside it is not: a 33-point
+      // pill was the whole target, and hitSlop does nothing on the web.
+      style={styles.actionHit}
     >
-      <Text style={[styles.actionLabel, primary && styles.actionLabelPrimary]}>{label}</Text>
+      {({ hovered, pressed }: PressState) => (
+        <View
+          style={[
+            styles.action,
+            primary && styles.actionPrimary,
+            hovered && { opacity: 0.88 },
+            pressed && { opacity: 0.75 },
+          ]}
+        >
+          <Text style={[styles.actionLabel, primary && styles.actionLabelPrimary]}>{label}</Text>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -327,11 +341,13 @@ function BoxGlyph() {
 }
 
 const styles = themed(() => StyleSheet.create({
-  stage: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 15 },
+  // The side margin is the stage's padding, not the bar's margin: a
+  // `width: '100%'` bar with a margin is wider than its stage by both
+  // margins, so on a phone it ran edge to edge with its rounded ends cut off.
+  stage: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 15, paddingHorizontal: space.md },
   bar: {
     width: '100%',
     maxWidth: 640,
-    marginHorizontal: space.md,
     marginBottom: space.sm,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -355,6 +371,7 @@ const styles = themed(() => StyleSheet.create({
   title: { fontFamily: font.bodyBold, fontSize: 14, color: color.text },
   sub: { fontFamily: font.bodyRegular, fontSize: 11, lineHeight: 15, color: color.textFaint },
 
+  actionHit: { minHeight: 44, justifyContent: 'center', marginVertical: -6 },
   action: {
     paddingVertical: 8,
     paddingHorizontal: space.md,
@@ -372,7 +389,17 @@ const styles = themed(() => StyleSheet.create({
   },
   actionLabelPrimary: { color: color.onAction },
 
-  close: { paddingHorizontal: 2 },
+  // 44 points to press, drawn at the glyph's size. It was `hitSlop`, which
+  // react-native-web ignores -- and the web is the only place this bar
+  // exists -- so the target was the 15-point glyph itself.
+  close: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: -space.md,
+    marginHorizontal: -space.sm,
+  },
   closeGlyph: { fontFamily: font.body, fontSize: 15, color: color.textFaint },
 
   steps: { gap: 6, borderTopWidth: 1, borderTopColor: color.line, paddingTop: space.sm },

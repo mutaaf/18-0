@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -18,7 +18,7 @@ import {
   Montserrat_500Medium,
   Montserrat_700Bold,
 } from '@expo-google-fonts/montserrat';
-import { color, font, startTheme, themed } from '@/theme';
+import { color, startTheme, themed } from '@/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -35,6 +35,15 @@ export default function RootLayout() {
   useEffect(() => {
     if (ready || error) SplashScreen.hideAsync().catch(() => {});
   }, [ready, error]);
+
+  // Said to the console, not the player. On the web `useFonts` gives up after
+  // a few seconds on a slow connection -- the faces usually still arrive and
+  // swap in -- and this used to print "Running with system fonts." in 9-point
+  // type across the top of every screen, pushing the whole app down by a line
+  // for the rest of the session.
+  useEffect(() => {
+    if (error) console.warn('[fonts] fell back to system fonts:', error.message);
+  }, [error]);
 
   // Installs a second sink on the telemetry that already exists. With no
   // PostHog key configured this does nothing at all and makes no network call,
@@ -82,11 +91,6 @@ export default function RootLayout() {
             both: where the fold is, and what the system bars take. */}
         <FoldProvider>
         <StatusBar style="light" />
-        {error ? (
-          <View style={styles.fontWarning}>
-            <Text style={styles.fontWarningText}>Running with system fonts.</Text>
-          </View>
-        ) : null}
         <Stack
           screenOptions={{
             headerShown: false,
@@ -110,6 +114,4 @@ export default function RootLayout() {
 const styles = themed(() => StyleSheet.create({
   root: { flex: 1, backgroundColor: color.void },
   boot: { flex: 1, backgroundColor: color.void },
-  fontWarning: { backgroundColor: '#00000000', paddingHorizontal: 12, paddingTop: 2 },
-  fontWarningText: { fontFamily: font.bodyRegular, fontSize: 9, color: color.textFaint },
 }));

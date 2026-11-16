@@ -105,7 +105,10 @@ export function Screen({
     <View style={styles.root}>
       <StadiumBackdrop />
       <SafeAreaView
-        style={[styles.safe, { paddingBottom: chrome.bottom, paddingRight: chrome.right }]}
+        // No paddingBottom for the dock: content scrolls under it and each
+        // tab's scroll ends with a `DockSpacer` instead (see chrome.tsx). The
+        // rail is different -- nothing passes under a column.
+        style={[styles.safe, { paddingRight: chrome.right }]}
         edges={bleed ? edges.filter((e) => e !== 'left' && e !== 'right') : edges}
       >
         <View style={[styles.column, { maxWidth: bleed ? undefined : maxWidth ?? Math.min(layout.maxWidth, 620) }]}>

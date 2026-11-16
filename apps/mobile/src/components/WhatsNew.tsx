@@ -13,6 +13,7 @@ import {
   type CalloutHref,
   type ReleaseNotes,
 } from '@/features/whats-new';
+import { useFoldPage } from '@/features/fold';
 import { DECORATIVE, color, elevate, font, radius, space, themed, tracking, type PressState } from '@/theme';
 
 /**
@@ -59,6 +60,7 @@ export function WhatsNewSheet({
   onGo?: (href: CalloutHref) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const page = useFoldPage();
   const palette = tints();
 
   return (
@@ -66,7 +68,11 @@ export function WhatsNewSheet({
       <View style={styles.backdrop}>
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            // One page of an open iPhone Duo, not across its crease.
+            { paddingLeft: space.lg + page.left, paddingRight: space.lg + page.right },
+          ]}
           showsVerticalScrollIndicator={false}
         >
           <Animated.View

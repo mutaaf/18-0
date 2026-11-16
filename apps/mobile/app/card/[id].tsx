@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   cardById,
   cardExplanation,
@@ -13,6 +14,8 @@ import { Screen } from '@/components/Screen';
 import { useCardStats } from '@/features/stat-lines';
 import { showsRating, showsStats, useGameStore } from '@/state/game';
 import { CollectibleCard } from '@/components/CollectibleCard';
+import { SpreadLayout } from '@/components/SpreadLayout';
+import { useSpread } from '@/features/fold';
 import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking, useThemeId } from '@/theme';
 
 const EMPTY: CardExplanation = { components: [], unavailable: [] };
@@ -57,6 +60,11 @@ export default function CardDetail() {
       live = false;
     };
   }, [card]);
+  const { spread, ref: spreadRef, onLayout: onSpreadLayout } = useSpread();
+  // What `Screen` applies when it is not full-bleed: the Duo's vertical bar
+  // and a phone's landscape notch.
+  const insets = useSafeAreaInsets();
+  const sides = { paddingLeft: insets.left, paddingRight: insets.right };
   const blind = playing && !showsRating(mode);
   const hideStats = playing && !showsStats(mode);
 
@@ -74,9 +82,110 @@ export default function CardDetail() {
   const { components, unavailable: missing } = explanation ?? EMPTY;
   const accent = positionColor[card.position];
 
+  const front = (
+    <>
+      {/* The card as an object first. The numbers that explain it follow. */}
+      <CollectibleCard card={card} blind={blind} />
+
+      <View style={styles.hero}>
+        <Text style={styles.meta}>
+          {card.year} {team.name} · {eraLabel(card.era)} · {card.games} games
+        </Text>
+        {blind ? (
+          <Text style={styles.blindNote}>
+            {hideStats
+              ? 'Ratings and stats are hidden in GM Mode. They arrive with your result.'
+              : 'Ratings are hidden in Scout. The stat line is the whole brief.'}
+          </Text>
+        ) : null}
+      </View>
+    </>
+  );
+
+  const back = (
+    <>
+      {hideStats ? null : (
+      <View style={styles.statStrip}>
+        {stats.slice(0, 4).map((stat) => (
+          <View key={stat.label} style={styles.statCell}>
+            <Text style={styles.statValue}>{stat.value}</Text>
+            <Text style={styles.statLabel}>{stat.label}</Text>
+          </View>
+        ))}
+      </View>
+      )}
+
+      {blind ? null : (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Component scores</Text>
+        <Text style={styles.sectionNote}>
+          Each component is measured against every other {card.position} in {card.year} — not
+          against history. That is what makes eras comparable.
+        </Text>
+        {components.map((component) => (
+          <View key={component.key} style={styles.component}>
+            <View style={styles.componentTop}>
+              <Text style={styles.componentLabel} numberOfLines={1}>
+                {component.label}
+              </Text>
+              <Text style={styles.componentScore}>{component.score.toFixed(1)}</Text>
+            </View>
+            <View
+          style={styles.track}
+          {...DECORATIVE}
+        >
+              <View
+                style={[
+                  styles.trackFill,
+                  { width: `${Math.max(0, Math.min(100, component.score))}%`, backgroundColor: accent },
+                ]}
+              />
+            </View>
+            <Text style={styles.componentMeta}>
+              {Math.round(component.weight * 100)}% of rating
+              {component.z !== null ? ` · ${component.z >= 0 ? '+' : ''}${component.z.toFixed(2)} SD vs league` : ' · league percentile'}
+            </Text>
+          </View>
+        ))}
+      </View>
+      )}
+
+      {!blind && missing.length > 0 ? (
+        <View style={styles.missingData}>
+          <Text style={styles.missingDataTitle}>Not measurable for this season</Text>
+          <Text style={styles.missingDataCopy}>
+            {missing.join(', ')}. These carry no score — their weight was redistributed across
+            the components that do have data, never counted as zero.
+          </Text>
+        </View>
+      ) : null}
+
+      {card.archetypes.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Style</Text>
+          <View style={styles.archetypes}>
+            {card.archetypes.map((archetype) => (
+              <View key={archetype} style={styles.archetype}>
+                <Text style={styles.archetypeText}>{archetype.replace(/_/g, ' ')}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={styles.sectionNote}>
+            Style affects chemistry only, and chemistry never moves a rating by more than a point.
+          </Text>
+        </View>
+      ) : null}
+    </>
+  );
+
   return (
-    <Screen edges={['top', 'bottom', 'left', 'right']}>
-      <View style={styles.header}>
+    // Always full-bleed, with the reading column drawn here instead of by
+    // Screen. The spread is measured on the container, and a container
+    // already narrowed to a 620-point column never reaches either side of an
+    // iPhone Duo's fold far enough to split -- so the screen stayed one
+    // column, straight across the crease, and could not find out otherwise.
+    <Screen edges={['top', 'bottom', 'left', 'right']} bleed>
+      <View style={[styles.header, styles.column, { paddingLeft: space.lg + insets.left, paddingRight: space.lg + insets.right }]}>
         {/* A bare router.back() strands anyone who arrived without history --
             a shared link, a reload on the web, or a deep link into a card --
             because there is nothing to go back to and the tap does nothing.
@@ -92,100 +201,39 @@ export default function CardDetail() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* The card as an object first. The numbers that explain it follow. */}
-        <CollectibleCard card={card} blind={blind} />
-
-        <View style={styles.hero}>
-          <Text style={styles.meta}>
-            {card.year} {team.name} · {eraLabel(card.era)} · {card.games} games
-          </Text>
-          {blind ? (
-            <Text style={styles.blindNote}>
-              {hideStats
-                ? 'Ratings and stats are hidden in GM Mode. They arrive with your result.'
-                : 'Ratings are hidden in Scout. The stat line is the whole brief.'}
-            </Text>
-          ) : null}
-        </View>
-
-        {hideStats ? null : (
-        <View style={styles.statStrip}>
-          {stats.slice(0, 4).map((stat) => (
-            <View key={stat.label} style={styles.statCell}>
-              <Text style={styles.statValue}>{stat.value}</Text>
-              <Text style={styles.statLabel}>{stat.label}</Text>
-            </View>
-          ))}
-        </View>
-        )}
-
-        {blind ? null : (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Component scores</Text>
-          <Text style={styles.sectionNote}>
-            Each component is measured against every other {card.position} in {card.year} — not
-            against history. That is what makes eras comparable.
-          </Text>
-          {components.map((component) => (
-            <View key={component.key} style={styles.component}>
-              <View style={styles.componentTop}>
-                <Text style={styles.componentLabel} numberOfLines={1}>
-                  {component.label}
-                </Text>
-                <Text style={styles.componentScore}>{component.score.toFixed(1)}</Text>
-              </View>
-              <View
-            style={styles.track}
-            {...DECORATIVE}
-          >
-                <View
-                  style={[
-                    styles.trackFill,
-                    { width: `${Math.max(0, Math.min(100, component.score))}%`, backgroundColor: accent },
-                  ]}
-                />
-              </View>
-              <Text style={styles.componentMeta}>
-                {Math.round(component.weight * 100)}% of rating
-                {component.z !== null ? ` · ${component.z >= 0 ? '+' : ''}${component.z.toFixed(2)} SD vs league` : ' · league percentile'}
-              </Text>
-            </View>
-          ))}
-        </View>
-        )}
-
-        {!blind && missing.length > 0 ? (
-          <View style={styles.missingData}>
-            <Text style={styles.missingDataTitle}>Not measurable for this season</Text>
-            <Text style={styles.missingDataCopy}>
-              {missing.join(', ')}. These carry no score — their weight was redistributed across
-              the components that do have data, never counted as zero.
-            </Text>
+      <View ref={spreadRef} onLayout={onSpreadLayout} style={styles.fill}>
+        {spread.kind !== 'single' ? (
+          // The card on one page and what explains it on the other. As one
+          // centred column on an iPhone Duo the breakdown ran across the fold.
+          <SpreadLayout
+            spread={spread}
+            first={
+              <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+                {front}
+              </ScrollView>
+            }
+            second={
+              <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+                {back}
+              </ScrollView>
+            }
+          />
+        ) : (
+          <View style={[styles.fill, styles.column, sides]}>
+            <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+              {front}
+              {back}
+            </ScrollView>
           </View>
-        ) : null}
-
-        {card.archetypes.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Style</Text>
-            <View style={styles.archetypes}>
-              {card.archetypes.map((archetype) => (
-                <View key={archetype} style={styles.archetype}>
-                  <Text style={styles.archetypeText}>{archetype.replace(/_/g, ' ')}</Text>
-                </View>
-              ))}
-            </View>
-            <Text style={styles.sectionNote}>
-              Style affects chemistry only, and chemistry never moves a rating by more than a point.
-            </Text>
-          </View>
-        ) : null}
-      </ScrollView>
+        )}
+      </View>
     </Screen>
   );
 }
 
 const styles = themed(() => StyleSheet.create({
+  fill: { flex: 1 },
+  column: { width: '100%', maxWidth: 620, alignSelf: 'center' },
   header: { alignItems: 'flex-end', paddingHorizontal: space.lg, paddingTop: space.sm },
   closeHit: { padding: space.sm, marginRight: -space.sm },
   close: {
