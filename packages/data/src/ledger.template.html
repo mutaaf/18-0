@@ -81,8 +81,12 @@
   .aside { border-left:2px solid var(--line-hi); padding:2px 0 2px 18px; margin:0 0 16px; color:var(--dim); }
   .aside p:last-child { margin-bottom:0; }
 
+  /* Every auto-fit grid's minimum is capped at its container, min(Npx,100%):
+     a bare 340px track is wider than a 320 or 375 phone's column, so the
+     drawer's explanation and its component table ran off the right edge and
+     the whole page scrolled sideways. */
   /* two registers */
-  .registers { display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:16px; margin:0 0 8px; }
+  .registers { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(330px,100%),1fr)); gap:16px; margin:0 0 8px; }
   .reg { border:1px solid var(--line); background:var(--panel); padding:20px 22px; }
   .reg.eli5 { border-top:3px solid var(--ok); }
   .reg.deep { border-top:3px solid var(--ice); }
@@ -95,7 +99,10 @@
   /* controls + table */
   .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; padding:14px;
     background:var(--panel); border:1px solid var(--line); border-bottom:0; }
-  .field { display:flex; flex-direction:column; gap:5px; }
+  /* max-width, because a select is as wide as its longest option: the era
+     filter's is wider than a 320 phone and pushed the page sideways. */
+  .field { display:flex; flex-direction:column; gap:5px; max-width:100%; }
+  .field select { max-width:100%; }
   .field label { font-family:"IBM Plex Mono",monospace; font-size:0.59rem; letter-spacing:0.13em;
     text-transform:uppercase; color:var(--faint); }
   .field input, .field select { font-family:"IBM Plex Mono",monospace; font-size:0.8rem; color:var(--ink);
@@ -147,7 +154,7 @@
   .defence .meta { font-family:"IBM Plex Mono",monospace; font-size:0.72rem; color:var(--faint); }
   .defence .big { margin-left:auto; font-family:Rajdhani,sans-serif; font-weight:700; font-size:2rem;
     line-height:1; color:var(--gold); font-variant-numeric:tabular-nums; }
-  .defence .body { padding:18px; display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:20px; }
+  .defence .body { padding:18px; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr)); gap:20px; }
   .defence .statline { display:flex; flex-wrap:wrap; gap:6px 14px; padding:0 18px 14px; }
   .defence .statline span { font-family:"IBM Plex Mono",monospace; font-size:0.74rem; color:var(--dim); }
   .defence .statline b { color:var(--ink); font-weight:600; }
@@ -166,7 +173,7 @@
   .close { background:transparent; border:1px solid var(--line-hi); color:var(--dim); border-radius:2px;
     font-family:"IBM Plex Mono",monospace; font-size:0.68rem; padding:5px 10px; cursor:pointer; }
 
-  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:20px; }
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr)); gap:20px; }
   .card { border:1px solid var(--line); background:var(--panel); }
   .card > header { padding:12px 15px; border-bottom:1px solid var(--line); font-family:Rajdhani,sans-serif;
     font-weight:600; font-size:1.04rem; letter-spacing:0.05em; text-transform:uppercase; }
