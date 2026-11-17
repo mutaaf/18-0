@@ -22,6 +22,9 @@ import { DECK_SIZE, buildDeck, summarize, type Call } from '@/features/gut-check
 import { feedbackKey, flushRatingFeedback, giveRatingFeedback, useRatingFeedback, type RatingVerdict } from '@/features/rating-feedback';
 import { useCardStats } from '@/features/stat-lines';
 import { track } from '@/features/telemetry';
+import { isTV } from '@/features/tv/platform';
+import { useTVRemote, type HWEvent } from '@/features/tv/remote';
+import { remoteAction } from '@/features/tv/remote-calls';
 import { useHistoryStore } from '@/state/history';
 import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking, useThemeId, useWindowSize, type PressState } from '@/theme';
 
@@ -250,6 +253,21 @@ export default function GutCheck() {
     return () => window.removeEventListener('keydown', onKey);
   }, [done, fly, disagree]);
 
+  // The Siri Remote: a swipe on its touch surface or a click on the edge of
+  // its clickpad makes the same calls (features/tv/remote-calls.ts). A click
+  // in the middle presses the focused button, which on the deck is the only
+  // focusable one: "Don't know", or "Fair after all" once asked which way.
+  const onRemote = useCallback(
+    (e: HWEvent) => {
+      if (done) return;
+      const action = remoteAction(e.eventType, e.eventKeyAction, phase);
+      if (action === 'off') disagree();
+      else if (action) fly(action);
+    },
+    [done, phase, fly, disagree],
+  );
+  useTVRemote(onRemote);
+
   const again = () => {
     round.current += 1;
     setDeck(dealDeck());
@@ -263,6 +281,9 @@ export default function GutCheck() {
       <View style={styles.header}>
         <Pressable
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
+          // Not a focus stop on a TV, where swiping up means "deserves more"
+          // and must not walk the focus up here instead. Menu closes it.
+          focusable={!isTV}
           hitSlop={12}
           accessibilityRole="button"
           accessibilityLabel="Close Gut Check"
@@ -321,8 +342,12 @@ export default function GutCheck() {
           )}
           <Text style={styles.hint}>
             {phase === 'judge'
-              ? 'Swipe right if it’s right. Left if it’s off.'
-              : 'Flick up if it deserves more, down if less.'}
+              ? isTV
+                ? 'Swipe right if it’s right, left if it’s off. Click if you don’t know.'
+                : 'Swipe right if it’s right. Left if it’s off.'
+              : isTV
+                ? 'Swipe up if it deserves more, down if less.'
+                : 'Flick up if it deserves more, down if less.'}
           </Text>
         </>
       )}
@@ -493,7 +518,15 @@ function RoundButton({
   a11y: string;
 }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y} style={styles.roundWrap}>
+    <Pressable
+      onPress={onPress}
+      // On a TV these are the legend for the remote's directions, not focus
+      // stops: a swipe has to mean a call, never "move to the next button".
+      focusable={!isTV}
+      accessibilityRole="button"
+      accessibilityLabel={a11y}
+      style={styles.roundWrap}
+    >
       {({ pressed, hovered }: PressState) => (
         <>
           <View
@@ -514,7 +547,15 @@ function RoundButton({
 
 function SkipButton({ onPress, label = 'Don’t know' }: { onPress: () => void; label?: string }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label} hitSlop={10} style={styles.skip}>
+    <Pressable
+      onPress={onPress}
+      // Where the remote rests on a TV, so a click is "Don't know".
+      hasTVPreferredFocus
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      hitSlop={10}
+      style={styles.skip}
+    >
       {({ hovered }: PressState) => <Text style={[styles.skipText, hovered && { color: color.text }]}>{label}</Text>}
     </Pressable>
   );
@@ -541,7 +582,7 @@ function RoundEnd({ calls, onAgain, onDone }: { calls: readonly Call[]; onAgain:
       <Text style={styles.endNote}>
         Every call goes into the next ratings refit. None of them changes a score.
       </Text>
-      <Pressable onPress={onAgain} accessibilityRole="button" accessibilityLabel="Another ten" style={styles.primary}>
+      <Pressable onPress={onAgain} hasTVPreferredFocus accessibilityRole="button" accessibilityLabel="Another ten" style={styles.primary}>
         {({ pressed }: PressState) => (
           <Text style={[styles.primaryText, pressed && { opacity: 0.8 }]}>Another 10</Text>
         )}
