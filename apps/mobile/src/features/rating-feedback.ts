@@ -5,7 +5,7 @@ import { isBackendConfigured, saveRatingFeedback, withdrawRatingFeedback } from 
 import { delivered, vote, type Pending, type Queue } from './rating-feedback-queue';
 import { track } from './telemetry';
 
-export { feedbackKey, type RatingVerdict } from './rating-feedback-queue';
+export { feedbackKey, type FeedbackSource, type RatingVerdict } from './rating-feedback-queue';
 
 /**
  * "Rate the ratings": a player's opinion that one of their seven is rated too
@@ -45,6 +45,7 @@ export function giveRatingFeedback(entry: Pending): void {
   track('rating_feedback_given', {
     verdict: entry.verdict ?? 'withdrawn',
     model_version: entry.modelVersion,
+    source: entry.source ?? 'result',
   });
   void flushRatingFeedback();
 }

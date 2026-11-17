@@ -20,6 +20,7 @@ import { useSpread } from '@/features/fold';
 import { SectionHead } from '@/components/SectionHead';
 import { Showcase, showcaseOffered } from '@/components/showcase/Showcase';
 import { LensNudge } from '@/components/LensNudge';
+import { GutCheckEntry } from '@/components/GutCheckEntry';
 import { BetaInvite } from '@/components/BetaInvite';
 import { GetTheApp } from '@/components/GetTheApp';
 import { OnWatch } from '@/components/OnWatch';
@@ -336,6 +337,7 @@ export default function Home() {
             </Svg>
           </Pressable>
           <LensNudge compact />
+          <GutCheckEntry />
         </Reveal>
       )}
 

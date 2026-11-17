@@ -4,7 +4,14 @@
  * and the network around them.
  */
 
-export type RatingVerdict = 'too_low' | 'too_high';
+/**
+ * `fair` is a swipe right in Gut Check: the rating looks right. It is the
+ * denominator every complaint was missing (migration 0028).
+ */
+export type RatingVerdict = 'too_low' | 'too_high' | 'fair';
+
+/** Where the opinion was given: after a season, or in Gut Check. */
+export type FeedbackSource = 'result' | 'swipe';
 
 export interface Pending {
   cardId: string;
@@ -12,6 +19,8 @@ export interface Pending {
   ratingShown: number;
   /** null is a withdrawal. */
   verdict: RatingVerdict | null;
+  /** Absent on anything queued before 0028, which was all from the result screen. */
+  source?: FeedbackSource;
 }
 
 export interface Queue {

@@ -819,7 +819,7 @@ export async function reportHandle(
 }
 
 /** A player's opinion of a card's rating. See supabase/migrations/0025. */
-export type RatingVerdict = 'too_low' | 'too_high';
+export type RatingVerdict = 'too_low' | 'too_high' | 'fair';
 
 /**
  * Records (or changes) one opinion. True once the server has it, false on
@@ -831,6 +831,7 @@ export async function saveRatingFeedback(input: {
   modelVersion: string;
   ratingShown: number;
   verdict: RatingVerdict;
+  source?: 'result' | 'swipe';
 }): Promise<boolean> {
   if (!supabase) return false;
   if (!(await ensureSession())) return false;
@@ -843,6 +844,10 @@ export async function saveRatingFeedback(input: {
       model_version: input.modelVersion,
       rating_shown: Math.round(input.ratingShown * 10) / 10,
       verdict: input.verdict,
+      // Only Gut Check names its source. A result-screen vote leaves it to
+      // the column's default, so that path never depends on 0028 having been
+      // applied -- the app can ship ahead of the migration without breaking it.
+      ...(input.source === 'swipe' ? { source: 'swipe' } : {}),
     },
     { onConflict: 'user_id,card_id,model_version' },
   );

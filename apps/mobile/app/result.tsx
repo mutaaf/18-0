@@ -33,6 +33,7 @@ import {
 import { lookupCard, useGameStore } from '@/state/game';
 import { useStartGame } from '@/features/start-game';
 import { LensNudge } from '@/components/LensNudge';
+import { GutCheckEntry } from '@/components/GutCheckEntry';
 import { RESPIN_MARK } from '@17-0/respins/client';
 import { useHistoryStore } from '@/state/history';
 import {
@@ -624,6 +625,7 @@ export default function Result() {
             ▲ if a season deserves more, ▼ if less. It goes into the next model, never this score.
           </Text>
         ) : null}
+        {rating ? <GutCheckEntry inline /> : null}
         {rosterCards.map(({ slot, card }, index) => (
           <Layer key={slot} t={line.t} at={CUE.roster + index * ROSTER_STEP}>
             {/* Every name in the app opens its card. A player who has just
