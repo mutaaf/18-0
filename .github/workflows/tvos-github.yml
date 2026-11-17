@@ -62,9 +62,16 @@ jobs:
         with:
           fetch-depth: 0
       - id: diff
+        env:
+          PROFILE: ${{ secrets.TVOS_PROVISIONING_PROFILE_BASE64 }}
+        # A schedule with no tvOS profile yet skips with a notice rather than
+        # failing three times a day; a manual run still fails, and says why.
         run: |
           set -euo pipefail
-          if ! git rev-parse -q --verify refs/tags/testflight-tvos >/dev/null; then
+          if [ -z "$PROFILE" ]; then
+            echo 'go=false' >> "$GITHUB_OUTPUT"
+            echo "::notice title=No tvOS profile::TVOS_PROVISIONING_PROFILE_BASE64 is not set (docs/apple-tv.md); skipping."
+          elif ! git rev-parse -q --verify refs/tags/testflight-tvos >/dev/null; then
             echo 'go=true' >> "$GITHUB_OUTPUT"
           elif git diff --quiet testflight-tvos HEAD -- apps/mobile packages pnpm-lock.yaml ':(exclude)apps/mobile/store' ':(exclude)apps/mobile/public'; then
             echo 'go=false' >> "$GITHUB_OUTPUT"
