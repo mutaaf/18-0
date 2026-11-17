@@ -4,6 +4,7 @@
  *
  *   node scripts/store/beta-release.mjs --build 14 --notes-file notes.txt
  *   node scripts/store/beta-release.mjs            # newest build, notes from git
+ *   node scripts/store/beta-release.mjs --platform TV_OS --build 21   # the Apple TV build
  *
  * `eas submit` ends when Apple has the binary, not when testers can install it.
  * Between the two, Apple processes the build (minutes, sometimes most of an
@@ -40,6 +41,10 @@ const arg = (name) => {
 };
 
 const buildNumber = arg('--build');
+// IOS or TV_OS. The two apps share one record and one build-number counter
+// (next-build-number.mjs), so a number names one build either way; the filter
+// is what keeps "the newest build" from meaning the other platform's.
+const platform = arg('--platform');
 const since = arg('--since');
 let notes = arg('--notes-file') ? readFileSync(arg('--notes-file'), 'utf8').trim() : undefined;
 
@@ -74,7 +79,9 @@ notes ??= notesFromGit(since);
 if (notes.length > 4000) notes = `${notes.slice(0, 3990)}\n…`;
 
 async function findBuild() {
-  const filter = buildNumber ? `&filter[version]=${encodeURIComponent(buildNumber)}` : '';
+  const filter =
+    (buildNumber ? `&filter[version]=${encodeURIComponent(buildNumber)}` : '') +
+    (platform ? `&filter[preReleaseVersion.platform]=${encodeURIComponent(platform)}` : '');
   // One page on purpose: ascAll follows `next` links, so limit=1 would still walk every build.
   const { data } = await asc(`/v1/builds?filter[app]=${APP}${filter}&sort=-uploadedDate&limit=1`);
   return data[0];

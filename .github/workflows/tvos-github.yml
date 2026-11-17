@@ -1,0 +1,234 @@
+name: Apple TV on GitHub
+
+# The Apple TV app to TestFlight, the same way ios-github.yml sends the iPhone
+# app: `expo prebuild` on a GitHub macOS runner, archive, upload, hand it to
+# testers. The differences are all tvOS (docs/apple-tv.md):
+#
+#   - prebuild with EXPO_TV=1, which rewrites the Xcode target for tvOS;
+#   - signed with the tvOS App Store profile (TVOS_PROVISIONING_PROFILE_BASE64,
+#     made by scripts/store/tvos-profile.mjs). Same distribution certificate,
+#     same bundle id: one App Store record, universal purchase;
+#   - archived for generic/platform=tvOS and uploaded as appletvos;
+#   - its own `testflight-tvos` tag, so a change the TV build has not seen is
+#     never hidden by an iPhone beta that has.
+#
+# Build numbers come from the same counter as the iPhone app (the highest
+# number App Store Connect has seen, plus one), and the concurrency group is
+# shared with release.yml and ios-github.yml so two lanes never ask for the
+# next number at the same moment.
+#
+# TestFlight only. Nothing here touches an App Store version, the listing or
+# App Review: submitting for the store stays the owner's decision.
+#
+# Secrets: everything ios-github.yml uses, with TVOS_PROVISIONING_PROFILE_BASE64
+# in place of IOS_PROVISIONING_PROFILE_BASE64.
+
+on:
+  workflow_dispatch:
+    inputs:
+      xcode:
+        description: "Xcode version, e.g. 27.1 (blank: the runner's default)"
+        type: string
+        required: false
+      testers:
+        description: Hand the build to the public TestFlight group
+        type: boolean
+        default: true
+  # An hour after each iPhone beta (ios-github.yml), so the two lanes queue
+  # behind each other on the shared concurrency group rather than racing.
+  schedule:
+    - cron: '0 14 * * *'
+    - cron: '0 20 * * *'
+    - cron: '0 2 * * *'
+
+run-name: Apple TV on GitHub${{ github.event_name == 'schedule' && ' (scheduled)' || '' }}${{ inputs.xcode && format(' (Xcode {0})', inputs.xcode) || '' }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  changed:
+    name: Anything new since the last TV beta?
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    outputs:
+      go: ${{ steps.diff.outputs.go }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          set -euo pipefail
+          if ! git rev-parse -q --verify refs/tags/testflight-tvos >/dev/null; then
+            echo 'go=true' >> "$GITHUB_OUTPUT"
+          elif git diff --quiet testflight-tvos HEAD -- apps/mobile packages pnpm-lock.yaml ':(exclude)apps/mobile/store' ':(exclude)apps/mobile/public'; then
+            echo 'go=false' >> "$GITHUB_OUTPUT"
+            echo "::notice title=No new TV beta::Nothing in the app changed since $(git rev-parse --short testflight-tvos); skipping the build."
+          else
+            echo 'go=true' >> "$GITHUB_OUTPUT"
+          fi
+
+  tvos:
+    name: Build, sign, upload (tvOS)
+    needs: changed
+    if: ${{ !cancelled() && needs.changed.outputs.go != 'false' }}
+    # The same image as the iPhone lane: Xcode 27, which the Duo module needs
+    # for the phone and which carries the tvOS 27 SDK.
+    runs-on: xcode-27
+    timeout-minutes: 120
+    permissions:
+      contents: write # the `testflight-tvos` tag
+    env:
+      EXPO_TV: '1'
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+      EXPO_PUBLIC_POSTHOG_KEY: ${{ secrets.EXPO_PUBLIC_POSTHOG_KEY }}
+      EXPO_PUBLIC_POSTHOG_HOST: ${{ secrets.EXPO_PUBLIC_POSTHOG_HOST }}
+      EXPO_PUBLIC_AUTH_PROVIDERS: ${{ secrets.EXPO_PUBLIC_AUTH_PROVIDERS }}
+      EXPO_ASC_API_KEY_PATH: ${{ github.workspace }}/../private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
+      EXPO_ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      EXPO_ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Pick Xcode
+        env:
+          WANT: ${{ inputs.xcode }}
+        run: |
+          set -euo pipefail
+          X=/Applications/Xcode.app
+          if [ -n "$WANT" ]; then X="/Applications/Xcode_${WANT}.app"; fi
+          if [ ! -d "$X" ]; then echo "::error::$X is not on this runner"; ls -d /Applications/Xcode*.app; exit 1; fi
+          sudo xcode-select -s "$X"
+          xcodebuild -version
+          if xcodebuild -version | grep -qi beta || [[ "$X" == *[Bb]eta* ]]; then
+            echo "::error::$X is a beta; App Store Connect will not take its builds"; exit 1
+          fi
+
+      - name: Signing material and the API key
+        id: sign
+        env:
+          P12: ${{ secrets.IOS_DIST_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.IOS_DIST_P12_PASSWORD }}
+          PROFILE: ${{ secrets.TVOS_PROVISIONING_PROFILE_BASE64 }}
+          ASC_KEY: ${{ secrets.ASC_API_KEY_BASE64 }}
+        # As ios-github.yml: a throwaway keychain on the search list, unlocked
+        # for the run, with a partition list so codesign never waits on a dialog.
+        run: |
+          set -euo pipefail
+          if [ -z "$PROFILE" ]; then
+            echo "::error::TVOS_PROVISIONING_PROFILE_BASE64 is not set. Make it with scripts/store/tvos-profile.mjs (docs/apple-tv.md)."
+            exit 1
+          fi
+          umask 077
+          KC="$RUNNER_TEMP/signing.keychain-db"
+          KC_PW=$(openssl rand -hex 24)
+          security create-keychain -p "$KC_PW" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KC_PW" "$KC"
+          printf '%s' "$P12" | base64 --decode > "$RUNNER_TEMP/dist.p12"
+          security import "$RUNNER_TEMP/dist.p12" -k "$KC" -P "$P12_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -k "$KC_PW" "$KC" >/dev/null
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/dist.p12"
+
+          printf '%s' "$PROFILE" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+          security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/profile.plist")
+          TEAM=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$RUNNER_TEMP/profile.plist")
+          PLATFORM=$(/usr/libexec/PlistBuddy -c 'Print :Platform:0' "$RUNNER_TEMP/profile.plist")
+          # The iOS profile pasted into this secret by mistake fails here, not
+          # forty minutes later inside xcodebuild.
+          if [ "$PLATFORM" != "tvOS" ]; then echo "::error::the profile is for $PLATFORM, not tvOS"; exit 1; fi
+          for d in "$HOME/Library/MobileDevice/Provisioning Profiles" "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"; do
+            mkdir -p "$d"; cp "$RUNNER_TEMP/profile.mobileprovision" "$d/$UUID.mobileprovision"
+          done
+          echo "uuid=$UUID" >> "$GITHUB_OUTPUT"
+          echo "team=$TEAM" >> "$GITHUB_OUTPUT"
+
+          mkdir -p "$(dirname "$EXPO_ASC_API_KEY_PATH")" "$HOME/.appstoreconnect/private_keys"
+          printf '%s' "$ASC_KEY" | base64 --decode > "$EXPO_ASC_API_KEY_PATH"
+          cp "$EXPO_ASC_API_KEY_PATH" "$HOME/.appstoreconnect/private_keys/"
+
+      - name: Next build number
+        id: number
+        run: echo "n=$(node scripts/store/next-build-number.mjs)" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Prebuild for tvOS
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          npx expo prebuild --platform ios --clean
+          grep -q 'SDKROOT = appletvos' ios/*.xcodeproj/project.pbxproj || { echo "::error::prebuild did not produce a tvOS project"; exit 1; }
+          WS=$(ls -d ios/*.xcworkspace | head -1)
+          NAME=$(basename "$WS" .xcworkspace)
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${{ steps.number.outputs.n }}" "ios/$NAME/Info.plist"
+          node ../../scripts/store/sign-manual.mjs "ios/$NAME.xcodeproj" "${{ steps.sign.outputs.team }}" "${{ steps.sign.outputs.uuid }}" com.eighteenzerodcai.app
+          echo "WS=$WS" >> "$GITHUB_ENV"
+          echo "SCHEME=$NAME" >> "$GITHUB_ENV"
+
+      - name: Archive
+        working-directory: apps/mobile
+        run: |
+          set -euo pipefail
+          xcodebuild -workspace "$WS" -scheme "$SCHEME" -configuration Release \
+            -destination 'generic/platform=tvOS' -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            archive | xcbeautify --renderer github-actions
+
+      - name: Export the .ipa
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/export.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>teamID</key><string>${{ steps.sign.outputs.team }}</string>
+            <key>provisioningProfiles</key><dict>
+              <key>com.eighteenzerodcai.app</key><string>${{ steps.sign.outputs.uuid }}</string>
+            </dict>
+            <key>uploadSymbols</key><true/>
+          </dict></plist>
+          EOF
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" -exportOptionsPlist "$RUNNER_TEMP/export.plist"
+          ls -la "$RUNNER_TEMP/export"
+
+      - name: Upload to App Store Connect
+        run: |
+          set -euo pipefail
+          IPA=$(ls "$RUNNER_TEMP"/export/*.ipa | head -1)
+          xcrun altool --upload-app -f "$IPA" -t appletvos --apiKey "$EXPO_ASC_KEY_ID" --apiIssuer "$EXPO_ASC_ISSUER_ID"
+
+      - name: Hand it to TestFlight testers
+        if: github.event_name == 'schedule' || inputs.testers
+        run: |
+          set -euo pipefail
+          SINCE=()
+          if git rev-parse -q --verify refs/tags/testflight-tvos >/dev/null; then SINCE=(--since testflight-tvos); fi
+          node scripts/store/beta-release.mjs --platform TV_OS --build "${{ steps.number.outputs.n }}" "${SINCE[@]}"
+          git tag -f testflight-tvos HEAD
+          git push -f origin refs/tags/testflight-tvos
+
+      - name: Discard the signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+          rm -rf "$RUNNER_TEMP/profile.mobileprovision" "$RUNNER_TEMP/profile.plist" \
+                 "$(dirname "$EXPO_ASC_API_KEY_PATH")" "$HOME/.appstoreconnect/private_keys" \
+                 "$HOME/Library/MobileDevice/Provisioning Profiles" \
+                 "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
