@@ -302,9 +302,10 @@ export const FLAGS = {
     summary: 'Gut Check: a ten-card swipe game, fair or off, whose calls go to rating_feedback for the next refit.',
     owner: 'mutaaf',
     removeBy: '2027-06-01',
-    // Off until migration 0028 is applied: before it, the table refuses
-    // 'fair' and 'source', and a refused vote stalls the whole feedback queue.
-    fallback: false,
+    // On since migration 0028 reached production (2026-11-17). Before it, the
+    // table refused 'fair' and 'source', and a refused vote stalls the whole
+    // feedback queue -- never ship this on against a database without 0028.
+    fallback: true,
   },
 
   /**
