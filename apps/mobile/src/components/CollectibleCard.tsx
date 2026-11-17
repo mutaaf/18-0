@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { Image } from 'expo-image';
 import { displayName, era as eraDef, franchise, headshotUrl, type BootCard } from '@17-0/data';

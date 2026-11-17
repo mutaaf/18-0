@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import Svg, { Path } from 'react-native-svg';
 import { Panel } from './Panel';
 import { EXTENSION_URL, EXTENSION_ZIP_URL, agentPrompt } from '@/features/links';

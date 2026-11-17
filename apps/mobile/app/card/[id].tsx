@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -192,6 +193,7 @@ export default function CardDetail() {
             Falling through to the game is always somewhere. */}
         <Pressable
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/play'))}
+          hasTVPreferredFocus
           hitSlop={20}
           accessibilityRole="button"
           accessibilityLabel="Close"

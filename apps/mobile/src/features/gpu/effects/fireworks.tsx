@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { BlendMode, Canvas, Picture, Skia, createPicture } from '@shopify/react-native-skia';
 import { Easing, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import { buildShow, type Show as ShowPlan } from '../show';
+import { toStage, useWindowSize } from '@/theme';
 
 /**
  * Fireworks and confetti, as one picture redrawn every frame on the GPU.
@@ -43,10 +44,11 @@ export default function Fireworks({
   // screen the result sits in a column, and a show laid out across the window
   // put most of its shells outside the canvas that draws them.
   const ref = useRef<View>(null);
-  const screen = useWindowDimensions();
+  const screen = useWindowSize();
   const [box, setBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const measure = () =>
-    ref.current?.measureInWindow((x, y, width, height) => {
+    ref.current?.measureInWindow((...glass) => {
+      const { x, y, width, height } = toStage(...glass);
       if (width > 0 && height > 0) setBox((b) => (b && b.width === width && b.height === height ? b : { x, y, width, height }));
     });
 

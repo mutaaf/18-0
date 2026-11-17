@@ -5,13 +5,13 @@ import {
   Easing,
   LayoutAnimation,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   UIManager,
   View,
 } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { useRouter } from 'expo-router';
 import * as Haptics from '@/features/haptics';
 import {

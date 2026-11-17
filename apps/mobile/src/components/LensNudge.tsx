@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { useShallow } from 'zustand/react/shallow';
 import { LENS_SNOOZE, isLens, suggestLens, type Lens, type LensSuggestion } from '@/features/lens';
 import { useStartGame } from '@/features/start-game';

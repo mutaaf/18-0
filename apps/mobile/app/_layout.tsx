@@ -12,6 +12,9 @@ import { startDiagnostics, useDiagnostics } from '@/features/diagnostics';
 import { startFlags, useFlag } from '@/features/flags';
 import { startRespinStore } from '@/features/respins';
 import { FoldProvider } from '@/features/fold';
+import { TVSafeArea, TVStage } from '@/features/tv/Stage';
+import { useTVMenuKey } from '@/features/tv/menu-key';
+import { isTV } from '@/features/tv/platform';
 import { startStatLines } from '@/features/stat-lines';
 import { useThemeFlagGuard } from '@/features/theme-flag';
 import { Rajdhani_600SemiBold, Rajdhani_700Bold } from '@expo-google-fonts/rajdhani';
@@ -35,6 +38,8 @@ export { RouteError as ErrorBoundary } from '@/components/RouteError';
 
 export default function RootLayout() {
   useThemeFlagGuard();
+  // Apple TV: Menu goes back while there is a back, and home at the root.
+  useTVMenuKey();
   const [ready, error] = useFonts({
     Rajdhani_600SemiBold,
     Rajdhani_700Bold,
@@ -105,7 +110,12 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
+      {/* Pass-throughs except on a television, where the app is laid out on a
+          1280 x 720 stage scaled to fill the screen, and the safe area is the
+          overscan margin (theme/layout.ts, features/tv/Stage.tsx). */}
+      <TVStage>
       <SafeAreaProvider>
+        <TVSafeArea>
         {/* Inside the safe-area provider because a spread is computed from
             both: where the fold is, and what the system bars take. */}
         <FoldProvider>
@@ -120,7 +130,12 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="play" />
           <Stack.Screen name="result" options={{ animation: 'fade', gestureEnabled: false }} />
-          <Stack.Screen name="card/[id]" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+          {/* Pushed rather than presented on a TV: a native modal is another
+              view controller, outside the stage that scales the app up. */}
+          <Stack.Screen
+            name="card/[id]"
+            options={isTV ? { animation: 'fade' } : { presentation: 'modal', animation: 'slide_from_bottom' }}
+          />
           <Stack.Screen name="admin" options={{ animation: 'slide_from_bottom' }} />
           <Stack.Screen name="challenge" options={{ animation: 'slide_from_bottom' }} />
           {/* No swipe-back: the whole screen is a swipe deck, and a left-edge
@@ -128,7 +143,9 @@ export default function RootLayout() {
           <Stack.Screen name="rate" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         </Stack>
         </FoldProvider>
+        </TVSafeArea>
       </SafeAreaProvider>
+      </TVStage>
     </GestureHandlerRootView>
   );
 }

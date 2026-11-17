@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { TextInput } from '@/components/TextInput';
+import { Pressable } from '@/components/Pressable';
 import * as Haptics from '@/features/haptics';
 import * as Linking from 'expo-linking';
 import { PRIVACY_URL } from '@/features/links';

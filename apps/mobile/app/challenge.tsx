@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
 import { Avatar } from '@/components/Avatar';

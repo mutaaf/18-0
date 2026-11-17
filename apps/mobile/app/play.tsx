@@ -7,13 +7,14 @@ import {
   ActivityIndicator,
   Keyboard,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { TextInput } from '@/components/TextInput';
+import { Pressable } from '@/components/Pressable';
+import { isTV } from '@/features/tv/platform';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -714,10 +715,10 @@ export default function Play() {
       {canPick ? (
         <Text style={styles.fieldHint}>
           {selected && targetSlots.length > 1
-            ? `Tap ${targetSlots.join(' or ')} on the field to place ${displayName(selected)}`
+            ? `${isTV ? 'Choose' : 'Tap'} ${targetSlots.join(' or ')} on the field to place ${displayName(selected)}`
             : targetSlot
               ? `Filling ${targetSlot} — choose a player`
-              : 'Tap a position on the field, or pick a player'}
+              : `${isTV ? 'Choose' : 'Tap'} a position on the field, or pick a player`}
         </Text>
       ) : null}
     </>
@@ -856,6 +857,7 @@ export default function Play() {
   const wheelButton = complete ? (
     <Pressable
       onPress={reveal}
+      hasTVPreferredFocus
       disabled={awaitingServer}
       accessibilityRole="button"
       accessibilityLabel="Reveal your result"
@@ -875,6 +877,8 @@ export default function Play() {
   ) : (
     <Pressable
       onPress={(event) => doSpin(event?.nativeEvent as { shiftKey?: boolean } | undefined)}
+      // On a TV the remote comes back here once a pick is placed.
+      hasTVPreferredFocus
       disabled={spinning || awaitingServer}
       accessibilityRole="button"
       accessibilityLabel="Spin the wheel"
@@ -1047,6 +1051,7 @@ export default function Play() {
     </View>
   );
 
+  const firstOpenId = visible.find((card) => slotsForCard(card, game.selections).length > 0)?.id;
   const browser = canPick ? (
     <View style={styles.browser}>
       <Text style={styles.count}>
@@ -1066,6 +1071,9 @@ export default function Play() {
             mode={mode}
             onPress={pickCard}
             onDetails={openDetails}
+            // On a TV the remote moves to the list when a spin lands, rather
+            // than staying on the Spin button's empty place.
+            preferFocus={isTV && card.id === firstOpenId}
           />
         ))}
         {visible.length === 0 ? (

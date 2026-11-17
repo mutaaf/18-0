@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { TextInput } from '@/components/TextInput';
+import { Pressable } from '@/components/Pressable';
 import { Panel } from './Panel';
 import { Avatar } from './Avatar';
 import {

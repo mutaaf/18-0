@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as Clipboard from '@/features/clipboard';
 import { usePathname } from 'expo-router';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
+import { TextInput } from '@/components/TextInput';
+import { Pressable } from '@/components/Pressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
 import {
@@ -19,7 +21,7 @@ import { useHistoryStore } from '@/state/history';
 import { useFold, useNavRail } from '@/features/fold';
 import { DOCK_HEIGHT } from './Dock';
 import { phoneBarHeight } from './NavBar';
-import { color, elevate, font, radius, space, themed, tracking, type PressState, useLayout } from '@/theme';
+import { color, elevate, font, radius, space, themed, tracking, type PressState, useLayout, useWindowSize } from '@/theme';
 
 
 /**
@@ -47,7 +49,7 @@ export function InstallBar() {
   const layout = useLayout();
   const rail = useNavRail();
   const { divisions } = useFold();
-  const screen = useWindowDimensions();
+  const screen = useWindowSize();
   // Two pages up: the prompt belongs to the trailing page, beside the rail.
   // Centred on the window it sat across the seam -- half of it over each
   // page, and on a Duo, over the crease.

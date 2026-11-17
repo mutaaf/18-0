@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { forwardRef, useState, type ElementRef } from 'react';
+import { StyleSheet, TVFocusGuideView, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import Animated, { ReduceMotion, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Rail as RailGeometry } from '@/features/fold';
+import { isTV } from '@/features/tv/platform';
 import { DockIcon } from './DockIcons';
 import type { DockItemSpec } from './Dock';
 import { GlassPaint, TINT } from './GlassSurface';
@@ -37,13 +39,25 @@ export function Rail({
 }) {
   const insets = useSafeAreaInsets();
   const [shelf, setShelf] = useState({ width: 0, height: 0 });
+  // On a TV the whole column is a focus guide: pressing right from anywhere
+  // down the page lands on the rail -- on the tab it last left -- instead of
+  // only from the rows that happen to line up with a tile.
+  // Entering it lands on the tab you are on, the way tvOS's own tab bar does.
+  const Column = isTV ? TVFocusGuideView : View;
+  const [activeTile, setActiveTile] = useState<ElementRef<typeof Pressable> | null>(null);
 
   return (
-    <View
+    <Column
+      // Off a tab (the account screen) there is no tab to land on. A guide
+      // with no destination takes focus itself, and one on `autoFocus` claimed
+      // the app's first focus away from Play -- so it simply stands down.
+      {...(isTV ? (activeTile ? { destinations: [activeTile] } : { enabled: false }) : null)}
       style={[
         styles.column,
         {
           width: rail.width,
+          // Inside the overscan margin on a TV; in the inset on a Duo.
+          right: isTV ? insets.right : 0,
           // Clear of the status bar at the top of the column and of the
           // account disc at its foot. Only a Duo has a status bar in this
           // column -- its safe area already holds it, so it reserves nothing.
@@ -65,14 +79,23 @@ export function Rail({
       >
         <GlassPaint width={shelf.width} height={shelf.height} radius={SHELF_RADIUS} id="rail" />
         {items.map((item, index) => (
-          <RailTile key={item.key} item={item} active={index === activeIndex} onPress={() => onSelect(index)} />
+          <RailTile
+            key={item.key}
+            ref={index === activeIndex ? setActiveTile : undefined}
+            item={item}
+            active={index === activeIndex}
+            onPress={() => onSelect(index)}
+          />
         ))}
       </View>
-    </View>
+    </Column>
   );
 }
 
-function RailTile({ item, active, onPress }: { item: DockItemSpec; active: boolean; onPress: () => void }) {
+const RailTile = forwardRef<
+  ElementRef<typeof Pressable>,
+  { item: DockItemSpec; active: boolean; onPress: () => void }
+>(function RailTile({ item, active, onPress }, ref) {
   // The selected tab is a lit pill, the way Turf marks every selected thing.
   // It was a 3 pt hairline on the leading edge, which on a Duo sits against
   // the content and was easy to read as part of the page rather than the rail.
@@ -86,6 +109,7 @@ function RailTile({ item, active, onPress }: { item: DockItemSpec; active: boole
 
   return (
     <Pressable
+      ref={ref}
       onPress={onPress}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
@@ -106,7 +130,7 @@ function RailTile({ item, active, onPress }: { item: DockItemSpec; active: boole
       </Text>
     </Pressable>
   );
-}
+});
 
 const ICON = 40;
 const SHELF_RADIUS = 30;
@@ -161,6 +185,6 @@ const styles = themed(() =>
 );
 
 /** Where the account disc sits when the rail is up: centred at the column's foot. */
-export function railAccountPosition(rail: RailGeometry, insetBottom: number, size: number) {
-  return { right: (rail.width - size) / 2, bottom: Math.max(insetBottom, space.md) };
+export function railAccountPosition(rail: RailGeometry, insetBottom: number, size: number, insetRight = 0) {
+  return { right: insetRight + (rail.width - size) / 2, bottom: Math.max(insetBottom, space.md) };
 }

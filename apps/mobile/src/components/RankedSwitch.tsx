@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import Svg, { Path } from 'react-native-svg';
 import { color, elevate, font, radius, space, themed, tracking, type PressState } from '@/theme';
 

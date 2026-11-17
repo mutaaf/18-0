@@ -1,11 +1,13 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type ViewStyle } from 'react-native';
+import { Fragment, forwardRef, useEffect, useRef, useState, type ElementRef } from 'react';
+import { Animated, Platform, StyleSheet, TVFocusGuideView, Text, View, type ViewStyle } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFold } from '@/features/fold';
+import { isTV } from '@/features/tv/platform';
 import { DockIcon, type DockIconName } from './DockIcons';
 import { GlassPaint, TINT, radiusFor } from './GlassSurface';
 import { useHasHover } from './useHasHover';
-import { color, elevate, font, radius, space, themed, tracking } from '@/theme';
+import { color, elevate, font, radius, space, themed, tracking, useWindowSize } from '@/theme';
 
 /**
  * A dock, for screens wide enough to have somewhere to put one.
@@ -63,7 +65,7 @@ export function Dock({
    * vertical bar, which a window-centred stage at a fixed 16 points did not.
    */
   const { divisions } = useFold();
-  const window = useWindowDimensions();
+  const window = useWindowSize();
   const insets = useSafeAreaInsets();
   const fold = divisions.find((d) => d.height > d.width && d.x < window.width / 2 + 60 && d.x + d.width > window.width / 2 - 60);
   const stage: ViewStyle = {
@@ -79,9 +81,17 @@ export function Dock({
   const hasHover = useHasHover();
 
   const named = focus === null ? null : items[focus];
+  // On a TV the whole strip is a focus guide aimed at the tab you are on, so
+  // pressing down from anywhere on the page lands in the dock (see Rail.tsx).
+  const Stage = isTV ? TVFocusGuideView : View;
+  const [activeTile, setActiveTile] = useState<ElementRef<typeof Pressable> | null>(null);
 
   return (
-    <View style={[styles.stage, stage]} pointerEvents="box-none">
+    <Stage
+      {...(isTV ? (activeTile ? { destinations: [activeTile] } : { enabled: false }) : null)}
+      style={[styles.stage, stage]}
+      pointerEvents="box-none"
+    >
       {/* Reserved whether or not anything is hovered, so naming a tile does not
           shove the dock down the screen. Never on touch, where the labels are
           standing under the tiles instead. */}
@@ -119,6 +129,7 @@ export function Dock({
             {/* A dock separates the apps from the things that are yours. */}
             {item.dividerBefore ? <View style={styles.divider} /> : null}
             <DockTile
+              ref={index === activeIndex ? setActiveTile : undefined}
               item={item}
               index={index}
               focus={focus}
@@ -130,19 +141,11 @@ export function Dock({
           </Fragment>
         ))}
       </View>
-    </View>
+    </Stage>
   );
 }
 
-function DockTile({
-  item,
-  index,
-  focus,
-  active,
-  labelled,
-  onHover,
-  onPress,
-}: {
+interface DockTileProps {
   item: DockItemSpec;
   index: number;
   focus: number | null;
@@ -151,8 +154,14 @@ function DockTile({
   labelled: boolean;
   onHover: (index: number | null) => void;
   onPress: () => void;
-}) {
+}
+
+const DockTile = forwardRef<ElementRef<typeof Pressable>, DockTileProps>(function DockTile(
+  { item, index, focus, active, labelled, onHover, onPress },
+  ref,
+) {
   const [held, setHeld] = useState(false);
+
 
   // Distance from the pointer decides the swell. Squared falloff, so the tile
   // under the cursor is clearly the one being pointed at and its neighbours
@@ -188,9 +197,13 @@ function DockTile({
 
   return (
     <Pressable
+      ref={ref}
       onPress={onPress}
       onHoverIn={() => onHover(index)}
       onHoverOut={() => onHover(null)}
+      // The remote's focus is a TV's pointer: the dock swells around it.
+      onFocus={isTV ? () => onHover(index) : undefined}
+      onBlur={isTV ? () => onHover(null) : undefined}
       onPressIn={() => setHeld(true)}
       onPressOut={() => setHeld(false)}
       accessibilityRole="tab"
@@ -219,7 +232,7 @@ function DockTile({
       )}
     </Pressable>
   );
-}
+});
 
 /**
  * How round the shelf is, at the height it currently is.

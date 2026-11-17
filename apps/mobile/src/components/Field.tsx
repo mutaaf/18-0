@@ -1,5 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
+import { isTV } from '@/features/tv/platform';
 import Animated, {
   Easing,
   ReduceMotion,
@@ -150,9 +152,11 @@ interface SlotProps {
   width: number;
   scale: number;
   onPress?: (slot: RosterSlot) => void;
+  /** Apple TV: where the remote goes when a picked player needs a slot. */
+  preferFocus?: boolean;
 }
 
-function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, width, scale, onPress }: SlotProps) {
+function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, width, scale, onPress, preferFocus }: SlotProps) {
   const accent = positionColor[SLOT_POSITION[slot]];
   const filled = card !== undefined;
 
@@ -175,6 +179,7 @@ function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, width, 
 
   return (
     <Pressable
+      hasTVPreferredFocus={preferFocus === true}
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected: targeted }}
@@ -325,6 +330,10 @@ export const Field = memo(function Field({
       card={cards[key]}
       franchiseAbbr={franchiseAbbrs[key]}
       highlighted={highlighted.has(key)}
+      // A player who fits two slots (RB1 or RB2) waits for one to be chosen.
+      // On a TV the remote is sent to the first of them; a finger would just
+      // tap, but focus has to be told the field is where the next press goes.
+      preferFocus={isTV && (highlight?.length ?? 0) > 1 && highlight?.[0] === key}
       targeted={target === key}
       blind={blind === true}
       width={slotWidth}

@@ -1,5 +1,6 @@
 import { memo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { Reveal } from './Reveal';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { franchise, type BootCard } from '@17-0/data';
@@ -29,6 +30,7 @@ export const PlayerCard = memo(function PlayerCard({
   mode,
   onPress,
   onDetails,
+  preferFocus = false,
 }: {
   card: BootCard;
   name: string;
@@ -44,6 +46,8 @@ export const PlayerCard = memo(function PlayerCard({
    */
   onPress: (card: BootCard) => void;
   onDetails: (card: BootCard) => void;
+  /** Apple TV: where the remote goes when a spin lands. */
+  preferFocus?: boolean;
 }) {
   // Memoized, and a theme change moves none of these props. Without the
   // subscription the roster keeps the old palette until something else forces
@@ -83,6 +87,7 @@ export const PlayerCard = memo(function PlayerCard({
         <View style={[styles.rail, { backgroundColor: teamColor }]} pointerEvents="none" />
 
         <Pressable
+          hasTVPreferredFocus={preferFocus}
           accessibilityRole="button"
           accessibilityState={{ selected, disabled }}
           accessibilityLabel={`${name}. ${card.position}. ${card.year} ${team.name}.${

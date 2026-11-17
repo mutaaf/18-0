@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { useRouter } from 'expo-router';
 import * as Haptics from '@/features/haptics';
 import { ROSTER_SLOTS, isPerfectionDenied, type RosterSlot } from '@17-0/domain';
@@ -18,7 +19,7 @@ import { betweenSeasons } from '@/features/ads';
 import { SLOT_RESULTS } from '@/features/ads-policy';
 import { homeRoute, isEmbedded, tellHost } from '@/features/embed';
 import { standing } from '@/features/frame-standing';
-import { APP_URL_LABEL, prepareWebShareFile, shareResult, type ShareOutcome } from '@/features/share';
+import { APP_URL_LABEL, prepareWebShareFile, shareAvailable, shareResult, type ShareOutcome } from '@/features/share';
 import { track } from '@/features/telemetry';
 import { askForReminders, scheduleStreakReminder } from '@/features/reminders';
 import { currentUser, hideSeason } from '@/services/supabase';
@@ -336,7 +337,8 @@ export default function Result() {
   // A personal best only earns the big Share button when it is also a winning
   // season: a new player's first 2-15 can be their best yet, and "Post your
   // 2-15" was not the moment anyone wants to be handed.
-  const brag = perfect || heartbreak || wins >= 12 || (beatBest && wins >= 10);
+  // Never on an Apple TV, which has nowhere to post to (shareAvailable).
+  const brag = shareAvailable && (perfect || heartbreak || wins >= 12 || (beatBest && wins >= 10));
   const recordText = `${wins}-${result.record.losses}`;
 
   const toPerfect = Math.max(0, PERFECT_THRESHOLD - result.finalRating);
@@ -553,23 +555,27 @@ export default function Result() {
                 pressed && { opacity: 0.88 },
               ]}
               onPress={buildAnother}
+              // The remote starts on "again" when the season is over.
+              hasTVPreferredFocus
               accessibilityRole="button"
               accessibilityLabel="Build another roster"
             >
               <Text style={styles.primaryLabel}>Build Another</Text>
             </Pressable>
-            <Pressable
-              style={({ pressed, hovered }: PressState) => [
-                styles.secondary,
-                hovered && { borderColor: color.gold },
-                pressed && { opacity: 0.85 },
-              ]}
-              onPress={share}
-              accessibilityRole="button"
-              accessibilityLabel="Share this result"
-            >
-              <Text style={styles.secondaryLabel}>Share {recordText}</Text>
-            </Pressable>
+            {shareAvailable ? (
+              <Pressable
+                style={({ pressed, hovered }: PressState) => [
+                  styles.secondary,
+                  hovered && { borderColor: color.gold },
+                  pressed && { opacity: 0.85 },
+                ]}
+                onPress={share}
+                accessibilityRole="button"
+                accessibilityLabel="Share this result"
+              >
+                <Text style={styles.secondaryLabel}>Share {recordText}</Text>
+              </Pressable>
+            ) : null}
           </>
         )}
       </Layer>

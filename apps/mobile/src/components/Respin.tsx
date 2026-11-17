@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import * as Haptics from '@/features/haptics';
 import { useShallow } from 'zustand/react/shallow';
 import { RESPINS_PER_SEASON, RESPIN_MARK, RESPIN_MARK_MEANING, oddsDisclosure } from '@17-0/respins/client';
@@ -10,6 +11,7 @@ import { noteStoreUsed, purchases, refreshRespinBalance, spendRespin, useRespinB
 import { track } from '@/features/telemetry';
 import { useFoldPage } from '@/features/fold';
 import { color, elevate, font, radius, space, themed, tracking, type PressState } from '@/theme';
+import { TVStage } from '@/features/tv/Stage';
 
 /**
  * The ↻ mark: a season that spent a respin, wherever a season is shown.
@@ -184,6 +186,8 @@ export function RespinSheet({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+      {/* A modal is its own view controller, outside the app's TV stage. */}
+      <TVStage>
       <View style={styles.backdrop}>
         <ScrollView
           style={styles.scroll}
@@ -269,6 +273,7 @@ export function RespinSheet({ onClose }: { onClose: () => void }) {
           </View>
         </ScrollView>
       </View>
+      </TVStage>
     </Modal>
   );
 }

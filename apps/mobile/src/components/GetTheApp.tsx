@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { Panel } from './Panel';
 import { TESTFLIGHT_URL } from '@/features/links';

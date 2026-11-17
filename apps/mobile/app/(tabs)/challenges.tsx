@@ -4,13 +4,13 @@ import * as Clipboard from '@/features/clipboard';
 import {
   ActivityIndicator,
   Platform,
-  Pressable,
   ScrollView,
   Share,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { DockSpacer } from '@/components/chrome';
 import { Screen } from '@/components/Screen';
 import { SpreadLayout } from '@/components/SpreadLayout';
@@ -18,7 +18,7 @@ import { useSpread } from '@/features/fold';
 import { Panel } from '@/components/Panel';
 import { Avatar } from '@/components/Avatar';
 import { RatingBadge } from '@/components/RatingBadge';
-import { APP_URL } from '@/features/share';
+import { APP_URL, shareAvailable } from '@/features/share';
 import { track } from '@/features/telemetry';
 import {
   createChallenge,
@@ -137,20 +137,30 @@ export default function Challenges() {
             </View>
             <RatingBadge rating={best.rating} size="sm" />
           </View>
-          <Pressable
-            onPress={() => void send(best)}
-            disabled={making}
-            accessibilityRole="button"
-            accessibilityLabel="Challenge a friend with this season"
-            style={({ hovered, pressed }: PressState) => [
-              styles.cta,
-              hovered && { backgroundColor: color.actionBright },
-              pressed && { opacity: 0.85 },
-              making && { opacity: 0.6 },
-            ]}
-          >
-            <Text style={styles.ctaLabel}>{making ? 'Making a link…' : 'Challenge a friend'}</Text>
-          </Pressable>
+          {shareAvailable ? (
+            <Pressable
+              onPress={() => void send(best)}
+              disabled={making}
+              accessibilityRole="button"
+              accessibilityLabel="Challenge a friend with this season"
+              style={({ hovered, pressed }: PressState) => [
+                styles.cta,
+                hovered && { backgroundColor: color.actionBright },
+                pressed && { opacity: 0.85 },
+                making && { opacity: 0.6 },
+              ]}
+            >
+              <Text style={styles.ctaLabel}>{making ? 'Making a link…' : 'Challenge a friend'}</Text>
+            </Pressable>
+          ) : (
+            // An Apple TV has no share sheet and no pasteboard: a challenge is
+            // a link, and there is nowhere here to send one. Said, not hidden,
+            // so the card does not just stop short.
+            <Text style={styles.noteCopy}>
+              A challenge goes out as a link, and a TV has nowhere to send one. Your ranked
+              seasons here still count on the board.
+            </Text>
+          )}
           <Text style={styles.pitchNote}>
             They get your score and your record. Never your roster.
           </Text>
@@ -319,7 +329,7 @@ function Duel({
                   ? 'YOU WON'
                   : 'YOU LOST'}
         </Text>
-        {!settled && row.status === 'open' && mine ? (
+        {!settled && row.status === 'open' && mine && Clipboard.clipboardAvailable ? (
           <Pressable
             onPress={onCopy}
             accessibilityRole="button"

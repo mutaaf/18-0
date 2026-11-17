@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { useRouter } from 'expo-router';
 import { cardById, franchise, type BootCard } from '@17-0/data';
 import type { RosterSlot } from '@17-0/domain';

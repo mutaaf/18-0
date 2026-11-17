@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { useRouter } from 'expo-router';
 import { eraLabel, franchise } from '@17-0/data';
 import { useMemo } from 'react';

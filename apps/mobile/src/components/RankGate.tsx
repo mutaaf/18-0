@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { MODE_LABEL, type GameMode } from '@/state/game';
 import { color, elevate, font, radius, space, themed, tracking, type PressState } from '@/theme';

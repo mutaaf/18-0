@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import Animated, { FadeInDown, ReduceMotion, ZoomIn } from 'react-native-reanimated';
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useRouter } from 'expo-router';
@@ -15,6 +16,7 @@ import {
 } from '@/features/whats-new';
 import { useFoldPage } from '@/features/fold';
 import { DECORATIVE, color, elevate, font, radius, space, themed, tracking, type PressState } from '@/theme';
+import { TVStage } from '@/features/tv/Stage';
 
 /**
  * The What's New sheet: a headline, two to four callouts, the full notes folded
@@ -65,6 +67,8 @@ export function WhatsNewSheet({
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onDismiss} statusBarTranslucent>
+      {/* A modal is its own view controller, outside the app's TV stage. */}
+      <TVStage>
       <View style={styles.backdrop}>
         <ScrollView
           style={styles.scroll}
@@ -182,6 +186,7 @@ export function WhatsNewSheet({
           </Animated.View>
         </ScrollView>
       </View>
+      </TVStage>
     </Modal>
   );
 }

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { router, usePathname } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { isTV } from '@/features/tv/platform';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 import { fetchProgress, identity, isBackendConfigured, type Identity, type Progress } from '@/services/supabase';
 import { identifyPlayer } from '@/features/analytics';
@@ -101,7 +103,7 @@ export function AccountButton() {
     <View
       style={[
         styles.dock,
-        rail ? railAccountPosition(rail, insets.bottom, SIZE) : { top: insets.top + space.md, right: insets.right + space.lg },
+        rail ? railAccountPosition(rail, insets.bottom, SIZE, isTV ? insets.right : 0) : { top: insets.top + space.md, right: insets.right + space.lg },
       ]}
       pointerEvents="box-none"
     >

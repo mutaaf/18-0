@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { useRouter } from 'expo-router';
 import { useShallow } from 'zustand/react/shallow';
 import * as Haptics from '@/features/haptics';
@@ -314,6 +315,8 @@ export default function Home() {
           <Pressable
             onPress={() => start(quickMode, { ranked })}
             disabled={opening}
+            // Where the Apple TV remote starts: "again" is the common case.
+            hasTVPreferredFocus
             accessibilityRole="button"
             accessibilityLabel={`Play ${MODE_LABEL[quickMode]}, ${quickKind.toLowerCase()}. The first spin starts right away.`}
             style={({ pressed, hovered }: PressState) => [
@@ -361,6 +364,8 @@ export default function Home() {
             </View>
             <Pressable
               onPress={resume}
+              // The remote starts here when there is a season to go back to.
+              hasTVPreferredFocus
               accessibilityRole="button"
               accessibilityLabel={`Resume game, ${game.filled} of seven filled`}
               style={({ hovered }: PressState) => [styles.resumeGo, hovered && styles.lift]}
