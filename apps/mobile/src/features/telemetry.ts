@@ -39,6 +39,9 @@ export type EventName =
   // A player marking one of their seven as rated too low or too high (or
   // taking that back). Evidence for the next refit; never read by a score.
   | 'rating_feedback_given'
+  // Gut Check (app/rate.tsx): a round of swipes opened, and one played out.
+  | 'gut_check_started'
+  | 'gut_check_finished'
   | 'build_another_tapped'
   | 'leaderboard_viewed'
   | 'leaderboard_roster_opened'

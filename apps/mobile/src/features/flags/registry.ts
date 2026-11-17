@@ -292,6 +292,22 @@ export const FLAGS = {
     fallback: true,
   },
   /**
+   * Gut Check (app/rate.tsx): ten cards, swipe right if the rating is fair,
+   * left if it is off, then up or down. The same evidence as rating_feedback,
+   * tagged `source = 'swipe'` (migration 0028). Never touches a score.
+   */
+  gut_check: {
+    key: 'gut_check',
+    kind: 'toggle',
+    summary: 'Gut Check: a ten-card swipe game, fair or off, whose calls go to rating_feedback for the next refit.',
+    owner: 'mutaaf',
+    removeBy: '2027-06-01',
+    // Off until migration 0028 is applied: before it, the table refuses
+    // 'fair' and 'source', and a refused vote stalls the whole feedback queue.
+    fallback: false,
+  },
+
+  /**
    * The "rate the ratings" control under a finished season's roster. Players
    * asked for a more realistic model; this collects which cards they think are
    * off, for a person to read at the next refit. Never touches a score.

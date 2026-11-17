@@ -103,6 +103,15 @@ Each opinion is one row in `rating_feedback` (migration 0025): one per player,
 per card, per model version, changed or withdrawn by tapping again. Votes made
 offline queue on the device and go with the next flush.
 
+Gut Check (`app/rate.tsx`, `features/gut-check.ts`, flag `gut_check`) is the
+same evidence collected as a game: ten cards, swipe right if the rating is
+right, left if not and then up or down. Migration 0028 adds the verdict
+`fair` for a swipe right, which gives every complaint its denominator, and a
+`source` column (`result` or `swipe`). The view's `fair` and `from_swipe`
+columns count them. Read the two sources separately before you add them
+together: a verdict on your own seven straight after a season is not the same
+evidence as a swipe on a stranger's card. "Don't know" records nothing.
+
 It changes nothing by itself. A rating is deterministic and every published
 score depends on it, so feedback is *evidence for the next refit*, read by a
 person:

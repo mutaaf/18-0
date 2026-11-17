@@ -123,6 +123,9 @@ export default function RootLayout() {
           <Stack.Screen name="card/[id]" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           <Stack.Screen name="admin" options={{ animation: 'slide_from_bottom' }} />
           <Stack.Screen name="challenge" options={{ animation: 'slide_from_bottom' }} />
+          {/* No swipe-back: the whole screen is a swipe deck, and a left-edge
+              drag meant for a card would close it. */}
+          <Stack.Screen name="rate" options={{ animation: 'slide_from_bottom', gestureEnabled: false }} />
         </Stack>
         </FoldProvider>
       </SafeAreaProvider>
