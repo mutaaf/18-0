@@ -94,6 +94,14 @@ export interface Palette {
   goldDeep: string;
   goldGlow: string;
 
+  /**
+   * The ring around whatever an Apple TV remote is pointing at. A TV has no
+   * pointer and no finger: this is the only way a player knows where they
+   * are, so it has to read against every surface it can land on -- the
+   * action buttons included, which is why it is not the action colour.
+   */
+  focusRing: string;
+
   /** A secondary heat, never a primary. */
   ignition: string;
   ignitionBright: string;
@@ -187,6 +195,7 @@ const broadcast: Theme = {
     goldBright: '#FFD152',
     goldDeep: '#C98A00',
     goldGlow: '#FFB40033',
+    focusRing: '#FFFFFF',
 
     ignition: '#FF6A00',
     ignitionBright: '#FF8A33',
@@ -262,6 +271,7 @@ const turf: Theme = {
     goldBright: '#FFDA6B',
     goldDeep: '#D99A00',
     goldGlow: '#FFC53133',
+    focusRing: '#FFFFFF',
 
     ignition: '#FF8A3D',
     ignitionBright: '#FFA766',

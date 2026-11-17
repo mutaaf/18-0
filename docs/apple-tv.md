@@ -35,6 +35,49 @@ The simulator runtime is a separate download: `xcodebuild -downloadPlatform tvOS
 once per Xcode. It installs the stock "Apple TV 4K (4th generation)" devices;
 `verify:tv --install` uses the 1080p one and never creates a device.
 
+## The 10-foot layout
+
+The screens are sized in phone points, and an Apple TV is 1920 x 1080 points
+watched from across a room. Rather than a second set of sizes in five hundred
+stylesheets, the app is laid out on a **1280 x 720 stage scaled by 1.5**
+(`TV_SCALE`, `src/theme/layout.ts`; `TVStage`, `src/features/tv/Stage.tsx`). A
+TV therefore gets the wide-window composition that already exists -- the field
+beside the list, two-panel spreads, the navigation rail -- with every label half
+again as large. Three rules keep it honest, and `native-imports.test.ts`
+enforces each:
+
+- **Measure the window with `useWindowSize`**, never `useWindowDimensions`: React
+  Native's answer is the glass, half again too wide for the stage.
+- **Convert `measureInWindow` with `toStage`**: it answers on the glass, after the
+  scale, and a spread mixing the two put the seam in the wrong place.
+- **A native modal is outside the stage** (another view controller), so `Modal`
+  contents are wrapped in their own `TVStage`, and the card screen is pushed
+  rather than presented on a TV.
+
+**Overscan.** Apple's TV-safe area (80 points at the sides, 60 top and bottom)
+is handed to every safe-area consumer as the insets (`TVSafeArea`). Backgrounds
+run to the edge of the glass; the screens, the rail, the dock and the account
+disc keep inside it.
+
+## Focus
+
+- **Every button shows where the remote is.** `@/components/Pressable` and
+  `@/components/TextInput` are React Native's own components on a phone and the
+  web (the same object, not a wrapper) and add a `focusRing` outline and a
+  slight lift on a TV. The test fails an import of either straight from
+  `react-native`. `focusRing` is a palette token, white in both themes, because
+  it has to read on the action colour too.
+- **The remote starts somewhere sensible** (`hasTVPreferredFocus`): Play (or
+  Resume) on the front page, the first player who fits after a spin, the first
+  eligible slot when a pick fits two, Spin once a pick is placed, Reveal when
+  the roster is full, Build Another on the result.
+- **The rail and the dock are focus guides** aimed at the tab you are on, so
+  pressing right (or down) from anywhere on a page lands on the navigation, and
+  every page is a guide that remembers where you left it.
+- **Menu** goes back from a pushed screen, to Play from any other tab, and home
+  from Play -- Apple's tvOS review guidelines require that last one
+  (`src/features/tv/menu-key.ts`).
+
 ## What tvOS does not have
 
 tvOS links only the native modules whose podspecs declare it. The ones this app
@@ -55,6 +98,11 @@ kills the TV app before its first frame -- while every phone build, typecheck
 and test stays green. They are reached only through one guarded module each,
 and `src/features/tv/native-imports.test.ts` fails the build on a static import
 anywhere else.
+
+So on a TV there is no share button (the result screen offers Build Another
+alone, and a challenge says plainly that a TV has nowhere to send a link), no
+"copy link", no streak reminders (the switch says why), no TestFlight invite and
+no sign-in buttons.
 
 Skia (the GPU layer), Reanimated, SVG, gesture handler, screens, safe area,
 async storage, expo-image and expo-iap all link on tvOS.

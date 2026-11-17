@@ -7,9 +7,10 @@ import {
   type ComponentProps,
   type ReactNode,
 } from 'react';
-import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, StyleSheet } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { DECORATIVE } from '@/theme';
+import { DECORATIVE, useWindowSize } from '@/theme';
 
 /**
  * One clock, many layers.
@@ -207,7 +208,7 @@ export function Sheen({
   duration?: number;
   angle?: string;
 }) {
-  const { width } = useWindowDimensions();
+  const { width } = useWindowSize();
   const band = Math.max(90, width * 0.28);
   const { slide, fade } = useMemo(
     () => ({

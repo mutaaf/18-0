@@ -1,5 +1,6 @@
 import { useCallback, useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import Svg, { Path } from 'react-native-svg';
 import { useLocalSearchParams } from 'expo-router';
 import { Brand } from '@/components/Brand';

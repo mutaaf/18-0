@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { franchise } from '@17-0/data';
 import { SLOT_POSITION } from '@17-0/domain';
 import { CarryOver } from './CarryOver';

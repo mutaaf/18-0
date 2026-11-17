@@ -10,12 +10,14 @@
  * numbers an iPhone Duo reports. Nothing here decides anything.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Platform, StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
+import { Platform, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { foldSensor, type FoldChange } from '../../../modules/fold';
 import { useFlag } from '@/features/flags';
 import { SINGLE, computeSpread, navRail, type Division, type Hinge, type Rail, type Rect, type Spread } from './spread';
 import { readWebFold, watchWebFold } from './web';
+import { toStage, useWindowSize } from '@/theme/layout';
+import { isTV } from '@/features/tv/platform';
 
 export type { Band, Division, Hinge, Rail, Spread } from './spread';
 
@@ -77,13 +79,15 @@ export interface SpreadHandle {
 export function useSpread(): SpreadHandle {
   const enabled = useFlag('dual_panel');
   const { divisions } = useFold();
-  const window = useWindowDimensions();
+  const window = useWindowSize();
   const insets = useSafeAreaInsets();
   const ref = useRef<View | null>(null);
   const [frame, setFrame] = useState<Rect | null>(null);
 
   const measure = useCallback(() => {
-    ref.current?.measureInWindow((x, y, width, height) => {
+    ref.current?.measureInWindow((...glass) => {
+      // On a TV the measurement is on the glass, after the stage's scale.
+      const { x, y, width, height } = toStage(...glass);
       setFrame((prev) =>
         prev && prev.x === x && prev.y === y && prev.width === width && prev.height === height
           ? prev
@@ -121,7 +125,7 @@ export function useSpread(): SpreadHandle {
 export function useFoldPage(): { readonly left: number; readonly right: number } {
   const enabled = useFlag('dual_panel');
   const { divisions } = useFold();
-  const window = useWindowDimensions();
+  const window = useWindowSize();
   const insets = useSafeAreaInsets();
   return useMemo(() => {
     const fold = enabled
@@ -146,10 +150,15 @@ export function useFoldPage(): { readonly left: number; readonly right: number }
 export function useNavRail(): Rail | null {
   const enabled = useFlag('dual_panel');
   const { divisions } = useFold();
-  const window = useWindowDimensions();
+  const window = useWindowSize();
   const insets = useSafeAreaInsets();
-  return useMemo(
-    () => (enabled ? navRail({ window, insets, divisions, virtual: true }) : null),
-    [enabled, window, insets, divisions],
-  );
+  return useMemo(() => {
+    if (!enabled) return null;
+    // On a Duo the rail lives *in* the right inset -- the status bar's column.
+    // A TV's right inset is the overscan margin, which nothing may be drawn
+    // in, so there the rail stands inside it and reserves both (Rail.tsx).
+    if (!isTV) return navRail({ window, insets, divisions, virtual: true });
+    const rail = navRail({ window, insets: { ...insets, right: 0 }, divisions, virtual: true });
+    return rail && { ...rail, reserve: rail.reserve + insets.right };
+  }, [enabled, window, insets, divisions]);
 }

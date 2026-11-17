@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from '@/features/haptics';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -16,13 +16,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { DATASET, displayName, eraLabel, franchise, type BootCard } from '@17-0/data';
+import { Pressable } from '@/components/Pressable';
 import { Screen } from '@/components/Screen';
 import { DECK_SIZE, buildDeck, summarize, type Call } from '@/features/gut-check';
 import { feedbackKey, flushRatingFeedback, giveRatingFeedback, useRatingFeedback, type RatingVerdict } from '@/features/rating-feedback';
 import { useCardStats } from '@/features/stat-lines';
 import { track } from '@/features/telemetry';
 import { useHistoryStore } from '@/state/history';
-import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking, useThemeId, type PressState } from '@/theme';
+import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking, useThemeId, useWindowSize, type PressState } from '@/theme';
 
 /**
  * Gut Check: ten cards, one swipe each.
@@ -79,7 +80,7 @@ function dealDeck(): BootCard[] {
 export default function GutCheck() {
   useThemeId();
   const router = useRouter();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowSize();
   const cardWidth = Math.min(windowWidth - space.xl * 2, 360);
   const cardHeight = Math.min(cardWidth * 1.32, windowHeight * 0.52);
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { router, type ErrorBoundaryProps } from 'expo-router';
 import { currentRoute } from '@/features/diagnostics/context';
 import { reportError } from '@/features/diagnostics';

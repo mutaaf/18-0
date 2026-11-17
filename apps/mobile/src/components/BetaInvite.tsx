@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Linking, Platform, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, Share, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import * as Clipboard from '@/features/clipboard';
 import Svg, { Line, Rect } from 'react-native-svg';
 import { Panel } from './Panel';
@@ -7,6 +8,7 @@ import { useFlag } from '@/features/flags';
 import { TESTFLIGHT_URL } from '@/features/links';
 import { track } from '@/features/telemetry';
 import { color, font, radius, space, themed, tracking, type PressState } from '@/theme';
+import { isTV } from '@/features/tv/platform';
 
 /**
  * The public TestFlight link, made to be passed on.
@@ -35,7 +37,8 @@ export function BetaInvite() {
   const offeredNative = useFlag('share_beta');
   const [copied, setCopied] = useState(false);
   const web = Platform.OS === 'web';
-  if (!(Platform.OS === 'ios' && offeredNative)) return null;
+  // Not on an Apple TV ('ios' too): it has no share sheet to send this from.
+  if (!(Platform.OS === 'ios' && !isTV && offeredNative)) return null;
 
   const share = async () => {
     track('app_link_opened', { target: 'testflight_share' });

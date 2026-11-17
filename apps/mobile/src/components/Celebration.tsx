@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, StyleSheet, View } from 'react-native';
 import { useFold } from '@/features/fold';
 import { gpu } from '@/features/gpu';
-import { DECORATIVE, color } from '@/theme';
+import { DECORATIVE, color, useWindowSize } from '@/theme';
 
 /**
  * The noise a good season deserves.
@@ -70,7 +70,7 @@ export function Celebration({
   perfect?: boolean;
   at?: number;
 }) {
-  const { width, height } = useWindowDimensions();
+  const { width, height } = useWindowSize();
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [armed, setArmed] = useState(at <= 0);
   const [live, setLive] = useState(at <= 0);

@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import Svg, { Defs, LinearGradient, Line, Pattern, Rect, Stop } from 'react-native-svg';
 import { useFlag } from '@/features/flags';
 import { track } from '@/features/telemetry';

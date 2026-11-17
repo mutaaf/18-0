@@ -1,6 +1,7 @@
 import { memo, type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+import { StyleSheet, TVFocusGuideView, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
+import { isTV } from '@/features/tv/platform';
 import Svg, { Circle, Defs, Line, Pattern, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { DECORATIVE, color, themed, useLayout, useThemeId } from '@/theme';
 import { useChrome } from './chrome';
@@ -101,20 +102,40 @@ export function Screen({
 }) {
   const layout = useLayout();
   const chrome = useChrome();
+  const insets = useSafeAreaInsets();
+  const safe = bleed ? edges.filter((e) => e !== 'left' && e !== 'right') : edges;
+  // A TV's safe area is the overscan margin from `TVSafeArea`, which only the
+  // hook sees: the native SafeAreaView measures the glass, in screen points.
+  const Safe = isTV ? View : SafeAreaView;
+  const Column = isTV ? TVFocusGuideView : View;
+  const tvPadding = isTV
+    ? {
+        paddingTop: safe.includes('top') ? insets.top : 0,
+        paddingBottom: safe.includes('bottom') ? insets.bottom : 0,
+        paddingLeft: safe.includes('left') ? insets.left : 0,
+      }
+    : null;
+  const tvRight = isTV && safe.includes('right') ? insets.right : 0;
   return (
     <View style={styles.root}>
       <StadiumBackdrop />
-      <SafeAreaView
+      <Safe
         // No paddingBottom for the dock: content scrolls under it and each
         // tab's scroll ends with a `DockSpacer` instead (see chrome.tsx). The
         // rail is different -- nothing passes under a column.
-        style={[styles.safe, { paddingRight: chrome.right }]}
-        edges={bleed ? edges.filter((e) => e !== 'left' && e !== 'right') : edges}
+        style={[styles.safe, tvPadding, { paddingRight: chrome.right + tvRight }]}
+        edges={safe}
       >
-        <View style={[styles.column, { maxWidth: bleed ? undefined : maxWidth ?? Math.min(layout.maxWidth, 620) }]}>
+        <Column
+          // On a TV the page is a focus guide: coming back from the rail
+          // lands on what you left, or the first thing on the page, rather
+          // than only on whatever happens to line up with the tab you were on.
+          {...(isTV ? { autoFocus: true } : null)}
+          style={[styles.column, { maxWidth: bleed ? undefined : maxWidth ?? Math.min(layout.maxWidth, 620) }]}
+        >
           {children}
-        </View>
-      </SafeAreaView>
+        </Column>
+      </Safe>
     </View>
   );
 }

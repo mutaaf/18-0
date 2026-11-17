@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import * as Haptics from '@/features/haptics';
 import {
   REPORT_REASONS,
@@ -9,6 +10,7 @@ import {
 } from '@/services/supabase';
 import { useFoldPage } from '@/features/fold';
 import { color, font, radius, space, themed, tracking, type PressState } from '@/theme';
+import { TVStage } from '@/features/tv/Stage';
 
 /**
  * Reporting a name on the leaderboard.
@@ -62,6 +64,8 @@ export function ReportButton({ userId, handle }: { userId: string; handle: strin
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
+        {/* A modal is its own view controller, outside the app's TV stage. */}
+        <TVStage>
         <Pressable
           style={[styles.backdrop, { paddingLeft: space.lg + page.left, paddingRight: space.lg + page.right }]}
           onPress={close}
@@ -108,6 +112,7 @@ export function ReportButton({ userId, handle }: { userId: string; handle: strin
             )}
           </Pressable>
         </Pressable>
+        </TVStage>
       </Modal>
     </>
   );

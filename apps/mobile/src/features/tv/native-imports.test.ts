@@ -61,6 +61,46 @@ describe('phone-only native modules (docs/apple-tv.md)', () => {
     });
   }
 
+  it('measures the window only through the stage', () => {
+    // A TV lays the app out on a 1280 x 720 stage scaled to the glass
+    // (TV_SCALE). React Native's own window size is the glass, half again too
+    // big; only `useWindowSize` knows the difference.
+    const allowed = ['src/theme/layout.ts'];
+    const offenders = files
+      .filter((f) => /\buseWindowDimensions\b|\bDimensions\.get\(/.test(f.text))
+      .map((f) => f.path)
+      .filter((path) => !allowed.includes(path));
+    expect(offenders, 'use useWindowSize from @/theme').toEqual([]);
+  });
+
+  it("takes Pressable from the one that shows focus", () => {
+    // React Native's own has no focus state on a TV, so a button imported
+    // straight from it is one the remote can land on without anybody seeing.
+    const offenders = files
+      .filter((f) => f.path !== 'src/components/Pressable.tsx')
+      .filter((f) => /import\s*\{[^}]*\bPressable\b(?!Props|State)[^}]*\}\s*from\s*'react-native'/.test(f.text))
+      .map((f) => f.path);
+    expect(offenders, "import { Pressable } from '@/components/Pressable'").toEqual([]);
+  });
+
+  it('converts every window measurement to the stage', () => {
+    // measureInWindow answers on the glass, after the stage's scale; a layout
+    // that mixes it with `useWindowSize` puts a TV's seam half again too far
+    // right. Every call converts with `toStage` in the same file.
+    const unconverted = files
+      .filter((f) => /\bmeasureInWindow\(/.test(f.text) && !/\btoStage\(/.test(f.text))
+      .map((f) => f.path);
+    expect(unconverted).toEqual([]);
+  });
+
+  it('takes TextInput from the one that shows focus', () => {
+    const offenders = files
+      .filter((f) => f.path !== 'src/components/TextInput.tsx')
+      .filter((f) => /import\s*\{[^}]*\bTextInput\b(?!Props)[^}]*\}\s*from\s*'react-native'/.test(f.text))
+      .map((f) => f.path);
+    expect(offenders, "import { TextInput } from '@/components/TextInput'").toEqual([]);
+  });
+
   it('the guarded loaders check for a television', () => {
     for (const path of new Set(Object.values(PHONE_ONLY).flat())) {
       const text = files.find((f) => f.path === path)?.text ?? '';

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { GlassSurface } from './GlassSurface';
 import { ThemePicker } from './ThemePicker';
 import { reminderState, setReminders, type ReminderState } from '@/features/reminders';
 import { setUsageStats, usageStatsOn, usageStatsSupported } from '@/features/boxoffice';
 import { color, font, radius, space, themed, tracking, type PressState } from '@/theme';
+import { isTV } from '@/features/tv/platform';
 
 /**
  * The things a player is actually allowed to change.
@@ -125,7 +127,9 @@ function explain(state: ReminderState | null): string {
     case 'blocked':
       return 'Turned off for 17-0 in your device settings. Only Settings can turn it back on.';
     case 'unsupported':
-      return 'Not available in a browser. Install the app to get one.';
+      return isTV
+        ? 'Not on Apple TV, which has nowhere to show one. The app on a phone can remind you.'
+        : 'Not available in a browser. Install the app to get one.';
     default:
       return 'Checking…';
   }

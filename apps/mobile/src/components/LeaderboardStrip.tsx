@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { fetchLeaderboard, isBackendConfigured, type LeaderboardRow } from '@/services/supabase';
 import { useHistoryStore } from '@/state/history';
 import { Panel } from './Panel';

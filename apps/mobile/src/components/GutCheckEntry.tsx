@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Pressable } from '@/components/Pressable';
 import { useRouter } from 'expo-router';
 import { useFlag } from '@/features/flags';
 import { color, font, radius, space, themed, tracking, type PressState } from '@/theme';
