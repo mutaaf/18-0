@@ -140,3 +140,36 @@ tvOS has none, so the buttons are not offered. A device-code sign-in ("go to
 this address on your phone") is the honest way to add one later; nothing about
 ranked integrity changes either way -- spins, scoring, `assisted`, `mode` and
 `gameday_key` remain server facts (invariant 2).
+
+## TestFlight
+
+`.github/workflows/tvos-github.yml` is `ios-github.yml` for the TV: prebuild with
+`EXPO_TV=1`, archive for `generic/platform=tvOS`, upload as `appletvos`, and hand
+the build to the public TestFlight group with `beta-release.mjs --platform TV_OS`.
+It runs an hour after each iPhone beta, only when the app changed since its own
+`testflight-tvos` tag, and shares the `release` concurrency group, so the two
+lanes never ask for the next build number at once. The number comes from the
+same counter as the iPhone app (`next-build-number.mjs`), so a number names one
+build on either platform.
+
+One App Store record carries both (universal purchase): same bundle id, same
+distribution certificate. What the TV lane needs on top of the iPhone lane:
+
+- **The tvOS platform on the record.** `scripts/store/tvos-platform.mjs` adds it
+  (an editable TV_OS App Store version, the API's "Add Platform"); App Store
+  Connect refuses a tvOS upload without one. Done once, on 2026-11-17, as
+  1.1.0. It creates the version and nothing else -- no build attached, no
+  listing, no submission. Store submission stays the owner's call.
+- **A tvOS App Store provisioning profile.** `scripts/store/tvos-profile.mjs`
+  finds or makes "17-0 tvOS App Store" (TVOS_APP_STORE, every distribution
+  certificate on the team) and writes it out; its base64 goes in the repository
+  secret `TVOS_PROVISIONING_PROFILE_BASE64`:
+
+  ```bash
+  set -a; . .local/asc.env; set +a
+  node scripts/store/tvos-profile.mjs --out .local/ios-credentials/tvos-profile.mobileprovision
+  base64 -i .local/ios-credentials/tvos-profile.mobileprovision | gh secret set TVOS_PROVISIONING_PROFILE_BASE64
+  ```
+
+The workflow stops at its first step with that sentence if the secret is
+missing, and refuses a profile that is not a tvOS one.
