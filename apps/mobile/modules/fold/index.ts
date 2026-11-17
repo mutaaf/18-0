@@ -39,7 +39,11 @@ let sensor: ComponentType<FoldSensorProps> | null | undefined;
 
 export function foldSensor(): ComponentType<FoldSensorProps> | null {
   if (sensor !== undefined) return sensor;
-  if (Platform.OS !== 'ios') return (sensor = null);
+  // Not on an Apple TV, which reports 'ios' too: the Fold pod is iOS-only and
+  // tvOS never links it, yet `requireNativeView` still hands back a component
+  // -- one Fabric draws as a magenta "Unimplemented component" box over the
+  // whole app.
+  if (Platform.OS !== 'ios' || Platform.isTV) return (sensor = null);
   try {
     sensor = requireNativeView<FoldSensorProps>('Fold');
   } catch {

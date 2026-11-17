@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/features/haptics';
 import {
   GAMEDAYS,
   displayName,

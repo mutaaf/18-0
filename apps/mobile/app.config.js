@@ -84,6 +84,26 @@ module.exports = {
           backgroundColor: '#070E3A',
         },
       ],
+      // Apple TV (docs/apple-tv.md). Inert unless EXPO_TV=1, so a phone
+      // prebuild is what it was; with it, the same Xcode target is rewritten
+      // for tvOS (SDKROOT appletvos, device family 3) and gets the layered
+      // icon and Top Shelf that `scripts/make-tv-icons.py` draws. Last, so it
+      // sees every other plugin's Podfile and project edits.
+      [
+        '@react-native-tvos/config-tv',
+        {
+          tvosDeploymentTarget: '17.0',
+          appleTVImages: {
+            iconSmallLayers: { front: './assets/tv/icon-small-front.png', back: './assets/tv/icon-small-back.png' },
+            iconSmall2xLayers: { front: './assets/tv/icon-small@2x-front.png', back: './assets/tv/icon-small@2x-back.png' },
+            iconLayers: { front: './assets/tv/icon-front.png', back: './assets/tv/icon-back.png' },
+            topShelf: './assets/tv/top-shelf.png',
+            topShelf2x: './assets/tv/top-shelf@2x.png',
+            topShelfWide: './assets/tv/top-shelf-wide.png',
+            topShelfWide2x: './assets/tv/top-shelf-wide@2x.png',
+          },
+        },
+      ],
     ],
 
     // EAS needs to know which project a build belongs to, and it cannot write

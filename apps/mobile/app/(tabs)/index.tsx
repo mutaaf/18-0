@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useShallow } from 'zustand/react/shallow';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/features/haptics';
 import { RankedSwitch } from '@/components/RankedSwitch';
 import Svg, { Path } from 'react-native-svg';
 import { Reveal } from '@/components/Reveal';

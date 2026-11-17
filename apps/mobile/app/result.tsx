@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/features/haptics';
 import { ROSTER_SLOTS, isPerfectionDenied, type RosterSlot } from '@17-0/domain';
 import { displayName, eraLabel, franchise } from '@17-0/data';
 import { Brand } from '@/components/Brand';

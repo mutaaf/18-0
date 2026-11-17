@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { router } from 'expo-router';
-import * as Clipboard from 'expo-clipboard';
+import * as Clipboard from '@/features/clipboard';
 import {
   ActivityIndicator,
   Platform,

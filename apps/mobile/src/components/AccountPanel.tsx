@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/features/haptics';
 import * as Linking from 'expo-linking';
 import { PRIVACY_URL } from '@/features/links';
 import { track } from '@/features/telemetry';

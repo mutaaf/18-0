@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import * as Clipboard from 'expo-clipboard';
+import * as Clipboard from '@/features/clipboard';
 import { usePathname } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

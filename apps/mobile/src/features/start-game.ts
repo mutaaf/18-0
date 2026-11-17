@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'expo-router';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/features/haptics';
 import { beginRanked } from '@/features/ranked';
 import { track } from '@/features/telemetry';
 import { useGameStore, type GameMode } from '@/state/game';
