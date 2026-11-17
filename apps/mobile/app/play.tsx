@@ -17,7 +17,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/features/haptics';
 import { POSITIONS, ROSTER_SLOTS, SLOT_POSITION, type EraKey, type Position, type RosterSlot } from '@17-0/domain';
 import { DATASET, displayName, eligibleCards, era as eraDef, franchise, franchiseEraShape, franchiseEraStory, type BootCard } from '@17-0/data';
 import { Brand } from '@/components/Brand';

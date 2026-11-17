@@ -1,6 +1,6 @@
 import { Platform, Share, type View } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
-import * as Sharing from 'expo-sharing';
+import * as Clipboard from '@/features/clipboard';
+import { isTV } from '@/features/tv/platform';
 import type { GameResult } from '@17-0/domain';
 import type { ShareRosterRow } from '@/components/ShareCard';
 import {
@@ -37,6 +37,14 @@ const capture: typeof import('react-native-view-shot').captureRef = async (...ar
  */
 export { APP_URL, APP_URL_LABEL } from './links';
 export { SHARE_URL, shareFileName, shareHeadline, shareText } from './share-text';
+
+/**
+ * Whether this device can share at all. Not an Apple TV: it has no share
+ * sheet, no Photos to save a card to and no pasteboard, and tvOS links neither
+ * expo-sharing nor react-native-view-shot. The screens hide the button rather
+ * than offer one that does nothing.
+ */
+export const shareAvailable = !isTV;
 
 /** Kept for callers that pass a roster: every share goes to the canonical page. */
 export function challengeUrl(_roster: readonly ShareRosterRow[]): string {
@@ -118,6 +126,9 @@ export async function shareResult(
       return 'image';
     }
 
+    // Required on the Android path only; expo-sharing is not linked on tvOS
+    // and looks its native module up at import.
+    const Sharing: typeof import('expo-sharing') = require('expo-sharing');
     if (await Sharing.isAvailableAsync()) {
       await Sharing.shareAsync(file, { mimeType: 'image/png', dialogTitle: '17-0' });
       return 'image';

@@ -17,6 +17,7 @@
     "verify:native": "node scripts/verify/native-ids.mjs",
     "verify:transfer": "node scripts/verify/transfer.mjs",
     "verify:builds": "bash scripts/verify/builds.sh",
+    "verify:tv": "bash scripts/verify/tv.sh",
     "pack:extension": "bash scripts/pack-extension.sh"
   },
   "packageManager": "pnpm@10.27.0",

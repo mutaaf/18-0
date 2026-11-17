@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
+import { isTV } from '@/features/tv/platform';
 import { track } from '@/features/telemetry';
 import { fetchMultiplier } from '@/services/supabase';
 
@@ -24,8 +24,18 @@ import { fetchMultiplier } from '@/services/supabase';
 
 const CHANNEL = 'streaks';
 
+/**
+ * Not on a television. tvOS has no notification centre for a reminder to land
+ * in and does not link ExpoNotifications, whose native module is looked up at
+ * import -- so the module is required here, after the check, rather than
+ * imported, and a TV reports 'unsupported' like the web does.
+ */
+const Notifications: typeof import('expo-notifications') = isTV
+  ? (null as unknown as typeof import('expo-notifications'))
+  : require('expo-notifications');
+
 /** iOS shows nothing in the foreground unless it is told to. It should not. */
-Notifications.setNotificationHandler({
+Notifications?.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: false,
     shouldShowList: true,
@@ -34,7 +44,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
-const supported = () => Platform.OS === 'ios' || Platform.OS === 'android';
+const supported = () => !isTV && (Platform.OS === 'ios' || Platform.OS === 'android');
 
 /**
  * The player's own switch, separate from the operating system's.

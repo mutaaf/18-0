@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Linking, Platform, Pressable, Share, StyleSheet, Text, View } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
+import * as Clipboard from '@/features/clipboard';
 import Svg, { Line, Rect } from 'react-native-svg';
 import { Panel } from './Panel';
 import { useFlag } from '@/features/flags';

@@ -5,7 +5,7 @@
 #   pnpm verify:builds
 #
 # Typecheck and tests answer "is the code correct". This answers the different
-# question of whether the three things a player can actually install still come
+# question of whether the four things a player can actually install still come
 # out of it -- which is not the same question, and is the one that breaks
 # quietly, because nothing in CI builds a native binary.
 #
@@ -65,6 +65,17 @@ echo 'WEB'
 step 'export' npx expo export -p web
 
 echo
+echo 'APPLE TV'
+# First, because it rewrites ios/ for tvOS and the phone prebuild below then
+# puts it back. See scripts/verify/tv.sh and docs/apple-tv.md.
+if [[ -d "$DEVELOPER_DIR" ]] && xcrun simctl list runtimes 2>/dev/null | grep -q tvOS; then
+  step 'tvOS prebuild and simulator build' bash ../../scripts/verify/tv.sh
+else
+  printf '\n  tvOS simulator build … skipped, no tvOS runtime (xcodebuild -downloadPlatform tvOS)\n'
+  SKIP=$((SKIP + 1))
+fi
+
+echo
 echo 'NATIVE PROJECTS'
 step 'prebuild, from clean' npx expo prebuild --clean
 step 'bundle ids agree with app.config.js' node ../../scripts/verify/native-ids.mjs
@@ -83,9 +94,12 @@ echo 'IOS'
 if [[ -d "$DEVELOPER_DIR" ]]; then
   WS=$(find ios -maxdepth 1 -name '*.xcworkspace' | head -1)
   if [[ -n "$WS" ]]; then
+    # One derived-data folder, wherever this runs from: Xcode's default is a
+    # folder per workspace path, so every worktree left its own gigabytes.
     step 'simulator build' xcodebuild -workspace "$WS" \
       -scheme "$(basename "$WS" .xcworkspace)" -configuration Release \
-      -destination 'generic/platform=iOS Simulator' build
+      -destination 'generic/platform=iOS Simulator' \
+      -derivedDataPath "${IOS_DERIVED_DATA:-$HOME/Library/Developer/Xcode/DerivedData/SeventeenZero-iOS}" build
   else
     printf '\n  simulator build … FAILED, no workspace after prebuild\n'
     FAIL=$((FAIL + 1))

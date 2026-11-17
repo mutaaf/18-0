@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import * as Haptics from 'expo-haptics';
+import * as Haptics from '@/features/haptics';
 import { useShallow } from 'zustand/react/shallow';
 import { RESPINS_PER_SEASON, RESPIN_MARK, RESPIN_MARK_MEANING, oddsDisclosure } from '@17-0/respins/client';
 import { franchise, era as eraDef } from '@17-0/data';

@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import * as Linking from 'expo-linking';
-import * as WebBrowser from 'expo-web-browser';
+import { isTV } from '@/features/tv/platform';
 import { supabase } from './supabase';
 import { resetAnalytics } from '@/features/analytics';
 import { clearReminders } from '@/features/reminders';
@@ -40,6 +40,11 @@ export const providerLabel = (provider: SocialProvider): string => LABELS[provid
  * that right, an Apple-less configuration is refused outright below.
  */
 export const socialProviders: readonly SocialProvider[] = (() => {
+  // An Apple TV has no browser to complete an OAuth round trip in (tvOS does
+  // not link ExpoWebBrowser at all), so it offers no sign-in rather than a
+  // button that cannot work. Play and ranked seasons need no account; the
+  // anonymous one the server creates is what a TV's seasons are kept under.
+  if (isTV) return [];
   const raw = process.env.EXPO_PUBLIC_AUTH_PROVIDERS ?? '';
   const asked = raw
     .split(',')
@@ -133,6 +138,9 @@ export async function signInWith(
     const url = start.data?.url;
     if (!url) return { ok: false, error: 'The sign-in page could not be opened.' };
 
+    // Required here rather than imported: tvOS does not link it, and its
+    // native module is looked up at import. A TV never gets this far.
+    const WebBrowser: typeof import('expo-web-browser') = require('expo-web-browser');
     const result = await WebBrowser.openAuthSessionAsync(url, redirectTo);
     if (result.type !== 'success') return { ok: false, cancelled: true };
 
