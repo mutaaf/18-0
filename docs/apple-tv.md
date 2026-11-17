@@ -78,6 +78,26 @@ disc keep inside it.
   from Play -- Apple's tvOS review guidelines require that last one
   (`src/features/tv/menu-key.ts`).
 
+## Gut Check on the Siri Remote
+
+The swipe deck (`app/rate.tsx`) reads the remote through `useTVRemote`
+(`src/features/tv/remote.ts`) and `remoteAction` (`remote-calls.ts`, tested):
+
+| On the remote | Judging | Asked which way |
+|---|---|---|
+| Swipe or click right | Fair | Fair after all |
+| Swipe or click left | Off -- asks which way | -- |
+| Swipe or click up | -- | Deserves more (`too_low`) |
+| Swipe or click down | -- | Deserves less (`too_high`) |
+| Click (select) | Don't know (skip) | Fair after all |
+
+A swipe on the touch surface and a click on the clickpad's edge are both
+accepted, because people do both. The round buttons are the legend, not focus
+stops -- if they were, a swipe would move focus between them instead of making
+a call -- so the one focusable control on the deck is the middle button, and a
+click presses it. Menu closes the deck. Every call is the same
+`giveRatingFeedback` row the touch deck writes; nothing here touches a score.
+
 ## What tvOS does not have
 
 tvOS links only the native modules whose podspecs declare it. The ones this app
