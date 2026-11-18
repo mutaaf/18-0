@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useIsFocused } from 'expo-router';
 import { DockSpacer } from '@/components/chrome';
 import { Screen } from '@/components/Screen';
 import { SpreadLayout } from '@/components/SpreadLayout';
@@ -11,6 +12,7 @@ import { PreferencesPanel } from '@/components/PreferencesPanel';
 import { RhythmPanel } from '@/components/RhythmPanel';
 import { TVSettings } from '@/features/tv/TVSettings';
 import { isTV } from '@/features/tv/platform';
+import { useTVInitialFocus } from '@/features/tv/initial-focus';
 import {
   fetchLeaderboard,
   identity,
@@ -45,6 +47,10 @@ export default function Account() {
   const { spread, ref: spreadRef, onLayout: onSpreadLayout } = useSpread();
   const [me, setMe] = useState<Identity | null>(null);
   const [rank, setRank] = useState<number | null>(null);
+  // Apple TV: the corner disc that opened this page unmounts on it, and focus
+  // fell to the side rail, a press away from the page. The first switch takes
+  // it instead, every time the page is shown (see useTVInitialFocus).
+  const initialFocus = useTVInitialFocus(useIsFocused());
 
   const load = useCallback(async () => {
     if (!isBackendConfigured) return;
@@ -84,7 +90,7 @@ export default function Account() {
                 <View style={styles.body}>
                   {/* Apple TV: sound and broadcast mode, first, because on a
                       TV they are what this page is visited for. */}
-                  {isTV ? <TVSettings /> : null}
+                  {isTV ? <TVSettings initialFocus={initialFocus} /> : null}
                   <LevelPanel />
                   <AccountPanel rank={rank} />
                 </View>
@@ -113,7 +119,7 @@ export default function Account() {
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {header}
           <View style={styles.body}>
-            {isTV ? <TVSettings /> : null}
+            {isTV ? <TVSettings initialFocus={initialFocus} /> : null}
             <LevelPanel />
             <AccountPanel rank={rank} />
             <CareerPanel />

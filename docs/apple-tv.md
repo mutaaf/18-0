@@ -83,6 +83,20 @@ disc keep inside it.
   Resume) on the front page, the first player who fits after a spin, the first
   eligible slot when a pick fits two, Spin once a pick is placed, Reveal when
   the roster is full, Build Another on the result.
+- **Nothing may lie over the page once its show is over.** tvOS will not move
+  focus to anything a view covers, and `pointerEvents="none"` does not count:
+  react-native-tvos reports every plain view as interactive. The result's
+  fireworks overlay stayed mounted after the show and the remote could never
+  cross from Build Another to the roster; on a TV it now unmounts when the
+  show ends (`Celebration`). `UIFocusDebugger checkFocusabilityForItem:` from
+  lldb names the view in the way.
+- **A two-page spread is two focus guides** (`features/tv/FocusPane`), so left
+  and right cross between the pages from any row, not only from rows that
+  happen to be level with something on the other page.
+- **A screen that stays mounted claims focus each time it is shown**
+  (`useTVInitialFocus`): `hasTVPreferredFocus` alone claims once, and a claim
+  made while the screen is still arriving is dropped. Account uses it, so the
+  corner disc opens onto the page rather than the rail.
 - **The rail and the dock are focus guides** aimed at the tab you are on, so
   pressing right (or down) from anywhere on a page lands on the navigation, and
   every page is a guide that remembers where you left it.
