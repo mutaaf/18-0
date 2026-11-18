@@ -30,6 +30,11 @@ bounces in and throws sparks in the position's colour (`Field.tsx`, Reanimated).
   `public/` on install (it is gitignored), and `scripts/verify/web-head.mjs`
   fails an export without it. It loads only when the first effect does, not
   with the page.
+- **An Apple TV ticks every other frame.** `useEffectClock` moves its clock
+  every second frame on tvOS, so the turf redraws at 30 a second. Its sheen
+  is a slow sweep, and at 60 it was a fifth of the main thread -- which on
+  tvOS is also the thread running the focus lift (docs/apple-tv.md,
+  Performance).
 - **Reduce Motion stops every clock.** The turf and seam keep their picture
   and stop redrawing. The celebration and the landing sparks do not run.
 - **Colours are tokens.** The grass is `turfDeep`/`turfLit`, new in both

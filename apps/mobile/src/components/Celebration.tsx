@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, StyleSheet } from 'react-native';
 import { useFold } from '@/features/fold';
 import { gpu } from '@/features/gpu';
 import { isTV } from '@/features/tv/platform';
 import { DECORATIVE, color, useWindowSize } from '@/theme';
+import { passThroughView } from '../../modules/pass-through';
 
 /**
  * The noise a good season deserves.
@@ -34,6 +35,15 @@ import { DECORATIVE, color, useWindowSize } from '@/theme';
  */
 
 const GpuFireworks = gpu(() => import('@/features/gpu/effects/fireworks'));
+
+/**
+ * The overlay's own view. On an Apple TV it is one the focus engine sees
+ * through (`modules/pass-through`): tvOS will not move focus to anything a
+ * view covers, `pointerEvents="none"` does not count there, and for the whole
+ * show the remote could not cross from Build Another to the roster. Elsewhere
+ * it is `View`.
+ */
+const Overlay = passThroughView();
 
 interface Piece {
   readonly key: number;
@@ -95,11 +105,9 @@ export function Celebration({
     };
   }, [at]);
 
-  // Apple TV: gone once the show is. The overlay is a full-screen view over
-  // the page, and tvOS will not move focus to anything a view covers --
-  // `pointerEvents="none"` does not count, react-native-tvos reports every
-  // plain view as interactive. Left mounted, it cut the result screen in two:
-  // the remote could never cross from Build Another to the roster.
+  // Apple TV: gone once the show is, so its canvas is not held for the rest
+  // of the screen. (This was first the fix for the overlay blocking focus;
+  // `Overlay` is that fix now, from the first frame of the show.)
   useEffect(() => {
     if (!isTV || !live) return;
     const end = setTimeout(() => setOver(true), SHOW_CAP);
@@ -147,7 +155,7 @@ export function Celebration({
     : null;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none" {...DECORATIVE}>
+    <Overlay style={StyleSheet.absoluteFill} pointerEvents="none" {...DECORATIVE}>
       {live ? <Flash color={perfect ? color.goldBright : colors[0]!} strength={strength} /> : null}
       {live && perfect ? <Rings width={width} /> : null}
       <GpuFireworks
@@ -162,7 +170,7 @@ export function Celebration({
             : null
         }
       />
-    </View>
+    </Overlay>
   );
 }
 

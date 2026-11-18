@@ -2,6 +2,16 @@ import { useEffect, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { useIsFocused } from 'expo-router';
 import { useFrameCallback, useReducedMotion, useSharedValue } from 'react-native-reanimated';
+import { isTV } from '@/features/tv/platform';
+
+/**
+ * Frames per tick of the clock. On an Apple TV every other frame: the turf's
+ * sheen is a slow ambient sweep, and drawing it sixty times a second was a
+ * fifth of the main thread while the remote moved down the play list -- on
+ * tvOS the UI thread that runs the focus lift *is* the main thread, so every
+ * turf frame was taken from it (docs/apple-tv.md, Performance).
+ */
+const STRIDE = isTV ? 2 : 1;
 
 /**
  * A shader's clock that only runs while somebody can see it move.
@@ -33,11 +43,19 @@ export function useEffectClock() {
   }, []);
 
   const clock = useSharedValue(0);
+  const pending = useSharedValue(0);
+  const frame = useSharedValue(0);
   const frames = useFrameCallback((info) => {
     'worklet';
     // Capped, because the first frame after a resume can report the whole
     // pause as one step, and a sweep that leaps half a field reads as a glitch.
-    clock.value += Math.min(info.timeSincePreviousFrame ?? 0, 100);
+    pending.value += Math.min(info.timeSincePreviousFrame ?? 0, 100);
+    // Only a change of `clock` redraws a canvas, so it moves every STRIDE frames.
+    frame.value += 1;
+    if (frame.value % STRIDE === 0) {
+      clock.value += pending.value;
+      pending.value = 0;
+    }
   }, false);
 
   const running = !reduced && focused && foreground;

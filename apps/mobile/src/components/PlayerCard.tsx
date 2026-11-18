@@ -10,6 +10,25 @@ import { showsRating, showsStats, type GameMode } from '@/state/game';
 import { color, font, positionColor, radius, space, tabular, teamInk, teamWash, themed, tracking, type PressState, useThemeId } from '@/theme';
 
 /**
+ * A franchise's wash as a CSS gradient, built once per pair of colours: the
+ * same left-to-right fade the phone's Svg draws (0.42, 0.10 at 42%, then
+ * nothing). Apple TV only.
+ */
+const washes = new Map<string, string>();
+
+/** Rows that deal in; the rest are below the fold and arrive in place. */
+const ENTRANCE_ROWS = 12;
+function tvWash(from: string, via: string): string {
+  const key = `${from}|${via}`;
+  let wash = washes.get(key);
+  if (!wash) {
+    wash = `linear-gradient(to right, ${teamWash(from, 0.42)} 0%, ${teamWash(via, 0.1)} 42%, ${teamWash(from, 0)} 100%)`;
+    washes.set(key, wash);
+  }
+  return wash;
+}
+
+/**
  * A player card, not a spreadsheet row.
  *
  * Each one carries its franchise's own colours so a spin looks like that team's
@@ -75,7 +94,11 @@ export const PlayerCard = memo(function PlayerCard({
    */
   if (isTV) {
     return (
-      <Reveal delay={Math.min(index, 12) * 24} distance={10} duration={260}>
+      // The row the remote is handed is in place at once: tvOS refuses
+      // preferred focus to a view still fading in, and the remote landed on
+      // the "All" filter instead. Rows past the first screen have no entrance
+      // either; nobody sees it, and a spin is a hundred of them.
+      <Reveal delay={Math.min(index, 12) * 24} distance={10} duration={260} immediate={preferFocus || index >= ENTRANCE_ROWS}>
         <Pressable
           hasTVPreferredFocus={preferFocus}
           accessibilityRole="button"
@@ -85,22 +108,17 @@ export const PlayerCard = memo(function PlayerCard({
           onPress={disabled ? undefined : () => onPress(card)}
           onLongPress={() => onDetails(card)}
           delayLongPress={450}
-          style={[styles.card, styles.tvCard, selected && { borderColor: accent }, disabled && styles.disabled]}
+          // The team's wash is the card's own background: a native gradient,
+          // where the phone draws an Svg. A spin is a hundred rows, and the
+          // Svg was seven native components on each of them.
+          style={[
+            styles.card,
+            styles.tvCard,
+            { experimental_backgroundImage: tvWash(teamColor, teamColor2) },
+            selected && { borderColor: accent },
+            disabled && styles.disabled,
+          ]}
         >
-          {/* In a wrapper the size of the card: an Svg sized "100%" inside a
-              padded box takes the padding off its width and stops short. */}
-          <View style={styles.wash} pointerEvents="none">
-            <Svg width="100%" height="100%">
-              <Defs>
-                <LinearGradient id={`tc-${card.id}`} x1="0" y1="0" x2="1" y2="0">
-                  <Stop offset="0" stopColor={teamColor} stopOpacity="0.42" />
-                  <Stop offset="0.42" stopColor={teamColor2} stopOpacity="0.10" />
-                  <Stop offset="1" stopColor={teamColor} stopOpacity="0" />
-                </LinearGradient>
-              </Defs>
-              <Rect x="0" y="0" width="100%" height="100%" fill={`url(#tc-${card.id})`} />
-            </Svg>
-          </View>
           <View style={[styles.rail, { backgroundColor: teamColor }]} pointerEvents="none" />
           <View style={styles.main}>
             <View style={[styles.position, { borderColor: `${accent}80`, backgroundColor: `${accent}1F` }]}>
@@ -141,7 +159,7 @@ export const PlayerCard = memo(function PlayerCard({
   }
 
   return (
-    <Reveal delay={Math.min(index, 12) * 24} distance={10} duration={260}>
+    <Reveal delay={Math.min(index, 12) * 24} distance={10} duration={260} immediate={index >= ENTRANCE_ROWS}>
       <View
         style={[
           styles.card,
@@ -267,7 +285,6 @@ const styles = themed(() => StyleSheet.create({
   pressed: { opacity: 0.9, transform: [{ scale: 0.995 }] },
   disabled: { opacity: 0.3 },
   rail: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
-  wash: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   /** TV: the row is the button, so it gets the room the "i" used to take. */
   tvCard: { paddingRight: space.lg, minHeight: 72 },
   tvHidden: {
