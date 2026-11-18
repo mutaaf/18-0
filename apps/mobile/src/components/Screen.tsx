@@ -67,8 +67,15 @@ export const StadiumBackdrop = memo(function StadiumBackdrop() {
       {theme === 'turf' ? (
         <Rect x="0" y="0" width="100%" height="100%" fill="url(#weave)" />
       ) : null}
-      <Circle cx="10%" cy="-2%" r="3" fill="#DCE8F5" opacity="0.5" />
-      <Circle cx="90%" cy="1%" r="2.5" fill="#DCE8F5" opacity="0.35" />
+      {/* The two lamps themselves. On a phone they sit under the status bar;
+          on a TV there is none, and the right one was a lone grey dot in the
+          top corner of every screen. */}
+      {isTV ? null : (
+        <>
+          <Circle cx="10%" cy="-2%" r="3" fill="#DCE8F5" opacity="0.5" />
+          <Circle cx="90%" cy="1%" r="2.5" fill="#DCE8F5" opacity="0.35" />
+        </>
+      )}
     </Svg>
   );
 });

@@ -105,15 +105,17 @@ function HallCard({ card }: { card: BootCard }) {
 
   return (
     <View style={styles.card}>
-      <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
-        <Defs>
-          <LinearGradient id={gradientId} x1="0" y1="1" x2="1" y2="0">
-            <Stop offset="0" stopColor={teamColor} stopOpacity="0.5" />
-            <Stop offset="1" stopColor={teamColor} stopOpacity="0" />
-          </LinearGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${gradientId})`} />
-      </Svg>
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Svg width="100%" height="100%">
+          <Defs>
+            <LinearGradient id={gradientId} x1="0" y1="1" x2="1" y2="0">
+              <Stop offset="0" stopColor={teamColor} stopOpacity="0.5" />
+              <Stop offset="1" stopColor={teamColor} stopOpacity="0" />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${gradientId})`} />
+        </Svg>
+      </View>
       <View style={[styles.cardRail, { backgroundColor: teamColor }]} />
 
       <View style={styles.cardTop}>

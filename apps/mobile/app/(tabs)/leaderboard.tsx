@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { pressVerb } from '@/features/tv/platform';
 import {
   ActivityIndicator,
   Animated,
@@ -732,7 +733,7 @@ function Entry({
           onPress={toggle}
           accessibilityRole="button"
           accessibilityState={{ expanded: open }}
-          accessibilityLabel={`Rank ${rank}. ${row.handle}. ${row.wins} and ${row.losses}. Tier ${row.tier}. Rating ${row.finalRating.toFixed(1)}. Tap to see the roster.`}
+          accessibilityLabel={`Rank ${rank}. ${row.handle}. ${row.wins} and ${row.losses}. Tier ${row.tier}. Rating ${row.finalRating.toFixed(1)}. ${pressVerb} to see the roster.`}
           style={({ hovered, pressed }: PressState) => [
             styles.entryHead,
             hovered && { backgroundColor: '#FFFFFF0A' },
@@ -909,8 +910,8 @@ function RosterLine({ pick }: { pick: RosterPick }) {
       accessibilityRole="button"
       accessibilityLabel={
         card
-          ? `${pick.slot}. ${displayName(card)}. Tap for the card.`
-          : `${pick.slot}. Tap for the card.`
+          ? `${pick.slot}. ${displayName(card)}. ${pressVerb} for the card.`
+          : `${pick.slot}. ${pressVerb} for the card.`
       }
       style={({ hovered, pressed }: PressState) => [
         styles.rosterLine,

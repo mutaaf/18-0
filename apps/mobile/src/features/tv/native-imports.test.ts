@@ -101,6 +101,26 @@ describe('phone-only native modules (docs/apple-tv.md)', () => {
     expect(offenders, "import { TextInput } from '@/components/TextInput'").toEqual([]);
   });
 
+  it('expo-audio is loaded only by the TV sound module', () => {
+    // It links everywhere, but only a TV plays anything: a phone that loaded
+    // it would set an audio session up for a game that makes no sound there.
+    const any = /(?:from\s*|require\(\s*|import\(\s*)['"]expo-audio['"]/;
+    const loaders = files.filter((f) => any.test(f.text)).map((f) => f.path);
+    expect(loaders).toEqual(['src/features/tv/sound.ts']);
+  });
+
+  it('every sound cue has its file, and every file a cue', () => {
+    // A cue whose .wav is missing fails in Metro, at bundle time, on a TV
+    // build only; a .wav with no cue is weight nobody hears.
+    const sound = files.find((f) => f.path === 'src/features/tv/sound.ts')!.text;
+    const cues = [...sound.matchAll(/assets\/sounds\/tv\/([a-z]+)\.wav/g)].map((m) => m[1]).sort();
+    const wavs = readdirSync(join(ROOT, 'assets/sounds/tv'))
+      .filter((n) => n.endsWith('.wav'))
+      .map((n) => n.replace(/\.wav$/, ''))
+      .sort();
+    expect(cues).toEqual(wavs);
+  });
+
   it('the guarded loaders check for a television', () => {
     for (const path of new Set(Object.values(PHONE_ONLY).flat())) {
       const text = files.find((f) => f.path === path)?.text ?? '';

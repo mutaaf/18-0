@@ -14,7 +14,9 @@ import {
 } from 'react-native';
 import { TextInput } from '@/components/TextInput';
 import { Pressable } from '@/components/Pressable';
-import { isTV } from '@/features/tv/platform';
+import { isTV, pressVerb } from '@/features/tv/platform';
+import { cue } from '@/features/tv/sound';
+import { PlayHud, useBroadcast, useCleanFeed } from '@/features/tv/hud';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -91,6 +93,10 @@ export default function Play() {
   useEffect(() => tellHost('play'), []);
   const router = useRouter();
   const layout = useLayout();
+  // Apple TV broadcast mode (features/tv/hud): the scorebug takes the
+  // lineup's heading, and a clean feed drops the remote hints.
+  const broadcast = useBroadcast();
+  const cleanFeed = useCleanFeed();
   /**
    * The fold, or a virtual seam on a wide window. When there is one, the
    * field takes the leading panel (the top one in tabletop) and everything you
@@ -422,6 +428,7 @@ export default function Play() {
       if (landed) {
         holdHero();
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        cue('land');
         AccessibilityInfo.announceForAccessibility(
           `${franchise(landed.franchiseId).name}, ${eraDef(landed.era).name}. Choose a player.`,
         );
@@ -433,9 +440,14 @@ export default function Play() {
     if (!reduceMotion) {
       showReel(null);
       setSpinning(true);
+      // The TV hears what a phone feels: a whoosh, then the same clicks.
+      cue('whoosh');
       tickTimers.current.forEach(clearTimeout);
       tickTimers.current = REEL_TICKS.map((at) =>
-        setTimeout(() => Haptics.selectionAsync().catch(() => {}), at),
+        setTimeout(() => {
+          Haptics.selectionAsync().catch(() => {});
+          cue('tick');
+        }, at),
       );
       if (reelTimer.current) clearTimeout(reelTimer.current);
       reelTimer.current = setTimeout(() => {
@@ -485,6 +497,7 @@ export default function Play() {
         blind,
       });
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid).catch(() => {});
+      cue('lock');
       setSelectedId(null);
       setNotice(null);
       setTargetSlot(null);
@@ -712,13 +725,13 @@ export default function Play() {
         fill={spread.kind === 'columns'}
       />
 
-      {canPick ? (
+      {canPick && !cleanFeed ? (
         <Text style={styles.fieldHint}>
           {selected && targetSlots.length > 1
-            ? `${isTV ? 'Choose' : 'Tap'} ${targetSlots.join(' or ')} on the field to place ${displayName(selected)}`
+            ? `${isTV ? 'Select' : 'Tap'} ${targetSlots.join(' or ')} on the field to place ${displayName(selected)}`
             : targetSlot
               ? `Filling ${targetSlot} — choose a player`
-              : `${isTV ? 'Choose' : 'Tap'} a position on the field, or pick a player`}
+              : `${isTV ? 'Select' : 'Tap'} a position on the field, or pick a player`}
         </Text>
       ) : null}
     </>
@@ -743,16 +756,18 @@ export default function Play() {
   const hero = (
     <View style={[styles.hero, team ? { borderColor: `${team.color}73` } : null]}>
       {team ? (
-        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
-          <Defs>
-            <LinearGradient id="heroWash" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor={team.color} stopOpacity="0.34" />
-              <Stop offset="0.55" stopColor={team.color2 || team.color} stopOpacity="0.09" />
-              <Stop offset="1" stopColor={team.color} stopOpacity="0" />
-            </LinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroWash)" />
-        </Svg>
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Svg width="100%" height="100%">
+            <Defs>
+              <LinearGradient id="heroWash" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor={team.color} stopOpacity="0.34" />
+                <Stop offset="0.55" stopColor={team.color2 || team.color} stopOpacity="0.09" />
+                <Stop offset="1" stopColor={team.color} stopOpacity="0" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroWash)" />
+          </Svg>
+        </View>
       ) : null}
 
       <View style={styles.heroTop}>
@@ -992,7 +1007,7 @@ export default function Play() {
               <Pressable
                 onPress={() => setTargetSlot(null)}
                 accessibilityRole="button"
-                accessibilityLabel={`Filling ${targetSlot}. Tap to clear.`}
+                accessibilityLabel={`Filling ${targetSlot}. ${pressVerb} to clear.`}
                 style={styles.fillingPill}
               >
                 <Text style={[styles.fillingText, { color: positionColor[SLOT_POSITION[targetSlot]] }]}>
@@ -1051,12 +1066,65 @@ export default function Play() {
     </View>
   );
 
+  /**
+   * The filters on a TV: a row of their own above the list, not a bar over it.
+   *
+   * The phone's bar floats at the foot of the screen with rows scrolling
+   * under it, which is right for a thumb. On a TV the focus engine scrolls the
+   * focused row just into view -- which was behind the bar, so the player you
+   * were on was half under a filter chip. And the search field is a keyboard
+   * on a remote, a worse way to find one of twenty-five rows than moving down
+   * the list, so it is not offered.
+   */
+  /**
+   * TV: the list starts at its top whenever what is above it changes size.
+   * The landed spin rests in the hero and then collapses into the header;
+   * the scroll offset did not move with it, so the row the remote had just
+   * been given (`preferFocus`) slid up under the header, focused and unseen.
+   */
+  useEffect(() => {
+    if (!isTV || !canPick) return;
+    const at = setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: false }), 0);
+    return () => clearTimeout(at);
+  }, [heroHeld, canPick, game.spins.length]);
+
+  const tvFilters =
+    isTV && canPick ? (
+      <View style={styles.tvFilters}>
+        {targetSlot ? (
+          <Pressable
+            onPress={() => setTargetSlot(null)}
+            accessibilityRole="button"
+            accessibilityLabel={`Filling ${targetSlot}. Select to clear.`}
+            style={styles.fillingPill}
+          >
+            <Text style={[styles.fillingText, { color: positionColor[SLOT_POSITION[targetSlot]] }]}>
+              {targetSlot} ✕
+            </Text>
+          </Pressable>
+        ) : null}
+        <View style={styles.tvChips}>
+          <Chip label="All" active={positionFilter === 'ALL'} onPress={() => setPositionFilter('ALL')} />
+          {POSITIONS.map((position) => (
+            <Chip
+              key={position}
+              label={position}
+              tint={positionColor[position]}
+              dimmed={!openPositions.has(position)}
+              active={positionFilter === position}
+              onPress={() => setPositionFilter(position)}
+            />
+          ))}
+        </View>
+      </View>
+    ) : null;
+
   const firstOpenId = visible.find((card) => slotsForCard(card, game.selections).length > 0)?.id;
   const browser = canPick ? (
     <View style={styles.browser}>
       <Text style={styles.count}>
         {targetSlot ? `Filling ${targetSlot} · ` : ''}
-        {visible.length} eligible · one pick from this spin
+        {visible.length} eligible · one pick from this spin{isTV ? ' · hold Select for details' : ''}
       </Text>
 
       <View style={styles.list}>
@@ -1160,10 +1228,11 @@ export default function Play() {
 
   const controls = (
   <View style={styles.listColumn}>
+    {tvFilters}
     <ScrollView
       ref={scrollRef}
       style={styles.column}
-      contentContainerStyle={[styles.scroll, { paddingBottom: barHeight + space.lg }]}
+      contentContainerStyle={[styles.scroll, { paddingBottom: tvFilters ? space.xxl : barHeight + space.lg }]}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
     >
@@ -1175,6 +1244,9 @@ export default function Play() {
       <View
         style={[
           styles.actionBar,
+          // Opaque on a TV: from across a room a row read through the bar is
+          // a second name on top of the one being placed.
+          isTV && styles.actionBarTV,
           // Above the bar rather than over it: the filters are how you
           // get back out of a choice you did not mean to start.
           { bottom: barHeight + space.sm, maxWidth: layout.wide && !spreadOn ? 520 : undefined },
@@ -1203,7 +1275,7 @@ export default function Play() {
       </View>
     ) : null}
 
-    {bottomBar}
+    {tvFilters ? null : bottomBar}
   </View>
   );
 
@@ -1218,7 +1290,12 @@ export default function Play() {
    */
   const fieldStage = (
     <View style={[styles.stage, spread.kind === 'rows' && styles.stageRows]}>
-      {spread.kind === 'rows' ? null : (
+      {spread.kind === 'rows' ? null : broadcast ? (
+        // The scorebug is drawn over this corner by the HUD.
+        <View style={styles.stageHead}>
+          <Text style={[styles.stageTitle, { opacity: 0 }]}>Your lineup</Text>
+        </View>
+      ) : (
         <View style={styles.stageHead}>
           {/* The count is not repeated here: the score lives with the
               controls, on the other side of the seam. */}
@@ -1268,6 +1345,13 @@ export default function Play() {
           </>
         )}
       </View>
+      {isTV ? (
+        <PlayHud
+          mode={mode}
+          selections={game.selections}
+          landed={shown && spin ? { franchiseId: shown.franchiseId, era: shown.era, sequence: game.spins.length } : null}
+        />
+      ) : null}
     </Screen>
   );
 }
@@ -1561,6 +1645,14 @@ const styles = themed(() => StyleSheet.create({
     shadowOffset: { width: 0, height: -6 },
   },
   barRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  tvChips: { flexDirection: 'row', gap: space.sm },
+  tvFilters: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
+  },
   fillingPill: {
     borderWidth: 1,
     borderColor: color.lineBright,
@@ -1747,6 +1839,7 @@ const styles = themed(() => StyleSheet.create({
     lineHeight: 19,
   },
 
+  actionBarTV: { backgroundColor: color.surfaceRaised, borderColor: color.lineBright },
   actionBar: {
     position: 'absolute',
     left: space.lg,

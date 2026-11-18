@@ -52,16 +52,18 @@ export function ManagerCard({
     <Reveal distance={12} duration={320}>
       <Animated.View {...panHandlers} style={[styles.card, elevate(4), { transform }]}>
         {/* The franchise they build with most, washed across the card. */}
-        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
-          <Defs>
-            <LinearGradient id="mc-team" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor={teamColor} stopOpacity="0.40" />
-              <Stop offset="0.45" stopColor={teamColor2} stopOpacity="0.12" />
-              <Stop offset="1" stopColor={teamColor} stopOpacity="0" />
-            </LinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill="url(#mc-team)" />
-        </Svg>
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Svg width="100%" height="100%">
+            <Defs>
+              <LinearGradient id="mc-team" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor={teamColor} stopOpacity="0.40" />
+                <Stop offset="0.45" stopColor={teamColor2} stopOpacity="0.12" />
+                <Stop offset="1" stopColor={teamColor} stopOpacity="0" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill="url(#mc-team)" />
+          </Svg>
+        </View>
         <View style={[styles.rail, { backgroundColor: teamColor }]} pointerEvents="none" />
 
         {/* Foil, matching the player cards. */}
@@ -69,16 +71,18 @@ export function ManagerCard({
           pointerEvents="none"
           style={[StyleSheet.absoluteFill, { transform: [{ translateX: sheenShift }] }]}
         >
-          <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
-            <Defs>
-              <LinearGradient id="mc-foil" x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0" />
-                <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity="0.09" />
-                <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
-              </LinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width="100%" height="100%" fill="url(#mc-foil)" />
-          </Svg>
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Svg width="100%" height="100%">
+              <Defs>
+                <LinearGradient id="mc-foil" x1="0" y1="0" x2="1" y2="0">
+                  <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0" />
+                  <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity="0.09" />
+                  <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+                </LinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width="100%" height="100%" fill="url(#mc-foil)" />
+            </Svg>
+          </View>
         </Animated.View>
 
         <View style={styles.head}>

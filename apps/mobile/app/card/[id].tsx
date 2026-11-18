@@ -15,6 +15,7 @@ import { Screen } from '@/components/Screen';
 import { useCardStats } from '@/features/stat-lines';
 import { showsRating, showsStats, useGameStore } from '@/state/game';
 import { CollectibleCard } from '@/components/CollectibleCard';
+import { isTV } from '@/features/tv/platform';
 import { SpreadLayout } from '@/components/SpreadLayout';
 import { useSpread } from '@/features/fold';
 import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking, useThemeId } from '@/theme';
@@ -186,7 +187,15 @@ export default function CardDetail() {
     // iPhone Duo's fold far enough to split -- so the screen stayed one
     // column, straight across the crease, and could not find out otherwise.
     <Screen edges={['top', 'bottom', 'left', 'right']} bleed>
-      <View style={[styles.header, styles.column, { paddingLeft: space.lg + insets.left, paddingRight: space.lg + insets.right }]}>
+      {/* On a TV the close button sits in the screen's corner. In the centred
+          reading column it landed on top of the stat panel on the right page. */}
+      <View
+        style={[
+          styles.header,
+          isTV ? styles.headerTV : styles.column,
+          { paddingLeft: space.lg + insets.left, paddingRight: space.lg + insets.right },
+        ]}
+      >
         {/* A bare router.back() strands anyone who arrived without history --
             a shared link, a reload on the web, or a deep link into a card --
             because there is nothing to go back to and the tap does nothing.
@@ -237,6 +246,7 @@ const styles = themed(() => StyleSheet.create({
   fill: { flex: 1 },
   column: { width: '100%', maxWidth: 620, alignSelf: 'center' },
   header: { alignItems: 'flex-end', paddingHorizontal: space.lg, paddingTop: space.sm },
+  headerTV: { width: '100%' },
   closeHit: { padding: space.sm, marginRight: -space.sm },
   close: {
     fontFamily: font.body,

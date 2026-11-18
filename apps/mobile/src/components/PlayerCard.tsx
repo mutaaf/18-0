@@ -2,6 +2,7 @@ import { memo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Pressable } from '@/components/Pressable';
 import { Reveal } from './Reveal';
+import { isTV } from '@/features/tv/platform';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { franchise, type BootCard } from '@17-0/data';
 import { useCardStats } from '@/features/stat-lines';
@@ -61,6 +62,84 @@ export const PlayerCard = memo(function PlayerCard({
   const teamColor = team.color || color.lineBright;
   const teamColor2 = team.color2 || teamColor;
 
+  const label = `${name}. ${card.position}. ${card.year} ${team.name}.${
+    showsRating(mode) ? ` Rating ${card.rating.toFixed(1)}.` : ''
+  }${disabled ? ' Already on your roster.' : ''}`;
+
+  /**
+   * On a TV the whole row is the one focus target. Two siblings side by side
+   * -- the card and a 22-point "i" -- made the remote stop twice per player
+   * and put the details behind the smallest target on the screen. The
+   * details are a long press of Select instead (said in the list's heading),
+   * the same idiom the TV app uses for "more about this".
+   */
+  if (isTV) {
+    return (
+      <Reveal delay={Math.min(index, 12) * 24} distance={10} duration={260}>
+        <Pressable
+          hasTVPreferredFocus={preferFocus}
+          accessibilityRole="button"
+          accessibilityState={{ selected, disabled }}
+          accessibilityLabel={`${label} Hold Select for details.`}
+          accessibilityHint="Hold Select for details"
+          onPress={disabled ? undefined : () => onPress(card)}
+          onLongPress={() => onDetails(card)}
+          delayLongPress={450}
+          style={[styles.card, styles.tvCard, selected && { borderColor: accent }, disabled && styles.disabled]}
+        >
+          {/* In a wrapper the size of the card: an Svg sized "100%" inside a
+              padded box takes the padding off its width and stops short. */}
+          <View style={styles.wash} pointerEvents="none">
+            <Svg width="100%" height="100%">
+              <Defs>
+                <LinearGradient id={`tc-${card.id}`} x1="0" y1="0" x2="1" y2="0">
+                  <Stop offset="0" stopColor={teamColor} stopOpacity="0.42" />
+                  <Stop offset="0.42" stopColor={teamColor2} stopOpacity="0.10" />
+                  <Stop offset="1" stopColor={teamColor} stopOpacity="0" />
+                </LinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width="100%" height="100%" fill={`url(#tc-${card.id})`} />
+            </Svg>
+          </View>
+          <View style={[styles.rail, { backgroundColor: teamColor }]} pointerEvents="none" />
+          <View style={styles.main}>
+            <View style={[styles.position, { borderColor: `${accent}80`, backgroundColor: `${accent}1F` }]}>
+              <Text style={[styles.positionText, { color: accent }]}>{card.position}</Text>
+            </View>
+            <View style={styles.body}>
+              <Text style={styles.name} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78}>
+                {name}
+              </Text>
+              <View style={styles.metaRow}>
+                <View style={[styles.season, { backgroundColor: teamWash(teamColor) }]}>
+                  <Text style={[styles.team, { color: teamInk(teamColor) }]}>{team.abbr}</Text>
+                  <Text style={[styles.year, { color: teamInk(teamColor) }]}>{card.year}</Text>
+                </View>
+                {showsStats(mode)
+                  ? stats.slice(0, 3).map((stat) => (
+                      <Text key={stat.label} style={styles.stat}>
+                        <Text style={styles.statValue}>{stat.value}</Text>
+                        <Text style={styles.statLabel}> {stat.label}</Text>
+                      </Text>
+                    ))
+                  : null}
+              </View>
+            </View>
+            {showsRating(mode) ? (
+              <View style={styles.ratingSeat}>
+                <Text style={[styles.rating, ratingTone(card.rating)]}>{card.rating.toFixed(1)}</Text>
+              </View>
+            ) : (
+              <View style={styles.tvHidden}>
+                <Text style={styles.hiddenGlyph}>?</Text>
+              </View>
+            )}
+          </View>
+        </Pressable>
+      </Reveal>
+    );
+  }
+
   return (
     <Reveal delay={Math.min(index, 12) * 24} distance={10} duration={260}>
       <View
@@ -73,16 +152,18 @@ export const PlayerCard = memo(function PlayerCard({
         ]}
       >
         {/* The team's own colours, washed across the card. */}
-        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
-          <Defs>
-            <LinearGradient id={`tc-${card.id}`} x1="0" y1="0" x2="1" y2="0">
-              <Stop offset="0" stopColor={teamColor} stopOpacity="0.42" />
-              <Stop offset="0.42" stopColor={teamColor2} stopOpacity="0.10" />
-              <Stop offset="1" stopColor={teamColor} stopOpacity="0" />
-            </LinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill={`url(#tc-${card.id})`} />
-        </Svg>
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Svg width="100%" height="100%">
+            <Defs>
+              <LinearGradient id={`tc-${card.id}`} x1="0" y1="0" x2="1" y2="0">
+                <Stop offset="0" stopColor={teamColor} stopOpacity="0.42" />
+                <Stop offset="0.42" stopColor={teamColor2} stopOpacity="0.10" />
+                <Stop offset="1" stopColor={teamColor} stopOpacity="0" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill={`url(#tc-${card.id})`} />
+          </Svg>
+        </View>
 
         <View style={[styles.rail, { backgroundColor: teamColor }]} pointerEvents="none" />
 
@@ -186,6 +267,19 @@ const styles = themed(() => StyleSheet.create({
   pressed: { opacity: 0.9, transform: [{ scale: 0.995 }] },
   disabled: { opacity: 0.3 },
   rail: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
+  wash: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  /** TV: the row is the button, so it gets the room the "i" used to take. */
+  tvCard: { paddingRight: space.lg, minHeight: 72 },
+  tvHidden: {
+    minWidth: 44,
+    height: 36,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: color.line,
+    backgroundColor: color.scrim,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   /** The card's own tap target: everything except the details button. */
   main: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: space.md },

@@ -108,14 +108,18 @@ export function GlassPaint({
   if (width === 0 || height === 0) return null;
   const inset = 0.75;
 
+  // In a wrapper the size of the surface. On native, an Svg sized "100%"
+  // straight inside a padded surface takes the padding off its own size, so
+  // the glass stopped a padding short of the panel's right and bottom edges
+  // -- a lighter slab inside a darker one, plainest on a TV, where it was
+  // first seen on the Account page.
   return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
     <Svg
-      style={StyleSheet.absoluteFill}
       width="100%"
       height="100%"
       viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="none"
-      pointerEvents="none"
     >
       <Defs>
         <LinearGradient id={`${id}-ground`} x1="0" y1="0" x2="0" y2="1">
@@ -148,6 +152,7 @@ export function GlassPaint({
         strokeWidth={1.25}
       />
     </Svg>
+    </View>
   );
 }
 
