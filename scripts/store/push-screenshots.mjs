@@ -2,7 +2,7 @@
  * Push the committed App Store screenshots to App Store Connect.
  *
  *   set -a; . .local/asc.env; set +a
- *   node scripts/store/push-screenshots.mjs [--dry-run] [--only ios-6.9|ipad-12.9]
+ *   node scripts/store/push-screenshots.mjs [--dry-run] [--only ios-6.9|ipad-12.9|tv]
  *
  * Uploading a screenshot is four calls, not one, and every one of them fails
  * unhelpfully when skipped — so this exists rather than a line in a release
@@ -19,6 +19,7 @@
  * name is deleted before it is replaced. Nothing here duplicates.
  */
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,6 +52,9 @@ const SHOTS = join(ROOT, 'apps/mobile/assets/store/screenshots');
 const TARGETS = {
   'ios-6.9': { displayType: 'APP_IPHONE_67', width: 1290, height: 2796, label: 'iPhone 6.9"' },
   'ipad-12.9': { displayType: 'APP_IPAD_PRO_3GEN_129', width: 2048, height: 2732, label: 'iPad Pro 12.9"' },
+  // The Apple TV shelf lives on the TV_OS version, not the iOS one: a set of
+  // this type on the iPhone version is refused, so each target names its own.
+  tv: { displayType: 'APP_APPLE_TV', width: 1920, height: 1080, label: 'Apple TV', platform: 'TV_OS' },
 };
 
 /** Screenshots can only be changed while the version is still being written. */
@@ -82,7 +86,9 @@ if (onlyAt !== -1 && !TARGETS[only]) {
   );
   process.exit(2);
 }
-const chosen = only ? [only] : Object.keys(TARGETS);
+// With no --only, push every size that has a folder: the TV shots arrive after
+// the iPhone ones, and a missing folder should not fail an iPhone-only push.
+const chosen = only ? [only] : Object.keys(TARGETS).filter((key) => existsSync(join(SHOTS, key)));
 
 /**
  * Read the real pixel size out of the PNG's IHDR, which is always the first
@@ -139,31 +145,43 @@ const describeErrors = (state) =>
 // ---------------------------------------------------------------------------
 console.log(`\nVERSION${dryRun ? '  (dry run — nothing will be written)' : ''}`);
 
-const versions = await ascAll(`/v1/apps/${APP_ID}/appStoreVersions?filter[platform]=IOS&limit=50`);
-const version = versions.find((v) => EDITABLE.has(v.attributes.appStoreState));
-
-if (!version) {
-  check(
-    'there is an editable iOS version',
-    false,
-    versions.length
-      ? `found ${versions.map((v) => `${v.attributes.versionString} ${v.attributes.appStoreState}`).join(', ')}`
-      : `app ${APP_ID} has no iOS versions`,
-  );
-  process.exit(1);
+/** The en-US localization of the editable version on one platform, or null. */
+async function localeFor(platform) {
+  const versions = await ascAll(`/v1/apps/${APP_ID}/appStoreVersions?filter[platform]=${platform}&limit=50`);
+  const version = versions.find((v) => EDITABLE.has(v.attributes.appStoreState));
+  if (!version) {
+    check(
+      `there is an editable ${platform} version`,
+      false,
+      versions.length
+        ? `found ${versions.map((v) => `${v.attributes.versionString} ${v.attributes.appStoreState}`).join(', ')}`
+        : `app ${APP_ID} has no ${platform} versions`,
+    );
+    return null;
+  }
+  check(`${platform} ${version.attributes.versionString} is editable`, true, version.attributes.appStoreState);
+  const locales = await ascAll(`/v1/appStoreVersions/${version.id}/appStoreVersionLocalizations`);
+  const locale = locales.find((l) => l.attributes.locale === 'en-US');
+  if (!check('it has an en-US localization', Boolean(locale), locales.map((l) => l.attributes.locale).join(' '))) {
+    return null;
+  }
+  return locale;
 }
-check(`version ${version.attributes.versionString} is editable`, true, version.attributes.appStoreState);
 
-const locales = await ascAll(`/v1/appStoreVersions/${version.id}/appStoreVersionLocalizations`);
-const locale = locales.find((l) => l.attributes.locale === 'en-US');
-if (!check('it has an en-US localization', Boolean(locale), locales.map((l) => l.attributes.locale).join(' '))) {
-  process.exit(1);
+const platforms = [...new Set(chosen.map((key) => TARGETS[key].platform ?? 'IOS'))];
+const localeByPlatform = {};
+const setsByPlatform = {};
+for (const platform of platforms) {
+  const locale = await localeFor(platform);
+  if (!locale) process.exit(1);
+  localeByPlatform[platform] = locale;
+  setsByPlatform[platform] = await ascAll(`/v1/appStoreVersionLocalizations/${locale.id}/appScreenshotSets`);
 }
-
-const sets = await ascAll(`/v1/appStoreVersionLocalizations/${locale.id}/appScreenshotSets`);
 
 for (const key of chosen) {
   const target = TARGETS[key];
+  const locale = localeByPlatform[target.platform ?? 'IOS'];
+  const sets = setsByPlatform[target.platform ?? 'IOS'];
   console.log(`\n${key.toUpperCase()}  ${target.label}  ${target.width}x${target.height}  ${target.displayType}`);
 
   const names = (await readdir(join(SHOTS, key)))
