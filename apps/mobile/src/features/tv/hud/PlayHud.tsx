@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { passThroughView } from '../../../../modules/pass-through';
 import Animated, { Easing, ReduceMotion, cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ROSTER_SLOTS, type RosterSlot } from '@17-0/domain';
@@ -27,6 +28,8 @@ export interface PlayHudProps {
 }
 
 const LOWER_THIRD_MS = 6000;
+
+const Overlay = passThroughView();
 
 export function PlayHud(props: PlayHudProps) {
   const on = useBroadcast();
@@ -67,7 +70,10 @@ function Hud({ mode, selections, landed }: PlayHudProps) {
   const pickCard = lastPick ? lookupCard(lastPick.cardId) : undefined;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none" {...DECORATIVE}>
+    // Seen through by the focus engine: a full-screen view over the play
+    // screen otherwise counts as cover for every row and button under it
+    // (modules/pass-through).
+    <Overlay style={StyleSheet.absoluteFill} pointerEvents="none" {...DECORATIVE}>
       {/* In the band above the lineup, where its heading was, not over the field. */}
       <View style={[styles.bugSeat, { top: Math.max(space.sm, insets.top - 28), left: insets.left }]}>
         <Scorebug mode={mode} selections={selections} />
@@ -87,7 +93,7 @@ function Hud({ mode, selections, landed }: PlayHudProps) {
           <Ticker mode={mode} picks={selections.length} />
         </View>
       ) : null}
-    </View>
+    </Overlay>
   );
 }
 

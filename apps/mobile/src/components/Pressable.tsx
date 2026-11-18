@@ -19,7 +19,6 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { cue } from '@/features/tv/sound';
 import { isTV } from '@/features/tv/platform';
 import { color, radius, themed } from '@/theme';
@@ -49,6 +48,13 @@ import { color, radius, themed } from '@/theme';
  * `focused` from the style callback (`PressState`) or passes `tvFocus`:
  * `rim` keeps the rim without the lift (rows inside a clipped list), `none`
  * draws nothing (a control that paints its own focus).
+ *
+ * **Cheap until focused** (docs/apple-tv.md, Performance). A spin's list is a
+ * hundred Pressables and the remote visits a handful, so the rim and the
+ * sheen are not mounted until a control is first focused, and then stay. The
+ * sheen is a native CSS gradient on one view rather than an Svg, which was
+ * seven native components per control -- every row of every list carried
+ * them, and each one made every commit of that screen longer.
  *
  * `native-imports.test.ts` keeps this the only place that imports React
  * Native's.
@@ -83,6 +89,8 @@ const TVPressable = forwardRef<Ref, Props>(function TVPressable(
   ref,
 ) {
   const [focused, setFocused] = useState(false);
+  // Becomes true on the first focus and stays: see "Cheap until focused".
+  const [visited, setVisited] = useState(false);
   const [pressed, setPressed] = useState(false);
   const [box, setBox] = useState({ width: 0, height: 0 });
   const f = useSharedValue(0);
@@ -111,6 +119,7 @@ const TVPressable = forwardRef<Ref, Props>(function TVPressable(
   const focusIn = useCallback(
     (e: NativeSyntheticEvent<TargetedEvent>) => {
       setFocused(true);
+      setVisited(true);
       f.value = withSpring(1, SPRING);
       sweep.value = 0;
       sweep.value = withTiming(1, { duration: 950, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System });
@@ -157,7 +166,7 @@ const TVPressable = forwardRef<Ref, Props>(function TVPressable(
       style={[rest, focused && { zIndex: 10 }, lit ? raised : base.length ? { transform: base as ViewStyle['transform'] } : null]}
     >
       {kids as ReactNode}
-      {lit ? (
+      {lit && visited ? (
         <Animated.View
           pointerEvents="none"
           style={[
@@ -166,20 +175,7 @@ const TVPressable = forwardRef<Ref, Props>(function TVPressable(
             rim,
           ]}
         >
-          {box.width > 0 ? (
-            <Animated.View style={[styles.sheen, shine]}>
-              <Svg width={SHEEN} height="100%">
-                <Defs>
-                  <LinearGradient id="tvSheen" x1="0" y1="0" x2="1" y2="0.3">
-                    <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0" />
-                    <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity="0.2" />
-                    <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
-                  </LinearGradient>
-                </Defs>
-                <Rect x="0" y="0" width={SHEEN} height="100%" fill="url(#tvSheen)" />
-              </Svg>
-            </Animated.View>
-          ) : null}
+          {box.width > 0 ? <Animated.View style={[styles.sheen, shine]} /> : null}
         </Animated.View>
       ) : null}
     </AnimatedPressable>
@@ -195,7 +191,16 @@ const styles = themed(() => StyleSheet.create({
     // every ground and the action colour alike.
     backgroundColor: '#FFFFFF14',
   },
-  sheen: { position: 'absolute', top: 0, bottom: 0, left: -SHEEN, width: SHEEN },
+  sheen: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: -SHEEN,
+    width: SHEEN,
+    // Drawn by the view itself (a CAGradientLayer), not an Svg. TV only, so
+    // the web's support for the property never matters.
+    experimental_backgroundImage: 'linear-gradient(105deg, #FFFFFF00 0%, #FFFFFF33 50%, #FFFFFF00 100%)',
+  },
 }));
 
 /** React Native's Pressable on a phone and the web; the focus-lit one on a TV. */

@@ -83,13 +83,18 @@ disc keep inside it.
   Resume) on the front page, the first player who fits after a spin, the first
   eligible slot when a pick fits two, Spin once a pick is placed, Reveal when
   the roster is full, Build Another on the result.
-- **Nothing may lie over the page once its show is over.** tvOS will not move
-  focus to anything a view covers, and `pointerEvents="none"` does not count:
-  react-native-tvos reports every plain view as interactive. The result's
-  fireworks overlay stayed mounted after the show and the remote could never
-  cross from Build Another to the roster; on a TV it now unmounts when the
-  show ends (`Celebration`). `UIFocusDebugger checkFocusabilityForItem:` from
-  lldb names the view in the way.
+- **An overlay over a page is one the focus engine sees through.** tvOS will
+  not move focus to anything a view covers, and it decides "covers" by the
+  covering view's `isUserInteractionEnabled`, ancestors included.
+  `pointerEvents="none"` sets that property, but react-native-tvos overrides
+  the getter on every Fabric view to answer YES, so no React Native view is
+  ever transparent to focus. The result's fireworks held the remote on Build
+  Another for the whole show (up to nine seconds). Overlays therefore sit in
+  `PassThroughView` (`modules/pass-through`, `passThroughView()`), a local
+  Expo module whose view answers NO: the fireworks (`Celebration`) and the
+  broadcast HUD (`PlayHud`). It is React Native's `View` everywhere but a TV.
+  `UIFocusDebugger checkFocusabilityForItem:` from lldb names the view in
+  the way.
 - **A two-page spread is two focus guides** (`features/tv/FocusPane`), so left
   and right cross between the pages from any row, not only from rows that
   happen to be level with something on the other page.
@@ -163,6 +168,123 @@ rollout to gate (and an absent PostHog key reads as off). `features/tv/hud`:
 
 Display only, all of it: the HUD reads the same store and `GameResult` the
 screens read and writes nothing. Nothing reaches a score (invariant 1).
+
+## Performance
+
+The slowest Apple TV this app runs on is the Apple TV HD: an A8 and 2 GB,
+the chip of a 2014 iPhone. Everything here is measured on the simulator, on a
+Mac several times faster, so the numbers below are for comparing one build
+with another -- never a promise about the hardware. What carries over is the
+*shape*: work per remote press, renders per press, and anything that runs
+every frame.
+
+### What a remote press costs, and what it used to
+
+Release build, "Apple TV 4K (at 1080p)" simulator, `scripts/perf/tv/run.sh`.
+CPU is the app process's, per press, with the harness's own cost (an idle
+second and a press that moves nothing, `test00_Controls`) taken off.
+
+| | Before | After | |
+|---|---|---|---|
+| Focus move, front page | 66 ms | 20 ms | −69% |
+| Focus move, play list after a spin | 109 ms | 47 ms | −57% |
+| Focus move, result page | 99 ms | 56 ms | −43% |
+| Focus move, leaderboard | 76 ms | 41 ms | −46% |
+| Focus move, play list under the broadcast HUD | 99 ms | 67 ms | −32% |
+| Gut Check, one call (stamp, fly-out, next card) | 195 ms | 106 ms | −46% |
+| Tab switch along the rail | 306 ms | 181 ms | −41% |
+| One spin, Select to list ready (CPU) | 1.75 s | 1.16 s | −34% |
+| Renders per focus move | 2 | 2 | already minimal |
+| Main thread, 15 s down the play list (Time Profiler) | 2.39 s | 1.53 s | −36%, before the turf and row changes |
+| UI frames dropped, focus moves (front page, play list) | 0.1/s, worst 65 ms | 0/s, worst 17 ms | |
+| UI frames dropped across a season | 3.2/s, worst 228 ms | 2.2/s, worst 135 ms | |
+| Peak memory over a season | 492 MB | 442 MB | −50 MB |
+| Peak memory, three Gut Check rounds | 385 MB | 380 MB | |
+| Process start to first frame | ~320 ms | ~320 ms | unchanged |
+| Result page: Build Another to the roster, during the fireworks | up to 9.5 s | immediate | see Focus |
+| A season in broadcast mode | stuck after the 7th pick | completes | |
+
+Memory is the simulator's resident size, which counts Metal and the
+simulator's own mappings: read it as a trend.
+
+### Budgets
+
+Simulator, Release, net of the harness. A change that crosses one of these
+is a regression until a profile says why.
+
+- A focus move: **2 renders** (the control losing focus and the one gaining
+  it), **≤ 30 ms** on the front page, **≤ 60 ms** in a long list.
+- Nothing runs every frame while the screen is still, except the turf (every
+  other frame on a TV) and a running show.
+- A full-screen overlay is a `PassThroughView`, or the remote cannot reach
+  what is under it.
+- Peak memory over a season **≤ 460 MB** on the simulator.
+
+### The rules the numbers came from
+
+`src/features/tv/performance.test.ts` fails the build on each of these.
+
+- **Reanimated applies transform, opacity and shadows without a commit.**
+  Reanimated 4 ships with `IOS_SYNCHRONOUSLY_UPDATE_UI_PROPS` and its Android
+  twin off, so every frame of every focus lift committed the whole shadow tree
+  and laid the screen out again -- a third of the main thread while the remote
+  moved down the play list, and more the longer the list. They are on, in
+  `apps/mobile/package.json` (`reanimated.staticFeatureFlags`; both native
+  builds read it at pod install and gradle time). The synchronous path takes a
+  view only if *every* prop it animates is on Reanimated's list, so the focus
+  language animates transform, opacity and shadows and nothing that lays out.
+- **A control is cheap until it is focused.** `TVPressable` mounts its rim and
+  sheen on its first focus, and the sheen is a native CSS gradient on one view
+  rather than an Svg (seven native components). A spin is a hundred rows.
+- **A player row paints its team wash natively** (`experimental_backgroundImage`,
+  a CAGradientLayer on the card itself), built once per pair of colours.
+- **Rows below the first screen arrive in place**, and so does the row the
+  remote is handed: tvOS refuses preferred focus to a view still fading in,
+  and the remote used to land on the "All" filter instead, where Select does
+  nothing. `Reveal` asks for Reduce Motion once for the app.
+- **An overlay is one the focus engine sees through** (`modules/pass-through`;
+  see Focus).
+- **The front page under a game listens for whether one is under way**, not
+  for its status, which moves three times a spin.
+- **The turf ticks every other frame** (docs/graphics.md).
+- **Focus state stays in the control.** A move re-renders the control losing
+  focus and the one gaining it, and nothing else: two renders. A screen that
+  needs to know where the remote is reads it from the style callback.
+
+### Re-measuring
+
+```bash
+brew install xcodegen                 # once; the harness's project is generated
+pnpm verify:tv --install              # a Release build, installed and launched
+scripts/perf/tv/run.sh                # every test, ~15 minutes
+scripts/perf/tv/run.sh test03_PlayListFocusMoves test00_Controls
+```
+
+The harness (`scripts/perf/tv/TVPerfUITests`) drives the installed app with
+`XCUIRemote` -- Select, arrows, the way a person does -- and prints each
+measured block: wall time, CPU, CPU per press, memory. It plays Rookie, which
+reaches no leaderboard, and plays Gut Check with Select ("don't know"), which
+records nothing. XCTest's own CPU, hitch and launch metrics record nothing on
+a tvOS simulator, so the runner samples the process from the host instead.
+For where the time goes, attach Time Profiler while a test runs:
+
+```bash
+xcrun xctrace record --device <udid> --template 'Time Profiler' \
+  --attach $(pgrep -x SeventeenZero) --time-limit 15s --output play.trace
+```
+
+### What only the hardware can say
+
+- **The Apple TV HD itself.** Every number above is a Mac running a
+  simulator. The A8 is several times slower on the CPU and much slower on the
+  GPU; the cuts above are proportional there, but the absolute cost of a focus
+  move, a spin landing (a hundred rows mounting) and the turf at 30 frames a
+  second has not been watched on one.
+- **GPU time.** The simulator draws with the Mac's GPU, so the turf, the
+  fireworks and the focus shadows (a `shadowRadius` with no path is an
+  offscreen pass per frame) are invisible to these measurements. Instruments'
+  Animation Hitches on a device is the check.
+- **Thermal and memory pressure** over a long session on 2 GB.
 
 ## Gut Check on the Siri Remote
 

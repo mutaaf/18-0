@@ -83,7 +83,10 @@ export default function Home() {
   // every spin, every pick and every server reply. Actions are stable and read
   // off the store when called.
   const game = useGameStore(
-    useShallow((s) => ({ status: s.status, filled: s.selections.length, mode: s.mode })),
+    // `active` rather than `status`: a status moves three times a spin, and
+    // this screen sits mounted under every game. Nothing here needs more than
+    // whether one is under way (docs/apple-tv.md, Performance).
+    useShallow((s) => ({ active: s.status !== 'idle', filled: s.selections.length, mode: s.mode })),
   );
   const games = useHistoryStore((s) => s.games);
   const stats = useMemo(() => computeStats(games), [games]);
@@ -147,7 +150,7 @@ export default function Home() {
   // which has its own way in and is not always open.
   const quickMode: GameMode = game.mode === 'gameday' ? 'scout' : game.mode;
   const quickKind = !ranked || !isBackendConfigured ? 'Casual' : quickMode === 'rookie' ? 'Practice' : 'Ranked';
-  const inProgress = game.status !== 'idle' && game.filled > 0
+  const inProgress = game.active && game.filled > 0
     && game.filled < ROSTER_SLOTS.length;
 
   /**
