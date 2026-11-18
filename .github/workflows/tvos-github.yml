@@ -227,7 +227,7 @@ jobs:
           set -euo pipefail
           SINCE=()
           if git rev-parse -q --verify refs/tags/testflight-tvos >/dev/null; then SINCE=(--since testflight-tvos); fi
-          node scripts/store/beta-release.mjs --platform TV_OS --build "${{ steps.number.outputs.n }}" "${SINCE[@]}"
+          node scripts/store/beta-release.mjs --platform TV_OS --build "${{ steps.number.outputs.n }}" ${SINCE[@]+"${SINCE[@]}"}
           git tag -f testflight-tvos HEAD
           git push -f origin refs/tags/testflight-tvos
 
