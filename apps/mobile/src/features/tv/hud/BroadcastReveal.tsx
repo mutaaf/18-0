@@ -241,10 +241,8 @@ const styles = themed(() =>
       borderRadius: radius.xl,
       borderWidth: 3,
       backgroundColor: color.glass,
-      shadowColor: '#000',
-      shadowOpacity: 0.6,
-      shadowRadius: 40,
-      shadowOffset: { width: 0, height: 20 },
+      // No shadow: the card slams in, and an animated layer with a shadow and
+      // no shadowPath is re-rendered offscreen every frame on a real TV.
     },
     recordKicker: { fontFamily: font.label, fontSize: 14, letterSpacing: tracking.wider, textTransform: 'uppercase', color: color.silver },
     record: { fontFamily: font.display, fontSize: 150, lineHeight: 150, ...tabular },

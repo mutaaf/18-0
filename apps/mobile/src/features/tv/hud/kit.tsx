@@ -139,11 +139,9 @@ const styles = themed(() =>
       borderRadius: radius.sm,
       borderWidth: 1,
       borderColor: color.lineBright,
+      // No shadow: `overflow: hidden` clipped it away anyway, and a shadow on
+      // a panel that wipes on is an offscreen pass per frame on a real TV.
       overflow: 'hidden',
-      shadowColor: '#000',
-      shadowOpacity: 0.5,
-      shadowRadius: 18,
-      shadowOffset: { width: 0, height: 8 },
     },
     bar: { position: 'absolute', left: -2, top: 0, bottom: 0, width: 5, borderRadius: 2 },
     barRight: { left: undefined, right: -2 },

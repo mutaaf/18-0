@@ -5,13 +5,14 @@ import { useFrameCallback, useReducedMotion, useSharedValue } from 'react-native
 import { isTV } from '@/features/tv/platform';
 
 /**
- * Frames per tick of the clock. On an Apple TV every other frame: the turf's
- * sheen is a slow ambient sweep, and drawing it sixty times a second was a
- * fifth of the main thread while the remote moved down the play list -- on
- * tvOS the UI thread that runs the focus lift *is* the main thread, so every
- * turf frame was taken from it (docs/apple-tv.md, Performance).
+ * On an Apple TV the shaders hold still. The turf's sheen is a full-canvas
+ * fragment shader, and on tvOS the thread that draws it is the same main
+ * thread that runs every focus lift. The simulator draws it on the Mac's GPU
+ * and called it a fifth of the main thread at every other frame; a real
+ * A-series TV drawing it at 4K is where the remote's lag came from. A still
+ * field still looks like a field (docs/apple-tv.md, "Real hardware").
  */
-const STRIDE = isTV ? 2 : 1;
+const STILL = isTV;
 
 /**
  * A shader's clock that only runs while somebody can see it move.
@@ -43,25 +44,18 @@ export function useEffectClock() {
   }, []);
 
   const clock = useSharedValue(0);
-  const pending = useSharedValue(0);
-  const frame = useSharedValue(0);
   const frames = useFrameCallback((info) => {
     'worklet';
     // Capped, because the first frame after a resume can report the whole
     // pause as one step, and a sweep that leaps half a field reads as a glitch.
-    pending.value += Math.min(info.timeSincePreviousFrame ?? 0, 100);
-    // Only a change of `clock` redraws a canvas, so it moves every STRIDE frames.
-    frame.value += 1;
-    if (frame.value % STRIDE === 0) {
-      clock.value += pending.value;
-      pending.value = 0;
-    }
+    clock.value += Math.min(info.timeSincePreviousFrame ?? 0, 100);
   }, false);
 
-  const running = !reduced && focused && foreground;
+  const running = !STILL && !reduced && focused && foreground;
   useEffect(() => {
     frames.setActive(running);
   }, [running, frames]);
 
-  return { clock, reduced };
+  // Effects already draw a still frame under Reduce Motion; a TV asks for it too.
+  return { clock, reduced: reduced || STILL };
 }
