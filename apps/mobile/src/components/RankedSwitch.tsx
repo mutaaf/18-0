@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { pressVerb } from '@/features/tv/platform';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { Pressable } from '@/components/Pressable';
 import Svg, { Path } from 'react-native-svg';
@@ -93,7 +94,7 @@ export function RankedSwitch({
             ? 'Opening a ranked game…'
             : on
               ? 'The server deals every spin and scores the roster. GM Mode and Scout seasons rank once you sign in.'
-              : 'This season stays on your device. Tap to put it on the board.'}
+              : `This season stays on your device. ${pressVerb} to put it on the board.`}
         </Text>
       </View>
 

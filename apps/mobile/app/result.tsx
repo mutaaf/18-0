@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { pressVerb } from '@/features/tv/platform';
+import { cue } from '@/features/tv/sound';
+import { BroadcastReveal, broadcastOn, useRevealUp } from '@/features/tv/hud';
 import { Animated, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Pressable } from '@/components/Pressable';
 import { useRouter } from 'expo-router';
@@ -159,6 +162,7 @@ export default function Result() {
   // One clock for the whole page. Read before the early return below, so the
   // hook order never changes.
   const line = useTimeline(CUE.end, result?.finalRating);
+  const revealUp = useRevealUp();
 
   /**
    * The card image, captured once the build has finished and before anybody
@@ -231,6 +235,11 @@ export default function Result() {
       if (buzzedFor.current === rating) return;
       buzzedFor.current = rating;
       const wins = result.record.wins;
+      // The TV's sound for the same frame (a no-op anywhere else). Broadcast
+      // mode runs its own longer reveal with its own sounds, over this one.
+      if (!broadcastOn()) {
+        cue(result.ending.key === 'PERFECT' ? 'perfect' : isPerfectionDenied(result) ? 'denied' : 'stamp');
+      }
       if (wins >= 12) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       else if (wins >= 9) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
       else Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
@@ -556,7 +565,10 @@ export default function Result() {
               ]}
               onPress={buildAnother}
               // The remote starts on "again" when the season is over.
-              hasTVPreferredFocus
+              // Not while broadcast mode's full-screen record is up: the
+              // later claim wins, and a click meant to dismiss the graphic
+              // started a new season through it.
+              hasTVPreferredFocus={!revealUp}
               accessibilityRole="button"
               accessibilityLabel="Build another roster"
             >
@@ -650,7 +662,7 @@ export default function Result() {
                 pressed && { opacity: 0.85 },
               ]}
               accessibilityRole="button"
-              accessibilityLabel={`${slot}. ${displayName(card)}. ${card.year} ${franchise(card.franchiseId).name}. Rating ${card.rating.toFixed(1)}. Tap for the card.`}
+              accessibilityLabel={`${slot}. ${displayName(card)}. ${card.year} ${franchise(card.franchiseId).name}. Rating ${card.rating.toFixed(1)}. ${pressVerb} for the card.`}
             >
             <Text style={[styles.rosterSlot, { color: positionColor[card.position] }]}>{slot}</Text>
             <View style={styles.rosterMain}>
@@ -827,6 +839,10 @@ export default function Result() {
         perfect={perfect}
         at={line.settled ? 0 : CUE.stamp}
       />
+
+      {/* Apple TV, broadcast mode: the record as a full-screen graphic before
+          the page underneath (features/tv/hud). Renders nothing otherwise. */}
+      <BroadcastReveal result={result} mode={game.mode} roster={shareRows} />
     </Screen>
   );
 }

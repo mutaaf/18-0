@@ -61,12 +61,24 @@ disc keep inside it.
 
 ## Focus
 
-- **Every button shows where the remote is.** `@/components/Pressable` and
-  `@/components/TextInput` are React Native's own components on a phone and the
-  web (the same object, not a wrapper) and add a `focusRing` outline and a
-  slight lift on a TV. The test fails an import of either straight from
-  `react-native`. `focusRing` is a palette token, white in both themes, because
-  it has to read on the action colour too.
+- **Every button shows where the remote is, the tvOS way.** `@/components/Pressable`
+  and `@/components/TextInput` are React Native's own components on a phone and
+  the web (the same object, not a wrapper). On a TV a focused Pressable springs
+  up (1.03 for a full-width row to 1.12 for a small button: small things grow
+  more), drops a soft shadow, lights a `focusRing` rim drawn at the element's
+  own corner radius over a faint white wash, and runs one specular sweep across
+  its face. All of it is Reanimated on the UI thread; nothing loops. A screen
+  can pass `tvFocus="rim"` (no lift) or `"none"` (draws its own), or read
+  `focused` from the style callback. The first version used `outline`, which
+  UIKit draws as a square box whatever the corners -- a hard white rectangle
+  over every rounded card. The test fails an import of either straight from
+  `react-native`. `focusRing` is a palette token, white in both themes.
+- **A focused thing grows past its edges**, and a scroll view clips: a page
+  whose first tile sits at the scroll's edge pulls the scroll out by the room a
+  lift needs and pads it back in (`TVHome`).
+- **UIKit will not focus what it cannot see.** `hasTVPreferredFocus` on a view
+  still at opacity 0 (a `Reveal` entrance) is ignored and the remote lands
+  somewhere else; the control that should take focus is not faded in.
 - **The remote starts somewhere sensible** (`hasTVPreferredFocus`): Play (or
   Resume) on the front page, the first player who fits after a spin, the first
   eligible slot when a pick fits two, Spin once a pick is placed, Reveal when
@@ -77,6 +89,66 @@ disc keep inside it.
 - **Menu** goes back from a pushed screen, to Play from any other tab, and home
   from Play -- Apple's tvOS review guidelines require that last one
   (`src/features/tv/menu-key.ts`).
+
+## The screens on a TV
+
+- **Home** is its own component (`features/tv/TVHome.tsx`), not the phone's
+  long page: a hero with Play (or Resume and Discard) and the ranked switch,
+  a shelf of the three lenses as large tiles, and a shelf of everything else
+  (Gameday when there is one, Gut Check, Leaderboards, Your seasons). Every
+  decision on it is the phone screen's, passed in, so the two cannot disagree.
+- **Play**: the position filters are a row above the list rather than a bar
+  floating over it (the focus engine scrolled the focused row under the bar),
+  and there is no search field. Each player row is one focus target; the
+  details are a long press of Select (said in the list's heading). The list
+  returns to its top when the hero above it collapses, or the row the remote
+  was just given slid out of view.
+- **Gut Check**: the two calls flank the card, a remote legend with a moving
+  fingertip sits under it, a call is stamped on the card before it flies, and
+  each new card deals in from below.
+- **Copy** says Select, never Tap (`pressVerb`, `features/tv/platform.ts`).
+- **Svg backgrounds** sit in an absolutely positioned wrapper. Sized "100%"
+  straight inside a padded box, native react-native-svg takes the padding off
+  its own size, and a gradient stops short of the right and bottom edges -- the
+  Gut Check card, `Panel`, `GlassSurface`, the manager and collectible cards.
+
+## Sound
+
+`features/tv/sound.ts` plays fourteen cues on a TV and nothing anywhere else:
+focus moves (quiet, rate-limited), the spin's whoosh and reel clicks, the
+landing, a pick locking in, the record (with a fanfare for 17-0 and a falling
+sting for perfection denied), Gut Check's fair, off and pass, a round's end,
+and broadcast graphics wiping on. `expo-audio` links on tvOS and is required
+only by that module (`native-imports.test.ts`). Its config plugin is listed in
+`app.config.js` only to switch off background audio and the Android record
+permission.
+
+The sounds are synthesised, not sampled: `node apps/mobile/scripts/make-tv-sounds.mjs`
+writes the WAVs in `assets/sounds/tv/` from additive tones and seeded noise,
+deterministically, and balances their loudness. No licence to keep. Change the
+script, re-run it, commit both. Sound is on by default and switched in Account.
+
+## Broadcast mode
+
+For somebody putting the game on a stream or a podcast: Account, "On this TV",
+Broadcast mode. A preference, off until asked for, not a flag -- it draws
+nothing a player cannot already see and reads nothing remote, so there is no
+rollout to gate (and an absent PostHog key reads as off). `features/tv/hud`:
+
+- a **scorebug** above the lineup: the lens, seven pips, and the average pick
+  rating in Rookie only. Scout and GM Mode say "Hidden": the graphic never
+  shows what the mode hides;
+- **lower thirds** for each landed spin (city, era, the era's story line) and
+  each pick (player, slot, stat line), six seconds each, wiped on;
+- a **crawl** along the foot of the screen (switchable);
+- the **record as a full-screen graphic** over the result: the seven picks
+  deal in under a riser, the record slams onto a card, and the 17-0 gate says
+  cleared, denied by which gate, or short by how much. It holds until Select;
+- **Gut Check's live tally** of fair, off and pass;
+- **clean feed** hides the remote hints in a game.
+
+Display only, all of it: the HUD reads the same store and `GameResult` the
+screens read and writes nothing. Nothing reaches a score (invariant 1).
 
 ## Gut Check on the Siri Remote
 

@@ -11,3 +11,9 @@ import { Platform } from 'react-native';
  * See docs/apple-tv.md.
  */
 export const isTV: boolean = Platform.isTV === true;
+
+/**
+ * The verb for "press this": "Tap" under a finger, "Select" on the remote.
+ * Apple's TV copy never says tap -- there is nothing to tap.
+ */
+export const pressVerb: 'Tap' | 'Select' = isTV ? 'Select' : 'Tap';

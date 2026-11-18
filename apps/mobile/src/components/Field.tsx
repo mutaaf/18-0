@@ -1,7 +1,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Pressable } from '@/components/Pressable';
-import { isTV } from '@/features/tv/platform';
+import { isTV, pressVerb } from '@/features/tv/platform';
 import Animated, {
   Easing,
   ReduceMotion,
@@ -175,7 +175,7 @@ function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, width, 
     ? `${SLOT_SPOKEN[slot]} slot. ${card.name || `${card.year} defense`}. ${card.year} ${
         franchiseAbbr ?? ''
       }.${blind ? '' : ` Rating ${card.rating.toFixed(1)}.`} Selected.`
-    : `${SLOT_SPOKEN[slot]} slot. Empty.${onPress ? ' Tap to fill this position.' : ''}`;
+    : `${SLOT_SPOKEN[slot]} slot. Empty.${onPress ? ` ${pressVerb} to fill this position.` : ''}`;
 
   return (
     <Pressable

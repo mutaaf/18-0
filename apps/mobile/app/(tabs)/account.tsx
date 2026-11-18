@@ -9,6 +9,8 @@ import { CareerPanel } from '@/components/CareerPanel';
 import { LevelPanel } from '@/components/LevelPanel';
 import { PreferencesPanel } from '@/components/PreferencesPanel';
 import { RhythmPanel } from '@/components/RhythmPanel';
+import { TVSettings } from '@/features/tv/TVSettings';
+import { isTV } from '@/features/tv/platform';
 import {
   fetchLeaderboard,
   identity,
@@ -80,6 +82,9 @@ export default function Account() {
               <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
                 {header}
                 <View style={styles.body}>
+                  {/* Apple TV: sound and broadcast mode, first, because on a
+                      TV they are what this page is visited for. */}
+                  {isTV ? <TVSettings /> : null}
                   <LevelPanel />
                   <AccountPanel rank={rank} />
                 </View>
@@ -108,6 +113,7 @@ export default function Account() {
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           {header}
           <View style={styles.body}>
+            {isTV ? <TVSettings /> : null}
             <LevelPanel />
             <AccountPanel rank={rank} />
             <CareerPanel />

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { isTV, pressVerb } from '@/features/tv/platform';
 import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import { Pressable } from '@/components/Pressable';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -87,6 +88,10 @@ export function CollectibleCard({
         {...panHandlers}
         style={[
           styles.card,
+          // A fixed width on a TV. Yoga sizes `aspectRatio` from the width
+          // before `maxWidth` clamps it, so a wide page made the card 253
+          // wide and twice as tall as it should be, cut off by the screen.
+          isTV && styles.cardTV,
           elevate(8),
           {
             borderColor: `${teamColor}88`,
@@ -105,16 +110,18 @@ export function CollectibleCard({
           pointerEvents="none"
         >
         {/* The franchise's colours across the face. */}
-        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
-          <Defs>
-            <LinearGradient id={`cc-${card.id}`} x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor={teamColor} stopOpacity="0.55" />
-              <Stop offset="0.5" stopColor={teamColor2} stopOpacity="0.18" />
-              <Stop offset="1" stopColor="#000000" stopOpacity="0.35" />
-            </LinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill={`url(#cc-${card.id})`} />
-        </Svg>
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Svg width="100%" height="100%">
+            <Defs>
+              <LinearGradient id={`cc-${card.id}`} x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor={teamColor} stopOpacity="0.55" />
+                <Stop offset="0.5" stopColor={teamColor2} stopOpacity="0.18" />
+                <Stop offset="1" stopColor="#000000" stopOpacity="0.35" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill={`url(#cc-${card.id})`} />
+          </Svg>
+        </View>
 
         {/* The photograph, behind the type and under the foil. A team defence
             has nobody to show, and a missing one simply leaves the wash. */}
@@ -136,18 +143,20 @@ export function CollectibleCard({
             nothing at the top of the portrait to the card's own ground, so the
             picture is not cut off by a hard edge. */}
         {photo ? (
-          <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
-            <Defs>
-              <LinearGradient id={`cc-scrim-${card.id}`} x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={color.panelBottom} stopOpacity="0" />
-                <Stop offset="0.34" stopColor={color.panelBottom} stopOpacity="0.12" />
-                <Stop offset="0.56" stopColor={color.panelBottom} stopOpacity="0.78" />
-                <Stop offset="0.72" stopColor={color.panelBottom} stopOpacity="1" />
-                <Stop offset="1" stopColor={color.panelBottom} stopOpacity="1" />
-              </LinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width="100%" height="100%" fill={`url(#cc-scrim-${card.id})`} />
-          </Svg>
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Svg width="100%" height="100%">
+              <Defs>
+                <LinearGradient id={`cc-scrim-${card.id}`} x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor={color.panelBottom} stopOpacity="0" />
+                  <Stop offset="0.34" stopColor={color.panelBottom} stopOpacity="0.12" />
+                  <Stop offset="0.56" stopColor={color.panelBottom} stopOpacity="0.78" />
+                  <Stop offset="0.72" stopColor={color.panelBottom} stopOpacity="1" />
+                  <Stop offset="1" stopColor={color.panelBottom} stopOpacity="1" />
+                </LinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width="100%" height="100%" fill={`url(#cc-scrim-${card.id})`} />
+            </Svg>
+          </View>
         ) : null}
 
         {/* Foil. A wide, soft band that slides with the tilt. */}
@@ -155,17 +164,19 @@ export function CollectibleCard({
           pointerEvents="none"
           style={[StyleSheet.absoluteFill, { transform: [{ translateX: sheenShift }] }]}
         >
-          <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
-            <Defs>
-              <LinearGradient id={`cc-foil-${card.id}`} x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0" />
-                <Stop offset="0.45" stopColor="#FFFFFF" stopOpacity="0.10" />
-                <Stop offset="0.55" stopColor="#FFFFFF" stopOpacity="0.16" />
-                <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
-              </LinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width="100%" height="100%" fill={`url(#cc-foil-${card.id})`} />
-          </Svg>
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Svg width="100%" height="100%">
+              <Defs>
+                <LinearGradient id={`cc-foil-${card.id}`} x1="0" y1="0" x2="1" y2="0">
+                  <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0" />
+                  <Stop offset="0.45" stopColor="#FFFFFF" stopOpacity="0.10" />
+                  <Stop offset="0.55" stopColor="#FFFFFF" stopOpacity="0.16" />
+                  <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+                </LinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width="100%" height="100%" fill={`url(#cc-foil-${card.id})`} />
+            </Svg>
+          </View>
         </Animated.View>
         </Animated.View>
 
@@ -247,10 +258,8 @@ export function CollectibleCard({
 
       <Text style={styles.hint}>
         {facingBack
-          ? 'Tap to turn it back'
-          : Platform.OS === 'web'
-            ? 'Tap to turn it over, drag to tilt'
-            : 'Tap to turn it over, drag to tilt'}
+          ? `${pressVerb} to turn it back`
+          : `${pressVerb} to turn it over${isTV ? '' : ', drag to tilt'}`}
       </Text>
     </View>
   );
@@ -269,6 +278,7 @@ const styles = themed(() => StyleSheet.create({
     backgroundColor: color.panelBottom,
     overflow: 'hidden',
   },
+  cardTV: { width: 290, maxWidth: 290 },
   face: { flex: 1, padding: space.md, justifyContent: 'space-between' },
   front: {},
   back: {

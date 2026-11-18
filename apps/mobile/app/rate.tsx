@@ -10,8 +10,12 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
   withSpring,
   withTiming,
+  Easing,
   type SharedValue,
 } from 'react-native-reanimated';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -24,6 +28,8 @@ import { useCardStats } from '@/features/stat-lines';
 import { track } from '@/features/telemetry';
 import { isTV } from '@/features/tv/platform';
 import { useTVRemote, type HWEvent } from '@/features/tv/remote';
+import { cue } from '@/features/tv/sound';
+import { GutCheckTally, useCleanFeed } from '@/features/tv/hud';
 import { remoteAction } from '@/features/tv/remote-calls';
 import { useHistoryStore } from '@/state/history';
 import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking, useThemeId, useWindowSize, type PressState } from '@/theme';
@@ -83,9 +89,10 @@ function dealDeck(): BootCard[] {
 export default function GutCheck() {
   useThemeId();
   const router = useRouter();
+  const cleanFeed = useCleanFeed();
   const { width: windowWidth, height: windowHeight } = useWindowSize();
-  const cardWidth = Math.min(windowWidth - space.xl * 2, 360);
-  const cardHeight = Math.min(cardWidth * 1.32, windowHeight * 0.52);
+  const cardWidth = Math.min(windowWidth - space.xl * 2, isTV ? 380 : 360);
+  const cardHeight = Math.min(cardWidth * 1.32, windowHeight * (isTV ? 0.56 : 0.52));
 
   const [deck, setDeck] = useState<BootCard[]>(() => dealDeck());
   const [index, setIndex] = useState(0);
@@ -100,6 +107,13 @@ export default function GutCheck() {
   /** -1, 0 or 1: which side of the line the finger is on, for the tick. */
   const armed = useSharedValue(0);
   const busy = useSharedValue(false);
+  /**
+   * TV: the call, stamped on the card before it leaves. On a phone the finger
+   * drags the card and the stamp fades in with it; a click on a remote has no
+   * drag, so without this the card just vanished sideways.
+   */
+  const [stamp, setStamp] = useState<StampKind | null>(null);
+  const slam = useSharedValue(0);
 
   const card = deck[index];
   const next = deck[index + 1];
@@ -112,6 +126,7 @@ export default function GutCheck() {
   useEffect(() => {
     if (!done || calls.length === 0) return;
     buzz('done');
+    cue('round');
     const s = summarize(calls);
     track('gut_check_finished', {
       round: round.current,
@@ -131,7 +146,9 @@ export default function GutCheck() {
     ty.value = 0;
     armed.value = 0;
     busy.value = false;
-  }, [index, tx, ty, armed, busy]);
+    slam.value = 0;
+    setStamp(null);
+  }, [index, tx, ty, armed, busy, slam]);
 
   useEffect(() => {
     mode.value = phase === 'which' ? 1 : 0;
@@ -168,22 +185,41 @@ export default function GutCheck() {
     (call: Call) => {
       if (busy.value) return;
       busy.value = true;
-      const out = { duration: 220, reduceMotion: ReduceMotion.System };
+      cue(call === 'fair' ? 'fair' : call === 'skip' ? 'skip' : 'off');
+      if (isTV) {
+        // Stamp, hold a beat, then throw: the call lands before the card goes.
+        setStamp(call);
+        slam.value = withSpring(1, { damping: 12, stiffness: 320, reduceMotion: ReduceMotion.System });
+      }
+      const out = isTV
+        ? { duration: 340, easing: Easing.in(Easing.cubic), reduceMotion: ReduceMotion.System }
+        : { duration: 220, reduceMotion: ReduceMotion.System };
+      const hold = isTV ? 420 : 0;
       const finish = (finished?: boolean) => {
         'worklet';
         if (finished) runOnJS(advance)(call);
       };
-      if (call === 'fair') tx.value = withTiming(windowWidth * 1.3, out, finish);
-      else if (call === 'too_low') ty.value = withTiming(-windowHeight, out, finish);
-      else if (call === 'too_high') ty.value = withTiming(windowHeight, out, finish);
-      else tx.value = withTiming(-windowWidth * 1.3, out, finish);
+      if (call === 'fair') tx.value = withDelay(hold, withTiming(windowWidth * 1.3, out, finish));
+      else if (call === 'too_low') ty.value = withDelay(hold, withTiming(-windowHeight, out, finish));
+      else if (call === 'too_high') ty.value = withDelay(hold, withTiming(windowHeight, out, finish));
+      else tx.value = withDelay(hold, withTiming(-windowWidth * 1.3, out, finish));
     },
-    [advance, busy, tx, ty, windowWidth, windowHeight],
+    [advance, busy, tx, ty, slam, windowWidth, windowHeight],
   );
 
   const disagree = useCallback(() => {
     if (busy.value) return;
-    tx.value = withSpring(0, { damping: 14, stiffness: 180 });
+    cue('off');
+    if (isTV) {
+      // A nudge left and back: the card refuses the call and turns round to
+      // ask which way, rather than the prompt simply changing under it.
+      tx.value = withSequence(
+        withTiming(-46, { duration: 120, easing: Easing.out(Easing.quad) }),
+        withSpring(0, { damping: 11, stiffness: 220 }),
+      );
+    } else {
+      tx.value = withSpring(0, { damping: 14, stiffness: 180 });
+    }
     askWhich();
   }, [askWhich, busy, tx]);
 
@@ -277,7 +313,10 @@ export default function GutCheck() {
   };
 
   return (
-    <Screen edges={['top', 'left', 'right', 'bottom']}>
+    // A TV takes the whole width -- the calls flank the card and the tally
+    // sits in the corner -- with the header kept to the phone's column.
+    <Screen edges={['top', 'left', 'right', 'bottom']} maxWidth={isTV ? 4000 : undefined}>
+      <View style={isTV ? styles.tvColumn : null}>
       <View style={styles.header}>
         <Pressable
           onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
@@ -300,47 +339,83 @@ export default function GutCheck() {
         <View style={styles.close} />
       </View>
       <Progress calls={calls} total={deck.length || DECK_SIZE} />
+      </View>
+      {isTV ? <GutCheckTally calls={calls} total={deck.length || DECK_SIZE} /> : null}
 
       {done ? (
-        <RoundEnd calls={calls} onAgain={again} onDone={() => (router.canGoBack() ? router.back() : router.replace('/'))} />
+        <View style={isTV ? styles.tvColumn : null}>
+          <RoundEnd calls={calls} onAgain={again} onDone={() => (router.canGoBack() ? router.back() : router.replace('/'))} />
+        </View>
       ) : (
         <>
           <Text style={styles.prompt} accessibilityLiveRegion="polite">
             {phase === 'judge' ? 'Is this rating right?' : 'Which way is it off?'}
           </Text>
-          <View style={[styles.stage, { height: cardHeight + space.lg }]}>
-            {next ? (
-              <BackCard key={next.id} card={next} width={cardWidth} height={cardHeight} tx={tx} ty={ty} />
-            ) : null}
-            {card ? (
-              <GestureDetector gesture={pan}>
-                <TopCard
-                  key={card.id}
-                  card={card}
-                  width={cardWidth}
-                  height={cardHeight}
-                  tx={tx}
-                  ty={ty}
-                  phase={phase}
-                />
-              </GestureDetector>
-            ) : null}
-          </View>
-
-          {phase === 'judge' ? (
-            <View style={styles.actions}>
-              <RoundButton glyph="✕" label="Off" tone={color.negative} onPress={disagree} a11y="Rating is off" />
-              <SkipButton onPress={() => fly('skip')} />
-              <RoundButton glyph="✓" label="Fair" tone={color.positive} onPress={() => fly('fair')} a11y="Rating is fair" />
-            </View>
-          ) : (
-            <View style={styles.actions}>
-              <RoundButton glyph="▼" label="Lower" tone={color.negative} onPress={() => fly('too_high')} a11y="Should be lower" />
-              <SkipButton label="Fair after all" onPress={() => fly('fair')} />
-              <RoundButton glyph="▲" label="Higher" tone={color.positive} onPress={() => fly('too_low')} a11y="Should be higher" />
-            </View>
-          )}
-          <Text style={styles.hint}>
+          {(() => {
+            const deck = (
+              <View style={[styles.stage, { height: cardHeight + space.lg }, isTV && { width: cardWidth + space.lg }]}>
+                {next ? (
+                  <BackCard key={next.id} card={next} width={cardWidth} height={cardHeight} tx={tx} ty={ty} />
+                ) : null}
+                {card ? (
+                  <GestureDetector gesture={pan}>
+                    <TopCard
+                      key={card.id}
+                      card={card}
+                      width={cardWidth}
+                      height={cardHeight}
+                      tx={tx}
+                      ty={ty}
+                      phase={phase}
+                      stamp={stamp}
+                      slam={slam}
+                    />
+                  </GestureDetector>
+                ) : null}
+              </View>
+            );
+            const off =
+              phase === 'judge' ? (
+                <RoundButton glyph="✕" label="Off" tone={color.negative} onPress={disagree} a11y="Rating is off" />
+              ) : (
+                <RoundButton glyph="▼" label="Lower" tone={color.negative} onPress={() => fly('too_high')} a11y="Should be lower" />
+              );
+            const on =
+              phase === 'judge' ? (
+                <RoundButton glyph="✓" label="Fair" tone={color.positive} onPress={() => fly('fair')} a11y="Rating is fair" />
+              ) : (
+                <RoundButton glyph="▲" label="Higher" tone={color.positive} onPress={() => fly('too_low')} a11y="Should be higher" />
+              );
+            const skip =
+              phase === 'judge' ? <SkipButton onPress={() => fly('skip')} /> : <SkipButton label="Fair after all" onPress={() => fly('fair')} />;
+            // A TV is wide and short: the two calls flank the card, where the
+            // card flies, and the remote's legend sits under it. Stacked as on a
+            // phone the legend fell off the bottom of the glass.
+            return isTV ? (
+              <>
+                <View style={styles.tvDeck}>
+                  {off}
+                  {deck}
+                  {on}
+                </View>
+                <View style={styles.tvUnder}>
+                  {skip}
+                  {cleanFeed ? null : <RemoteHint phase={phase} />}
+                </View>
+              </>
+            ) : (
+              <>
+                {deck}
+                <View style={styles.actions}>
+                  {off}
+                  {skip}
+                  {on}
+                </View>
+              </>
+            );
+          })()}
+          {/* On a TV the remote hint above says it, with a fingertip. */}
+          {cleanFeed || isTV ? null : <Text style={styles.hint}>
             {phase === 'judge'
               ? isTV
                 ? 'Swipe right if it’s right, left if it’s off. Click if you don’t know.'
@@ -348,7 +423,7 @@ export default function GutCheck() {
               : isTV
                 ? 'Swipe up if it deserves more, down if less.'
                 : 'Flick up if it deserves more, down if less.'}
-          </Text>
+          </Text>}
         </>
       )}
     </Screen>
@@ -384,7 +459,29 @@ interface CardProps {
   ty: SharedValue<number>;
 }
 
-function TopCard({ card, width, height, tx, ty, phase }: CardProps & { phase: Phase }) {
+type StampKind = Call;
+
+const STAMP: Record<StampKind, { label: string; tone: () => string }> = {
+  fair: { label: 'FAIR', tone: () => color.positive },
+  too_low: { label: '▲ HIGHER', tone: () => color.positive },
+  too_high: { label: '▼ LOWER', tone: () => color.negative },
+  skip: { label: 'PASS', tone: () => color.silver },
+};
+
+function TopCard({
+  card,
+  width,
+  height,
+  tx,
+  ty,
+  phase,
+  stamp = null,
+  slam,
+}: CardProps & { phase: Phase; stamp?: StampKind | null; slam?: SharedValue<number> }) {
+  const slammed = useAnimatedStyle(() => {
+    const k = slam ? slam.value : 0;
+    return { opacity: Math.min(1, k * 1.6), transform: [{ rotate: '-11deg' }, { scale: 1.7 - 0.7 * k }] };
+  });
   const line = width * COMMIT;
   const lift = useAnimatedStyle(() => ({
     transform: [
@@ -413,33 +510,51 @@ function TopCard({ card, width, height, tx, ty, phase }: CardProps & { phase: Ph
       accessibilityLabel={`${displayName(card)}. ${card.year} ${franchise(card.franchiseId).name}. Rated ${card.rating.toFixed(1)}.`}
     >
       <Face card={card} asking={phase === 'which'} />
-      <Animated.View style={[styles.stamp, styles.stampLeft, { borderColor: color.positive }, fair]} pointerEvents="none">
-        <Text style={[styles.stampText, { color: color.positive }]}>FAIR</Text>
-      </Animated.View>
-      <Animated.View style={[styles.stamp, styles.stampRight, { borderColor: color.negative }, off]} pointerEvents="none">
-        <Text style={[styles.stampText, { color: color.negative }]}>OFF</Text>
-      </Animated.View>
-      {phase === 'which' ? (
-        <>
-          <Animated.View style={[styles.stamp, styles.stampTop, { borderColor: color.positive }, higher]} pointerEvents="none">
-            <Text style={[styles.stampText, { color: color.positive }]}>▲ HIGHER</Text>
+      {stamp ? (
+        <View style={styles.slamSeat} pointerEvents="none">
+          <Animated.View style={[styles.slam, { borderColor: STAMP[stamp].tone() }, slammed]}>
+            <Text style={[styles.slamText, { color: STAMP[stamp].tone() }]}>{STAMP[stamp].label}</Text>
           </Animated.View>
-          <Animated.View style={[styles.stamp, styles.stampBottom, { borderColor: color.negative }, lower]} pointerEvents="none">
-            <Text style={[styles.stampText, { color: color.negative }]}>▼ LOWER</Text>
-          </Animated.View>
-        </>
+        </View>
       ) : null}
+      {/* The drag stamps follow a finger; a remote has none, and they doubled
+          up with the stamp above as the card flew. */}
+      {isTV ? null : (
+        <>
+        <Animated.View style={[styles.stamp, styles.stampLeft, { borderColor: color.positive }, fair]} pointerEvents="none">
+          <Text style={[styles.stampText, { color: color.positive }]}>FAIR</Text>
+        </Animated.View>
+        <Animated.View style={[styles.stamp, styles.stampRight, { borderColor: color.negative }, off]} pointerEvents="none">
+          <Text style={[styles.stampText, { color: color.negative }]}>OFF</Text>
+        </Animated.View>
+        {phase === 'which' ? (
+          <>
+            <Animated.View style={[styles.stamp, styles.stampTop, { borderColor: color.positive }, higher]} pointerEvents="none">
+              <Text style={[styles.stampText, { color: color.positive }]}>▲ HIGHER</Text>
+            </Animated.View>
+            <Animated.View style={[styles.stamp, styles.stampBottom, { borderColor: color.negative }, lower]} pointerEvents="none">
+              <Text style={[styles.stampText, { color: color.negative }]}>▼ LOWER</Text>
+            </Animated.View>
+          </>
+        ) : null}
+        </>
+      )}
     </Animated.View>
   );
 }
 
 /** The next card, waiting underneath and rising to meet the finger. */
 function BackCard({ card, width, height, tx, ty }: CardProps) {
+  // TV: each new card deals in from below rather than appearing in place.
+  const dealt = useSharedValue(isTV ? 0 : 1);
+  useEffect(() => {
+    if (isTV) dealt.value = withSpring(1, { damping: 16, stiffness: 140, reduceMotion: ReduceMotion.System });
+  }, [dealt]);
   const rise = useAnimatedStyle(() => {
     const travel = Math.min(1, Math.max(Math.abs(tx.value), Math.abs(ty.value)) / (width * 0.8));
     return {
-      opacity: 0.55 + travel * 0.45,
-      transform: [{ scale: 0.93 + travel * 0.07 }, { translateY: 14 - travel * 14 }],
+      opacity: (0.55 + travel * 0.45) * dealt.value,
+      transform: [{ scale: 0.93 + travel * 0.07 }, { translateY: 14 - travel * 14 + (1 - dealt.value) * 90 }],
     };
   });
   return (
@@ -457,7 +572,11 @@ function Face({ card, asking }: { card: BootCard; asking: boolean }) {
   const wash2 = team.color2 || wash;
   return (
     <View style={[styles.face, { borderColor: `${wash}99` }]}>
-      <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
+      {/* In a wrapper the size of the face. An Svg sized "100%" directly in
+          the padded face takes the padding off its size and stops short --
+          a band of bare card down the right and along the bottom. */}
+      <View style={styles.wash} pointerEvents="none">
+      <Svg width="100%" height="100%">
         <Defs>
           <LinearGradient id={`gc-${card.id}`} x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0" stopColor={wash} stopOpacity="0.6" />
@@ -467,6 +586,7 @@ function Face({ card, asking }: { card: BootCard; asking: boolean }) {
         </Defs>
         <Rect x="0" y="0" width="100%" height="100%" fill={`url(#gc-${card.id})`} />
       </Svg>
+      </View>
       <View style={styles.faceTop}>
         <View style={[styles.position, { borderColor: `${accent}80`, backgroundColor: `${accent}22` }]}>
           <Text style={[styles.positionText, { color: accent }]}>{card.position}</Text>
@@ -558,6 +678,42 @@ function SkipButton({ onPress, label = 'Don’t know' }: { onPress: () => void; 
     >
       {({ hovered }: PressState) => <Text style={[styles.skipText, hovered && { color: color.text }]}>{label}</Text>}
     </Pressable>
+  );
+}
+
+/**
+ * TV: the remote's touch surface in miniature, with a fingertip showing the
+ * swipe the deck is waiting for. One Reanimated repeat on the UI thread.
+ */
+function RemoteHint({ phase }: { phase: Phase }) {
+  const t = useSharedValue(0);
+  useEffect(() => {
+    t.value = 0;
+    t.value = withRepeat(
+      withSequence(withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.cubic) }), withDelay(500, withTiming(0, { duration: 0 }))),
+      -1,
+      false,
+      undefined,
+      ReduceMotion.System,
+    );
+  }, [phase, t]);
+  const finger = useAnimatedStyle(() => {
+    const travel = (t.value - 0.5) * 34;
+    const fade = Math.sin(Math.PI * t.value);
+    return {
+      opacity: fade,
+      transform: phase === 'judge' ? [{ translateX: travel }] : [{ translateY: -travel }],
+    };
+  });
+  return (
+    <View style={styles.remoteRow} {...DECORATIVE}>
+      <View style={styles.remotePad}>
+        <Animated.View style={[styles.remoteDot, finger]} />
+      </View>
+      <Text style={styles.remoteText}>
+        {phase === 'judge' ? '→ Fair     ← Off     Click: pass' : '↑ Higher     ↓ Lower     Click: fair'}
+      </Text>
+    </View>
   );
 }
 
@@ -669,6 +825,32 @@ const styles = themed(() =>
     },
     chipValue: { fontFamily: font.bodyBold, fontSize: 14, color: color.text, ...tabular },
     chipLabel: { fontFamily: font.label, fontSize: 10, letterSpacing: tracking.wide, color: color.textDim },
+    wash: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+    tvColumn: { width: '100%', maxWidth: 620, alignSelf: 'center' },
+    tvDeck: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.xxxl, marginTop: space.sm },
+    tvUnder: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.xxl, marginTop: space.md },
+    slamSeat: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+    slam: {
+      borderWidth: 5,
+      borderRadius: radius.lg,
+      paddingHorizontal: space.xl,
+      paddingVertical: space.sm,
+      backgroundColor: color.scrim,
+    },
+    slamText: { fontFamily: font.display, fontSize: 54, letterSpacing: tracking.wider },
+    remoteRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.md },
+    remotePad: {
+      width: 56,
+      height: 56,
+      borderRadius: 16,
+      borderWidth: 1.5,
+      borderColor: color.lineBright,
+      backgroundColor: color.scrim,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    remoteDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: color.text },
+    remoteText: { fontFamily: font.label, fontSize: 15, letterSpacing: tracking.normal, color: color.silver },
     stamp: {
       position: 'absolute',
       borderWidth: 3,

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { pressVerb } from '@/features/tv/platform';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { Pressable } from '@/components/Pressable';
 import { useRouter } from 'expo-router';
@@ -182,7 +183,7 @@ function GameCard({
                   pressed && { opacity: 0.85 },
                 ]}
                 accessibilityRole="button"
-                accessibilityLabel={`${pick.slot}. ${pick.name}. ${pick.year} ${franchise(pick.franchiseId).name}. Rating ${pick.rating.toFixed(1)}. Tap for the card.`}
+                accessibilityLabel={`${pick.slot}. ${pick.name}. ${pick.year} ${franchise(pick.franchiseId).name}. Rating ${pick.rating.toFixed(1)}. ${pressVerb} for the card.`}
               >
                 <Text
                   style={[

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { pressVerb } from '@/features/tv/platform';
 import { StyleSheet, Text, View } from 'react-native';
 import { Pressable } from '@/components/Pressable';
 import { fetchLeaderboard, isBackendConfigured, type LeaderboardRow } from '@/services/supabase';
@@ -81,7 +82,7 @@ export function LeaderboardStrip({ onPress }: { onPress: () => void }) {
 
       <Text style={styles.footer}>
         {online
-          ? 'Tap to see the full board'
+          ? `${pressVerb} to see the full board`
           : failed
             ? "Couldn't reach the global board — showing yours"
             : 'Global rankings need a connection'}

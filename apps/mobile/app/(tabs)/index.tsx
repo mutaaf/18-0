@@ -27,6 +27,8 @@ import { GetTheApp } from '@/components/GetTheApp';
 import { OnWatch } from '@/components/OnWatch';
 import { LeaderboardStrip } from '@/components/LeaderboardStrip';
 import { Panel } from '@/components/Panel';
+import { TVHome } from '@/features/tv/TVHome';
+import { isTV } from '@/features/tv/platform';
 import { track } from '@/features/telemetry';
 import { adsOn } from '@/features/ads';
 import { AD_PRIVACY_URL, SLOT_HOME } from '@/features/ads-policy';
@@ -223,6 +225,37 @@ export default function Home() {
    * GamedayHero reads, so the two now flip in the same render.
    */
   const marquee = useFlag('gameday') && gamedayMarqueeDay() !== null;
+
+  // A TV gets a front page of its own: a hero and shelves, everything above
+  // the fold (features/tv/TVHome.tsx). Every decision on it is this screen's.
+  if (isTV) {
+    return (
+      <Screen maxWidth={layout.maxWidth}>
+        <TVHome
+          inProgress={inProgress}
+          filled={game.filled}
+          mode={game.mode}
+          quickMode={quickMode}
+          quickKind={quickKind}
+          ranked={ranked}
+          rankedOffered={isBackendConfigured}
+          opening={opening}
+          stats={stats}
+          gameday={marquee ? gamedayMarqueeDay() : null}
+          onStart={(mode) => start(mode, { ranked })}
+          onResume={resume}
+          onDiscard={discard}
+          onToggleRanked={() =>
+            setRanked((was: boolean) => {
+              useGameStore.getState().setPreferRanked(!was);
+              return !was;
+            })
+          }
+          onGameday={(day) => void startGameday(day)}
+        />
+      </Screen>
+    );
+  }
 
   /**
    * The headline size, measured rather than guessed.

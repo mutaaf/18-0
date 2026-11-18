@@ -75,6 +75,20 @@ module.exports = {
       // StoreKit 2 for the respin packs (docs/respins.md). Its iOS side is a
       // Swift package the Podfile pulls; the store code only loads on iOS.
       'expo-iap',
+      // The Apple TV's sound effects (src/features/tv/sound.ts); a phone links
+      // it and never loads it. Listed only to say what it may not add: no
+      // background audio mode (App Review asks why a game wants one) and no
+      // record permission on Android. iOS still needs a microphone string
+      // because the library's recorder is in the binary; nothing calls it.
+      [
+        'expo-audio',
+        {
+          microphonePermission: '17-0 never records audio. Its sound library asks for this; nothing in the app uses it.',
+          recordAudioAndroid: false,
+          enableBackgroundPlayback: false,
+          enableBackgroundRecording: false,
+        },
+      ],
       [
         'expo-splash-screen',
         {

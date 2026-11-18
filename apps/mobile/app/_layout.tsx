@@ -15,6 +15,7 @@ import { FoldProvider } from '@/features/fold';
 import { TVSafeArea, TVStage } from '@/features/tv/Stage';
 import { useTVMenuKey } from '@/features/tv/menu-key';
 import { isTV } from '@/features/tv/platform';
+import { warmSounds } from '@/features/tv/sound';
 import { startStatLines } from '@/features/stat-lines';
 import { useThemeFlagGuard } from '@/features/theme-flag';
 import { Rajdhani_600SemiBold, Rajdhani_700Bold } from '@expo-google-fonts/rajdhani';
@@ -80,6 +81,8 @@ export default function RootLayout() {
     // Marquee, on the web build at 18-0.co only (features/ads-policy.ts). An
     // async cross-origin script; with no fill every call resolves at once.
     startAds();
+    // Apple TV: the sound effects, loaded before the first spin needs one.
+    warmSounds();
   }, []);
 
   // App Store transactions the server never confirmed are redeemed at launch
