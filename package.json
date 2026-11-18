@@ -18,7 +18,8 @@
     "verify:transfer": "node scripts/verify/transfer.mjs",
     "verify:builds": "bash scripts/verify/builds.sh",
     "verify:tv": "bash scripts/verify/tv.sh",
-    "pack:extension": "bash scripts/pack-extension.sh"
+    "pack:extension": "bash scripts/pack-extension.sh",
+    "clips": "node scripts/clips.mjs"
   },
   "packageManager": "pnpm@10.27.0",
   "pnpm": {
@@ -26,5 +27,8 @@
       "@shopify/react-native-skia",
       "esbuild"
     ]
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
   }
 }
