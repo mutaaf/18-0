@@ -83,3 +83,6 @@ apps/mobile/public/canvaskit.wasm
 
 # Lobby renders: reproducible from store/lobby.json + raw captures (lobby build)
 store/lobby/out/
+
+# Short-form clips (npm run clips): takes, cuts, QA frames. Reproducible from store/clips/clips.json
+dist-clips/

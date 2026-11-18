@@ -1,0 +1,245 @@
+{
+  "_doc": "Short-form clips (npm run clips; scripts/clips.mjs). Segments cut takes from a mark ('spin0', 'reveal+1.2') for a length at a speed; caption times are seconds or '<segment>:<mark>[+-s]'. Caption lines: at most 2, at most 5 words, *word* = accent; at: top | mid | low. Every caption must say what the game really does: each record shown is the app's own output for that season, and a caption may only repeat it. No dashes in captions (16-1 is a record, written with a hyphen). No club names or marks: the app shows cities and abbreviations only, and the clips add none.",
+  "size": {
+    "width": 1080,
+    "height": 1920
+  },
+  "style": {
+    "fonts": [
+      {
+        "family": "Rajdhani",
+        "file": "node_modules/@expo-google-fonts/rajdhani/700Bold/Rajdhani_700Bold.ttf",
+        "weight": 700
+      },
+      {
+        "family": "Montserrat",
+        "file": "node_modules/@expo-google-fonts/montserrat/800ExtraBold/Montserrat_800ExtraBold.ttf",
+        "weight": 800
+      }
+    ],
+    "font": "'Rajdhani', sans-serif",
+    "weight": 700,
+    "size": 118,
+    "minSize": 96,
+    "stroke": 18,
+    "tracking": "0.01em",
+    "accent": "#FFB400",
+    "captionTop": 300
+  },
+  "endCard": {
+    "mark": "<div style=\"font-family:Rajdhani;font-weight:700;font-size:200px;line-height:.9;-webkit-text-stroke:14px #000;paint-order:stroke fill\">17<span style=\"color:#FFB400\">-</span>0</div>",
+    "kicker": "Play free at",
+    "kickerSize": 112,
+    "url": "18-0.co",
+    "urlSize": 118,
+    "urlFont": "'Rajdhani', sans-serif",
+    "urlWeight": 700,
+    "pill": "#5DBB46",
+    "pillText": "#06122e",
+    "subFont": "'Montserrat', sans-serif",
+    "sub": "In your browser. No account.",
+    "seconds": 1.8
+  },
+  "clips": [
+    {
+      "id": "tg-heartbreak",
+      "hook": "payoff first: a Thanksgiving Gameday season revealed at 16-1",
+      "segments": [
+        {
+          "take": "gameday-a",
+          "from": "reveal+1.7",
+          "to": "reveal+3.5"
+        },
+        {
+          "take": "gameday-a",
+          "from": "marquee",
+          "to": "enter+0.2"
+        },
+        {
+          "take": "gameday-a",
+          "from": "spin0",
+          "to": "complete+0.4",
+          "speed": 1.9
+        },
+        {
+          "take": "gameday-a",
+          "from": "reveal",
+          "to": "reveal+3.4"
+        }
+      ],
+      "captions": [
+        {
+          "lines": [
+            "*16-1*",
+            "one game short"
+          ],
+          "start": 0,
+          "end": "1:marquee",
+          "at": "low"
+        },
+        {
+          "lines": [
+            "Thanksgiving *Gameday*"
+          ],
+          "start": "1:marquee",
+          "end": "2:spin0",
+          "at": "low"
+        },
+        {
+          "lines": [
+            "Picks from today's *six* teams"
+          ],
+          "start": "2:spin0",
+          "end": "2:spin3",
+          "at": "low"
+        },
+        {
+          "lines": [
+            "One spin, one *pick*"
+          ],
+          "start": "2:spin3",
+          "end": "2:complete",
+          "at": "low"
+        },
+        {
+          "lines": [
+            "Can you go *17-0*?"
+          ],
+          "start": "3:reveal",
+          "at": "low"
+        }
+      ]
+    },
+    {
+      "id": "tg-wheel",
+      "hook": "the wheel landing on one of the six Thanksgiving franchises",
+      "segments": [
+        {
+          "take": "gameday-b",
+          "from": "spin1+0.35",
+          "to": "landed1+1.6"
+        },
+        {
+          "take": "gameday-b",
+          "from": "marquee+0.6",
+          "to": "enter+0.2"
+        },
+        {
+          "take": "gameday-b",
+          "from": "spin2",
+          "to": "complete+0.4",
+          "speed": 1.6
+        },
+        {
+          "take": "gameday-b",
+          "from": "reveal",
+          "to": "reveal+3.6"
+        }
+      ],
+      "captions": [
+        {
+          "lines": [
+            "Lands on today's *six* teams"
+          ],
+          "start": 0,
+          "end": "1:marquee+0.6",
+          "at": "low"
+        },
+        {
+          "lines": [
+            "Thursday's *three* games"
+          ],
+          "start": "1:marquee+0.6",
+          "end": "2:spin2",
+          "at": "low"
+        },
+        {
+          "lines": [
+            "Spin, then take *one*"
+          ],
+          "start": "2:spin2",
+          "end": "2:spin4",
+          "at": "low"
+        },
+        {
+          "lines": [
+            "Live with *every* pick"
+          ],
+          "start": "2:spin4",
+          "end": "2:complete",
+          "at": "low"
+        },
+        {
+          "lines": [
+            "*13-4* on Thanksgiving"
+          ],
+          "start": "3:reveal+0.6",
+          "at": "low"
+        }
+      ]
+    },
+    {
+      "id": "rookie-elite",
+      "hook": "payoff first: a Rookie season revealed at 13-4, ratings on screen",
+      "segments": [
+        {
+          "take": "rookie",
+          "from": "reveal+1.7",
+          "to": "reveal+3.4"
+        },
+        {
+          "take": "rookie",
+          "from": "ready",
+          "to": "complete+0.4",
+          "speed": 1.45
+        },
+        {
+          "take": "rookie",
+          "from": "reveal",
+          "to": "reveal+3.4"
+        }
+      ],
+      "captions": [
+        {
+          "lines": [
+            "*13-4* from seven spins"
+          ],
+          "start": 0,
+          "end": "1:ready",
+          "at": "low"
+        },
+        {
+          "lines": [
+            "Spin a team and *era*"
+          ],
+          "start": "1:ready",
+          "end": "1:spin2",
+          "at": "low"
+        },
+        {
+          "lines": [
+            "Every rating on *screen*"
+          ],
+          "start": "1:spin2",
+          "end": "1:spin5",
+          "at": "low"
+        },
+        {
+          "lines": [
+            "Seven slots to *fill*"
+          ],
+          "start": "1:spin5",
+          "end": "1:complete",
+          "at": "low"
+        },
+        {
+          "lines": [
+            "Can you go *17-0*?"
+          ],
+          "start": "2:reveal",
+          "at": "low"
+        }
+      ]
+    }
+  ]
+}
