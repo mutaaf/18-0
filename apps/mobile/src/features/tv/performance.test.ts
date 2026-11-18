@@ -25,7 +25,7 @@ describe('Apple TV performance (docs/apple-tv.md)', () => {
     expect(flags.ANDROID_SYNCHRONOUSLY_UPDATE_UI_PROPS).toBe(true);
   });
 
-  it('the focus language animates only props Reanimated can apply without a commit', () => {
+  it('the focus language animates transform and opacity only', () => {
     // The synchronous path takes a view only when every prop it animates is on
     // Reanimated's list (ReanimatedModuleProxy.cpp, `synchronousPropNames`).
     // One layout prop -- a width, a margin, a `top` -- sends the view, and the
@@ -33,7 +33,11 @@ describe('Apple TV performance (docs/apple-tv.md)', () => {
     const source = read('src/components/Pressable.tsx');
     const styles = [...source.matchAll(/useAnimatedStyle\(\(\) => \(\{([\s\S]*?)\}\)\)/g)].map((m) => m[1]!);
     expect(styles.length).toBeGreaterThan(0);
-    const allowed = new Set(['transform', 'opacity', 'shadowColor', 'shadowOpacity', 'shadowRadius', 'shadowOffset']);
+    // Not shadows, either, though Reanimated can apply them without a commit:
+    // on a real Apple TV an animated shadow with no shadowPath is an offscreen
+    // render per frame. The simulator renders on the Mac's GPU and never showed
+    // it; TestFlight build 23 on hardware did, as remote lag across the app.
+    const allowed = new Set(['transform', 'opacity']);
     for (const body of styles) {
       // Top-level keys only: what is inside shadowOffset or a transform is not a prop.
       const flat = body.replace(/\{[^{}]*\}/g, '').replace(/\[[^[\]]*\]/g, '');
@@ -111,7 +115,24 @@ describe('Apple TV performance (docs/apple-tv.md)', () => {
     expect(source).not.toMatch(/status: s\.status/);
   });
 
-  it('the turf ticks every other frame on a TV', () => {
-    expect(read('src/features/gpu/clock.ts')).toMatch(/const STRIDE = isTV \? 2 : 1;/);
+  it('the shaders hold still on a TV', () => {
+    // Drawn on the main thread tvOS also runs focus on, at 4K, by an A-series GPU.
+    const source = read('src/features/gpu/clock.ts');
+    expect(source).toMatch(/const STILL = isTV;/);
+    expect(source).toMatch(/const running = !STILL &&/);
+  });
+
+  it('a focus move makes no sound and mounts no clipped sheen', () => {
+    // A sound per remote press was an audio seek and play on the JS thread; a
+    // sheen clipped to a rounded rim was a mask pass per frame on hardware.
+    const source = read('src/components/Pressable.tsx');
+    expect(source).not.toMatch(/cue\(/);
+    expect(source).not.toMatch(/overflow: 'hidden'/);
+    expect(source).not.toMatch(/experimental_backgroundImage/);
+  });
+
+  it('the sound effects load after launch, not in front of it', () => {
+    const source = read('src/features/tv/sound.ts');
+    expect(source).toMatch(/setTimeout\(next, 2500\)/);
   });
 });

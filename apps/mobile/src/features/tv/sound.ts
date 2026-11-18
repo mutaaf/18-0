@@ -110,14 +110,26 @@ export function cue(name: Cue): void {
   }
 }
 
-/** Loads every cue up front, so the first spin's whoosh is not late. TV only. */
+/**
+ * Loads the cues ahead of the first spin, one at a time after launch. TV only.
+ *
+ * Each player is an AVPlayer and its item, made on the main thread. Fourteen
+ * in the launch effect was fourteen in a row in front of the first frame the
+ * remote could use, which a real Apple TV felt and the simulator did not. So
+ * they wait until the app is up, then load one per beat.
+ */
 export function warmSounds(): void {
   if (!isTV) return;
-  for (const name of Object.keys(sources()) as Cue[]) {
+  const queue = (Object.keys(sources()) as Cue[]).filter((name) => name !== 'focus');
+  const next = () => {
+    const name = queue.shift();
+    if (!name) return;
     try {
       player(name);
     } catch {
       return;
     }
-  }
+    setTimeout(next, 250);
+  };
+  setTimeout(next, 2500);
 }

@@ -133,11 +133,13 @@ disc keep inside it.
 
 ## Sound
 
-`features/tv/sound.ts` plays fourteen cues on a TV and nothing anywhere else:
-focus moves (quiet, rate-limited), the spin's whoosh and reel clicks, the
+`features/tv/sound.ts` plays cues on a TV and nothing anywhere else: the
+spin's whoosh and reel clicks, the
 landing, a pick locking in, the record (with a fanfare for 17-0 and a falling
 sting for perfection denied), Gut Check's fair, off and pass, a round's end,
-and broadcast graphics wiping on. `expo-audio` links on tvOS and is required
+and broadcast graphics wiping on. A focus move is silent: it was a cue once,
+and an audio seek and play per remote press (see Real hardware). The players
+load one per quarter second after launch rather than in front of it. `expo-audio` links on tvOS and is required
 only by that module (`native-imports.test.ts`). Its config plugin is listed in
 `app.config.js` only to switch off background audio and the Android record
 permission.
@@ -280,11 +282,36 @@ xcrun xctrace record --device <udid> --template 'Time Profiler' \
   GPU; the cuts above are proportional there, but the absolute cost of a focus
   move, a spin landing (a hundred rows mounting) and the turf at 30 frames a
   second has not been watched on one.
-- **GPU time.** The simulator draws with the Mac's GPU, so the turf, the
-  fireworks and the focus shadows (a `shadowRadius` with no path is an
-  offscreen pass per frame) are invisible to these measurements. Instruments'
+- **GPU time.** The simulator draws with the Mac's GPU, so GPU work (the
+  fireworks; the turf and the focus shadows until Real hardware, below) is
+  invisible to these measurements. Instruments'
   Animation Hitches on a device is the check.
 - **Thermal and memory pressure** over a long session on 2 GB.
+
+### Real hardware
+
+The first TestFlight build with the overhaul (23, before the pass above) was
+slow everywhere on a real Apple TV: presses lagged, animations stuttered,
+screens and launch were slow. The simulator had not shown it, because the
+expensive parts were GPU and AVFoundation work that the Mac does for free.
+What was taken out, and what a test keeps out (`performance.test.ts`):
+
+- **Animated shadows.** The focus lift animated `shadowOpacity` and
+  `shadowOffset`. With no `shadowPath`, Core Animation renders a shadow
+  offscreen from the layer's alpha, every frame the layer changes. Focus is
+  now transform and opacity only, and the HUD panels and the broadcast record
+  card dropped theirs.
+- **The specular sweep.** A gradient band clipped inside a rounded rim: a mask
+  pass per frame of every focus. Gone; the rim is unclipped.
+- **A sound per focus move,** and fourteen AVPlayers made in the launch effect.
+- **The shaders.** The turf and the seam hold still on a TV (`STILL` in
+  `features/gpu/clock.ts`). On tvOS they draw on the main thread focus runs
+  on, at 4K.
+- **A layout state per Pressable.** The lift's width is a shared value now,
+  so a hundred rows mounting is one render each, not two.
+
+The rule this leaves: on a TV, animate transform and opacity and nothing else,
+and treat any per-frame GPU effect as guilty until a device says otherwise.
 
 ## Gut Check on the Siri Remote
 
