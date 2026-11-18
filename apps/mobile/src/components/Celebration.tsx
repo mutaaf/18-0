@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, StyleSheet, View } from 'react-native';
 import { useFold } from '@/features/fold';
 import { gpu } from '@/features/gpu';
+import { isTV } from '@/features/tv/platform';
 import { DECORATIVE, color, useWindowSize } from '@/theme';
 
 /**
@@ -53,6 +54,12 @@ interface Piece {
  */
 const ARM_LEAD = 600;
 
+/**
+ * The longest a show runs: the GPU one is capped at nine seconds
+ * (`features/gpu/show.ts`), the view-based confetti ends inside six.
+ */
+const SHOW_CAP = 9_500;
+
 const GOLD = [color.gold, color.goldBright, color.goldDeep, '#FFF1C2', color.ignitionBright];
 
 export function Celebration({
@@ -74,6 +81,7 @@ export function Celebration({
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [armed, setArmed] = useState(at <= 0);
   const [live, setLive] = useState(at <= 0);
+  const [over, setOver] = useState(false);
   const { divisions } = useFold();
 
   // Measured from mount, as every cue on the result screen is. A cue moving
@@ -86,6 +94,17 @@ export function Celebration({
       clearTimeout(go);
     };
   }, [at]);
+
+  // Apple TV: gone once the show is. The overlay is a full-screen view over
+  // the page, and tvOS will not move focus to anything a view covers --
+  // `pointerEvents="none"` does not count, react-native-tvos reports every
+  // plain view as interactive. Left mounted, it cut the result screen in two:
+  // the remote could never cross from Build Another to the roster.
+  useEffect(() => {
+    if (!isTV || !live) return;
+    const end = setTimeout(() => setOver(true), SHOW_CAP);
+    return () => clearTimeout(end);
+  }, [live]);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,7 +135,7 @@ export function Celebration({
     }));
   }, [width, strength, perfect]);
 
-  if (enabled !== true || strength <= 0 || !armed) return null;
+  if (enabled !== true || strength <= 0 || !armed || over) return null;
 
   // The hinge, in window coordinates: shells rise out of it. A book's fold
   // launches from its foot, a tabletop's from the crease up into the top page.

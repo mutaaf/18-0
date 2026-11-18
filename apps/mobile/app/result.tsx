@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { pressVerb } from '@/features/tv/platform';
 import { cue } from '@/features/tv/sound';
+import { FocusPane } from '@/features/tv/FocusPane';
 import { BroadcastReveal, broadcastOn, useRevealUp } from '@/features/tv/hud';
 import { Animated, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Pressable } from '@/components/Pressable';
@@ -792,16 +793,22 @@ export default function Result() {
         {paged ? (
           <SpreadLayout
             spread={spread}
+            // On a TV each page is a focus guide, or left and right could
+            // not cross between them (FocusPane).
             first={
-              <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-                {header}
-                {verdict}
-              </ScrollView>
+              <FocusPane>
+                <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+                  {header}
+                  {verdict}
+                </ScrollView>
+              </FocusPane>
             }
             second={
-              <ScrollView contentContainerStyle={[styles.scroll, styles.scrollSecond]} showsVerticalScrollIndicator={false}>
-                {detail}
-              </ScrollView>
+              <FocusPane>
+                <ScrollView contentContainerStyle={[styles.scroll, styles.scrollSecond]} showsVerticalScrollIndicator={false}>
+                  {detail}
+                </ScrollView>
+              </FocusPane>
             }
           />
         ) : (

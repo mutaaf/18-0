@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Pressable } from '@/components/Pressable';
 import { color, font, radius, space, themed, tracking } from '@/theme';
+import type { TVInitialFocus } from './initial-focus';
 import { useTVPrefs } from './prefs';
 import { cue } from './sound';
 
@@ -10,7 +11,7 @@ import { cue } from './sound';
  * Each row is one focus target, the whole width of the panel: a 50-point
  * switch at the end of a line of copy is a small thing to find from a sofa.
  */
-export function TVSettings() {
+export function TVSettings({ initialFocus }: { initialFocus?: TVInitialFocus }) {
   const prefs = useTVPrefs();
   return (
     <View style={styles.group}>
@@ -19,6 +20,7 @@ export function TVSettings() {
         title="Sound effects"
         copy="Spins, picks, the record, Gut Check. Original sounds, made for this game."
         on={prefs.sound}
+        initialFocus={initialFocus}
         onPress={() => {
           prefs.set({ sound: !prefs.sound });
           // Heard only when it has just been turned on.
@@ -59,15 +61,25 @@ function Row({
   on,
   onPress,
   inset,
+  initialFocus,
 }: {
   title: string;
   copy: string;
   on: boolean;
   onPress: () => void;
   inset?: boolean;
+  /** The page's first focus, from `useTVInitialFocus`. */
+  initialFocus?: TVInitialFocus;
 }) {
   return (
-    <Pressable onPress={onPress} role="switch" aria-checked={on} aria-label={title} style={[styles.row, inset && styles.inset]}>
+    <Pressable
+      onPress={onPress}
+      {...initialFocus}
+      role="switch"
+      aria-checked={on}
+      aria-label={title}
+      style={[styles.row, inset && styles.inset]}
+    >
       <View style={styles.text}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.copy}>{copy}</Text>
