@@ -214,7 +214,7 @@ jobs:
           set -euo pipefail
           SINCE=()
           if git rev-parse -q --verify refs/tags/testflight >/dev/null; then SINCE=(--since testflight); fi
-          node scripts/store/beta-release.mjs --build "${{ steps.build.outputs.number }}" "${SINCE[@]}"
+          node scripts/store/beta-release.mjs --build "${{ steps.build.outputs.number }}" ${SINCE[@]+"${SINCE[@]}"}
           git tag -f testflight HEAD
           git push -f origin refs/tags/testflight
 
