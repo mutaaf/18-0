@@ -2,7 +2,7 @@
  * Push the store listing to App Store Connect.
  *
  *   set -a; . .local/asc.env; set +a
- *   node scripts/store/push-listing.mjs [--dry-run] [--version 1.0]
+ *   node scripts/store/push-listing.mjs [--dry-run] [--version 1.0] [--platform tvos]
  *                                       [--whats-new-from-notes | --whats-new "…"
  *                                        | --whats-new-file notes.txt]
  *
@@ -27,6 +27,11 @@
  * from `apps/mobile/store/whats-new.json`, the same text the app's What's New
  * sheet shows and release.mjs writes into the tag. The other two flags stay
  * for a one-off correction, and a correction belongs in that file too.
+ *
+ * `--platform tvos` writes the Apple TV version instead. The name, subtitle and
+ * age rating belong to the app, not to a platform, so they are shared; the
+ * version text is `version` with `tvVersion` laid over it, because a TV
+ * description that talks about tapping a phone is a description that lies.
  */
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -98,6 +103,12 @@ const value = (name) => {
 
 const dryRun = flag('--dry-run');
 const wantVersion = value('--version');
+const platformArg = value('--platform') ?? 'ios';
+const PLATFORM = { ios: 'IOS', tvos: 'TV_OS' }[platformArg];
+if (!PLATFORM) {
+  console.error(`--platform takes ios or tvos, not ${platformArg}.`);
+  process.exit(1);
+}
 
 if (['--whats-new', '--whats-new-file', '--whats-new-from-notes'].filter(flag).length > 1) {
   console.error('Pass one of --whats-new-from-notes, --whats-new or --whats-new-file.');
@@ -125,6 +136,15 @@ const whatsNew = flag('--whats-new-from-notes')
     : value('--whats-new');
 
 const listing = JSON.parse(await readFile(LISTING, 'utf8'));
+if (PLATFORM === 'TV_OS') {
+  if (!listing.tvVersion) {
+    console.error('listing.json has no tvVersion; the iPhone copy is not written for a TV.');
+    process.exit(1);
+  }
+  listing.version = Object.fromEntries(
+    Object.entries(listing.version).map(([locale, fields]) => [locale, { ...fields, ...listing.tvVersion[locale] }]),
+  );
+}
 
 let failed = 0;
 const check = (label, ok, detail = '') => {
@@ -301,13 +321,13 @@ if (info && listing.ageRating) {
   }
 }
 
-console.log(`\nVERSION${dryRun ? '  (dry run)' : ''}`);
+console.log(`\nVERSION ${PLATFORM}${dryRun ? '  (dry run)' : ''}`);
 
 // Newest first, by creation rather than by version string: "1.10" sorts below
 // "1.9" as text, and there is no reason to write a semver comparator when Apple
 // already records the order the versions were made in.
 const allVersions = (
-  await ascAll(`/v1/apps/${APP_ID}/appStoreVersions?filter[platform]=IOS&limit=50`)
+  await ascAll(`/v1/apps/${APP_ID}/appStoreVersions?filter[platform]=${PLATFORM}&limit=50`)
 ).sort((a, b) => b.attributes.createdDate.localeCompare(a.attributes.createdDate));
 const versions = allVersions.filter((candidate) => EDITABLE.has(stateOf(candidate)));
 const pick = (list) => (wantVersion
