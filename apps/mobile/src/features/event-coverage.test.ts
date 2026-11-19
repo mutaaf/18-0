@@ -118,6 +118,7 @@ describe('the health dashboard', () => {
     'tv_jank',
     'memory_warning',
     'app_background_exit',
+    'ranked_completion_deferred',
   ];
   for (const name of MUST_BE_READ) {
     it(`has a tile for ${name}`, () => expect(read.has(name)).toBe(true));

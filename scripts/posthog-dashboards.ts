@@ -224,6 +224,11 @@ const TILES: Tile[] = [
     alert: { upper: 4000, interval: 'daily', why: 'LCP p75 over 4 s: the site is poor by Google\'s measure.' },
   },
   {
+    name: 'Ranked completions deferred to the outbox',
+    description: 'ranked_completion_deferred by outcome: queued in play, then scored or dropped by the outbox. Queued rising without scored following is seasons that never reach the board.',
+    query: trend([ev('ranked_completion_deferred')], { breakdown: 'outcome', display: 'ActionsBar' }),
+  },
+  {
     name: 'Screen settled p95 (ms) by route',
     description: 'screen_ready.settled_ms: from the navigation to the JS thread going idle on the new screen. The table below has first-frame and p50 too.',
     query: trend([ev('screen_ready', 'p95', { property: 'settled_ms', where: [{ key: 'basis', value: 'action' }] })], { breakdown: 'route' }),

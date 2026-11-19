@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Limiter, fingerprint, normalise, parseStack, scrub } from './errors';
 import { downgradeCause } from './causes';
+import { DIVERGED_NOTE } from '@/features/ranked-rules';
+import { NOTE_CLOSED_BEFORE_OPENING, NOTE_PICKS_DROPPED } from '@/state/restore';
 import { clsFromShifts, inpFromEvents, rate } from './vitals-math';
 
 describe('an error report carries nothing about a person', () => {
@@ -121,7 +123,7 @@ describe('web vitals', () => {
 
 describe('a downgrade is sent as a cause, never as the sentence', () => {
   // Every sentence the game can hand `downgrade()` today, from ranked.ts,
-  // start-game.ts and play.tsx. A new one lands in `other` until it is added.
+  // start-game.ts, play.tsx, ranked-rules.ts and state/restore.ts. A new one lands in `other` until it is added.
   const cases: [string, string][] = [
     ['The server did not answer in time.', 'timeout'],
     ['Could not reach the server. This season stayed on this device.', 'offline'],
@@ -138,6 +140,11 @@ describe('a downgrade is sent as a cause, never as the sentence', () => {
     ['That player was not part of this spin.', 'refused'],
     ['The server could not record that. Nothing was saved.', 'refused'],
     ['The server refused that.', 'refused'],
+    // Imported rather than copied, so rewording one of these fails here
+    // instead of quietly turning into `other` on the dashboard.
+    [DIVERGED_NOTE, 'diverged'],
+    [NOTE_CLOSED_BEFORE_OPENING, 'interrupted'],
+    [NOTE_PICKS_DROPPED, 'picks_dropped'],
   ];
   for (const [note, cause] of cases) {
     it(`"${note.slice(0, 40)}" is ${cause}`, () => expect(downgradeCause(note)).toBe(cause));
