@@ -1,5 +1,6 @@
 import { DATASET } from '@17-0/data';
 import { forwardToBoxOffice } from '@/features/boxoffice';
+import { cleanProps } from '@/features/diagnostics/guard';
 
 /**
  * Gameplay telemetry (PRFAQ §33).
@@ -103,7 +104,15 @@ export type EventName =
   /** Every Edge Function call and ranked insert: how long, and how it ended. */
   | 'server_call'
   /** A ranked season fell back to unranked, wherever in the game it happened. */
-  | 'season_downgraded';
+  | 'season_downgraded'
+  /** A route change to the new screen's first frame and to the JS thread going idle, once per navigation. */
+  | 'screen_ready'
+  /** Frame hitches and JS delay in short windows after touches and navigations, one summary per screen. Phones, tablets and the web; the TV has `tv_jank`. */
+  | 'ui_jank'
+  /** iOS said memory is low. Rate-limited; the count rides on the next one. */
+  | 'memory_warning'
+  /** The previous launch ended while in the background: usually the OS reclaiming it, sometimes the player swiping it away. */
+  | 'app_background_exit';
 
 export interface TelemetryEvent {
   readonly name: EventName;
@@ -165,10 +174,17 @@ export function track(
   props: Record<string, string | number | boolean> = {},
   at: number = Date.now(),
 ): void {
+  // Flat primitives and no person-shaped keys (diagnostics/guard.ts): what a
+  // cast or a spread got past the type is dropped here, before the ring, Box
+  // Office or PostHog can see it.
+  const clean = cleanProps(props);
+  if (clean.dropped.length && typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.warn(`[telemetry] ${name}: dropped ${clean.dropped.join(', ')} (not a flat primitive, or looks like PII)`);
+  }
   const event: TelemetryEvent = {
     name,
     at,
-    props: { ...props, dataset: DATASET.version, model: DATASET.ratingModelVersion },
+    props: { ...clean.props, dataset: DATASET.version, model: DATASET.ratingModelVersion },
   };
   ring.push(event);
   if (ring.length > RING_SIZE) ring.shift();

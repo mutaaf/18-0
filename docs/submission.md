@@ -157,7 +157,8 @@ user**, none **used for tracking**.
 | Diagnostics | Other Diagnostic Data | App Functionality, Analytics | Yes | No |
 
 The three Diagnostics rows are the error reports, crash-on-next-launch reports,
-start-up time and server-call timings that `features/diagnostics` sends
+start-up time, screen timings, smoothness after taps, memory warnings and
+server-call timings that `features/diagnostics` sends
 (docs/observability.md). **They must be on the label before a build carrying
 them goes to review**; until then the `diagnostics` flag can be held off in
 PostHog, which stops them on every device without a release. Linked, because

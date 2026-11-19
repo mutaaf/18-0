@@ -8,7 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import { startAds } from '@/features/ads';
 import { startAnalytics } from '@/features/analytics';
-import { startDiagnostics, useDiagnostics } from '@/features/diagnostics';
+import { noteTouch, startDiagnostics, useDiagnostics } from '@/features/diagnostics';
 import { startFlags, useFlag } from '@/features/flags';
 import { startRespinStore } from '@/features/respins';
 import { startRankedOutbox } from '@/features/ranked';
@@ -118,7 +118,7 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={styles.root}>
+    <GestureHandlerRootView style={styles.root} onTouchStart={noteTouch}>
       {/* Pass-throughs except on a television, where the app is laid out on a
           1280 x 720 stage scaled to fill the screen, and the safe area is the
           overscan margin (theme/layout.ts, features/tv/Stage.tsx). */}

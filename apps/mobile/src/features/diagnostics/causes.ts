@@ -18,9 +18,18 @@ export type DowngradeCause =
   | 'gameday_closed'
   | 'challenge_closed'
   | 'refused'
+  /** The device and the server stopped agreeing about the season (`ranked-rules.ts` DIVERGED_NOTE): a move refused for a reason only a disagreement explains. */
+  | 'diverged'
+  /** The app closed before the ranked game finished opening, found on restore (`state/restore.ts`). */
+  | 'interrupted'
+  /** A saved pick is no longer in the dataset and was dropped on restore (`state/restore.ts`). */
+  | 'picks_dropped'
   | 'other';
 
 const RULES: readonly [RegExp, DowngradeCause][] = [
+  [/stopped agreeing about this season/i, 'diverged'],
+  [/closed before the ranked game finished opening/i, 'interrupted'],
+  [/no longer in the game and was taken off your roster/i, 'picks_dropped'],
   [/did not answer in time/i, 'timeout'],
   [/scoring with model/i, 'version_mismatch'],
   [/server scored this/i, 'score_disagreement'],

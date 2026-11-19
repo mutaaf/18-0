@@ -3,6 +3,9 @@ import { useSegments } from 'expo-router';
 import { setRoute } from './context';
 import { installGlobalHandlers, noteRoute } from './global';
 import { watchDowngrades } from './health';
+import { useJankProbe } from './jank';
+import { watchMemory } from './memory';
+import { useScreenTiming } from './screen';
 import { markInteractive } from './startup';
 import { startWebVitals } from './vitals';
 
@@ -18,6 +21,7 @@ import { startWebVitals } from './vitals';
 export { reportError, reportHealth } from './report';
 export { noteServerCall } from './health';
 export { diagnosticsAllowed } from './context';
+export { noteTouch } from './jank';
 
 /**
  * Installed at module scope by the root layout rather than in an effect, so an
@@ -26,6 +30,7 @@ export { diagnosticsAllowed } from './context';
 export function startDiagnostics(): void {
   installGlobalHandlers();
   watchDowngrades();
+  watchMemory();
   startWebVitals();
 }
 
@@ -36,6 +41,10 @@ export function startDiagnostics(): void {
  * The route is the segment *pattern* -- `card/[id]`, `(tabs)/leaderboard` --
  * because that is what a bug is filed against, and because a path would carry
  * the id of whatever card or challenge was open.
+ *
+ * Also the per-screen measurements, which hang off the same route:
+ * `screen_ready` (screen.ts) and `ui_jank` (jank.ts). The probe's touches come
+ * from `noteTouch` on the root view.
  */
 export function useDiagnostics(ready: boolean): void {
   const segments = useSegments();
@@ -47,4 +56,7 @@ export function useDiagnostics(ready: boolean): void {
   useEffect(() => {
     if (ready) markInteractive();
   }, [ready]);
+  const pattern = route || 'index';
+  useScreenTiming(pattern);
+  useJankProbe(pattern);
 }

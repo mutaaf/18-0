@@ -1,4 +1,4 @@
-import { useWindowDimensions } from 'react-native';
+import { Dimensions, useWindowDimensions } from 'react-native';
 import { isTV } from '@/features/tv/platform';
 
 /**
@@ -43,6 +43,16 @@ export function useWindowSize(): { width: number; height: number; scale: number;
   const window = useWindowDimensions();
   if (TV_SCALE === 1) return window;
   return { ...window, width: window.width / TV_SCALE, height: window.height / TV_SCALE };
+}
+
+/**
+ * The device screen's short side, in points, read once and outside React: what
+ * a phone or a tablet *is*, not how its window is laid out (diagnostics'
+ * `device_class`). Never for layout -- that is `useWindowSize`.
+ */
+export function screenShortSide(): number {
+  const screen = Dimensions.get('screen');
+  return Math.min(screen.width, screen.height);
 }
 
 /**

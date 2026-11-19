@@ -28,6 +28,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { SQL_TILES } from './posthog-queries';
 
 const HOST = (process.env.POSTHOG_API_HOST ?? 'https://us.posthog.com').replace(/\/+$/, '');
 const KEY = process.env.POSTHOG_PERSONAL_API_KEY;
@@ -103,6 +104,13 @@ const trend = (
 const funnel = (series: Series[]) => ({
   kind: 'InsightVizNode',
   source: { kind: 'FunnelsQuery', series, dateRange: { date_from: '-14d' }, funnelsFilter: { funnelWindowInterval: 1, funnelWindowIntervalUnit: 'hour' } },
+});
+
+/** A SQL insight: a table from `posthog-queries.ts`. */
+const sql = (query: string) => ({
+  kind: 'DataVisualizationNode',
+  source: { kind: 'HogQLQuery', query },
+  display: 'ActionsTable',
 });
 
 const FATAL: Filter[] = [{ key: '$exception_level', value: 'fatal' }];
@@ -215,6 +223,33 @@ const TILES: Tile[] = [
     ]),
     alert: { upper: 4000, interval: 'daily', why: 'LCP p75 over 4 s: the site is poor by Google\'s measure.' },
   },
+  {
+    name: 'Ranked completions deferred to the outbox',
+    description: 'ranked_completion_deferred by outcome: queued in play, then scored or dropped by the outbox. Queued rising without scored following is seasons that never reach the board.',
+    query: trend([ev('ranked_completion_deferred')], { breakdown: 'outcome', display: 'ActionsBar' }),
+  },
+  {
+    name: 'Screen settled p95 (ms) by route',
+    description: 'screen_ready.settled_ms: from the navigation to the JS thread going idle on the new screen. The table below has first-frame and p50 too.',
+    query: trend([ev('screen_ready', 'p95', { property: 'settled_ms', where: [{ key: 'basis', value: 'action' }] })], { breakdown: 'route' }),
+  },
+  {
+    name: 'Jank reports with a stall, by device class',
+    description: 'ui_jank and tv_jank summaries that saw at least one frame over 50 ms. The hitch-rate table below is the precise read.',
+    query: trend(
+      [
+        ev('ui_jank', 'total', { where: [{ key: 'stalls', value: '0', operator: 'is_not' }] }),
+        ev('tv_jank', 'total', { where: [{ key: 'stalls', value: '0', operator: 'is_not' }] }),
+      ],
+      { breakdown: 'device_class' },
+    ),
+  },
+  {
+    name: 'Memory warnings and background exits',
+    description: 'memory_warning reports (iOS) and launches that found the previous one gone from the background.',
+    query: trend([ev('memory_warning'), ev('app_background_exit')], { breakdown: 'build' }),
+  },
+  ...SQL_TILES.map<Tile>((tile) => ({ name: tile.name, description: tile.description, query: sql(tile.query) })),
   ...ratingFeedbackEvents().map<Tile>((event) => ({
     name: `Rating feedback: ${event}`,
     description: 'How often players tell us a rating looks wrong, by day.',
