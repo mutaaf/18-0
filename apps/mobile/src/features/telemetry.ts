@@ -61,6 +61,7 @@ export type EventName =
   | 'challenge_created'
   | 'challenge_accepted'
   | 'ranked_downgraded'
+  | 'ranked_completion_deferred'
   | 'score_disagreement'
   // Gameday. `version_mismatch` is the server telling us the two sides are on
   // different models -- the cause `score_disagreement` could previously only

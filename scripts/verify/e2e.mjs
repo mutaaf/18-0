@@ -405,6 +405,16 @@ const badShape = await call('complete-game', bob.token, { gameSessionId: 'not-a-
 check('a malformed request is refused without a 500', badShape.status === 400,
   `${badShape.status} ${badShape.body.error ?? ''}`);
 
+// Valid JSON that is not an object. Every handler read `body.gameSessionId` off
+// it, and `null` turned that into a TypeError and a logged crash.
+for (const fn of ['spin', 'select', 'complete-game', 'respin']) {
+  for (const shape of [null, [], 7]) {
+    const odd = await call(fn, bob.token, shape);
+    check(`${fn} refuses a ${JSON.stringify(shape)} body as invalid_json, not a crash`,
+      odd.status === 400 && odd.body.error === 'invalid_json', `${odd.status} ${odd.body.error ?? ''}`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 console.log('\nASSISTED RUNS');
 const carol = await signIn('carol');

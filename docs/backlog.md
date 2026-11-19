@@ -447,6 +447,59 @@ packs live".
 **Still true?** `select count(*) from entitlements` on the hosted database
 says whether anything has been sold yet.
 
+## 17. Hardening: what the 2026-11-18 pass left open
+
+**What was fixed** (one PR, each with a test): every Supabase request now gives
+up after 20s (`features/net/fetch-timeout.ts`) instead of leaving a spinner;
+ranked picks and spins go to the server in the order they were made
+(`features/net/lane.ts`), so a quick Spin no longer overtakes its pick and gets
+`pick_first`; a spin or pick refusal that means the two sides disagree finishes
+the season offline instead of repeating the same notice on every tap, and a
+refused pick reopens its spin (`features/ranked-rules.ts`, `statusFrom`);
+`complete-game` is retried (it replays) and an unconfirmed completion waits in
+an outbox flushed at launch and on foreground (`features/ranked-outbox.ts`); a
+ranked season killed in the background resumes ranked; every persisted store
+(game, history, rating feedback, cache) is validated on launch rather than
+spread over the defaults (`state/restore.ts`); `/card/<bad %>` no longer throws;
+the Edge Functions answer a non-object JSON body with 400 `invalid_json`
+rather than a logged crash.
+
+**Left open, in rough order of impact:**
+
+- **The functions change is not deployed.** `readJsonObject` in
+  `_shared/observability.ts` reaches production only with
+  `supabase functions deploy spin select complete-game respin redeem-purchase`
+  (docs/RUNNING.md). Nothing deploys on merge. Until then the app is fine --
+  only a malformed request sees the difference.
+- **A season killed between the reveal and the history write is missing from
+  the device's history.** `play.tsx` scores locally, awaits the server (up to
+  12s), then calls `record()`. The server side is now covered by the outbox;
+  the local row is not. Fix: record before the network call and patch the
+  entry afterwards. `play.tsx` belongs to the phone-performance work, so this
+  was left rather than rewritten under it.
+- **A permanently refused rating-feedback entry blocks the queue behind it.**
+  `saveRatingFeedback` returns a boolean, so a refusal (an unknown card, a
+  constraint) looks like offline and the flush stops at it on every launch.
+  Make it return `ok | offline | refused` and drop the refused one.
+- **New downgrade sentences land in `other`.** `DIVERGED_NOTE`,
+  `NOTE_CLOSED_BEFORE_OPENING` and `NOTE_PICKS_DROPPED` are not in
+  `features/diagnostics/causes.ts`; add them (and to `errors.test.ts`) so the
+  dashboard can count them.
+- **`complete-game` validates `idempotencyKey` but never compares it** with
+  `game_sessions.idempotency_key`. Harmless today -- completion is single-shot
+  per session and only the owner can call it -- but the key is decorative.
+  Either compare it or stop sending it.
+- **The four CORS checks in `e2e.mjs` cannot pass against a local stack**:
+  the local Kong gateway answers preflights with `*` whatever
+  `ALLOWED_ORIGIN` the functions get. They are checks of the hosted secret;
+  run them against the hosted instance after a deploy.
+- **`useTVPrefs` is not validated on launch.** Four booleans, so the worst a
+  bad value does is a wrong toggle, not a crash; left to the TV work.
+
+**Still true?** `grep -n readJsonObject supabase/functions/*/index.ts` against
+what is deployed (the function logs show `invalid_json` rather than
+`request_crashed` for a `null` body once it is).
+
 ## Gotchas that cost time
 
 - **A service worker caches the dev bundle.** Editing a file and reloading

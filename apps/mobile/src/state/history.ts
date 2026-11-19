@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import type { GameResult, RosterSlot } from '@17-0/domain';
 import type { GameMode } from '@/state/game';
+import { restoreHistory } from '@/state/restore';
 
 /**
  * Completed games and the profile stats derived from them (PRFAQ §22.5, §22.6).
@@ -57,7 +58,12 @@ export const useHistoryStore = create<HistoryState>()(
       remove: (id) => set((s) => ({ games: s.games.filter((g) => g.id !== id) })),
       clear: () => set({ games: [] }),
     }),
-    { name: '18-0.history', storage: createJSONStorage(() => AsyncStorage) },
+    {
+      name: '18-0.history',
+      storage: createJSONStorage(() => AsyncStorage),
+      // One malformed season costs that season, not the Stats tab (restore.ts).
+      merge: (persisted, current) => ({ ...current, games: restoreHistory<HistoryEntry>(persisted) }),
+    },
   ),
 );
 

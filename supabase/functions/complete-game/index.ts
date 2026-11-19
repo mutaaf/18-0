@@ -10,7 +10,7 @@
  * Deploy: supabase functions deploy complete-game
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { audit, beginRequest, corsHeaders, instrument, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
+import { audit, beginRequest, readJsonObject, corsHeaders, instrument, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
 import {
   DEFAULT_SCORING_CONFIG,
   ROSTER_SLOTS,
@@ -125,7 +125,7 @@ Deno.serve(instrument('complete-game', async (req) => {
 
   let body: CompleteRequest;
   try {
-    body = await req.json();
+    body = await readJsonObject(req);
   } catch {
     return json({ error: 'invalid_json' }, 400);
   }
