@@ -477,10 +477,6 @@ rather than a logged crash.
   the local row is not. Fix: record before the network call and patch the
   entry afterwards. `play.tsx` belongs to the phone-performance work, so this
   was left rather than rewritten under it.
-- **A permanently refused rating-feedback entry blocks the queue behind it.**
-  `saveRatingFeedback` returns a boolean, so a refusal (an unknown card, a
-  constraint) looks like offline and the flush stops at it on every launch.
-  Make it return `ok | offline | refused` and drop the refused one.
 - **New downgrade sentences land in `other`.** `DIVERGED_NOTE`,
   `NOTE_CLOSED_BEFORE_OPENING` and `NOTE_PICKS_DROPPED` are not in
   `features/diagnostics/causes.ts`; add them (and to `errors.test.ts`) so the

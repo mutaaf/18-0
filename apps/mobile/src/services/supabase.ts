@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { cached, invalidateIdentity } from '@/features/cache';
 import { fetchWithTimeout } from '@/features/net/fetch-timeout';
+import { sendOutcome, type SendOutcome } from '@/features/rating-feedback-queue';
 
 /**
  * The optional server.
@@ -827,9 +828,9 @@ export async function reportHandle(
 export type RatingVerdict = 'too_low' | 'too_high' | 'fair';
 
 /**
- * Records (or changes) one opinion. True once the server has it, false on
- * anything else -- the caller keeps it queued and tries again later, because a
- * vote made offline is still a vote (invariant 3).
+ * Records (or changes) one opinion. `offline` means keep it queued and try
+ * again later, because a vote made offline is still a vote (invariant 3);
+ * `refused` means the server will never take it and the caller should drop it.
  */
 export async function saveRatingFeedback(input: {
   cardId: string;
@@ -837,11 +838,11 @@ export async function saveRatingFeedback(input: {
   ratingShown: number;
   verdict: RatingVerdict;
   source?: 'result' | 'swipe';
-}): Promise<boolean> {
-  if (!supabase) return false;
-  if (!(await ensureSession())) return false;
+}): Promise<SendOutcome> {
+  if (!supabase) return 'offline';
+  if (!(await ensureSession())) return 'offline';
   const me = await currentUser();
-  if (!me) return false;
+  if (!me) return 'offline';
   const { error } = await supabase.from('rating_feedback').upsert(
     {
       user_id: me.id,
@@ -856,7 +857,7 @@ export async function saveRatingFeedback(input: {
     },
     { onConflict: 'user_id,card_id,model_version' },
   );
-  return !error;
+  return sendOutcome(error);
 }
 
 /** Takes an opinion back. True once nothing of it is left on the server. */
