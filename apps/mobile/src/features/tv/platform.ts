@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { dropShadows } from '@/theme/runtime';
 
 /**
  * True on Apple TV (and Android TV), false everywhere else -- the web included,
@@ -11,6 +12,10 @@ import { Platform } from 'react-native';
  * See docs/apple-tv.md.
  */
 export const isTV: boolean = Platform.isTV === true;
+
+// Layer shadows are an offscreen pass per frame on Apple TV hardware; every
+// themed stylesheet is built without them there (theme/runtime.ts).
+if (isTV) dropShadows();
 
 /**
  * The verb for "press this": "Tap" under a finger, "Select" on the remote.

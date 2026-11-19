@@ -6,8 +6,10 @@ import { ChromeProvider } from '@/components/chrome';
 import { DOCK_HEIGHT } from '@/components/Dock';
 import { InstallBar } from '@/components/InstallBar';
 import { NavBar } from '@/components/NavBar';
+import { TV_TAB_BAR_HEIGHT } from '@/components/TVTabBar';
 import { WhatsNew } from '@/components/WhatsNew';
 import { useNavRail } from '@/features/fold';
+import { isTV } from '@/features/tv/platform';
 import { color, themed, useLayout, useThemeId } from '@/theme';
 
 export default function TabsLayout() {
@@ -23,7 +25,10 @@ export default function TabsLayout() {
   // bottom, and the screens stop short of the rail instead -- by nothing on a
   // Duo, whose safe area already holds that column.
   const chrome = useMemo(
-    () => ({ bottom: rail ? 0 : layout.wide ? DOCK_HEIGHT : 0, right: rail ? rail.reserve : 0 }),
+    () =>
+      isTV
+        ? { bottom: 0, right: 0, top: TV_TAB_BAR_HEIGHT }
+        : { bottom: rail ? 0 : layout.wide ? DOCK_HEIGHT : 0, right: rail ? rail.reserve : 0 },
     [rail, layout.wide],
   );
   return (
@@ -37,6 +42,8 @@ export default function TabsLayout() {
           // so padding it drew bare ground under the dock. Each `Screen`
           // stops its content short instead (`useChrome`).
           sceneStyle: { backgroundColor: color.void },
+          // Tabs out of sight stop rendering on a TV (see the root Stack).
+          freezeOnBlur: isTV,
         }}
       >
         <Tabs.Screen name="games" options={{ title: 'Games' }} />

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { ROSTER_SLOTS } from '@17-0/domain';
 import { DATASET, type Gameday } from '@17-0/data';
 import { Crown } from '@/components/Crown';
@@ -9,7 +9,7 @@ import { Pressable } from '@/components/Pressable';
 import { Reveal } from '@/components/Reveal';
 import { useFlag } from '@/features/flags';
 import { MODE_LABEL, type GameMode } from '@/state/game';
-import { DECORATIVE, color, font, radius, space, tabular, themed, tracking, type PressState } from '@/theme';
+import { DECORATIVE, color, font, radius, space, tabular, teamWash, themed, tracking, type PressState } from '@/theme';
 
 /**
  * The front page, ten feet away.
@@ -268,50 +268,33 @@ function ShelfTile({
   );
 }
 
+/*
+ * The paints are native gradients (CAGradientLayer), not Svg. react-native-svg
+ * rasterises on the CPU, on the main thread the focus engine runs on, and a
+ * tile's paint changes with focus -- so every press on this screen re-drew a
+ * tile's Svg in the middle of its lift. That was the stutter build 26 still
+ * had here on an Apple TV. A gradient layer is drawn by the GPU, and changing
+ * its colours is a property change, not a redraw.
+ */
+
 /** The hero's light: the action colour bleeding in from the left, a floor of navy. */
 function HeroPaint() {
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none" {...DECORATIVE}>
-      <Svg width="100%" height="100%">
-        <Defs>
-          <LinearGradient id="tvHeroWash" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor={color.panelTop} stopOpacity="1" />
-            <Stop offset="0.6" stopColor={color.surface} stopOpacity="0.92" />
-            <Stop offset="1" stopColor={color.void} stopOpacity="0.85" />
-          </LinearGradient>
-          <RadialGradient id="tvHeroGlow" cx="8%" cy="0%" r="70%">
-            <Stop offset="0" stopColor={color.action} stopOpacity="0.32" />
-            <Stop offset="1" stopColor={color.action} stopOpacity="0" />
-          </RadialGradient>
-          <RadialGradient id="tvHeroGold" cx="100%" cy="100%" r="55%">
-            <Stop offset="0" stopColor={color.gold} stopOpacity="0.16" />
-            <Stop offset="1" stopColor={color.gold} stopOpacity="0" />
-          </RadialGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" fill="url(#tvHeroWash)" />
-        <Rect x="0" y="0" width="100%" height="100%" fill="url(#tvHeroGlow)" />
-        <Rect x="0" y="0" width="100%" height="100%" fill="url(#tvHeroGold)" />
-      </Svg>
-    </View>
-  );
+  return <View style={[StyleSheet.absoluteFill, { experimental_backgroundImage: heroWash() }]} pointerEvents="none" {...DECORATIVE} />;
 }
 
 /** A tile's face: glass at rest, lit from above when the remote is on it. */
 function TilePaint({ lit }: { lit: boolean }) {
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none" {...DECORATIVE}>
-      <Svg width="100%" height="100%">
-        <Defs>
-          <LinearGradient id={lit ? 'tvTileLit' : 'tvTile'} x1="0" y1="0" x2="0.4" y2="1">
-            <Stop offset="0" stopColor={lit ? color.lineBright : color.panelTop} stopOpacity="1" />
-            <Stop offset="1" stopColor={lit ? color.surfaceRaised : color.surface} stopOpacity="1" />
-          </LinearGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${lit ? 'tvTileLit' : 'tvTile'})`} />
-      </Svg>
-    </View>
-  );
+  return <View style={[StyleSheet.absoluteFill, { experimental_backgroundImage: tileWash(lit) }]} pointerEvents="none" {...DECORATIVE} />;
 }
+
+const heroWash = () =>
+  `radial-gradient(circle at 8% 0%, ${teamWash(color.action, 0.32)} 0%, ${teamWash(color.action, 0)} 70%), ` +
+  `radial-gradient(circle at 100% 100%, ${teamWash(color.gold, 0.16)} 0%, ${teamWash(color.gold, 0)} 55%), ` +
+  `linear-gradient(135deg, ${color.panelTop} 0%, ${teamWash(color.surface, 0.92)} 60%, ${teamWash(color.void, 0.85)} 100%)`;
+const tileWash = (lit: boolean) =>
+  lit
+    ? `linear-gradient(160deg, ${color.lineBright} 0%, ${color.surfaceRaised} 100%)`
+    : `linear-gradient(160deg, ${color.panelTop} 0%, ${color.surface} 100%)`;
 
 const styles = themed(() =>
   StyleSheet.create({

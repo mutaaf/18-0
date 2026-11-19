@@ -1,5 +1,6 @@
 import { Component, lazy, Suspense, type ComponentType, type ReactNode } from 'react';
 import { useFlag } from '@/features/flags';
+import { isTV } from '@/features/tv/platform';
 import { loadSkia } from './load';
 
 /**
@@ -46,7 +47,12 @@ export function gpu<P extends object>(load: () => Promise<{ default: ComponentTy
   const Lazy = lazy(() => loadSkia().then(load));
   function GpuEffect({ fallback = null, ...props }: P & { fallback?: ReactNode }) {
     const on = useFlag('gpu_effects');
-    if (!on) return <>{fallback}</>;
+    // Never on a TV. Skia draws on tvOS's main thread -- the thread the focus
+    // engine runs on -- into a 4K Metal layer, and loading it at all put its
+    // shader compiles into launch. Build 26 still stuttered with the shaders
+    // held still (features/gpu/clock.ts); the fallbacks are what the screens
+    // drew before the effects, and they cost nothing per frame.
+    if (!on || isTV) return <>{fallback}</>;
     return (
       <Fallback fallback={fallback}>
         <Suspense fallback={fallback}>

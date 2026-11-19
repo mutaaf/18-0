@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { isTV } from '@/features/tv/platform';
 import { elevate, themed } from '@/theme';
 
 /**
@@ -106,6 +107,16 @@ export function GlassPaint({
   id?: string;
 }) {
   if (width === 0 || height === 0) return null;
+  if (isTV) {
+    // Native gradient layers and a border, not an Svg: see Panel. The rim's
+    // gradient stroke becomes a border brighter along the top edge.
+    return (
+      <View
+        style={[StyleSheet.absoluteFill, { borderRadius: radius }, TV_GLASS]}
+        pointerEvents="none"
+      />
+    );
+  }
   const inset = 0.75;
 
   // In a wrapper the size of the surface. On native, an Svg sized "100%"
@@ -171,6 +182,15 @@ export const TINT = (Platform.OS === 'web'
       WebkitBackdropFilter: 'blur(22px) saturate(150%)',
     }
   : { backgroundColor: 'rgba(10, 14, 24, 0.82)' }) as ViewStyle;
+
+const TV_GLASS: ViewStyle = {
+  borderWidth: 1.25,
+  borderColor: 'rgba(255,255,255,0.08)',
+  borderTopColor: 'rgba(255,255,255,0.3)',
+  experimental_backgroundImage:
+    'linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 55%), ' +
+    'linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.015) 100%)',
+};
 
 // Nothing here comes from the palette, deliberately: the tint is a neutral
 // darkening of whatever is behind it, which is what lets one surface work on

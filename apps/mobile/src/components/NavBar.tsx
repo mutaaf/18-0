@@ -1,4 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { TVTabBar } from './TVTabBar';
+import { isTV } from '@/features/tv/platform';
 import { Pressable } from '@/components/Pressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -117,6 +119,9 @@ export function NavBar({ state, navigation }: NavBarProps) {
   }));
   const active = routes.findIndex(({ index }) => index === state.index);
   const select = (position: number) => go(routes[position]!.index);
+
+  // A television: words across the top, the way tvOS's own tab bar is.
+  if (isTV) return <TVTabBar items={items} activeIndex={active} onSelect={select} />;
 
   // Two pages on screen: the trailing rail, where an iPhone Duo keeps its bars.
   if (rail) return <Rail rail={rail} items={items} activeIndex={active} onSelect={select} />;

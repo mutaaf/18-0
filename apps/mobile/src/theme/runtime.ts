@@ -116,7 +116,7 @@ export function themed<T extends object>(factory: () => T): T {
   const sheet = (): T => {
     const existing = cache.get(active);
     if (existing) return existing;
-    const built = factory();
+    const built = shadowless ? withoutShadows(factory()) : factory();
     cache.set(active, built);
     return built;
   };
@@ -177,4 +177,42 @@ export function __resetTheme(): void {
   Object.assign(color, THEMES[DEFAULT_THEME].color);
   Object.assign(radius, THEMES[DEFAULT_THEME].radius);
   for (const listener of listeners) listener();
+}
+
+/**
+ * Set once, by `features/tv/platform.ts` on a TV, before anything renders.
+ * Not an import of the platform here: this module is loaded by the unit
+ * tests, which cannot load React Native.
+ */
+let shadowless = false;
+export function dropShadows(): void {
+  shadowless = true;
+}
+
+const SHADOW_KEYS = ['shadowColor', 'shadowOpacity', 'shadowRadius', 'shadowOffset'] as const;
+
+/**
+ * Every style in a sheet, with its layer shadow taken off -- on a TV only.
+ *
+ * A Core Animation shadow with no `shadowPath` is drawn offscreen from the
+ * layer's alpha, and it is drawn again whenever anything under it changes or
+ * moves -- which on a TV is every focus lift, every fade, every frame of the
+ * stage's 1.5x scale being composited. The simulator does that on the Mac's
+ * GPU and shows nothing; build 26 on an Apple TV stuttered on every screen
+ * that had one. React Native has no way to give a view a `shadowPath`, so on
+ * a TV the depth comes from the panels' own light and borders instead.
+ * `performance.test.ts` keeps inline shadows out of the TV's screens too.
+ */
+function withoutShadows<T extends object>(sheet: T): T {
+  const out: Record<string, unknown> = {};
+  for (const [name, style] of Object.entries(sheet)) {
+    if (!style || typeof style !== 'object' || Array.isArray(style)) {
+      out[name] = style;
+      continue;
+    }
+    const copy = { ...(style as Record<string, unknown>) };
+    for (const key of SHADOW_KEYS) delete copy[key];
+    out[name] = copy;
+  }
+  return out as T;
 }

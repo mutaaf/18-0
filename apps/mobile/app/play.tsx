@@ -755,7 +755,19 @@ export default function Play() {
   // half-width box it was reading as a caption.
   const hero = (
     <View style={[styles.hero, team ? { borderColor: `${team.color}73` } : null]}>
-      {team ? (
+      {team && isTV ? (
+        // A gradient layer, not an Svg, on a TV: the wash changes as the spin
+        // lands, and an Svg redraw there is a CPU raster on the focus thread.
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              experimental_backgroundImage: `linear-gradient(135deg, ${teamWash(team.color, 0.34)} 0%, ${teamWash(team.color2 || team.color, 0.09)} 55%, ${teamWash(team.color, 0)} 100%)`,
+            },
+          ]}
+          pointerEvents="none"
+        />
+      ) : team ? (
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <Svg width="100%" height="100%">
             <Defs>

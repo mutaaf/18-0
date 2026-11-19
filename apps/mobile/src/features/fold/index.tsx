@@ -153,12 +153,10 @@ export function useNavRail(): Rail | null {
   const window = useWindowSize();
   const insets = useSafeAreaInsets();
   return useMemo(() => {
-    if (!enabled) return null;
-    // On a Duo the rail lives *in* the right inset -- the status bar's column.
-    // A TV's right inset is the overscan margin, which nothing may be drawn
-    // in, so there the rail stands inside it and reserves both (Rail.tsx).
-    if (!isTV) return navRail({ window, insets, divisions, virtual: true });
-    const rail = navRail({ window, insets: { ...insets, right: 0 }, divisions, virtual: true });
-    return rail && { ...rail, reserve: rail.reserve + insets.right };
+    // Not on a TV: it has a tab bar across the top instead (TVTabBar.tsx).
+    // The rail was the Duo's, scaled up, and a column of icons down a
+    // television's right edge was nowhere the remote expected to find them.
+    if (!enabled || isTV) return null;
+    return navRail({ window, insets, divisions, virtual: true });
   }, [enabled, window, insets, divisions]);
 }

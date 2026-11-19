@@ -117,7 +117,8 @@ export function Screen({
   const Column = isTV ? TVFocusGuideView : View;
   const tvPadding = isTV
     ? {
-        paddingTop: safe.includes('top') ? insets.top : 0,
+        // Below the tab bar, on a tab (TVTabBar.tsx).
+        paddingTop: (safe.includes('top') ? insets.top : 0) + (chrome.top ?? 0),
         paddingBottom: safe.includes('bottom') ? insets.bottom : 0,
         paddingLeft: safe.includes('left') ? insets.left : 0,
       }
