@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { isBackendConfigured, saveRatingFeedback, withdrawRatingFeedback } from '@/services/supabase';
-import { delivered, restoreQueue, vote, type Pending, type Queue } from './rating-feedback-queue';
+import { delivered, restoreQueue, vote, type SendOutcome, type Pending, type Queue } from './rating-feedback-queue';
 import { track } from './telemetry';
 
 export { feedbackKey, type FeedbackSource, type RatingVerdict } from './rating-feedback-queue';
@@ -63,10 +63,14 @@ export function flushRatingFeedback(): Promise<void> {
     try {
       const { pending, sent } = useRatingFeedback.getState();
       for (const [key, entry] of Object.entries(pending)) {
-        const ok = entry.verdict
+        const outcome: SendOutcome = entry.verdict
           ? await saveRatingFeedback({ ...entry, verdict: entry.verdict })
-          : await withdrawRatingFeedback(entry.cardId, entry.modelVersion);
-        if (!ok) break; // Offline or refused: the rest would fail the same way.
+          : (await withdrawRatingFeedback(entry.cardId, entry.modelVersion))
+            ? 'ok'
+            : 'offline';
+        if (outcome === 'offline') break; // The rest would fail the same way.
+        // 'refused' is dropped like a delivery: it will never be accepted, and
+        // keeping it blocked every entry behind it on every launch.
         sent(key, entry);
       }
     } catch {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { delivered, feedbackKey, restoreQueue, vote, type Pending, type Queue } from './rating-feedback-queue';
+import { delivered, feedbackKey, restoreQueue, sendOutcome, vote, type Pending, type Queue } from './rating-feedback-queue';
 
 const empty: Queue = { verdicts: {}, pending: {} };
 const card = (verdict: Pending['verdict'], cardId = 'payton-1985'): Pending => ({
@@ -57,5 +57,20 @@ describe('the queue as storage returns it', () => {
     for (const raw of [undefined, null, 'x', 3, { verdicts: 'x', pending: 4 }]) {
       expect(restoreQueue(raw)).toEqual({ verdicts: {}, pending: {} });
     }
+  });
+});
+
+describe('sorting a send failure', () => {
+  it('a constraint or bad-value refusal is dropped, not retried forever', () => {
+    expect(sendOutcome({ code: '23503' })).toBe('refused'); // unknown card
+    expect(sendOutcome({ code: '22P02' })).toBe('refused');
+    expect(sendOutcome({ status: 400 })).toBe('refused');
+  });
+
+  it('no error is ok; a network, auth or server failure stays queued', () => {
+    expect(sendOutcome(null)).toBe('ok');
+    expect(sendOutcome({ code: null, status: null })).toBe('offline');
+    expect(sendOutcome({ code: 'PGRST301', status: 401 })).toBe('offline');
+    expect(sendOutcome({ status: 503 })).toBe('offline');
   });
 });

@@ -89,3 +89,19 @@ export function restoreQueue(raw: unknown): Queue {
   }
   return out;
 }
+
+/** What the server did with a send: kept it, was not reachable, or will never take it. */
+export type SendOutcome = 'ok' | 'offline' | 'refused';
+
+/**
+ * Sorts a Supabase error. A constraint or data-exception code (class 23 or 22:
+ * an unknown card, a bad value) or a 400/422 means this entry can never be
+ * accepted, so the flush drops it; before, every failure read as offline and one
+ * such entry blocked the whole queue behind it on every launch. Anything else
+ * (no code, a network error, auth, 5xx) may succeed later and stays queued.
+ */
+export function sendOutcome(error: { code?: string | null; status?: number | null } | null): SendOutcome {
+  if (!error) return 'ok';
+  if (/^2[23][0-9A-Z]{3}$/.test(error.code ?? '') || error.status === 400 || error.status === 422) return 'refused';
+  return 'offline';
+}
