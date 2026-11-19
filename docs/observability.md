@@ -286,7 +286,7 @@ server_call over the last day. error_pct is everything not ok (refusals by rule 
 
 ```sql
 SELECT
-  properties.fn AS fn,
+  properties['fn'] AS function,
   count() AS calls,
   round(100 * countIf(properties.outcome != 'ok') / count(), 2) AS error_pct,
   round(100 * countIf(properties.outcome = 'offline') / count(), 2) AS offline_pct,
@@ -297,7 +297,7 @@ SELECT
 FROM events
 WHERE event = 'server_call'
   AND timestamp > now() - INTERVAL 24 HOUR
-GROUP BY fn
+GROUP BY function
 ORDER BY calls DESC
 ```
 
