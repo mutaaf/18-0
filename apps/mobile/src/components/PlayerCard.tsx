@@ -1,20 +1,33 @@
 import { memo, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Pressable } from '@/components/Pressable';
 import { Reveal } from './Reveal';
 import { isTV } from '@/features/tv/platform';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { franchise, type BootCard } from '@17-0/data';
 import { useCardStats } from '@/features/stat-lines';
 import { showsRating, showsStats, type GameMode } from '@/state/game';
 import { color, font, positionColor, radius, space, tabular, teamInk, teamWash, themed, tracking, type PressState, useThemeId } from '@/theme';
 
 /**
- * A franchise's wash as a CSS gradient, built once per pair of colours: the
- * same left-to-right fade the phone's Svg draws (0.42, 0.10 at 42%, then
- * nothing). Apple TV only.
+ * A franchise's wash as a CSS gradient, built once per pair of colours: a
+ * left-to-right fade (0.42, 0.10 at 42%, then nothing). Painted natively
+ * (`experimental_backgroundImage`) on iOS, Android and tvOS, and as a CSS
+ * background on the web, where react-native-web passes `backgroundImage`
+ * through and does not know the experimental name.
  */
 const washes = new Map<string, string>();
+
+const washStyles = new Map<string, object>();
+function washStyle(from: string, via: string): object {
+  const key = `${from}|${via}`;
+  let style = washStyles.get(key);
+  if (!style) {
+    const wash = tvWash(from, via);
+    style = Platform.OS === 'web' ? { backgroundImage: wash } : { experimental_backgroundImage: wash };
+    washStyles.set(key, style);
+  }
+  return style;
+}
 
 /** Rows that deal in; the rest are below the fold and arrive in place. */
 const ENTRANCE_ROWS = 12;
@@ -167,26 +180,17 @@ export const PlayerCard = memo(function PlayerCard({
       <View
         style={[
           styles.card,
+          // The team's own colours, washed across the card: one gradient
+          // layer on the card itself. It was an Svg -- Svg, Defs, a gradient,
+          // three stops and a Rect, seven components a row and a CPU raster
+          // per row on iOS -- and a spin is up to a hundred rows.
+          washStyle(teamColor, teamColor2),
           hovered && !disabled && styles.hovered,
           selected && { borderColor: accent },
           disabled && styles.disabled,
           pressed && !disabled && styles.pressed,
         ]}
       >
-        {/* The team's own colours, washed across the card. */}
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <Svg width="100%" height="100%">
-            <Defs>
-              <LinearGradient id={`tc-${card.id}`} x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor={teamColor} stopOpacity="0.42" />
-                <Stop offset="0.42" stopColor={teamColor2} stopOpacity="0.10" />
-                <Stop offset="1" stopColor={teamColor} stopOpacity="0" />
-              </LinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width="100%" height="100%" fill={`url(#tc-${card.id})`} />
-          </Svg>
-        </View>
-
         <View style={[styles.rail, { backgroundColor: teamColor }]} pointerEvents="none" />
 
         <Pressable

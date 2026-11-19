@@ -170,6 +170,14 @@ function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, width, 
     if (card && card.id !== seen.current) setBurst(card.id);
     seen.current = card?.id;
   }, [card]);
+  // The sparks leave once they have flown. Kept mounted, every filled slot
+  // held ten animated views for the rest of the season, and every later
+  // spin and pick re-rendered all of them: seventy by the last pick.
+  useEffect(() => {
+    if (!burst) return;
+    const done = setTimeout(() => setBurst(null), SPARK_MS + 80);
+    return () => clearTimeout(done);
+  }, [burst]);
 
   const label = filled
     ? `${SLOT_SPOKEN[slot]} slot. ${card.name || `${card.year} defense`}. ${card.year} ${
@@ -245,6 +253,9 @@ function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, width, 
 /** A bounce with a little overshoot: the card lands rather than appears. */
 const LANDING = ZoomIn.springify().damping(9).stiffness(220).reduceMotion(ReduceMotion.System);
 
+/** How long a spark flies. */
+const SPARK_MS = 620;
+
 const SPARK_ANGLES = Array.from({ length: 10 }, (_, i) => (i / 10) * Math.PI * 2 + 0.3);
 
 function Sparks({ accent }: { accent: string }) {
@@ -260,7 +271,7 @@ function Sparks({ accent }: { accent: string }) {
 function Spark({ angle, accent, far }: { angle: number; accent: string; far: boolean }) {
   const t = useSharedValue(0);
   useEffect(() => {
-    t.value = withTiming(1, { duration: 620, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System });
+    t.value = withTiming(1, { duration: SPARK_MS, easing: Easing.out(Easing.cubic), reduceMotion: ReduceMotion.System });
   }, [t]);
   const reach = far ? 46 : 30;
   const style = useAnimatedStyle(() => ({

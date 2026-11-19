@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { DATASET, franchise, type BootCard } from '@17-0/data';
 import { POSITIONS } from '@17-0/domain';
 import { SectionHead } from './SectionHead';
-import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking } from '@/theme';
+import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tracking, useThemeId } from '@/theme';
 
 /**
  * The model's own verdict on the best seasons in the data, scrolling past.
@@ -33,7 +33,15 @@ function marqueeCards(perPosition = 3): BootCard[] {
   return byPosition.sort((a, b) => b.rating - a.rating);
 }
 
-export function Hall() {
+/**
+ * Memoized, with no props: the front page stays mounted under every game and
+ * re-renders on each pick (its resume card counts them), and this strip -- a
+ * card per season, thirty of them -- re-rendered with it, behind the play
+ * screen, on every one.
+ */
+export const Hall = memo(function Hall() {
+  // Memoized, so a palette change reaches it through its own subscription.
+  useThemeId();
   const cards = useMemo(() => marqueeCards(), []);
   const [reduced, setReduced] = useState<boolean | null>(null);
   const offset = useRef(new Animated.Value(0)).current;
@@ -95,7 +103,7 @@ export function Hall() {
       )}
     </View>
   );
-}
+});
 
 function HallCard({ card }: { card: BootCard }) {
   const team = franchise(card.franchiseId);

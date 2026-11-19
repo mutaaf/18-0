@@ -35,6 +35,7 @@ import {
   useRatingFeedback,
   type RatingVerdict,
 } from '@/features/rating-feedback';
+import { useShallow } from 'zustand/react/shallow';
 import { lookupCard, useGameStore } from '@/state/game';
 import { useStartGame } from '@/features/start-game';
 import { LensNudge } from '@/components/LensNudge';
@@ -106,7 +107,19 @@ export default function Result() {
   useEffect(() => tellHost('result'), []);
   const router = useRouter();
   const layout = useLayout();
-  const game = useGameStore();
+  // The fields this screen reads. The whole store re-rendered the result -- the
+  // record, the scoreboard, the celebration -- on every write, including the
+  // ones that start the next season underneath it.
+  const game = useGameStore(
+    useShallow((s) => ({
+      result: s.result,
+      selections: s.selections,
+      assisted: s.assisted,
+      mode: s.mode,
+      respinsUsed: s.respinsUsed,
+      serverSessionId: s.serverSessionId,
+    })),
+  );
   const history = useHistoryStore((s) => s.games);
   const result = game.result;
 
@@ -185,6 +198,23 @@ export default function Result() {
       clearTimeout(at);
     };
   }, [line.settled, result?.finalRating]);
+
+  /**
+   * The share card mounts once the screen is up, not with it.
+   *
+   * It is a whole second roster, drawn off-screen for the capture, and it was
+   * part of the one commit that put the result on the glass -- the longest
+   * single task of the season. It is not needed before the buttons appear
+   * (`CUE.tail`), so it arrives while the digits roll, which run on the native
+   * driver and do not wait for the JS thread. A skip settles the page at once
+   * and brings it with it.
+   */
+  const [captureDue, setCaptureDue] = useState(false);
+  useEffect(() => {
+    const at = setTimeout(() => setCaptureDue(true), CUE.digits);
+    return () => clearTimeout(at);
+  }, []);
+  const captureMounted = captureDue || line.settled;
 
   const rosterCards = useMemo(
     () =>
@@ -828,7 +858,9 @@ export default function Result() {
         collapsable={false}
         {...DECORATIVE}
       >
-        <ShareCard ref={cardRef} result={result} roster={shareRows} assisted={game.assisted} respun={game.respinsUsed > 0} />
+        {captureMounted ? (
+          <ShareCard ref={cardRef} result={result} roster={shareRows} assisted={game.assisted} respun={game.respinsUsed > 0} />
+        ) : null}
       </View>
 
       {/* Last child so it sits over everything, and pointer-transparent so it
