@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import {
   LayoutAnimation,
@@ -34,7 +34,7 @@ import { RespinControl } from '@/components/Respin';
 import { useFlag } from '@/features/flags';
 import { SpreadLayout } from '@/components/SpreadLayout';
 import { useSpread } from '@/features/fold';
-import { MODE_LABEL, lookupCard, showsRating, slotsForCard, useGameStore } from '@/state/game';
+import { MODE_LABEL, lookupCard, showsRating, slotsForCard, useGameStore, type GameMode } from '@/state/game';
 import { useHistoryStore } from '@/state/history';
 import { tellHost } from '@/features/embed';
 import { ratingBucket, track } from '@/features/telemetry';
@@ -288,13 +288,6 @@ export default function Play() {
     () => (selected ? slotsForCard(selected, game.selections) : []),
     [selected, game.selections],
   );
-  /** Rows mounted so far; see `useGrowing`, and `useTVRows` on a TV. */
-  const growing = useGrowing(isTV ? NO_ROWS : eligible);
-  const tvRows = useTVRows(
-    eligible,
-    isTV ? visible.findIndex((card) => slotsForCard(card, game.selections).length > 0) : -1,
-  );
-  const mounted = isTV ? tvRows.count : growing;
 
   /**
    * The three-finger spin: hold three fingers anywhere on the screen while
@@ -1141,7 +1134,8 @@ export default function Play() {
       </View>
     ) : null;
 
-  const firstOpenId = visible.find((card) => slotsForCard(card, game.selections).length > 0)?.id;
+  // Only a TV hands focus to a row; a phone has no use for the walk.
+  const firstOpenId = isTV ? visible.find((card) => slotsForCard(card, game.selections).length > 0)?.id : undefined;
   const browser = canPick ? (
     <View style={styles.browser}>
       <Text style={styles.count}>
@@ -1149,28 +1143,16 @@ export default function Play() {
         {visible.length} eligible · one pick from this spin{isTV ? ' · hold Select for details' : ''}
       </Text>
 
-      <View style={styles.list}>
-        {visible.slice(0, mounted).map((card, index) => (
-          <PlayerCard
-            key={card.id}
-            card={card}
-            index={index}
-            name={displayName(card)}
-            selected={selectedId === card.id}
-            disabled={slotsForCard(card, game.selections).length === 0}
-            mode={mode}
-            onPress={pickCard}
-            onDetails={openDetails}
-            // On a TV the remote moves to the list when a spin lands, rather
-            // than staying on the Spin button's empty place.
-            preferFocus={isTV && card.id === firstOpenId}
-            onFocusRow={isTV ? tvRows.onRowFocus : undefined}
-          />
-        ))}
-        {visible.length === 0 ? (
-          <Text style={styles.empty}>Nothing here fits an open slot.</Text>
-        ) : null}
-      </View>
+      <PlayerList
+        eligible={eligible}
+        visible={visible}
+        selectedId={selectedId}
+        selections={game.selections}
+        mode={mode}
+        onPress={pickCard}
+        onDetails={openDetails}
+        firstOpenId={firstOpenId}
+      />
     </View>
   ) : (
     <View style={styles.waiting}>
@@ -1391,6 +1373,68 @@ function useStable<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) 
 }
 
 const NO_ROWS: readonly unknown[] = [];
+
+/**
+ * The eligible rows, as a component of their own.
+ *
+ * The rows arrive a batch per frame (`useGrowing`), and the counter that
+ * drives that used to live in `Play` -- so every batch re-rendered the whole
+ * screen: the header, the hero, the bar, the field's props, the filter chips,
+ * eight or nine times a spin, in the frames right after the wheel stopped.
+ * Here a batch renders the list and nothing else, and a keystroke or a chip
+ * that changes neither the rows nor the selection does not reach it at all.
+ */
+const PlayerList = memo(function PlayerList({
+  eligible,
+  visible,
+  selectedId,
+  selections,
+  mode,
+  onPress,
+  onDetails,
+  firstOpenId,
+}: {
+  eligible: readonly BootCard[];
+  visible: readonly BootCard[];
+  selectedId: string | null;
+  selections: Parameters<typeof slotsForCard>[1];
+  mode: GameMode;
+  onPress: (card: BootCard) => void;
+  onDetails: (card: BootCard) => void;
+  firstOpenId: string | undefined;
+}) {
+  /** Rows mounted so far; see `useGrowing`, and `useTVRows` on a TV. */
+  const growing = useGrowing(isTV ? NO_ROWS : eligible);
+  const tvRows = useTVRows(
+    eligible,
+    isTV ? visible.findIndex((card) => slotsForCard(card, selections).length > 0) : -1,
+  );
+  const mounted = isTV ? tvRows.count : growing;
+  return (
+    <View style={styles.list}>
+      {visible.slice(0, mounted).map((card, index) => (
+        <PlayerCard
+          key={card.id}
+          card={card}
+          index={index}
+          name={displayName(card)}
+          selected={selectedId === card.id}
+          disabled={slotsForCard(card, selections).length === 0}
+          mode={mode}
+          onPress={onPress}
+          onDetails={onDetails}
+          // On a TV the remote moves to the list when a spin lands, rather
+          // than staying on the Spin button's empty place.
+          preferFocus={isTV && card.id === firstOpenId}
+          onFocusRow={isTV ? tvRows.onRowFocus : undefined}
+        />
+      ))}
+      {visible.length === 0 ? (
+        <Text style={styles.empty}>Nothing here fits an open slot.</Text>
+      ) : null}
+    </View>
+  );
+});
 
 /** Rows mounted with the list, and how many more follow on each frame after. */
 const FIRST_ROWS = 12;

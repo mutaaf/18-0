@@ -132,6 +132,7 @@ then move. Until then: **stage by path, never `git add -A`**, and read
 | [`docs/gameday.md`](docs/gameday.md) | The gameday mode, and the tiers of what a live event may change |
 | [`docs/feature-flags.md`](docs/feature-flags.md) | Flags and experiments |
 | [`docs/theming.md`](docs/theming.md) | The two themes, and the rules that keep a third cheap |
+| [`docs/performance.md`](docs/performance.md) | Measuring the phone (`scripts/perf/phone/web.mjs`), and the render rules it left |
 | [`docs/graphics.md`](docs/graphics.md) | The GPU layer (Skia: Metal, CanvasKit), and the import rule that keeps the web alive |
 | [`docs/iphone-duo.md`](docs/iphone-duo.md) | The fold, the two-panel spread on Duo and wide windows, and what still needs a device |
 | [`extensions/espn-watch`](extensions/espn-watch) | The game placed in another site's page, and the `/embed` frame contract it depends on |
