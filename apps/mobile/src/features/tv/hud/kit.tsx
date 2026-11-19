@@ -10,10 +10,9 @@ import Animated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { isTV } from '../platform';
 import { useTVPrefs } from '../prefs';
-import { DECORATIVE, color, radius, themed } from '@/theme';
+import { DECORATIVE, color, radius, teamWash, themed } from '@/theme';
 
 /**
  * The broadcast graphics kit: the pieces every HUD element is built from.
@@ -95,8 +94,8 @@ export function HudPanel({
   });
   return (
     <View style={[styles.seat, style]} pointerEvents="none" {...DECORATIVE}>
-      <Animated.View style={[styles.panel, body]}>
-        <GlassFill />
+      <Animated.View style={[styles.panel, { experimental_backgroundImage: glass() }, body]}>
+        <View style={styles.panelHighlight} pointerEvents="none" />
         {children}
       </Animated.View>
       <Animated.View style={[styles.bar, { backgroundColor: accent ?? color.action }, from === 'right' ? styles.barRight : null, bar]} />
@@ -104,19 +103,20 @@ export function HudPanel({
   );
 }
 
-/** The panel's glass: dark, a little light from the top, a hairline highlight. */
+/**
+ * The panel's glass: dark, a little light from the top. A native gradient
+ * layer (CAGradientLayer), not an Svg: react-native-svg rasterises on the CPU
+ * on the main thread, and every lower third wiped one on over the list the
+ * remote was moving down.
+ */
+function glass(): string {
+  return `linear-gradient(180deg, ${teamWash(color.panelTop, 0.96)} 0%, ${teamWash(color.inkDeep, 0.94)} 100%)`;
+}
+
+/** The glass on its own, for a full-screen graphic. */
 export function GlassFill() {
   return (
-    <View style={styles.fill} pointerEvents="none">
-      <Svg width="100%" height="100%">
-        <Defs>
-          <LinearGradient id="hudGlass" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={color.panelTop} stopOpacity="0.96" />
-            <Stop offset="1" stopColor={color.inkDeep} stopOpacity="0.94" />
-          </LinearGradient>
-        </Defs>
-        <Rect x="0" y="0" width="100%" height="100%" fill="url(#hudGlass)" />
-      </Svg>
+    <View style={[styles.fill, { experimental_backgroundImage: glass() }]} pointerEvents="none">
       <View style={styles.highlight} />
     </View>
   );
@@ -139,10 +139,13 @@ const styles = themed(() =>
       borderRadius: radius.sm,
       borderWidth: 1,
       borderColor: color.lineBright,
-      // No shadow: `overflow: hidden` clipped it away anyway, and a shadow on
-      // a panel that wipes on is an offscreen pass per frame on a real TV.
-      overflow: 'hidden',
+      // No shadow, and no `overflow: hidden`. A shadow on a panel that wipes
+      // on is an offscreen pass per frame on a real TV, and so is clipping
+      // children to rounded corners: Core Animation masks the whole subtree
+      // offscreen. The glass is the panel's own background layer, rounded
+      // without a mask, and the highlight stops short of the corners instead.
     },
+    panelHighlight: { position: 'absolute', top: 0, left: radius.sm, right: radius.sm, height: 1, backgroundColor: '#FFFFFF26' },
     bar: { position: 'absolute', left: -2, top: 0, bottom: 0, width: 5, borderRadius: 2 },
     barRight: { left: undefined, right: -2 },
     fill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },

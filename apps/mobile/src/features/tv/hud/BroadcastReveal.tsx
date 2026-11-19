@@ -11,12 +11,11 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { create } from 'zustand';
 import { isPerfectionDenied, type GameResult } from '@17-0/domain';
 import { Pressable } from '@/components/Pressable';
 import { MODE_LABEL, type GameMode } from '@/state/game';
-import { DECORATIVE, color, font, positionColor, radius, space, tabular, themed, tierColor, tracking } from '@/theme';
+import { DECORATIVE, color, font, positionColor, radius, space, tabular, teamWash, themed, tierColor, tracking } from '@/theme';
 import { cue } from '../sound';
 import { GlassFill, useBroadcast, useCleanFeed } from './kit';
 
@@ -127,15 +126,15 @@ function Reveal({ result, mode, roster, onDone }: { result: GameResult; mode: Ga
       >
         <View style={StyleSheet.absoluteFill} pointerEvents="none" {...DECORATIVE}>
           <GlassFill />
-          <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
-            <Defs>
-              <RadialGradient id="revealGlow" cx="62%" cy="45%" r="55%">
-                <Stop offset="0" stopColor={accent} stopOpacity="0.28" />
-                <Stop offset="1" stopColor={accent} stopOpacity="0" />
-              </RadialGradient>
-            </Defs>
-            <Rect x="0" y="0" width="100%" height="100%" fill="url(#revealGlow)" />
-          </Svg>
+          {/* The glow behind the record: a native radial gradient, not an Svg
+              -- a full-screen CPU raster, on the main thread, in the moment
+              the record slams down. */}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              { experimental_backgroundImage: `radial-gradient(ellipse 55% 55% at 62% 45%, ${teamWash(accent, 0.28)} 0%, ${teamWash(accent, 0)} 100%)` },
+            ]}
+          />
         </View>
 
         <View style={styles.layout} pointerEvents="none">

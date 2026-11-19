@@ -51,6 +51,7 @@ export const PlayerCard = memo(function PlayerCard({
   onPress,
   onDetails,
   preferFocus = false,
+  onFocusRow,
 }: {
   card: BootCard;
   name: string;
@@ -68,6 +69,8 @@ export const PlayerCard = memo(function PlayerCard({
   onDetails: (card: BootCard) => void;
   /** Apple TV: where the remote goes when a spin lands. */
   preferFocus?: boolean;
+  /** Apple TV: this row took focus (the list mounts more as the remote nears its end). */
+  onFocusRow?: (index: number) => void;
 }) {
   // Memoized, and a theme change moves none of these props. Without the
   // subscription the roster keeps the old palette until something else forces
@@ -101,6 +104,7 @@ export const PlayerCard = memo(function PlayerCard({
       <Reveal delay={Math.min(index, 12) * 24} distance={10} duration={260} immediate={preferFocus || index >= ENTRANCE_ROWS}>
         <Pressable
           hasTVPreferredFocus={preferFocus}
+          onFocus={onFocusRow ? () => onFocusRow(index) : undefined}
           accessibilityRole="button"
           accessibilityState={{ selected, disabled }}
           accessibilityLabel={`${label} Hold Select for details.`}
