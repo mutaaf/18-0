@@ -4,7 +4,6 @@ import { Pressable } from '@/components/Pressable';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  cardById,
   cardExplanation,
   displayName,
   eraLabel,
@@ -12,6 +11,7 @@ import {
   type CardExplanation,
 } from '@17-0/data';
 import { Screen } from '@/components/Screen';
+import { cardFromParam } from '@/features/card-param';
 import { useCardStats } from '@/features/stat-lines';
 import { showsRating, showsStats, useGameStore } from '@/state/game';
 import { CollectibleCard } from '@/components/CollectibleCard';
@@ -36,7 +36,7 @@ export default function CardDetail() {
   useThemeId();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const card = id ? cardById(decodeURIComponent(id)) : undefined;
+  const card = cardFromParam(id);
   const stats = useCardStats(card);
   // The detail screen must not be a way around the mode you chose. It withholds
   // exactly what the mode withholds and no more, which is what makes it safe to
@@ -55,9 +55,15 @@ export default function CardDetail() {
   useEffect(() => {
     if (!card) return;
     let live = true;
-    void cardExplanation(card).then((e) => {
-      if (live) setExplanation(e);
-    });
+    // The breakdown is a separate chunk, and on the web a chunk is a network
+    // fetch: offline it rejects, and the card should still stand without it.
+    void cardExplanation(card)
+      .then((e) => {
+        if (live) setExplanation(e);
+      })
+      .catch(() => {
+        if (live) setExplanation(EMPTY);
+      });
     return () => {
       live = false;
     };

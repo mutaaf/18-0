@@ -19,7 +19,7 @@
  * Deploy: supabase functions deploy respin
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { audit, beginRequest, corsHeaders, instrument, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
+import { audit, beginRequest, readJsonObject, corsHeaders, instrument, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
 import { readWheel } from '../_shared/wheel.ts';
 import { RESPINS_PER_SEASON, drawUniform } from '../_shared/respins.ts';
 
@@ -70,7 +70,7 @@ Deno.serve(instrument('respin', async (req) => {
 
   let body: { gameSessionId?: string };
   try {
-    body = await req.json();
+    body = await readJsonObject(req);
   } catch {
     return json({ error: 'invalid_json' }, 400);
   }

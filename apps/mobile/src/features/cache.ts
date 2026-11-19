@@ -35,11 +35,28 @@ async function hydrate<T>(key: string): Promise<Entry<T> | null> {
     const raw = await AsyncStorage.getItem(PREFIX + key);
     if (!raw) return null;
     const entry = JSON.parse(raw) as Entry<T>;
+    // A truncated or foreign write is a miss, not a value: `{}` here was
+    // handed to a screen as the board.
+    if (typeof entry !== 'object' || entry === null || !('value' in entry) || typeof entry.at !== 'number') return null;
     memory.set(key, entry);
     return entry;
   } catch {
     return null;
   }
+}
+
+/**
+ * Whether a value written at `at` is still fresh at `now`.
+ *
+ * A value from the future is not. A device whose clock was wrong when it
+ * wrote the entry -- set ahead by hand, or before the network time arrived on
+ * a cold boot -- otherwise had a negative age, which is less than any TTL, so
+ * the board it cached stayed "fresh" until the clock caught up: days of the
+ * same leaderboard with no refresh behind it.
+ */
+export function isFresh(at: number, now: number, ttl: number): boolean {
+  const age = now - at;
+  return Number.isFinite(age) && age >= 0 && age < ttl;
 }
 
 export interface CachedRead<T> {
@@ -61,7 +78,7 @@ export async function cached<T>(
 ): Promise<CachedRead<T>> {
   const ttl = options.ttl ?? DEFAULT_TTL;
   const entry = (memory.get(key) as Entry<T> | undefined) ?? (await hydrate<T>(key));
-  const fresh = entry !== null && entry !== undefined && Date.now() - entry.at < ttl;
+  const fresh = entry !== null && entry !== undefined && isFresh(entry.at, Date.now(), ttl);
 
   if (entry && fresh) return { value: entry.value, stale: false };
 

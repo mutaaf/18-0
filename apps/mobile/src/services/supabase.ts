@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { cached, invalidateIdentity } from '@/features/cache';
+import { fetchWithTimeout } from '@/features/net/fetch-timeout';
 
 /**
  * The optional server.
@@ -19,6 +20,10 @@ export const isBackendConfigured = Boolean(url && anonKey);
 
 export const supabase: SupabaseClient | null = isBackendConfigured
   ? createClient(url!, anonKey!, {
+      // Every request gives up after 20 seconds instead of never. Read lazily
+      // through `globalThis` so a test or a polyfill installed later is used.
+      // See features/net/fetch-timeout.ts.
+      global: { fetch: fetchWithTimeout((input, init) => globalThis.fetch(input, init)) },
       auth: {
         storage: AsyncStorage,
         autoRefreshToken: true,

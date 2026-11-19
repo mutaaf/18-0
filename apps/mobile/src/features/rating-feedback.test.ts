@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { delivered, feedbackKey, vote, type Pending, type Queue } from './rating-feedback-queue';
+import { delivered, feedbackKey, restoreQueue, vote, type Pending, type Queue } from './rating-feedback-queue';
 
 const empty: Queue = { verdicts: {}, pending: {} };
 const card = (verdict: Pending['verdict'], cardId = 'payton-1985'): Pending => ({
@@ -38,5 +38,24 @@ describe('rating feedback queue', () => {
 
   it('keys by model version, so a refit starts every card afresh', () => {
     expect(feedbackKey('1.4.0', 'x')).not.toBe(feedbackKey('1.5.0', 'x'));
+  });
+});
+
+describe('the queue as storage returns it', () => {
+  it('keeps whole entries and drops the rest, so the flush cannot throw on launch', () => {
+    const good = { cardId: 'c1', modelVersion: '1.4.0', ratingShown: 88.1, verdict: 'too_low', source: 'swipe' };
+    const out = restoreQueue({
+      verdicts: { a: 'too_low', b: 'loved_it', c: null },
+      pending: { a: good, b: null, c: { cardId: 'c2' }, d: { ...good, verdict: null }, e: { ...good, verdict: 'meh' } },
+    });
+    expect(out.verdicts).toEqual({ a: 'too_low' });
+    expect(Object.keys(out.pending)).toEqual(['a', 'd']);
+    expect(out.pending.d!.verdict).toBeNull();
+  });
+
+  it('anything else is an empty queue', () => {
+    for (const raw of [undefined, null, 'x', 3, { verdicts: 'x', pending: 4 }]) {
+      expect(restoreQueue(raw)).toEqual({ verdicts: {}, pending: {} });
+    }
   });
 });

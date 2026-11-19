@@ -27,6 +27,7 @@ import {
   type BootCard,
 } from '@17-0/data';
 import { drawUniform } from '@17-0/respins/client';
+import { restoreGame, statusFrom } from '@/state/restore';
 
 /**
  * The gameplay state machine (PRFAQ §29), persisted so an in-progress game
@@ -411,7 +412,10 @@ export const useGameStore = create<GameState>()(
 
       removeSelection: (slot) => {
         const next = get().selections.filter((s) => s.slot !== slot);
-        set({ selections: next, status: next.length === 0 ? 'ready_to_spin' : 'ready_to_spin', result: null });
+        // Back to picking from the same spin when the pick taken back was from
+        // it: the server refused that pick and still holds the spin open, so
+        // asking for a new spin here was refused `pick_first`, every time.
+        set({ selections: next, status: statusFrom(get().spins, next), result: null });
       },
 
       complete: () => {
@@ -443,6 +447,19 @@ export const useGameStore = create<GameState>()(
         gamedayKey: s.gamedayKey,
         preferRanked: s.preferRanked,
         lensSnoozeUntil: s.lensSnoozeUntil,
+        // The ranked session, so a season the OS killed in the background
+        // resumes ranked instead of quietly finishing on the device. If the
+        // server and the resumed game disagree, the first refusal says so and
+        // the season carries on offline (ranked-rules.ts).
+        ranked: s.ranked,
+        serverSessionId: s.serverSessionId,
+        serverIdempotencyKey: s.serverIdempotencyKey,
+        serverNote: s.serverNote,
+      }),
+      // Validated, not spread: see state/restore.ts.
+      merge: (persisted, current) => ({
+        ...current,
+        ...restoreGame(persisted, (id) => cardById(id) !== undefined),
       }),
     },
   ),

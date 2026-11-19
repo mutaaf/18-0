@@ -265,3 +265,20 @@ export function instrument(
     }
   };
 }
+
+/**
+ * The request body, if it is a JSON object, or a throw.
+ *
+ * `await req.json()` accepts any JSON, and every handler then read
+ * `body.gameSessionId` off it -- so a body of `null` threw a TypeError that
+ * `instrument` turned into a 500 `internal`, logged as a crash, for what is a
+ * malformed request. Thrown here, inside each handler's existing try, it is
+ * the 400 `invalid_json` the handler already returns for unparseable JSON.
+ */
+export async function readJsonObject<T>(req: Request): Promise<T> {
+  const body: unknown = await req.json();
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    throw new TypeError('request body is not a JSON object');
+  }
+  return body as T;
+}

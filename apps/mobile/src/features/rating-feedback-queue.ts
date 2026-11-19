@@ -51,3 +51,41 @@ export function delivered(state: Queue, key: string, entry: Pending): Queue {
   delete pending[key];
   return { verdicts: state.verdicts, pending };
 }
+
+const VERDICTS = new Set<string>(['too_low', 'too_high', 'fair']);
+
+/**
+ * The queue as storage returns it, keeping only whole entries.
+ *
+ * A malformed pending entry -- an older build's shape, a truncated write --
+ * threw inside the flush on every launch (`entry.verdict` of null), and the
+ * flush is fired and forgotten, so it surfaced as an unhandled rejection and
+ * nothing behind it was ever sent.
+ */
+export function restoreQueue(raw: unknown): Queue {
+  const out: Queue = { verdicts: {}, pending: {} };
+  if (typeof raw !== 'object' || raw === null) return out;
+  const { verdicts, pending } = raw as { verdicts?: unknown; pending?: unknown };
+  if (typeof verdicts === 'object' && verdicts !== null) {
+    for (const [key, verdict] of Object.entries(verdicts)) {
+      if (typeof verdict === 'string' && VERDICTS.has(verdict)) out.verdicts[key] = verdict as RatingVerdict;
+    }
+  }
+  if (typeof pending === 'object' && pending !== null) {
+    for (const [key, p] of Object.entries(pending)) {
+      if (typeof p !== 'object' || p === null) continue;
+      const e = p as Record<string, unknown>;
+      if (typeof e.cardId !== 'string' || typeof e.modelVersion !== 'string') continue;
+      if (typeof e.ratingShown !== 'number' || !Number.isFinite(e.ratingShown)) continue;
+      if (e.verdict !== null && !(typeof e.verdict === 'string' && VERDICTS.has(e.verdict))) continue;
+      out.pending[key] = {
+        cardId: e.cardId,
+        modelVersion: e.modelVersion,
+        ratingShown: e.ratingShown,
+        verdict: e.verdict as RatingVerdict | null,
+        ...(e.source === 'swipe' || e.source === 'result' ? { source: e.source } : {}),
+      };
+    }
+  }
+  return out;
+}

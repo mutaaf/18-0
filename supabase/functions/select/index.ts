@@ -7,7 +7,7 @@
  * is no roster for a modified client to invent.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { audit, beginRequest, corsHeaders, instrument, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
+import { audit, beginRequest, readJsonObject, corsHeaders, instrument, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
 
 const ROSTER_SLOTS = ['QB', 'RB1', 'RB2', 'WR1', 'WR2', 'TE1', 'DEF'] as const;
 type RosterSlot = (typeof ROSTER_SLOTS)[number];
@@ -48,7 +48,7 @@ Deno.serve(instrument('select', async (req) => {
 
   let body: { gameSessionId?: string; slot?: string; cardId?: string };
   try {
-    body = await req.json();
+    body = await readJsonObject(req);
   } catch {
     return json({ error: 'invalid_json' }, 400);
   }

@@ -5,6 +5,11 @@ import { currentUser, ensureSession, isBackendConfigured, supabase } from '@/ser
 import { uuid } from '@/features/uuid';
 import type { GameMode } from '@/state/game';
 import { noteServerCall } from '@/features/diagnostics/health';
+import { createLane } from '@/features/net/lane';
+import { withRetry } from '@/features/net/retry';
+import { completionRetryable } from '@/features/ranked-rules';
+import { confirmCompletion, queueCompletion, startOutbox } from '@/features/ranked-outbox';
+import { track } from '@/features/telemetry';
 
 /**
  * A game played against the server.
@@ -51,6 +56,15 @@ const REASONS: Record<string, string> = {
   spin_changed: 'That spin changed underneath the respin. Nothing was charged.',
   no_other_spin: 'No other franchise-era can fill your open slots. Nothing was charged.',
   respin_same_bucket: 'The respin landed where it started. Nothing was charged.',
+  // The server and this device disagree about the session (ranked-rules.ts).
+  // Each of these ends the season's ranking; the sentence says why.
+  spin_already_used: 'The server already has a pick from this spin.',
+  incomplete_roster: 'The server is missing a pick from this season.',
+  unknown_session: 'The server has no record of this season.',
+  forbidden: 'This season belongs to another account.',
+  unauthenticated: 'The sign-in for this season has expired.',
+  card_retired: 'That player is no longer in the game.',
+  internal: 'The server hit a problem. Nothing was saved.',
 };
 
 const refused = (reason: string): RankedResult<never> => ({
@@ -60,7 +74,12 @@ const refused = (reason: string): RankedResult<never> => ({
   message: REASONS[reason] ?? 'The server refused that.',
 });
 
-export async function invoke<T>(fn: string, body: Record<string, unknown>): Promise<RankedResult<T>> {
+export async function invoke<T>(
+  fn: string,
+  body: Record<string, unknown>,
+  /** Abandons this one call after this long; the client-wide limit is longer. */
+  timeoutMs?: number,
+): Promise<RankedResult<T>> {
   if (!supabase) return offline('Ranked play needs a connection.');
   // Minted here and sent, so the Edge Function logs and audits this request
   // under the same id the client reports it with: a slow or failed spin in
@@ -74,6 +93,7 @@ export async function invoke<T>(fn: string, body: Record<string, unknown>): Prom
       // The trail records which platform asked, so "only iOS is seeing this"
       // is answerable. Not identifying: three possible values, no device id.
       headers: { 'x-client': Platform.OS, 'x-request-id': requestId },
+      ...(timeoutMs ? { timeout: timeoutMs } : {}),
     });
     if (error) {
       // A refusal arrives as a non-2xx with a JSON body; anything else is the
@@ -179,14 +199,25 @@ export interface ServerSpin {
   readonly assisted: boolean;
 }
 
+/**
+ * Picks and spins reach the server in the order the player made them. A pick
+ * is sent without waiting (play.tsx), so a quick tap on Spin used to overtake
+ * it and be refused `pick_first`. See `features/net/lane.ts`.
+ */
+const moves = createLane();
+
 export async function rankedSpin(
   sessionId: string,
   assist: boolean,
 ): Promise<RankedResult<ServerSpin>> {
-  const result = await invoke<{ spin: Omit<ServerSpin, 'assisted'>; assisted: boolean }>('spin', {
-    gameSessionId: sessionId,
-    assist,
-  });
+  // Never retried: a spin that succeeded deals a franchise-era, so asking
+  // twice could deal two and keep whichever the player liked better.
+  const result = await moves.run(() =>
+    invoke<{ spin: Omit<ServerSpin, 'assisted'>; assisted: boolean }>('spin', {
+      gameSessionId: sessionId,
+      assist,
+    }),
+  );
   if (!result.ok) return result;
   return { ok: true, value: { ...result.value.spin, assisted: result.value.assisted } };
 }
@@ -196,7 +227,8 @@ export async function rankedSelect(
   slot: RosterSlot,
   cardId: string,
 ): Promise<RankedResult<{ filled: number; complete: boolean }>> {
-  return invoke('select', { gameSessionId: sessionId, slot, cardId });
+  // Bounded, because the next spin queues behind it on the lane.
+  return moves.run(() => invoke('select', { gameSessionId: sessionId, slot, cardId }, 8000));
 }
 
 export interface ServerScore {
@@ -233,6 +265,27 @@ export async function rankedComplete(
   sessionId: string,
   idempotencyKey: string,
 ): Promise<RankedResult<ServerScore & { versions?: VersionAgreement }>> {
+  // Queued before it is sent, so a kill or a dropped connection from here on
+  // leaves the season waiting to be scored rather than lost (ranked-outbox.ts).
+  await queueCompletion(sessionId, idempotencyKey);
+  // Retried, because `complete-game` replays a completed session's stored
+  // result instead of scoring it again: a completion whose answer was lost on
+  // the way back is safe to ask for twice. Inside play.tsx's 12-second guard.
+  const result = await withRetry((n) => completeOnce(sessionId, idempotencyKey, n === 0 ? 7000 : 4000), {
+    delays: [800, 2000],
+    budgetMs: 9000,
+    retryable: completionRetryable,
+  });
+  if (result.ok || !completionRetryable(result)) await confirmCompletion(sessionId);
+  else track('ranked_completion_deferred', { outcome: 'queued', attempts: 3 });
+  return result;
+}
+
+async function completeOnce(
+  sessionId: string,
+  idempotencyKey: string,
+  timeoutMs?: number,
+): Promise<RankedResult<ServerScore & { versions?: VersionAgreement }>> {
   const result = await invoke<{ result: ServerScore; versions?: VersionAgreement }>(
     'complete-game',
     {
@@ -244,7 +297,17 @@ export async function rankedComplete(
       modelVersion: DEFAULT_SCORING_CONFIG.version,
       datasetModelVersion: DATASET.ratingModelVersion,
     },
+    timeoutMs,
   );
   if (!result.ok) return result;
   return { ok: true, value: { ...result.value.result, versions: result.value.versions } };
+}
+
+/**
+ * Sends any ranked season whose completion never got an answer: at launch and
+ * whenever the app returns to the foreground. A no-op with no backend.
+ */
+export function startRankedOutbox(): void {
+  if (!supabase) return;
+  startOutbox((sessionId, key) => completeOnce(sessionId, key));
 }

@@ -39,6 +39,7 @@ import { tellHost } from '@/features/embed';
 import { ratingBucket, track } from '@/features/telemetry';
 import { rankedComplete, rankedSelect, rankedSpin } from '@/features/ranked';
 import { rankedOpening, withTimeout } from '@/features/start-game';
+import { DIVERGED_NOTE, completionFailureNote, onSelectRefused, onSpinRefused } from '@/features/ranked-rules';
 import { DECORATIVE, color, elevate, font, positionColor, radius, space, tabular, themed, teamInk, teamWash, tracking, type PressState, useLayout, useThemeId } from '@/theme';
 
 /** How many names blur past before the reel settles on the result. */
@@ -352,13 +353,17 @@ export default function Play() {
           game.applyServerSpin(spun, issued.value.assisted);
           return spun;
         }
-        if (issued?.kind === 'refused') {
+        // A plain "no" is said and the player acts on it. A refusal that means
+        // the two sides disagree about the season falls through to finish it
+        // offline: shown as a notice, it came back on every tap of Spin.
+        if (issued?.kind === 'refused' && onSpinRefused(issued.reason) === 'notice') {
           setNotice(issued.message);
           return null;
         }
         // The connection went, or never answered: not the game. Finish it
         // offline, unranked, rather than leaving the wheel turning.
-        const message = issued?.message ?? 'The server did not answer in time.';
+        const message =
+          issued?.kind === 'refused' ? DIVERGED_NOTE : (issued?.message ?? 'The server did not answer in time.');
         game.downgrade(message);
         setNotice(`${message} This season will not be ranked.`);
       }
@@ -526,15 +531,16 @@ export default function Play() {
       if (game.ranked && game.serverSessionId) {
         void rankedSelect(game.serverSessionId, slot, card.id).then((recorded) => {
           if (recorded.ok) return;
-          if (recorded.kind === 'refused') {
+          if (recorded.kind === 'refused' && onSelectRefused(recorded.reason) === 'rollback') {
             game.removeSelection(slot);
             setLastPick(null);
             setNotice(recorded.message);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
             return;
           }
-          game.downgrade(recorded.message);
-          setNotice(`${recorded.message} This season will not be ranked.`);
+          const why = recorded.kind === 'refused' ? DIVERGED_NOTE : recorded.message;
+          game.downgrade(why);
+          setNotice(`${why} This season will not be ranked.`);
         });
       }
     },
@@ -634,11 +640,9 @@ export default function Play() {
           );
         }
       } else {
-        game.downgrade(
-          scored?.kind === 'refused'
-            ? scored.message
-            : 'Could not reach the server. This season stayed on this device.',
-        );
+        // Anything short of a final refusal is in the outbox and will still
+        // be scored (features/ranked-outbox.ts), and the note says so.
+        game.downgrade(completionFailureNote(scored));
       }
     }
 

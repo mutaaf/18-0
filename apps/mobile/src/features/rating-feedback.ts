@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { isBackendConfigured, saveRatingFeedback, withdrawRatingFeedback } from '@/services/supabase';
-import { delivered, vote, type Pending, type Queue } from './rating-feedback-queue';
+import { delivered, restoreQueue, vote, type Pending, type Queue } from './rating-feedback-queue';
 import { track } from './telemetry';
 
 export { feedbackKey, type FeedbackSource, type RatingVerdict } from './rating-feedback-queue';
@@ -35,7 +35,11 @@ export const useRatingFeedback = create<FeedbackState>()(
       set: (entry) => set((s) => vote(s, entry)),
       sent: (key, entry) => set((s) => delivered(s, key, entry)),
     }),
-    { name: '18-0.rating-feedback', storage: createJSONStorage(() => AsyncStorage) },
+    {
+      name: '18-0.rating-feedback',
+      storage: createJSONStorage(() => AsyncStorage),
+      merge: (persisted, current) => ({ ...current, ...restoreQueue(persisted) }),
+    },
   ),
 );
 
@@ -65,6 +69,9 @@ export function flushRatingFeedback(): Promise<void> {
         if (!ok) break; // Offline or refused: the rest would fail the same way.
         sent(key, entry);
       }
+    } catch {
+      // Fired and forgotten by every caller: a throw here was an unhandled
+      // rejection. What did not go stays queued for the next flush.
     } finally {
       flushing = null;
     }

@@ -27,7 +27,7 @@
  * Deploy: supabase functions deploy redeem-purchase
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { audit, beginRequest, corsHeaders, instrument, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
+import { audit, beginRequest, readJsonObject, corsHeaders, instrument, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
 import {
   APPLE_ROOT_CA_G3,
   BUNDLE_ID,
@@ -77,7 +77,7 @@ Deno.serve(instrument('redeem-purchase', async (req) => {
 
   let body: { signedTransaction?: unknown };
   try {
-    body = await req.json();
+    body = await readJsonObject(req);
   } catch {
     return json({ error: 'invalid_json' }, 400);
   }

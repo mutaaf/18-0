@@ -11,6 +11,7 @@ import { startAnalytics } from '@/features/analytics';
 import { startDiagnostics, useDiagnostics } from '@/features/diagnostics';
 import { startFlags, useFlag } from '@/features/flags';
 import { startRespinStore } from '@/features/respins';
+import { startRankedOutbox } from '@/features/ranked';
 import { FoldProvider } from '@/features/fold';
 import { TVSafeArea, TVStage } from '@/features/tv/Stage';
 import { useTVJankProbe } from '@/features/tv/jank';
@@ -85,6 +86,9 @@ export default function RootLayout() {
     startAds();
     // Apple TV: the sound effects, loaded before the first spin needs one.
     warmSounds();
+    // Ranked seasons whose completion never got an answer are sent again now
+    // and on every return to the foreground (features/ranked-outbox.ts).
+    startRankedOutbox();
   }, []);
 
   // App Store transactions the server never confirmed are redeemed at launch

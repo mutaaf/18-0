@@ -11,7 +11,7 @@
  * ranked game goes through this endpoint.
  */
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { audit, beginRequest, corsHeaders, instrument, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
+import { audit, beginRequest, readJsonObject, corsHeaders, instrument, log, traceHeaders, withinRateLimit } from '../_shared/observability.ts';
 
 import { CANDIDATE_CEILING, ROSTER_SLOTS, readWheel, type RosterSlot } from '../_shared/wheel.ts';
 import { drawUniform } from '../_shared/respins.ts';
@@ -51,7 +51,7 @@ Deno.serve(instrument('spin', async (req) => {
 
   let body: { gameSessionId?: string; assist?: boolean };
   try {
-    body = await req.json();
+    body = await readJsonObject(req);
   } catch {
     return json({ error: 'invalid_json' }, 400);
   }
