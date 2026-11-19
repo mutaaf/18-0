@@ -184,4 +184,22 @@ describe('Apple TV performance (docs/apple-tv.md)', () => {
       expect(props.every((p) => p === 'opacity' || p === 'transform')).toBe(true);
     }
   });
+
+  it('the tab bar is an autoFocus guide, not one aimed at a Pressable', () => {
+    // A guide's destinations must be native views; a Pressable on a TV is an
+    // animated component, so the guide took focus itself and nothing in the
+    // bar could be reached. The remote harness's test11_TabBar walks it.
+    const bar = read('src/components/TVTabBar.tsx');
+    expect(bar).toMatch(/<TVFocusGuideView autoFocus/);
+    expect(bar).not.toMatch(/destinations=/);
+  });
+
+  it('the smoothness meter runs on a TV only in the window after a press', () => {
+    const probe = read('src/features/tv/jank.ts');
+    // Started inactive; switched on by a press and off when the window closes.
+    expect(probe).toMatch(/\}, false\);/);
+    expect(probe).toMatch(/frame\.setActive\(true\)/);
+    expect(probe).toMatch(/frame\.setActive\(false\)/);
+    expect(read('app/_layout.tsx')).toMatch(/useTVJankProbe\(\);/);
+  });
 });

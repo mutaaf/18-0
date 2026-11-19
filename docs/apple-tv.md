@@ -102,8 +102,8 @@ disc keep inside it.
   (`useTVInitialFocus`): `hasTVPreferredFocus` alone claims once, and a claim
   made while the screen is still arriving is dropped. Account uses it, so the
   corner disc opens onto the page rather than the tab bar.
-- **The tab bar is a focus guide** aimed at the tab you are on, so pressing
-  up from anywhere on a page lands on the navigation, and
+- **The tab bar is an `autoFocus` focus guide**, so pressing up from anywhere
+  on a page lands on the navigation, and
   every page is a guide that remembers where you left it.
 - **Menu** goes back from a pushed screen, to Play from any other tab, and home
   from Play -- Apple's tvOS review guidelines require that last one
@@ -114,7 +114,16 @@ disc keep inside it.
 A tab bar across the top (`components/TVTabBar.tsx`), the way tvOS's own
 is: the tabs as words, the one the remote is on a white pill with dark type,
 the one you are on a quiet grey pill. Up from anywhere on a tab lands on the
-tab you are on. A click switches tabs, not focus, because each tab is a whole
+tab the bar was last on -- the one you picked -- because the bar is an
+`autoFocus` guide.
+
+**Never aim a focus guide's `destinations` at a `Pressable`.** On a TV it is
+an animated component, not the native view a guide needs, so the guide has
+nowhere to send focus and takes it itself: an invisible box that Select does
+nothing on. Builds 27 and 28's tab bar moved as one dead block for exactly
+that reason, and so did the dock and the rail before it. `test11_TabBar` in
+`scripts/perf/tv` walks every tab with the remote and fails if it happens
+again. A click switches tabs, not focus, because each tab is a whole
 screen and mounting one per press across the bar is the cost this app cannot
 pay. The dock and the Duo's rail are a phone's; `useNavRail()` is null on a
 TV, and the account disc sits in the top right.
@@ -284,6 +293,17 @@ For where the time goes, attach Time Profiler while a test runs:
 xcrun xctrace record --device <udid> --template 'Time Profiler' \
   --attach $(pgrep -x SeventeenZero) --time-limit 15s --output play.trace
 ```
+
+### Measuring the real thing
+
+The simulator cannot say whether an Apple TV stutters. So the app measures it
+on every TV it runs on (`features/tv/jank.ts`, behind `tv_jank_probe`): for
+two seconds after each remote press it times every UI-thread frame and how
+late the JS thread gets to a timer set at the press, then sends one
+`tv_jank` event per screen to PostHog -- presses, frames, hitches (over
+25 ms), stalls (over 50 ms), the worst frame, the JS delay, and the build.
+Comparing one TestFlight build's numbers with the last is how a fix is
+confirmed, and the screen with the worst hitch rate is the next thing to fix.
 
 ### What only the hardware can say
 

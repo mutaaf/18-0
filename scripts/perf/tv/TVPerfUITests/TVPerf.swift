@@ -48,9 +48,8 @@ final class TVPerf: XCTestCase {
 
     /// From the front page to Account's "On this TV" and back, flipping a switch.
     func toggleTVSetting(_ title: String) {
-        seek("Play for the leaderboard", .right)
-        press(.right, gap: 0.6)                   // onto the rail
-        XCTAssertTrue(seek("Account", .down, max: 8), "never reached the account disc: \(focusedLabel)")
+        press(.up, 3, gap: 0.6)                   // onto the tab bar
+        XCTAssertTrue(seek("Account", .right, max: 8), "never reached the account disc: \(focusedLabel)")
         press(.select, gap: 2.5)
         XCTAssertTrue(seek(title, .down, max: 6), "never reached \(title): \(focusedLabel)")
         press(.select, gap: 1)
@@ -210,17 +209,14 @@ final class TVPerf: XCTestCase {
         }
     }
 
-    /// Up the rail to Leaderboards, into the list, and down it.
+    /// Up to the tab bar, along to Leaderboards, into the list, and down it.
     func test07_LeaderboardFocusMoves() {
         launchHome()
-        // The rail is Games, Ranks, Play, Versus, Stats. Its tabs are labelled,
-        // but XCUITest reports a focused tab inside the tablist with no label,
-        // so it is walked by position.
-        seek("Play for the leaderboard", .right)
-        press(.right, gap: 0.8)  // Play, on the rail
-        press(.up, gap: 0.8)     // Ranks
+        // The bar is Games, Leaderboards, Play, Challenges, My Stats.
+        press(.up, 3, gap: 0.6)  // onto the bar: the tab it was last on, Games at launch
+        XCTAssertTrue(seek("Leaderboards", .right, max: 5), "never reached Leaderboards: \(focusedLabel)")
         press(.select, gap: 5)
-        press(.left, gap: 0.8)
+        press(.down, gap: 0.8)
         report("leaderboard_entry", focusedLabel)
         mark("leaderboard_focus", moves: 48) { for _ in 0..<3 {
             press(.down, 8, gap: 0.35)
@@ -228,18 +224,57 @@ final class TVPerf: XCTestCase {
         } }
     }
 
-    /// Tab to tab along the rail: Play, Ranks, Games and back.
+    /// Tab to tab along the bar: Play, Leaderboards, Games and back.
     func test08_TabSwitches() {
         launchHome()
-        seek("Play for the leaderboard", .right)
-        press(.right, gap: 0.8)
+        press(.up, 3, gap: 0.6)
         report("tab_start", focusedLabel)
         mark("tab_switches", moves: 12) { for _ in 0..<3 {
-            press(.up, gap: 0.3); press(.select, gap: 1.6)
-            press(.up, gap: 0.3); press(.select, gap: 1.6)
-            press(.down, gap: 0.3); press(.select, gap: 1.6)
-            press(.down, gap: 0.3); press(.select, gap: 1.6)
+            press(.left, gap: 0.3); press(.select, gap: 1.6)
+            press(.left, gap: 0.3); press(.select, gap: 1.6)
+            press(.right, gap: 0.3); press(.select, gap: 1.6)
+            press(.right, gap: 0.3); press(.select, gap: 1.6)
         } }
+    }
+
+    /// The tab bar, one tab at a time. Build 27's moved as one block: its focus
+    /// guide sent every left and right back to the tab you were on. Each step
+    /// asserts the focused tab and saves the screen (TAB_SHOTS) to look at.
+    func test11_TabBar() {
+        launchHome()
+        let shots = ProcessInfo.processInfo.environment["TAB_SHOTS"] ?? "/tmp/17-0-tv-tabs"
+        try? FileManager.default.createDirectory(atPath: shots, withIntermediateDirectories: true)
+        func shot(_ name: String) {
+            try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: "\(shots)/\(name).png"))
+        }
+        func focusedTab() -> String {
+            let el = app.descendants(matching: .any).matching(NSPredicate(format: "hasFocus == true")).firstMatch
+            return el.exists ? (el.label.isEmpty ? el.identifier : el.label) : ""
+        }
+        let tabs = ["Games", "Leaderboards", "Play", "Challenges", "My Stats"]
+        report("tabbar_start", focusedTab())
+        press(.up, 3, gap: 0.7)
+        shot("1-up-to-bar"); report("tabbar_up", focusedTab())
+        XCTAssertTrue(tabs.contains(focusedTab()), "up from the page should land on a tab, not \(focusedTab())")
+        // Every tab, one press at a time: the bar must not move as one block.
+        press(.left, 4, gap: 0.5)
+        XCTAssertEqual(focusedTab(), "Games")
+        for name in tabs.dropFirst() {
+            press(.right, gap: 0.6)
+            XCTAssertEqual(focusedTab(), name)
+        }
+        shot("2-my-stats-focused")
+        press(.left, 4, gap: 0.5)
+        XCTAssertEqual(focusedTab(), "Games")
+        press(.select, gap: 3)
+        shot("3-games"); report("tabbar_select", focusedTab())
+        press(.up, 3, gap: 0.7)
+        XCTAssertEqual(focusedTab(), "Games", "up from Games should land on Games")
+        press(.right, 4, gap: 0.7)
+        shot("4-my-stats"); report("tabbar_right4", focusedTab())
+        XCTAssertEqual(focusedTab(), "My Stats")
+        press(.select, gap: 3)
+        shot("5-stats")
     }
 
     /// What the harness costs on its own: the app idle, and Up pressed on the
