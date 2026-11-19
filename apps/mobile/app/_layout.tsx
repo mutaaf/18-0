@@ -13,6 +13,7 @@ import { startFlags, useFlag } from '@/features/flags';
 import { startRespinStore } from '@/features/respins';
 import { FoldProvider } from '@/features/fold';
 import { TVSafeArea, TVStage } from '@/features/tv/Stage';
+import { useTVJankProbe } from '@/features/tv/jank';
 import { useTVMenuKey } from '@/features/tv/menu-key';
 import { isTV } from '@/features/tv/platform';
 import { warmSounds } from '@/features/tv/sound';
@@ -41,6 +42,7 @@ export default function RootLayout() {
   useThemeFlagGuard();
   // Apple TV: Menu goes back while there is a back, and home at the root.
   useTVMenuKey();
+  useTVJankProbe();
   const [ready, error] = useFonts({
     Rajdhani_600SemiBold,
     Rajdhani_700Bold,

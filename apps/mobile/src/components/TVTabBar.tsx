@@ -40,21 +40,22 @@ export function TVTabBar({
   onSelect: (index: number) => void;
 }) {
   const insets = useSafeAreaInsets();
-  // Up from anywhere on the page lands on the tab you are on.
-  const [activeTab, setActiveTab] = useState<ElementRef<typeof Pressable> | null>(null);
-
   return (
     // The guide is the full width of the screen, not the row: up from a row
-    // at the far left of the page has to find the bar too.
-    <TVFocusGuideView
-      style={[styles.stage, { top: insets.top }]}
-      {...(activeTab ? { destinations: [activeTab] } : { enabled: false })}
-    >
+    // at the far left of the page has to find the bar too. `autoFocus` hands
+    // focus to the tab it was last on -- the one you picked -- and lets it
+    // move freely once inside.
+    //
+    // Not `destinations`, which builds 27 and 28's bar (and the dock and the
+    // rail before it) used: aimed at a Pressable, which on a TV is an animated
+    // component and not the native view a guide needs, the guide had nowhere
+    // to send focus and took it itself -- an invisible full-width box that
+    // Select did nothing on. The remote harness found it (test11_TabBar).
+    <TVFocusGuideView autoFocus style={[styles.stage, { top: insets.top }]}>
       <View style={styles.row}>
         {items.map((item, index) => (
           <Tab
             key={item.key}
-            ref={index === activeIndex ? setActiveTab : undefined}
             label={item.label}
             active={index === activeIndex}
             onPress={() => onSelect(index)}
@@ -67,7 +68,10 @@ export function TVTabBar({
 
 const SPRING = { damping: 18, stiffness: 280, mass: 0.6, reduceMotion: ReduceMotion.System };
 
-const Tab = forwardRef<ElementRef<typeof Pressable>, { label: string; active: boolean; onPress: () => void }>(
+const Tab = forwardRef<
+  ElementRef<typeof Pressable>,
+  { label: string; active: boolean; onPress: () => void }
+>(
   function Tab({ label, active, onPress }, ref) {
     const [focused, setFocused] = useState(false);
     const f = useSharedValue(0);
@@ -96,6 +100,8 @@ const Tab = forwardRef<ElementRef<typeof Pressable>, { label: string; active: bo
         accessibilityRole="tab"
         accessibilityState={{ selected: active }}
         accessibilityLabel={label}
+        // XCUITest reports a focused tab with no label; the harness reads this.
+        testID={label}
         style={styles.tab}
       >
         <Animated.View style={[styles.face, lift]}>

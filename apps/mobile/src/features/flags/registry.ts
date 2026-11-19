@@ -236,6 +236,21 @@ export const FLAGS = {
    * views it replaced, so a device that renders a shader badly loses a
    * decoration and nothing else.
    */
+  /**
+   * The Apple TV's smoothness meter (features/tv/jank.ts): frame times and JS
+   * delay in the two seconds after each remote press, one `tv_jank` summary
+   * per screen. The only measurement of real TV hardware there is; off, the
+   * frame callback is never switched on.
+   */
+  tv_jank_probe: {
+    key: 'tv_jank_probe',
+    kind: 'toggle',
+    summary: 'Measures frame hitches and JS delay after each Apple TV remote press and reports one tv_jank summary per screen.',
+    owner: 'mutaaf',
+    removeBy: '2027-06-01',
+    fallback: true,
+  },
+
   gpu_effects: {
     key: 'gpu_effects',
     kind: 'toggle',

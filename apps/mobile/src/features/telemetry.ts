@@ -14,6 +14,7 @@ import { forwardToBoxOffice } from '@/features/boxoffice';
  * ever configured; nothing leaves the device until it is.
  */
 export type EventName =
+  | 'tv_jank'
   | 'app_opened'
   | 'play_started'
   | 'game_resumed'
