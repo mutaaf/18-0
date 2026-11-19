@@ -1,6 +1,7 @@
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { context, currentRoute } from './context';
+import { sessionId } from './device';
 import { normalise } from './errors';
 import { reportError, reportHealth } from './report';
 
@@ -38,6 +39,9 @@ interface PersistedFatal {
   stack: string;
   route: string;
   at: number;
+  /** The sitting it ended, so crash-free sessions can be counted by the build that crashed. */
+  session?: string;
+  build?: string;
 }
 
 interface SessionMark {
@@ -47,6 +51,12 @@ interface SessionMark {
   route: string;
   version: string;
   build: string;
+  /** The sitting in progress (device.ts). */
+  session?: string;
+  /** When it last left the foreground; null while in front. */
+  hiddenAt?: number | null;
+  /** iOS memory warnings this launch. A launch that dies after one is most likely an out-of-memory kill. */
+  memoryWarnings?: number;
 }
 
 let installed = false;
@@ -69,6 +79,9 @@ export function noteRoute(route: string): void {
 export function installGlobalHandlers(): void {
   if (installed) return;
   installed = true;
+  // First, so the session clock's AppState listener is registered ahead of
+  // the one below, and the mark always records the sitting that is current.
+  sessionId();
 
   const utils = (globalThis as { ErrorUtils?: {
     getGlobalHandler: () => (error: unknown, isFatal?: boolean) => void;
@@ -83,7 +96,13 @@ export function installGlobalHandlers(): void {
         previous(error, isFatal);
         return;
       }
-      const record: PersistedFatal = { ...normalise(error), route: currentRoute(), at: Date.now() };
+      const record: PersistedFatal = {
+        ...normalise(error),
+        route: currentRoute(),
+        at: Date.now(),
+        session: sessionId(),
+        build: context().build,
+      };
       void Promise.race([
         AsyncStorage.setItem(FATAL_KEY, JSON.stringify(record)).catch(() => undefined),
         later(500),
@@ -115,6 +134,8 @@ export function installGlobalHandlers(): void {
     const foreground = state === 'active';
     if (mark.foreground === foreground) return;
     mark.foreground = foreground;
+    mark.hiddenAt = foreground ? null : Date.now();
+    mark.session = sessionId();
     writeMark();
   });
 }
@@ -128,14 +149,46 @@ async function lookBack(): Promise<void> {
     if (fatalRaw) {
       const fatal = JSON.parse(fatalRaw) as PersistedFatal;
       const error = Object.assign(new Error(fatal.message), { name: fatal.type, stack: fatal.stack });
-      reportError(error, { source: 'previous_launch', fatal: true, route: fatal.route, at: fatal.at });
+      reportError(error, {
+        source: 'previous_launch',
+        fatal: true,
+        route: fatal.route,
+        at: fatal.at,
+        extra: {
+          ...(fatal.session ? { crashed_session: fatal.session } : {}),
+          ...(fatal.build ? { crashed_build: fatal.build } : {}),
+        },
+      });
     } else if (markRaw) {
       const previous = JSON.parse(markRaw) as SessionMark;
+      const warnings = previous.memoryWarnings ?? 0;
+      const last = {
+        last_route: previous.route,
+        last_version: previous.version,
+        last_build: previous.build,
+        memory_warnings: warnings,
+      };
       if (previous.foreground) {
         reportHealth('app_unclean_exit', {
-          last_route: previous.route,
-          last_version: previous.version,
-          last_build: previous.build,
+          ...last,
+          // Under the names the crash-free-sessions query reads for a fatal
+          // too, so one query counts both (docs/observability.md).
+          crashed_build: previous.build,
+          ...(previous.session ? { crashed_session: previous.session } : {}),
+          // A foreground death after iOS warned about memory is, nearly
+          // always, the jetsam kill rather than a crash.
+          likely_oom: warnings > 0,
+        });
+      } else {
+        // Gone while in the background: the OS reclaiming it, or the player
+        // swiping it away -- JS cannot tell which. How long it had been away,
+        // and whether memory was short, is what separates the two in bulk: a
+        // build whose apps die minutes after leaving is a build using too much.
+        const away = typeof previous.hiddenAt === 'number' ? Math.max(0, Date.now() - previous.hiddenAt) : null;
+        reportHealth('app_background_exit', {
+          ...last,
+          ...(away !== null ? { background_s: Math.round(away / 1000) } : {}),
+          launch_s: Math.round(Math.max(0, (previous.hiddenAt ?? Date.now()) - previous.started) / 1000),
         });
       }
     }
@@ -150,6 +203,16 @@ async function lookBack(): Promise<void> {
     route: currentRoute(),
     version: now.app_version!,
     build: now.build!,
+    session: sessionId(),
+    hiddenAt: AppState.currentState === 'active' ? null : Date.now(),
+    memoryWarnings: 0,
   };
+  writeMark();
+}
+
+/** Called by `memory.ts` on each warning, so the next launch knows this one was short of memory. */
+export function noteMemoryWarning(): void {
+  if (!mark) return;
+  mark.memoryWarnings = (mark.memoryWarnings ?? 0) + 1;
   writeMark();
 }

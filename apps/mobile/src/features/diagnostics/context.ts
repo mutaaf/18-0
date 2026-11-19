@@ -1,8 +1,7 @@
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
 import { DEFAULT_SCORING_CONFIG } from '@17-0/domain';
 import { flag } from '@/features/flags';
-import { runningVersion } from '@/features/whats-new';
+import { deviceProps } from './device';
 
 /**
  * What every diagnostic report says about where it came from.
@@ -15,23 +14,9 @@ import { runningVersion } from '@/features/whats-new';
  * variants.
  */
 
-/**
- * The build: the native build number on a device, the commit on the web.
- *
- * `expo-application` would be the tidy way to read the native one and is not a
- * dependency; `nativeBuildVersion` is deprecated in favour of it but still
- * answers, and a missing build number is a worse report than a deprecated read.
- * The web has no build number, so `app.config.js` stamps the commit Vercel or
- * the Pages workflow built from into `extra.buildId`.
- */
-export function buildId(): string {
-  if (Platform.OS !== 'web') {
-    const native = (Constants as unknown as { nativeBuildVersion?: string | null }).nativeBuildVersion;
-    if (native) return String(native);
-  }
-  const extra = Constants.expoConfig?.extra as { buildId?: unknown } | undefined;
-  return typeof extra?.buildId === 'string' && extra.buildId ? extra.buildId : 'dev';
-}
+// Moved to `device.ts`, which `analytics.ts` can import without a cycle
+// through the flags; re-exported because `tv/jank.ts` reads it from here.
+export { buildId } from './device';
 
 let route = 'boot';
 
@@ -47,8 +32,8 @@ export function currentRoute(): string {
 /** The properties a diagnostic event adds to what `track()` and `analytics.ts` already add. */
 export function context(): Record<string, string> {
   return {
-    app_version: runningVersion() ?? 'unknown',
-    build: buildId(),
+    app_version: deviceProps().app_version,
+    build: deviceProps().build,
     route,
     scoring_version: DEFAULT_SCORING_CONFIG.version,
   };

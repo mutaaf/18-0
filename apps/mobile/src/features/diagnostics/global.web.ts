@@ -45,3 +45,6 @@ export function installGlobalHandlers(): void {
 
 /** The browser has no session mark to keep; see `global.ts`. */
 export function noteRoute(_route: string): void {}
+
+/** No session mark on the web, and no memory warnings to keep; see `global.ts`. */
+export function noteMemoryWarning(): void {}

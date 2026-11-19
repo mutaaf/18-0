@@ -91,7 +91,12 @@ describe('event coverage', () => {
 describe('the health dashboard', () => {
   const declared = new Set(declaredEvents());
   const script = readFileSync(resolve(APP, '../../scripts/posthog-dashboards.ts'), 'utf8');
-  const read = new Set([...script.matchAll(/\bev\(\s*'([^']+)'/g)].map((m) => m[1]!));
+  const queries = readFileSync(resolve(APP, '../../scripts/posthog-queries.ts'), 'utf8');
+  // Trend tiles name an event with `ev('x'`; SQL tiles list theirs in `reads: [...]`.
+  const read = new Set([
+    ...[...script.matchAll(/\bev\(\s*'([^']+)'/g)].map((m) => m[1]!),
+    ...[...queries.matchAll(/\breads:\s*\[([^\]]*)\]/g)].flatMap((m) => [...m[1]!.matchAll(/'([^']+)'/g)].map((q) => q[1]!)),
+  ]);
 
   it('reads only declared events', () => {
     expect(read.size).toBeGreaterThan(5);
@@ -108,8 +113,49 @@ describe('the health dashboard', () => {
     'score_disagreement',
     'version_mismatch',
     'result_shared',
+    'screen_ready',
+    'ui_jank',
+    'tv_jank',
+    'memory_warning',
+    'app_background_exit',
   ];
   for (const name of MUST_BE_READ) {
     it(`has a tile for ${name}`, () => expect(read.has(name)).toBe(true));
+  }
+});
+
+/**
+ * The SQL on the dashboard is the SQL in the doc.
+ *
+ * docs/observability.md prints every query for pasting into PostHog, and
+ * `scripts/posthog-queries.ts` is what the dashboard runs. A query fixed in one
+ * and not the other is a doc that lies, so each must appear in the doc
+ * verbatim, and each must only read events it declared in `reads` -- the list
+ * the coverage check above trusts.
+ */
+describe('the dashboard SQL', () => {
+  const declared = new Set(declaredEvents());
+  const doc = readFileSync(resolve(APP, '../../docs/observability.md'), 'utf8');
+  const source = readFileSync(resolve(APP, '../../scripts/posthog-queries.ts'), 'utf8');
+  const tiles = [...source.matchAll(/name: '([^']+)'[\s\S]*?reads: \[([^\]]*)\][\s\S]*?query: `([^`]+)`/g)].map((m) => ({
+    name: m[1]!,
+    reads: [...m[2]!.matchAll(/'([^']+)'/g)].map((q) => q[1]!),
+    query: m[3]!,
+  }));
+  const squash = (text: string) => text.replace(/\s+/g, ' ').trim();
+
+  it('finds the queries', () => expect(tiles.length).toBeGreaterThanOrEqual(5));
+
+  for (const tile of tiles) {
+    it(`"${tile.name}" is printed in docs/observability.md`, () => {
+      expect(squash(doc).includes(squash(tile.query)), 'copy the query from scripts/posthog-queries.ts into the doc').toBe(true);
+    });
+    it(`"${tile.name}" reads only events it declares, and only declared events`, () => {
+      const named = [...tile.query.matchAll(/event (?:=|IN) \(?([^)\n]+)/g)].flatMap((m) => [...m[1]!.matchAll(/'([^']+)'/g)].map((q) => q[1]!));
+      for (const name of named) {
+        expect(tile.reads, `${name} is read but not listed in reads`).toContain(name);
+        expect(declared.has(name), `${name} is not an EventName`).toBe(true);
+      }
+    });
   }
 });

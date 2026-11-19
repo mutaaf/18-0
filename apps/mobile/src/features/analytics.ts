@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { uuid } from '@/features/uuid';
 import { setSink, type TelemetryEvent } from '@/features/telemetry';
 import { parseStack } from '@/features/diagnostics/errors';
+import { deviceProps, sessionId } from '@/features/diagnostics/device';
 
 /**
  * Product analytics, when they are configured.
@@ -184,11 +185,26 @@ export function setFlagProperties(
  * makes every funnel in the product -- spins, picks, completions, retention --
  * breakable down by experiment variant without instrumenting anything twice.
  */
-const base = (): Record<string, unknown> => ({
-  platform: Platform.OS,
-  app: '18-0',
-  ...(flagProperties?.() ?? {}),
-});
+const base = (): Record<string, unknown> => {
+  const device = deviceProps();
+  const session = sessionId();
+  return {
+    platform: Platform.OS,
+    app: '18-0',
+    // Which build, on what, in which sitting (diagnostics/device.ts): every
+    // tile can be split by build without each event remembering to say so.
+    ...device,
+    session_id: session,
+    // The same facts under PostHog's own names, which its built-in
+    // breakdowns, its sessions table and error tracking's release filter
+    // read. `$session_id` is a UUIDv7 because PostHog dates a session by it.
+    $app_version: device.app_version,
+    $app_build: device.build,
+    $os_version: device.os_version,
+    $session_id: session,
+    ...(flagProperties?.() ?? {}),
+  };
+};
 
 /**
  * An error report in the shape PostHog's error tracking reads.
