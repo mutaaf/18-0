@@ -324,6 +324,7 @@ async function main(): Promise<void> {
     console.log(`\n  created dashboard ${DASHBOARD}`);
   }
 
+  const skippedAlerts: string[] = [];
   const alerts = (await api(`/api/projects/${project}/alerts/?limit=200`)) as { results?: { id: string; name: string; insight: { id: number } | number }[] };
 
   for (const tile of TILES) {
@@ -349,9 +350,23 @@ async function main(): Promise<void> {
     if (current) {
       await api(`/api/projects/${project}/alerts/${current.id}/`, { method: 'PATCH', body: JSON.stringify(body) });
     } else {
-      await api(`/api/projects/${project}/alerts/`, { method: 'POST', body: JSON.stringify(body) });
+      // PostHog's plan caps alerts (5 on the free tier, met on the first
+      // apply). Hitting it used to abort the run half-way, leaving every tile
+      // after the sixth alert off the dashboard. The tile still matters
+      // without its alert, so keep going and say which ones went unwatched.
+      try {
+        await api(`/api/projects/${project}/alerts/`, { method: 'POST', body: JSON.stringify(body) });
+      } catch (error) {
+        if (!/limit of \d+ alerts/.test(String(error))) throw error;
+        skippedAlerts.push(tile.name);
+        console.log('           alert skipped: plan limit reached');
+        continue;
+      }
     }
     console.log(`           alert ${current ? 'updated' : 'created'}`);
+  }
+  if (skippedAlerts.length) {
+    console.log(`\n  No alert on (the plan's alert limit): ${skippedAlerts.join('; ')}`);
   }
   console.log(`\n  Done. ${HOST}/project/${project}/dashboard/${dashboard}\n`);
 }
