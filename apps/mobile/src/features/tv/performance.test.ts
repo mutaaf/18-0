@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { TV_FIRST_ROWS, TV_ROWS_AHEAD, wantsMoreRows } from './rows';
 
 /**
  * The Apple TV performance budget, held by the build (docs/apple-tv.md,
@@ -201,5 +202,58 @@ describe('Apple TV performance (docs/apple-tv.md)', () => {
     expect(probe).toMatch(/frame\.setActive\(true\)/);
     expect(probe).toMatch(/frame\.setActive\(false\)/);
     expect(read('app/_layout.tsx')).toMatch(/useTVJankProbe\(\);/);
+  });
+  // The third pass (after #85): what was still mounted, rasterised or looping
+  // that the remote did not need.
+
+  it('a spin on a TV mounts the rows the remote can reach, not the whole spin', () => {
+    // The phone's useGrowing mounts a hundred rows a dozen a frame, eight
+    // commits of the play screen in the second the remote is first pressed.
+    const play = read('app/play.tsx');
+    expect(play).toMatch(/useGrowing\(isTV \? NO_ROWS : eligible\)/);
+    expect(play).toMatch(/const mounted = isTV \? tvRows\.count : growing;/);
+    expect(play).toMatch(/onFocusRow=\{isTV \? tvRows\.onRowFocus : undefined\}/);
+    expect(read('src/components/PlayerCard.tsx')).toMatch(/onFocus=\{onFocusRow \? \(\) => onFocusRow\(index\) : undefined\}/);
+  });
+
+  it('the list asks for more rows before the remote can reach its end', () => {
+    // A row the remote cannot reach is a player nobody can pick: the batch is
+    // asked for while there are still TV_ROWS_AHEAD rows below the remote.
+    expect(TV_FIRST_ROWS).toBeGreaterThan(TV_ROWS_AHEAD);
+    expect(wantsMoreRows(0, TV_FIRST_ROWS, 100)).toBe(false);
+    expect(wantsMoreRows(TV_FIRST_ROWS - TV_ROWS_AHEAD - 1, TV_FIRST_ROWS, 100)).toBe(false);
+    expect(wantsMoreRows(TV_FIRST_ROWS - TV_ROWS_AHEAD, TV_FIRST_ROWS, 100)).toBe(true);
+    expect(wantsMoreRows(TV_FIRST_ROWS - 1, TV_FIRST_ROWS, 100)).toBe(true);
+    // Everything mounted: nothing more to ask for.
+    expect(wantsMoreRows(99, 100, 100)).toBe(false);
+    expect(wantsMoreRows(5, 8, 8)).toBe(false);
+    // The row the remote is handed after a spin is always mounted, with room below it.
+    expect(read('src/features/tv/rows.ts')).toMatch(/Math\.max\(n, firstWanted \+ TV_ROWS_AHEAD \+ 1\)/);
+  });
+
+  it('the broadcast graphics paint natively, and clip nothing to a rounded corner', () => {
+    // A lower third wiped an Svg on over the list the remote was moving down;
+    // the record's glow was a full-screen CPU raster as the record slammed in.
+    for (const path of ['src/features/tv/hud/kit.tsx', 'src/features/tv/hud/BroadcastReveal.tsx']) {
+      expect(read(path), path).not.toMatch(/from 'react-native-svg'/);
+    }
+    // Rounded clipping over animated content is an offscreen mask pass per frame.
+    const kit = read('src/features/tv/hud/kit.tsx');
+    const panel = kit.slice(kit.indexOf('    panel: {'), kit.indexOf('    },', kit.indexOf('    panel: {')));
+    expect(panel).not.toMatch(/overflow: 'hidden'/);
+  });
+
+  it('the backdrop behind every screen is native gradients on a TV', () => {
+    // A full-screen Svg, rasterised on the main thread by every screen that mounts.
+    const screen = read('src/components/Screen.tsx');
+    const tv = screen.slice(screen.indexOf('  if (isTV) {'), screen.indexOf('  return (', screen.indexOf('  if (isTV) {')));
+    expect(tv).toMatch(/experimental_backgroundImage: tvLights\(\)/);
+  });
+
+  it("Gut Check's remote legend shows its swipe a few times, not for as long as the deck is open", () => {
+    const rate = read('app/rate.tsx');
+    const hint = rate.slice(rate.indexOf('function RemoteHint'), rate.indexOf('function RoundEnd'));
+    expect(hint).toMatch(/HINT_SHOWINGS,/);
+    expect(hint).not.toMatch(/-1,/);
   });
 });

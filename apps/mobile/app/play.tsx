@@ -15,6 +15,7 @@ import {
 import { TextInput } from '@/components/TextInput';
 import { Pressable } from '@/components/Pressable';
 import { isTV, pressVerb } from '@/features/tv/platform';
+import { useTVRows } from '@/features/tv/rows';
 import { cue } from '@/features/tv/sound';
 import { PlayHud, useBroadcast, useCleanFeed } from '@/features/tv/hud';
 import { useRouter } from 'expo-router';
@@ -287,8 +288,13 @@ export default function Play() {
     () => (selected ? slotsForCard(selected, game.selections) : []),
     [selected, game.selections],
   );
-  /** Rows mounted so far; see `useGrowing`. */
-  const mounted = useGrowing(eligible);
+  /** Rows mounted so far; see `useGrowing`, and `useTVRows` on a TV. */
+  const growing = useGrowing(isTV ? NO_ROWS : eligible);
+  const tvRows = useTVRows(
+    eligible,
+    isTV ? visible.findIndex((card) => slotsForCard(card, game.selections).length > 0) : -1,
+  );
+  const mounted = isTV ? tvRows.count : growing;
 
   /**
    * The three-finger spin: hold three fingers anywhere on the screen while
@@ -1158,6 +1164,7 @@ export default function Play() {
             // On a TV the remote moves to the list when a spin lands, rather
             // than staying on the Spin button's empty place.
             preferFocus={isTV && card.id === firstOpenId}
+            onFocusRow={isTV ? tvRows.onRowFocus : undefined}
           />
         ))}
         {visible.length === 0 ? (
@@ -1382,6 +1389,8 @@ function useStable<A extends unknown[], R>(fn: (...args: A) => R): (...args: A) 
   latest.current = fn;
   return useCallback((...args: A) => latest.current(...args), []);
 }
+
+const NO_ROWS: readonly unknown[] = [];
 
 /** Rows mounted with the list, and how many more follow on each frame after. */
 const FIRST_ROWS = 12;

@@ -3,7 +3,7 @@ import { StyleSheet, TVFocusGuideView, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 import { isTV } from '@/features/tv/platform';
 import Svg, { Circle, Defs, Line, Pattern, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { DECORATIVE, color, themed, useLayout, useThemeId } from '@/theme';
+import { DECORATIVE, color, teamWash, themed, useLayout, useThemeId } from '@/theme';
 import { useChrome } from './chrome';
 
 /**
@@ -27,6 +27,16 @@ import { useChrome } from './chrome';
  */
 export const StadiumBackdrop = memo(function StadiumBackdrop() {
   const theme = useThemeId();
+
+  // Apple TV: the same three lights as native gradient layers. The Svg is a
+  // full-screen CPU raster on the main thread, made again by every screen
+  // that mounts -- each tab's first visit, each game, each result -- and on a
+  // TV that is the thread the remote's focus runs on. Turf's weave is left
+  // out there: a 3.5% pinstripe is invisible from a sofa, and a pattern fill
+  // is the most expensive thing in the Svg.
+  if (isTV) {
+    return <View style={[StyleSheet.absoluteFill, { backgroundColor: color.void, experimental_backgroundImage: tvLights() }]} pointerEvents="none" {...DECORATIVE} />;
+  }
 
   return (
     <Svg
@@ -79,6 +89,16 @@ export const StadiumBackdrop = memo(function StadiumBackdrop() {
     </Svg>
   );
 });
+
+/** `StadiumBackdrop`'s lights as CSS gradients, top light first (the Svg's paint order reversed). */
+function tvLights(): string {
+  const fade = teamWash(color.void, 0);
+  return [
+    `radial-gradient(ellipse 60% 60% at 94% 2%, ${teamWash(color.backdropWarm, 0.22)} 0%, ${fade} 100%)`,
+    `radial-gradient(ellipse 66% 66% at 10% -4%, ${teamWash(color.backdropCool, 0.34)} 0%, ${teamWash(color.navy, 0.16)} 50%, ${fade} 100%)`,
+    `radial-gradient(ellipse 74% 74% at 50% 110%, ${teamWash(color.navy, 0.42)} 0%, ${fade} 100%)`,
+  ].join(', ');
+}
 
 /**
  * The game is phone-first, so on a wide screen it holds a bounded column

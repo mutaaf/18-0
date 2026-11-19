@@ -685,13 +685,19 @@ function SkipButton({ onPress, label = 'Don’t know' }: { onPress: () => void; 
  * TV: the remote's touch surface in miniature, with a fingertip showing the
  * swipe the deck is waiting for. One Reanimated repeat on the UI thread.
  */
+const HINT_SHOWINGS = 3;
+
 function RemoteHint({ phase }: { phase: Phase }) {
   const t = useSharedValue(0);
   useEffect(() => {
     t.value = 0;
     t.value = withRepeat(
       withSequence(withTiming(1, { duration: 1100, easing: Easing.inOut(Easing.cubic) }), withDelay(500, withTiming(0, { duration: 0 }))),
-      -1,
+      // Three showings per card, then still: a loop for as long as the deck
+      // is open was a frame of UI-thread work every frame on a screen that
+      // was otherwise at rest (docs/apple-tv.md, Budgets). A new question
+      // ("which way?") shows it again.
+      HINT_SHOWINGS,
       false,
       undefined,
       ReduceMotion.System,

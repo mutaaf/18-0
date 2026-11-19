@@ -268,6 +268,10 @@ is a regression until a profile says why.
 - **The front page under a game listens for whether one is under way**, not
   for its status, which moves three times a spin.
 - **The turf ticks every other frame** (docs/graphics.md).
+- **A spin mounts only the rows the remote can reach**, and more as it nears
+  the end (`useTVRows`; see The third pass).
+- **No Svg behind every screen or in the broadcast graphics, and no rounded
+  clip over anything that moves** (see The third pass).
 - **Focus state stays in the control.** A move re-renders the control losing
   focus and the one gaining it, and nothing else: two renders. A screen that
   needs to know where the remote is reads it from the style callback.
@@ -360,6 +364,82 @@ left, all of it CPU or offscreen GPU work the simulator does not show:
 
 The rule this leaves: on a TV, animate transform and opacity and nothing else,
 and treat any per-frame GPU effect as guilty until a device says otherwise.
+
+### The third pass
+
+After the tab bar (#85) the owner still felt lag on hardware. What was left
+was work the remote never needed: rows mounted that nobody reached, CPU
+rasters behind every screen, rounded clipping over moving graphics, and one
+loop that never rested.
+
+- **A spin mounts the rows the remote can reach** (`features/tv/rows.ts`,
+  `useTVRows`). A phone mounts the whole spin a dozen rows a frame; on a TV
+  those eight commits of the play screen landed in exactly the second the
+  remote was first pressed, and a hundred rows is a hundred focus targets
+  searched on every press, for a pick almost always made on the first
+  screen. A TV mounts twelve, and a row taking focus six from the end mounts
+  the next twelve (one commit). The row the remote is handed after a spin is
+  always mounted, however far down the first open player is. Nothing
+  unmounts, so this is not a FlatList: the rows share one scroll with the
+  spin's hero, and a virtualized list drops rows the focus engine may hold.
+- **The backdrop behind every screen** (`StadiumBackdrop`) was a full-screen
+  Svg -- three radial gradients and Turf's pinstripe pattern, rasterised on
+  the CPU by every screen that mounted. On a TV it is one view with native
+  radial gradients. The pinstripe is left out there: 3.5% white, invisible
+  from a sofa, and the most expensive fill in the Svg.
+- **The broadcast graphics** (`features/tv/hud`): the panel glass and the
+  record's glow were Svgs, and each panel clipped its children to rounded
+  corners (`overflow: 'hidden'`), which Core Animation does as an offscreen
+  mask pass every frame the panel wipes. The glass is now the panel's own
+  background layer (a CAGradientLayer, rounded without a mask because it has
+  no sublayers), and the hairline stops short of the corners instead of being
+  clipped by them.
+- **Gut Check's remote legend** shows its swipe three times per question, then
+  rests, instead of looping for as long as the deck is open.
+
+Measured with `scripts/perf/tv/run.sh`, before and after, on the same
+simulator. CPU per press is gross here; `noop_press` is the harness's own
+cost, to take off by hand:
+
+| | Before | After | |
+|---|---|---|---|
+| One spin, Select to list ready (CPU) | 1.02 s | 0.87 s | −15% |
+| A season, Rookie (CPU) | 8.14 s | 7.91 s | −3% |
+| Peak memory over a season | 441 MB | 423 MB | −18 MB |
+| Peak memory, a season in broadcast mode | 459 MB | 431 MB | −28 MB |
+| Peak memory, down the play list | 367 MB | 353 MB | −14 MB |
+| Focus move, play list (gross) | 95.9 ms | 92.4 ms | within noise |
+| Focus move, play list under the HUD (gross) | 94.4 ms | 98.1 ms | within noise |
+| Focus move, front page / result / leaderboard (gross) | 78 / 81 / 67 ms | 88 / 79 / 68 ms | within noise |
+| Tab switch / Gut Check call (gross) | 184 / 173 ms | 186 / 171 ms | within noise |
+| Harness's own cost per press (`noop_press`) | 29.5 ms | 31.2 ms | |
+
+Read the focus rows for what they are: a simulator rasterises an Svg on a
+Mac CPU in a fraction of a millisecond, and an offscreen mask pass on a Mac
+GPU costs nothing it can measure, so the per-press cost of this pass was
+never going to show here. What the simulator can see -- the spin's commits
+and the memory of rows nobody reached -- moved. The rest is for `tv_jank`
+on hardware to confirm.
+
+**Rejected: laying the app out natively at 1920 x 1080.** The stage's 1.5x
+is a static transform on one view: Core Animation composites it, re-renders
+nothing for it, and adds no offscreen pass for it (the glass's clip is a
+rectangle). No press costs more because of it. What it costs is sharpness:
+text and borders are rasterised at the stage's size and magnified. Laying
+out at 1920 means scaling every size in the app, and only the module-scope
+stylesheets pass through one place (`themed()`); inline styles, `size`
+props, Svg view boxes, animation distances, the breakpoints and every
+`measureInWindow` reader do not, and a half-converted app is screens at two
+scales at once. If sharpness becomes the complaint, the cheap fix is native:
+raise `contentsScale` on the text layers under the stage by `TV_SCALE`, which
+keeps the layout and draws glyphs at the size they are shown.
+
+**Left as they are:** the broadcast crawl (`PlayHud`) loops while it is
+shown, because moving is what a crawl is for -- one text layer translated on
+the UI thread, and it can be switched off. The 17-0 ring on the result
+(`Scoreboard`) breathes opacity only, on a perfect season only. The stats
+charts and the small icons are Svgs that draw once at mount and never under
+the remote's focus.
 
 ## Gut Check on the Siri Remote
 
