@@ -15,6 +15,8 @@ import { DockSpacer } from '@/components/chrome';
 import { Screen } from '@/components/Screen';
 import { SpreadLayout } from '@/components/SpreadLayout';
 import { useSpread } from '@/features/fold';
+import { isTV } from '@/features/tv/platform';
+import { TVChallenges } from '@/features/tv/views/TVChallenges';
 import { Panel } from '@/components/Panel';
 import { Avatar } from '@/components/Avatar';
 import { RatingBadge } from '@/components/RatingBadge';
@@ -94,6 +96,26 @@ export default function Challenges() {
   // Only a clean, server-scored season is worth putting up. An assisted one is
   // a number the game itself does not stand behind.
   const best = seasons.find((s) => !s.assisted) ?? null;
+
+  // A TV gets every challenge as a row the remote walks, with the one it is
+  // on as a face-off beside it (features/tv/views/TVChallenges.tsx). The
+  // phone's page had nothing on it a remote could land on: a TV has no share
+  // sheet, so the one button was not there, and the duels are panels.
+  if (isTV) {
+    return (
+      <Screen maxWidth={layout.maxWidth}>
+        <TVChallenges
+          rows={rows}
+          seasons={seasons}
+          me={me}
+          best={best}
+          loading={loading}
+          failed={failed}
+          offline={!isBackendConfigured}
+        />
+      </Screen>
+    );
+  }
 
   const send = async (season: MySeason) => {
     if (making) return;

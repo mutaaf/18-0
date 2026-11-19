@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { pressVerb } from '@/features/tv/platform';
+import { isTV, pressVerb } from '@/features/tv/platform';
+import { TVLeaderboard } from '@/features/tv/views/TVLeaderboard';
 import {
   ActivityIndicator,
   Animated,
@@ -297,6 +298,36 @@ export default function Leaderboard() {
   const ratings = useMemo(() => rows.map((r) => r.finalRating), [rows]);
     const ratingBoard = board !== 'points';
   const ready = isBackendConfigured && !loading && !failed && (board === 'points' ? scores.length > 0 : rows.length > 0);
+
+  // A TV gets the board as a list the remote walks with the entry it is on in
+  // a panel beside it (features/tv/views/TVLeaderboard.tsx). Every decision
+  // above -- which boards, which window, what is fetched -- is this screen's.
+  if (isTV) {
+    return (
+      <Screen maxWidth={layout.maxWidth}>
+        <TVLeaderboard
+          boards={boards}
+          board={board}
+          onBoard={setBoard}
+          periods={PERIODS}
+          period={period}
+          onPeriod={setPeriod}
+          clean={respinsOn ? clean : null}
+          onClean={setClean}
+          subtitle={board === 'gameday' && day ? `${gamedayDate(day)} · ${gamedayLabel(day)}` : 'Highest 17-0 rating'}
+          rows={rows}
+          scores={scores}
+          me={me}
+          loading={loading}
+          failed={failed}
+          offline={!isBackendConfigured}
+          onRetry={() => void load(period, board, clean)}
+          gateMode={GATE_MODE[board]}
+          gateHeading={board === 'gameday' && day && !gamedayAt() ? 'Nobody played that gameday' : 'Be the first on the board'}
+        />
+      </Screen>
+    );
+  }
 
   /**
    * The board's shape: the podium, where the field's ratings fall, and where

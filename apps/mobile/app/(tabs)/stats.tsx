@@ -8,6 +8,8 @@ import { Screen } from '@/components/Screen';
 import { SpreadLayout } from '@/components/SpreadLayout';
 import { ModeRing, RatingTrend, WinsChart } from '@/components/charts';
 import { useSpread } from '@/features/fold';
+import { isTV } from '@/features/tv/platform';
+import { TVStats } from '@/features/tv/views/TVStats';
 import { MODE_LABEL, type GameMode } from '@/state/game';
 import { computeStats, useHistoryStore } from '@/state/history';
 import { color, font, radius, space, tabular, themed, tracking, useLayout, useThemeId } from '@/theme';
@@ -35,6 +37,18 @@ export default function Stats() {
     const count = (m: GameMode) => games.filter((g) => (g.mode ?? 'rookie') === m).length;
     return (['rookie', 'scout', 'player_iq', 'gameday'] as const).map((key) => ({ key, count: count(key) }));
   }, [games]);
+
+  // A TV gets the page as a list the remote walks, with the section or the
+  // season it is on drawn beside it (features/tv/views/TVStats.tsx). The
+  // phone's page has no focus target on it at all, so on a TV none of it was
+  // reachable. The empty state keeps the phone's, which is one button.
+  if (isTV && stats.played > 0) {
+    return (
+      <Screen maxWidth={layout.maxWidth}>
+        <TVStats games={games} stats={stats} ratings={ratings} wins={wins} modes={modes} />
+      </Screen>
+    );
+  }
 
   if (stats.played === 0) {
     const blank = (
