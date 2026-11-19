@@ -101,13 +101,23 @@ disc keep inside it.
 - **A screen that stays mounted claims focus each time it is shown**
   (`useTVInitialFocus`): `hasTVPreferredFocus` alone claims once, and a claim
   made while the screen is still arriving is dropped. Account uses it, so the
-  corner disc opens onto the page rather than the rail.
-- **The rail and the dock are focus guides** aimed at the tab you are on, so
-  pressing right (or down) from anywhere on a page lands on the navigation, and
+  corner disc opens onto the page rather than the tab bar.
+- **The tab bar is a focus guide** aimed at the tab you are on, so pressing
+  up from anywhere on a page lands on the navigation, and
   every page is a guide that remembers where you left it.
 - **Menu** goes back from a pushed screen, to Play from any other tab, and home
   from Play -- Apple's tvOS review guidelines require that last one
   (`src/features/tv/menu-key.ts`).
+
+## Navigation
+
+A tab bar across the top (`components/TVTabBar.tsx`), the way tvOS's own
+is: the tabs as words, the one the remote is on a white pill with dark type,
+the one you are on a quiet grey pill. Up from anywhere on a tab lands on the
+tab you are on. A click switches tabs, not focus, because each tab is a whole
+screen and mounting one per press across the bar is the cost this app cannot
+pay. The dock and the Duo's rail are a phone's; `useNavRail()` is null on a
+TV, and the account disc sits in the top right.
 
 ## The screens on a TV
 
@@ -309,6 +319,24 @@ What was taken out, and what a test keeps out (`performance.test.ts`):
   on, at 4K.
 - **A layout state per Pressable.** The lift's width is a shared value now,
   so a hundred rows mounting is one render each, not two.
+
+Build 26 was better and still choppy. The second pass took out what was
+left, all of it CPU or offscreen GPU work the simulator does not show:
+
+- **Every layer shadow.** Not only animated ones: a shadow with no
+  `shadowPath` is re-rendered whenever anything under it moves, and on a TV
+  the whole app sits under the stage's 1.5x scale. `themed()` builds every
+  stylesheet without `shadow*` on a TV (`dropShadows`, called from
+  `features/tv/platform.ts`); the few inline ones are guarded by hand.
+- **Skia, entirely.** `gpu()` returns each effect's fallback on a TV, so
+  nothing loads Skia, compiles a shader at launch, or holds a 4K Metal layer.
+- **Svg paints the remote lands on.** react-native-svg rasterises on the CPU,
+  on the main thread. The home's tiles swapped an Svg gradient on focus, so
+  every press redrew one mid-lift. The home, `Panel`, the glass and the play
+  screen's team wash are native gradient layers (`experimental_backgroundImage`)
+  on a TV.
+- **The dock's swell,** which animated width on the JS thread.
+- **Screens out of sight** stop rendering (`freezeOnBlur`).
 
 The rule this leaves: on a TV, animate transform and opacity and nothing else,
 and treat any per-frame GPU effect as guilty until a device says otherwise.

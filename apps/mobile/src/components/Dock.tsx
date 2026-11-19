@@ -201,9 +201,10 @@ const DockTile = forwardRef<ElementRef<typeof Pressable>, DockTileProps>(functio
       onPress={onPress}
       onHoverIn={() => onHover(index)}
       onHoverOut={() => onHover(null)}
-      // The remote's focus is a TV's pointer: the dock swells around it.
-      onFocus={isTV ? () => onHover(index) : undefined}
-      onBlur={isTV ? () => onHover(null) : undefined}
+      // No swell under the remote: it animates width, which is layout, on the
+      // JS thread, for five tiles at once -- a frame of JS and layout per frame
+      // of every focus move, on a real Apple TV. Pressable's own lift says
+      // where focus is.
       onPressIn={() => setHeld(true)}
       onPressOut={() => setHeld(false)}
       accessibilityRole="tab"

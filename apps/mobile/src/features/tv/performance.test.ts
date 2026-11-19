@@ -135,4 +135,53 @@ describe('Apple TV performance (docs/apple-tv.md)', () => {
     const source = read('src/features/tv/sound.ts');
     expect(source).toMatch(/setTimeout\(next, 2500\)/);
   });
+
+  // Build 26 (after #82) was better on an Apple TV and still stuttered. What
+  // was left was CPU and offscreen GPU work, none of which the simulator shows.
+
+  it('no Skia on a TV: every GPU effect is its fallback there', () => {
+    expect(read('src/features/gpu/index.tsx')).toMatch(/if \(!on \|\| isTV\) return <>\{fallback\}<\/>;/);
+  });
+
+  it('no layer shadows on a TV, in any themed stylesheet', () => {
+    const source = read('src/theme/runtime.ts');
+    expect(source).toMatch(/const built = shadowless \? withoutShadows\(factory\(\)\) : factory\(\);/);
+    expect(read('src/features/tv/platform.ts')).toMatch(/if \(isTV\) dropShadows\(\);/);
+    // Inline ones are kept off by hand where a TV renders them.
+    expect(read('src/components/Field.tsx')).not.toMatch(/&& \{ borderColor: accent, shadowColor/);
+  });
+
+  it('nothing the remote lands on repaints an Svg', () => {
+    // react-native-svg rasterises on the CPU on the main thread. A tile whose
+    // paint followed focus re-drew it in the middle of every lift.
+    const home = read('src/features/tv/TVHome.tsx');
+    expect(home).not.toMatch(/LinearGradient|RadialGradient/);
+    expect(read('src/components/Panel.tsx')).toMatch(/isTV \?/);
+    expect(read('src/components/GlassSurface.tsx')).toMatch(/if \(isTV\)/);
+    expect(read('app/play.tsx')).toMatch(/team && isTV \?/);
+  });
+
+  it('the dock does not swell under the remote', () => {
+    // Width is layout, so the swell ran on the JS driver: five tiles of JS and
+    // Yoga per frame of every focus move.
+    expect(read('src/components/Dock.tsx')).not.toMatch(/onFocus=\{isTV/);
+  });
+
+  it('screens out of sight stop rendering on a TV', () => {
+    expect(read('app/_layout.tsx')).toMatch(/freezeOnBlur: isTV/);
+    expect(read('app/(tabs)/_layout.tsx')).toMatch(/freezeOnBlur: isTV/);
+  });
+
+  it('a TV navigates from a tab bar across the top, not a dock or a rail', () => {
+    expect(read('src/components/NavBar.tsx')).toMatch(/if \(isTV\) return <TVTabBar/);
+    expect(read('src/features/fold/index.tsx')).toMatch(/if \(!enabled \|\| isTV\) return null;/);
+    // Its focus look fades and scales two always-mounted views, nothing else.
+    const bar = read('src/components/TVTabBar.tsx');
+    const styles = [...bar.matchAll(/useAnimatedStyle\(\(\) => \(\{([\s\S]*?)\}\)\)/g)].map((m) => m[1]!);
+    expect(styles.length).toBe(2);
+    for (const style of styles) {
+      const props = [...style.matchAll(/^\s*(\w+):/gm)].map((m) => m[1]);
+      expect(props.every((p) => p === 'opacity' || p === 'transform')).toBe(true);
+    }
+  });
 });

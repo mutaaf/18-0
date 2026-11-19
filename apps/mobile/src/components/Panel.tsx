@@ -1,7 +1,8 @@
 import { type ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
-import { color, elevate, radius, themed } from '@/theme';
+import { isTV } from '@/features/tv/platform';
+import { color, elevate, radius, teamWash, themed } from '@/theme';
 
 /**
  * A surface with a light source.
@@ -43,32 +44,40 @@ export function Panel({
         style,
       ]}
     >
-      {/* The Svg sits in a wrapper the panel's size. Sized "100%" straight
-          inside a padded box, native react-native-svg took the padding off
-          its own size and the ground stopped short of the right and bottom
-          edges (GlassSurface has the same note). */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Svg width="100%" height="100%">
-          <Defs>
-            <LinearGradient id={`${id}-ground`} x1="0" y1="0" x2="0.25" y2="1">
-              <Stop offset="0" stopColor={color.panelTop} stopOpacity="0.9" />
-              <Stop offset="1" stopColor={color.panelBottom} stopOpacity="0.95" />
-            </LinearGradient>
-            <LinearGradient id={`${id}-wash`} x1="0" y1="0" x2="0.6" y2="1">
-              <Stop offset="0" stopColor={tint ?? '#FFFFFF'} stopOpacity="0.16" />
-              <Stop offset="1" stopColor={tint ?? '#FFFFFF'} stopOpacity="0" />
-            </LinearGradient>
-            <LinearGradient id={`${id}-gloss`} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.09" />
-              <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
-            </LinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id}-ground)`} />
-          {tint ? <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id}-wash)`} /> : null}
-          {/* The gloss is short: light falls on the top edge, not down the face. */}
-          <Rect x="0" y="0" width="100%" height="38" fill={`url(#${id}-gloss)`} />
-        </Svg>
-      </View>
+      {isTV ? (
+        // The same light as native gradient layers: an Svg is a CPU raster on
+        // the main thread, and on an Apple TV that is the thread focus runs on.
+        <View style={[StyleSheet.absoluteFill, { experimental_backgroundImage: tvGround(tint) }]} pointerEvents="none" />
+      ) : (
+        <>
+        {/* The Svg sits in a wrapper the panel's size. Sized "100%" straight
+            inside a padded box, native react-native-svg took the padding off
+            its own size and the ground stopped short of the right and bottom
+            edges (GlassSurface has the same note). */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Svg width="100%" height="100%">
+            <Defs>
+              <LinearGradient id={`${id}-ground`} x1="0" y1="0" x2="0.25" y2="1">
+                <Stop offset="0" stopColor={color.panelTop} stopOpacity="0.9" />
+                <Stop offset="1" stopColor={color.panelBottom} stopOpacity="0.95" />
+              </LinearGradient>
+              <LinearGradient id={`${id}-wash`} x1="0" y1="0" x2="0.6" y2="1">
+                <Stop offset="0" stopColor={tint ?? '#FFFFFF'} stopOpacity="0.16" />
+                <Stop offset="1" stopColor={tint ?? '#FFFFFF'} stopOpacity="0" />
+              </LinearGradient>
+              <LinearGradient id={`${id}-gloss`} x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.09" />
+                <Stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id}-ground)`} />
+            {tint ? <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id}-wash)`} /> : null}
+            {/* The gloss is short: light falls on the top edge, not down the face. */}
+            <Rect x="0" y="0" width="100%" height="38" fill={`url(#${id}-gloss)`} />
+          </Svg>
+        </View>
+        </>
+      )}
 
       {tint ? <View style={[styles.rail, { backgroundColor: tint }]} pointerEvents="none" /> : null}
 
@@ -88,3 +97,9 @@ const styles = themed(() => StyleSheet.create({
   rail: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 3 },
   body: { zIndex: 1 },
 }));
+
+function tvGround(tint: string | undefined): string {
+  const gloss = 'linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0) 22%)';
+  const wash = tint ? `linear-gradient(150deg, ${teamWash(tint, 0.16)} 0%, ${teamWash(tint, 0)} 70%), ` : '';
+  return `${gloss}, ${wash}linear-gradient(165deg, ${teamWash(color.panelTop, 0.9)} 0%, ${teamWash(color.panelBottom, 0.95)} 100%)`;
+}

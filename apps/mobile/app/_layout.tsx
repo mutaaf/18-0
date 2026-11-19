@@ -128,6 +128,10 @@ export default function RootLayout() {
             headerShown: false,
             contentStyle: { backgroundColor: color.void },
             animation: 'fade',
+            // On a TV, a screen underneath another stops rendering until it
+            // is back on top: the home behind the play screen was re-rendering
+            // on every store change mid-spin, on the JS thread focus waits on.
+            freezeOnBlur: isTV,
           }}
         >
           <Stack.Screen name="(tabs)" />

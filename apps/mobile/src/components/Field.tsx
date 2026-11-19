@@ -188,9 +188,11 @@ function Slot({ slot, card, franchiseAbbr, highlighted, targeted, blind, width, 
         styles.slot,
         { width, minHeight: SLOT_HEIGHT * scale },
         filled ? styles.slotFilled : styles.slotEmpty,
-        highlighted && { borderColor: accent, shadowColor: accent, shadowOpacity: 0.55 },
+        // No glow on a TV: a layer shadow is an offscreen pass per frame there
+        // (theme/runtime.ts, withoutShadows).
+        highlighted && (isTV ? { borderColor: accent } : { borderColor: accent, shadowColor: accent, shadowOpacity: 0.55 }),
         targeted && styles.slotTargeted,
-        targeted && { borderColor: accent, shadowColor: accent, shadowOpacity: 0.7 },
+        targeted && (isTV ? { borderColor: accent } : { borderColor: accent, shadowColor: accent, shadowOpacity: 0.7 }),
         pressed && onPress ? { opacity: 0.75 } : null,
       ]}
     >

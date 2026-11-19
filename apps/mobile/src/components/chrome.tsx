@@ -14,6 +14,8 @@ import { View } from 'react-native';
 export interface Chrome {
   readonly bottom: number;
   readonly right: number;
+  /** The TV's tab bar, across the top (TVTabBar.tsx). */
+  readonly top?: number;
 }
 
 export const NO_CHROME: Chrome = { bottom: 0, right: 0 };
