@@ -125,7 +125,7 @@ ORDER BY hitch_pct DESC`,
       'server_call over the last day. error_pct is everything not ok (refusals by rule included: a jump in them is as much a bug as a 500); latency percentiles are over every call, so a timeout counts at the time it took.',
     reads: ['server_call'],
     query: `SELECT
-  properties.fn AS fn,
+  properties['fn'] AS function,
   count() AS calls,
   round(100 * countIf(properties.outcome != 'ok') / count(), 2) AS error_pct,
   round(100 * countIf(properties.outcome = 'offline') / count(), 2) AS offline_pct,
@@ -136,7 +136,7 @@ ORDER BY hitch_pct DESC`,
 FROM events
 WHERE event = 'server_call'
   AND timestamp > now() - INTERVAL 24 HOUR
-GROUP BY fn
+GROUP BY function
 ORDER BY calls DESC`,
   },
   {
