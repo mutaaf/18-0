@@ -166,6 +166,10 @@ final class TVPerf: XCTestCase {
         var ok = false
         mark("season") { ok = playSeason() }
         XCTAssertTrue(ok, "never reached the result screen")
+        // Broadcast mode is the default: the record is a full-screen graphic
+        // that holds until Select, over the page this test measures.
+        Thread.sleep(forTimeInterval: 3)
+        if focusedLabel.hasPrefix("Final record") { press(.select, gap: 1.5) }
         let start = Date()
         var crossed = -1.0
         var moves: [String] = []

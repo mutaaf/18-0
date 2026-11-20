@@ -303,6 +303,26 @@ off, and until then the lights show only on a TV that never reached PostHog. The
 smooth on an Apple TV HD: `tv_jank` on the play and result screens, build
 against build, is the check.
 
+Measured with `scripts/perf/tv/run.sh` on the same simulator, origin/main
+against this change. "After" has broadcast mode on by default and the lights
+on, so the play-screen rows now carry the HUD as well as the lights; gross
+ms per press, `noop_press` being the harness's own cost. `test05` now
+dismisses the broadcast record before it measures the result page:
+
+| | Before | After |
+|---|---|---|
+| Harness's own cost per press (`noop_press`) | 31.5 ms | 29.0 ms |
+| Focus move, play list | 89.4 ms | 86.4 ms (under the HUD now) |
+| Focus move, play list under the HUD | 95.9 ms | 92.5 ms |
+| Focus move, result page (after the record is dismissed) | 77.2 ms | 79.4 ms |
+| A season (CPU) / peak memory | 7.71 s / 430 MB | 8.31-8.54 s / 439-445 MB (HUD + lights) |
+| A season in broadcast mode (CPU) / peak memory | 8.32 s / 437 MB | 8.35 s / 445 MB |
+
+The lights cost about 8 MB at peak and no CPU per press the simulator can
+measure (the play-list rows moved within noise; a season's extra CPU is mostly
+the HUD, now on by default). The simulator composites on a Mac GPU, so whether
+they are smooth on an Apple TV HD is `tv_jank`'s to say.
+
 The result page's own confetti (`Celebration`'s fallback on a TV) is not
 started while the broadcast record covers the page -- it was animating a
 hundred views nobody could see. It plays when the record is dismissed, if the
