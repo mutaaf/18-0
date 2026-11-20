@@ -703,6 +703,66 @@ The rules, in `performance.test.ts`: no React state set on focus in a
 control that does not read it; the rim clipped and childless; nothing in the
 lights fades a view that paints; the Reanimated flag stays off.
 
+### The fifth pass: the reveal
+
+Real Apple TVs (`screen_ready`, tvOS 26.6.1, build 34) put the result screen
+at 1486 ms to its first frame and 1856 ms settled, against 412 for play and
+121 for Challenges. And that number starts at the navigation: it never saw
+the time between Select on Reveal and the navigation being asked for.
+
+Measured with `test16_Reveal` (three seasons, each ending in one measured
+Select on Reveal) under `js-probe.sh`, which now also reports the app's own
+`screen_ready`, when each commit of a heavy press landed and what it was made
+of, and large commits outside any press (the page arriving later):
+
+```bash
+PROFILE=12 PROFILE_AT=reveal_ready scripts/perf/tv/js-probe.sh test16_Reveal
+```
+
+What it found, in order of cost:
+
+- **The server round trip was in front of the navigation.** A ranked reveal
+  awaited `rankedComplete` before `router.replace`, with the Reveal button
+  showing a spinner: 1.1-1.3 s on the simulator between Select and the
+  result's first commit, with the JS thread idle. On a real network, more,
+  and none of it in `screen_ready`. The answer changes nothing the result
+  shows until its board switch (a downgrade takes the switch away; the note
+  is diagnostics only), so the reveal now navigates first and asks after
+  (`confirmWithServer` in `play.tsx`). A late answer downgrades only the
+  season it was asked for: one that comes back after Build Another leaves the
+  next season alone.
+- **The page under the broadcast record was the whole first commit.** The
+  scoreboard, the roster, both panels, the confetti and the share card, all
+  behind an opaque graphic -- and then all of it again, four times: once
+  because the graphic told the page it was up from an effect, through a store,
+  and once because the spread starts as a single page and is measured into a
+  book. Now the screen knows whether the record is up on its first render, the
+  graphic is memoized, and the page mounts in the hold after the slam
+  (`SLAM + 400 ms`), built (`useTimeline(..., { from: 'end' })`) -- its
+  choreography had always played behind the glass, where nobody saw it. Select
+  before then brings it at once, under the graphic's fade. A TV waits for the
+  spread's measurement (at most 120 ms) before mounting the page.
+- **The share card never mounts on a TV**, which has nowhere to share to.
+
+| Reveal, simulator, Release | Before | After |
+|---|---|---|
+| Select to the result's first commit | 1117-1335 ms | 35-44 ms |
+| `screen_ready` first frame (from the navigation) | 130-146 ms | 34-58 ms |
+| Commits building the page on arrival | 5 (~2,760 renders) | 0; the record is 225 renders |
+| Renders in the press's first 1.5 s | 3,068-3,072 | 707-714 |
+| The page, later, under the record | -- | 1 commit, ~390 renders, at ~2.47 s |
+| JS thread, 12 s around one reveal (Time Profiler) | 549 ms | 185-233 ms |
+| Process CPU, 5 s from Select | 1.30-1.44 s | 0.78-0.82 s |
+
+The record graphic and the page under it look as they did
+(`VIEW_SHOTS`, `reveal-record.png` and `reveal-page.png`): the record is
+unchanged, and the page was always settled by the time anybody dismissed it.
+
+What is left on the press: the play screen re-renders once for the
+completed game (~320 renders) in the frame before it unmounts, and the
+navigation itself. The check is `screen_ready` for `/result` on the next
+TestFlight build, and the time from Select to it, which is now most of it.
+
 ## Gut Check on the Siri Remote
 
 The swipe deck (`app/rate.tsx`) reads the remote through `useTVRemote`

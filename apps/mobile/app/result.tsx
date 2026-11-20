@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isTV, pressVerb } from '@/features/tv/platform';
 import { cue } from '@/features/tv/sound';
 import { FocusPane } from '@/features/tv/FocusPane';
-import { BroadcastReveal, broadcastOn, useRevealUp } from '@/features/tv/hud';
+import { BroadcastReveal, SLAM, broadcastOn, useBroadcast } from '@/features/tv/hud';
 import { Animated, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Pressable } from '@/components/Pressable';
 import { useRouter } from 'expo-router';
@@ -85,6 +85,9 @@ import {
  */
 const PERFECT_THRESHOLD = 98.5;
 
+/** How long after the broadcast record slams the page under it mounts: once the spring has landed. */
+const PAGE_AFTER_SLAM = 400;
+
 /** What the screen says after a share. Null says nothing. */
 const SHARE_NOTE: Record<ShareOutcome, string | null> = {
   image: null,
@@ -96,7 +99,7 @@ const SHARE_NOTE: Record<ShareOutcome, string | null> = {
 };
 
 export default function Result() {
-  const { spread, ref: spreadRef, onLayout: onSpreadLayout } = useSpread();
+  const { spread, ref: spreadRef, onLayout: onSpreadLayout, measured } = useSpread();
   // Subscribes this screen to the palette. React Navigation memoizes the
   // element it was handed, so a theme change reaches the component that
   // *creates* this screen's children or it reaches nothing -- which showed up
@@ -174,10 +177,65 @@ export default function Result() {
     });
   }, [game.serverSessionId, game.assisted]);
 
+  /**
+   * Apple TV, broadcast mode: the record is a full-screen graphic over this
+   * page until Select (features/tv/hud). Known here, on the first render, so
+   * nothing renders twice to find out.
+   */
+  const broadcast = useBroadcast();
+  const [recordDone, setRecordDone] = useState(false);
+  const revealUp = broadcast && !recordDone;
+  // Whether this screen opened under the record. Latched: the page's clock
+  // is decided once, at mount.
+  const [underRecord] = useState(revealUp);
+
+  /**
+   * The page under the broadcast record mounts once the record has slammed
+   * down, not with the screen (docs/apple-tv.md, "The fifth pass").
+   *
+   * It was the whole of the screen's first commit -- the scoreboard, the
+   * roster, both panels, the confetti and the share card -- behind an opaque
+   * graphic nobody could see through -- and built five times over as the
+   * screen measured itself -- while a real Apple TV took a second and a half
+   * to the reveal's first frame. Now the
+   * first commit is the graphic, and the page arrives in the hold after the
+   * slam, when the JS thread has nothing else to do and every moving part of
+   * the record is on the UI thread. It mounts built (`from: 'end'`): its
+   * choreography played behind the glass before, where nobody saw it. Select
+   * before then brings it at once, under the graphic's fade.
+   */
+  const [pageDue, setPageDue] = useState(!revealUp);
+  const closeRecord = useCallback(() => setPageDue(true), []);
+  const recordGone = useCallback(() => setRecordDone(true), []);
+  useEffect(() => {
+    if (pageDue) return;
+    if (!revealUp) {
+      setPageDue(true);
+      return;
+    }
+    const at = setTimeout(() => setPageDue(true), SLAM + PAGE_AFTER_SLAM);
+    return () => clearTimeout(at);
+  }, [pageDue, revealUp]);
+
+  /**
+   * On a TV the page is a book (two pages, `SpreadLayout`), and the spread is
+   * a single page until this screen has been measured: built straight away,
+   * the whole page was built as one column and then again as two, in the
+   * frames the result was arriving. So a TV waits the frame for the
+   * measurement, and no longer than a few: the layers are all still at their
+   * first, invisible keyframe then.
+   */
+  const [measureLate, setMeasureLate] = useState(false);
+  useEffect(() => {
+    if (!isTV || measured) return;
+    const at = setTimeout(() => setMeasureLate(true), 120);
+    return () => clearTimeout(at);
+  }, [measured]);
+  const pageShown = pageDue && (!isTV || measured || measureLate);
+
   // One clock for the whole page. Read before the early return below, so the
   // hook order never changes.
-  const line = useTimeline(CUE.end, result?.finalRating);
-  const revealUp = useRevealUp();
+  const line = useTimeline(CUE.end, result?.finalRating, { from: underRecord ? 'end' : 'start' });
 
   /**
    * The card image, captured once the build has finished and before anybody
@@ -215,7 +273,9 @@ export default function Result() {
     const at = setTimeout(() => setCaptureDue(true), CUE.digits);
     return () => clearTimeout(at);
   }, []);
-  const captureMounted = captureDue || line.settled;
+  // Never on an Apple TV, which has nowhere to share to (`shareAvailable`):
+  // it was a second roster mounted off-screen for a capture that never comes.
+  const captureMounted = shareAvailable && pageShown && (captureDue || line.settled);
 
   const rosterCards = useMemo(
     () =>
@@ -821,7 +881,7 @@ export default function Result() {
   return (
     <Screen maxWidth={paged ? undefined : layout.wide ? 760 : undefined} bleed={paged}>
       <View ref={spreadRef} onLayout={onSpreadLayout} style={styles.fill}>
-        {paged ? (
+        {!pageShown ? null : paged ? (
           <SpreadLayout
             spread={spread}
             // On a TV each page is a focus guide, or left and right could
@@ -876,21 +936,25 @@ export default function Result() {
       {/* On a TV, not under the broadcast record: the page's confetti there
           was a hundred animated views behind an opaque graphic. Dismissing
           the record lets it go off, if its moment has not passed. */}
+      {pageShown ? (
       <Celebration
         intensity={isTV && revealUp ? 0 : celebration}
         palette={[accent, color.text, color.silver]}
         perfect={perfect}
         at={line.settled ? 0 : CUE.stamp}
       />
+      ) : null}
       {/* Apple TV: the stadium lights on the stamp, when the broadcast record
           is not already lighting it (features/tv/lights.tsx). */}
-      {celebration > 0 && !revealUp && !broadcastOn() ? (
+      {celebration > 0 && !revealUp && !broadcast ? (
         <StadiumLights show={perfect ? 'perfect' : 'reveal'} cue="page" at={line.settled ? 0 : CUE.stamp} tint={accent} bleed />
       ) : null}
 
       {/* Apple TV, broadcast mode: the record as a full-screen graphic before
-          the page underneath (features/tv/hud). Renders nothing otherwise. */}
-      <BroadcastReveal result={result} mode={game.mode} roster={shareRows} />
+          the page underneath (features/tv/hud), until it has faded out. */}
+      {revealUp ? (
+        <BroadcastReveal result={result} mode={game.mode} roster={shareRows} onClose={closeRecord} onDone={recordGone} />
+      ) : null}
     </Screen>
   );
 }

@@ -377,4 +377,37 @@ describe('Apple TV performance (docs/apple-tv.md)', () => {
     expect(layer).toMatch(/if \(flare === null \|\| reduced\) return;/);
     expect(layer).not.toMatch(/withRepeat|useFrameCallback|setInterval|setTimeout/);
   });
+  it("the reveal navigates first and asks the server after, and a late answer downgrades only its own season", () => {
+    // Awaited in front of router.replace, a ranked reveal held the remote on
+    // a spinner for a whole round trip -- 1.1-1.3 s on the simulator before
+    // the result's first commit, and outside screen_ready, which starts at
+    // the navigation (docs/apple-tv.md, "The fifth pass").
+    const source = read('app/play.tsx');
+    const reveal = source.slice(source.indexOf('const reveal = useCallback'), source.indexOf('}, [record, router]);'));
+    expect(reveal).not.toMatch(/\bawait\b/);
+    expect(reveal.indexOf("router.replace('/result')")).toBeGreaterThan(-1);
+    expect(reveal.indexOf("router.replace('/result')")).toBeLessThan(reveal.indexOf('confirmWithServer('));
+    const confirm = source.slice(source.indexOf('async function confirmWithServer'));
+    expect(confirm).toMatch(/if \(now\.serverSessionId === sessionId\) now\.downgrade\(note\);/);
+  });
+
+  it("the result's first commit under the broadcast record is the record, and the page arrives built", () => {
+    // The page under the record was the whole first commit -- five of them,
+    // ~2,700 renders -- behind an opaque graphic. It mounts in the hold after
+    // the slam now, at its end state, once the spread is measured.
+    const source = read('app/result.tsx');
+    expect(source).toMatch(/setTimeout\(\(\) => setPageDue\(true\), SLAM \+ PAGE_AFTER_SLAM\)/);
+    expect(source).toMatch(/\{!pageShown \? null : paged \? \(/);
+    expect(source).toMatch(/useTimeline\(CUE\.end, result\?\.finalRating, \{ from: underRecord \? 'end' : 'start' \}\)/);
+    expect(source).toMatch(/const pageShown = pageDue && \(!isTV \|\| measured \|\| measureLate\);/);
+    // Known on the first render, not from the graphic's effect through a store.
+    expect(source).not.toMatch(/useRevealUp/);
+    const reveal = read('src/features/tv/hud/BroadcastReveal.tsx');
+    expect(reveal).not.toMatch(/from 'zustand'/);
+    expect(reveal).toMatch(/export const BroadcastReveal = memo\(/);
+  });
+
+  it('the result never mounts the share card on a TV, which has nowhere to share to', () => {
+    expect(read('app/result.tsx')).toMatch(/const captureMounted = shareAvailable && pageShown &&/);
+  });
 });

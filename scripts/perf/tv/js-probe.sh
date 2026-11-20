@@ -18,6 +18,12 @@
 # 24 s, past test03's spin) and prints each thread's milliseconds and the JS
 # thread's heaviest frames (threads.py) -- the only view of the commits React
 # did not make, such as a scroll view's state updates.
+#
+# PROFILE_AT=<text> starts the profile when the harness prints that line
+# instead of after a fixed delay: test16_Reveal prints `PERF reveal_ready`
+# a few seconds before it presses Reveal, so the window holds one reveal.
+#
+#   PROFILE=12 PROFILE_AT=reveal_ready scripts/perf/tv/js-probe.sh test16_Reveal
 set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -67,7 +73,17 @@ listener=$!
 if [[ -n "${PROFILE:-}" ]]; then
   PERF_OUT="$OUT" "$HERE/run.sh" "$@" > "$work/run.txt" 2>&1 &
   harness=$!
-  sleep "${PROFILE_DELAY:-24}"
+  if [[ -n "${PROFILE_AT:-}" ]]; then
+    # The harness's own log, as xcodebuild writes it: the one newer than this
+    # run's bundle, so an earlier run's marker is never the one heard.
+    for _ in $(seq 1 600); do
+      runlog=$(find "$OUT" -maxdepth 1 -name 'run-*.log' -newer "$work/bundle.log" | head -1)
+      [[ -n "$runlog" ]] && grep -q "PERF $PROFILE_AT" "$runlog" && break
+      sleep 0.5
+    done
+  else
+    sleep "${PROFILE_DELAY:-24}"
+  fi
   pid=$(pgrep -f "Devices/${UDID}/.*\.app/SeventeenZero( |$)" | head -1)
   xcrun xctrace record --device "$UDID" --template 'Time Profiler' --attach "$pid" \
     --time-limit "${PROFILE}s" --output "$work/profile.trace" > /dev/null 2>&1
@@ -89,6 +105,14 @@ for line in open(sys.argv[1]):
     if m:
         kind = 'moves' if m.group(1) in ('up', 'down', 'left', 'right') else m.group(1)
         by.setdefault(kind, []).append(tuple(int(g) for g in m.groups()[1:]))
+heavy = []
+for line in open(sys.argv[1]):
+    if ' screen ' in line or ' commit late ' in line:
+        print('  ' + line.split('[perf] ', 1)[1].strip())
+    elif 'commits_at=' in line:
+        heavy.append(line.split('[perf] ', 1)[1].strip())
+for line in heavy:
+    print('  heavy ' + line)
 for kind, rows in by.items():
     late, renders, commits = zip(*rows)
     print(f'  {kind:8} {len(rows):4} presses   renders/press {st.mean(renders):5.1f} (median {st.median(renders):g})'

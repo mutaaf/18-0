@@ -16,6 +16,14 @@
  *   `tv_jank`'s `js_median_ms` reports from real Apple TVs (features/tv/jank.ts).
  *   On the simulator it is mostly the one frame a timer waits for anyway.
  *
+ * - **When each commit landed**, for a press that rendered a lot (a reveal, a
+ *   navigation): `commits_at=<ms after the press>:<renders>,...`, so a screen
+ *   whose first commit is late can be told from one that commits early and
+ *   then keeps committing.
+ * - **The app's own `screen_ready`** (features/diagnostics/screen.ts), read
+ *   from telemetry's ring and posted as `[perf] screen <route> first=<ms>
+ *   settled=<ms>` -- the same number real Apple TVs report to PostHog.
+ *
  * Neither sees a commit React did not make: a scroll view's state update is
  * one too, and only Time Profiler (js-probe.sh's PROFILE) shows those.
  *
@@ -38,6 +46,8 @@ global.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
   checkDCE() {},
   onCommitFiberRoot(_id, root) {
     perf.commits += 1;
+    const rendersBefore = perf.renders;
+    const mine = {};
     const stack = [root.current];
     while (stack.length) {
       const fiber = stack.pop();
@@ -51,9 +61,25 @@ global.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
         const type = (fiber.type && (fiber.type.type || fiber.type.render)) || fiber.type;
         const name = (fiber.type && fiber.type.displayName) || (type && (type.displayName || type.name)) || '?';
         perf.byName[name] = (perf.byName[name] || 0) + 1;
+        mine[name] = (mine[name] || 0) + 1;
       }
       if (fiber.sibling) stack.push(fiber.sibling);
       if (fiber.child && !(before && before.child === fiber.child)) stack.push(fiber.child);
+    }
+    {
+      // The commit's own most-rendered components, skipping the host views
+      // every commit is mostly made of, so it can be told what it was.
+      const named = Object.entries(mine)
+        .filter(([n]) => !/^(View|Text|Pressable|TVPressable|Animated|AnimatedComponent|\?)/.test(n))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([n, c]) => `${n}/${c}`)
+        .join('+');
+      if (last) last.at.push(`${Date.now() - last.t0}:${perf.renders - rendersBefore}${named ? `[${named}]` : ''}`);
+      // A large commit outside any press's window: work a screen deferred
+      // (the result page under the broadcast record, at the record's hold).
+      else if (perf.renders - rendersBefore >= 100 && lastPress)
+        send(`[perf] commit late +${Date.now() - lastPress}ms renders=${perf.renders - rendersBefore} [${named}]`);
     }
   },
 };
@@ -76,6 +102,7 @@ function send(line) {
 }
 
 let last = null;
+let lastPress = 0;
 function flush() {
   if (!last) return;
   const names = Object.entries(perf.byName)
@@ -83,7 +110,9 @@ function flush() {
     .slice(0, 8)
     .map(([n, c]) => `${n}:${c}`)
     .join(',');
-  send(`[perf] press ${last.type} late=${last.late} renders=${perf.renders - last.r} commits=${perf.commits - last.c} top=${names}`);
+  const renders = perf.renders - last.r;
+  const at = renders >= 100 ? ` commits_at=${last.at.join(',')}` : '';
+  send(`[perf] press ${last.type} late=${last.late} renders=${renders} commits=${perf.commits - last.c} top=${names}${at}`);
   last = null;
 }
 
@@ -94,7 +123,8 @@ setTimeout(() => {
     flush();
     perf.byName = {};
     const at = Date.now();
-    const entry = { type: event.eventType, late: -1, r: perf.renders, c: perf.commits };
+    lastPress = at;
+    const entry = { type: event.eventType, late: -1, r: perf.renders, c: perf.commits, t0: at, at: [] };
     last = entry;
     setTimeout(() => {
       entry.late = Date.now() - at;
@@ -103,6 +133,17 @@ setTimeout(() => {
       if (last === entry) flush();
     }, 1500);
   });
+  // The app's own screen timing, as PostHog would get it.
+  const telemetry = require('../../../apps/mobile/src/features/telemetry');
+  let seen = 0;
+  setInterval(() => {
+    for (const e of telemetry.recentEvents()) {
+      if (e.name !== 'screen_ready' || e.at <= seen) continue;
+      seen = e.at;
+      const p = e.props;
+      send(`[perf] screen ${p.route} from=${p.from} basis=${p.basis} first=${p.first_frame_ms} settled=${p.settled_ms} idle=${p.idle}`);
+    }
+  }, 1000);
 }, 3000);
 
 require('expo-router/entry');

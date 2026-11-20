@@ -66,6 +66,13 @@ export interface SpreadHandle {
   /** Attach to the container the spread is computed for. */
   readonly ref: React.RefObject<View | null>;
   readonly onLayout: (event: LayoutChangeEvent) => void;
+  /**
+   * Whether `spread` is the measured answer rather than the single-page guess
+   * it starts as. A screen that would lay itself out as a book can wait for
+   * it rather than build a single page and then build the book: the result
+   * on a TV did, the whole page twice in its first frames.
+   */
+  readonly measured: boolean;
 }
 
 /**
@@ -108,7 +115,7 @@ export function useSpread(): SpreadHandle {
     [enabled, frame, window, insets, divisions],
   );
 
-  return { spread, ref, onLayout: measure };
+  return { spread, ref, onLayout: measure, measured: !enabled || frame !== null };
 }
 
 /**
