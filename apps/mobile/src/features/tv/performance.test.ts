@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { TV_FIRST_ROWS, TV_ROWS_AHEAD, wantsMoreRows } from './rows';
-import { PLANS } from './lights-plan';
+import { PLANS, RESTING_ALPHA, RESTING_BEAMS, RESTING_FLARE } from './lights-plan';
 
 /**
  * The Apple TV performance budget, held by the build (docs/apple-tv.md,
@@ -27,6 +27,25 @@ describe('Apple TV performance (docs/apple-tv.md)', () => {
     expect(flags.ANDROID_SYNCHRONOUSLY_UPDATE_UI_PROPS).toBe(true);
   });
 
+  it('Reanimated does not re-render every animated component after it settles', () => {
+    // On by default in Reanimated 4.5: a timer re-renders each animated
+    // component a second after its animation settles -- every focus spring,
+    // so a React commit per remote press (docs/apple-tv.md, "The fourth pass").
+    const flags = JSON.parse(read('package.json')).reanimated?.staticFeatureFlags ?? {};
+    expect(flags.FORCE_REACT_RENDER_FOR_SETTLED_ANIMATIONS).toBe(false);
+  });
+
+  it("a TV's scroll views commit their offset once scrolling rests, not every frame", () => {
+    // Each scrolled frame was a whole-tree commit and layout on the JS
+    // thread, twenty a press: the largest share of the JS thread's work on
+    // the play list. Swizzled at launch, on tvOS only.
+    const swift = read('modules/pass-through/ios/ScrollStateCoalescer.swift');
+    expect(swift).toMatch(/#if os\(tvOS\)/);
+    expect(swift).toMatch(/NSClassFromString\("RCTScrollViewComponentView"\)/);
+    expect(swift).toMatch(/NSSelectorFromString\("_updateStateWithContentOffset"\)/);
+    expect(read('modules/pass-through/ios/PassThroughModule.swift')).toMatch(/OnCreate \{ ScrollStateCoalescer\.install\(\) \}/);
+  });
+
   it('the focus language animates transform and opacity only', () => {
     // The synchronous path takes a view only when every prop it animates is on
     // Reanimated's list (ReanimatedModuleProxy.cpp, `synchronousPropNames`).
@@ -48,13 +67,22 @@ describe('Apple TV performance (docs/apple-tv.md)', () => {
     }
   });
 
-  it('a Pressable draws its focus only once it has been focused, and without Svg', () => {
-    // A spin's list is a hundred Pressables. Each carried a rim and an Svg
-    // sheen from mount -- eight native views per row, idle -- and every one of
-    // them lengthened every commit of the screen.
+  it('a focus move sets no React state in a control that does not read it', () => {
+    // Every setState on focus was a render and a commit, and a commit lays out
+    // and walks the whole shadow tree on the JS thread. On a real Apple TV the
+    // JS thread ran ~300 ms late after every press on the play list
+    // (docs/apple-tv.md, "The fourth pass"). Focus and press reach React state
+    // only for a control whose style or children are callbacks; the rim is
+    // mounted with the control rather than on its first focus, which was a
+    // render per new row the remote reached.
     const source = read('src/components/Pressable.tsx');
     expect(source).not.toMatch(/from 'react-native-svg'/);
-    expect(source).toMatch(/\{lit && visited \?/);
+    expect(source).toMatch(/const reads = typeof style === 'function' \|\| typeof children === 'function';/);
+    const setters = [...source.matchAll(/\b(setFocused|setPressed|setVisited)\(/g)];
+    const guarded = [...source.matchAll(/if \(reads\) (setFocused|setPressed)\(/g)];
+    expect(setters.length).toBeGreaterThan(0);
+    expect(setters.length).toBe(guarded.length);
+    expect(source).not.toMatch(/visited/);
   });
 
   it('a player row on a TV paints its team wash natively, not with Svg', () => {
@@ -129,7 +157,12 @@ describe('Apple TV performance (docs/apple-tv.md)', () => {
     // sheen clipped to a rounded rim was a mask pass per frame on hardware.
     const source = read('src/components/Pressable.tsx');
     expect(source).not.toMatch(/cue\(/);
-    expect(source).not.toMatch(/overflow: 'hidden'/);
+    // One clip, on the rim, which holds no children: Core Animation draws a
+    // clipped view's border itself, where React Native rasterises an
+    // unclipped one -- again on every frame its opacity changes.
+    expect([...source.matchAll(/overflow: 'hidden'/g)].length).toBe(1);
+    expect(source).toMatch(/rim: \{\s*position: 'absolute',\s*overflow: 'hidden',/);
+    expect(source).toMatch(/styles\.rim,[\s\S]{0,200}rim,\s*\]\}\s*\/>/);
     expect(source).not.toMatch(/experimental_backgroundImage/);
   });
 
@@ -280,7 +313,7 @@ describe('Apple TV performance (docs/apple-tv.md)', () => {
     expect(source).not.toMatch(/from 'react-native';[\s\S]*\bAnimated\b[\s\S]*from 'react-native'/);
     expect(source).not.toMatch(/useFrameCallback|requestAnimationFrame|setInterval/);
     const styles = [...source.matchAll(/useAnimatedStyle\(\(\) => \(\{([\s\S]*?)\}\)\)/g)].map((m) => m[1]!);
-    expect(styles.length).toBe(3);
+    expect(styles.length).toBe(4);
     for (const body of styles) {
       const flat = body.replace(/\{[^{}]*\}/g, '').replace(/\[[^[\]]*\]/g, '');
       const keys = [...flat.matchAll(/(\w+):/g)].map((m) => m[1]!);
@@ -312,5 +345,36 @@ describe('Apple TV performance (docs/apple-tv.md)', () => {
     expect(source).toMatch(/useFlag\('tv_broadcast_lights'\)/);
     expect(source).toMatch(/const reduced = useReducedMotion\(\);/);
     expect(source).toMatch(/\{reduced\s*\? null/);
+  });
+
+  it('nothing in the TV lights fades or pops the view that paints it', () => {
+    // Opacity on a React Native view rebuilds its layer every frame: the
+    // gradient layers are torn down and made again. The wash did that to a
+    // full-screen radial for every frame of every pulse. Each animated view
+    // in the lights is a bare wrapper; the gradient is a still child.
+    const source = read('src/features/tv/lights.tsx');
+    const animated = [...source.matchAll(/<Animated\.View([\s\S]*?)>/g)].map((m) => m[1]!);
+    expect(animated.length).toBeGreaterThan(0);
+    for (const props of animated) {
+      expect(props).not.toMatch(/experimental_backgroundImage|styles\.(cone|lamp|bulb|pool)\b/);
+    }
+  });
+
+  it('the play screen keeps its lights lit with at most four still layers, and nothing loops', () => {
+    // The owner asked for the spotlight on the play view itself, not only at
+    // its moments. A layer at rest costs the compositor and nothing else; a
+    // loop would cost the UI thread every frame for as long as the screen is
+    // up, under every press. A moment flares and swings the beams once.
+    const source = read('src/features/tv/lights.tsx');
+    expect(RESTING_BEAMS.length + 1).toBeLessThanOrEqual(4);
+    expect(RESTING_ALPHA).toBeLessThan(RESTING_FLARE);
+    expect(RESTING_FLARE).toBeLessThanOrEqual(0.9);
+    expect(source).not.toMatch(/withRepeat\([\s\S]{0,400}?-1,/);
+    const resting = source.slice(source.indexOf('function RestingLights'), source.indexOf('function RestingBeamLayer'));
+    expect(resting).toMatch(/useFlag\('tv_broadcast_lights'\)/);
+    expect(resting).toMatch(/if \(!isTV \|\| !on\) return null;/);
+    const layer = source.slice(source.indexOf('function RestingBeamLayer'));
+    expect(layer).toMatch(/if \(flare === null \|\| reduced\) return;/);
+    expect(layer).not.toMatch(/withRepeat|useFrameCallback|setInterval|setTimeout/);
   });
 });

@@ -97,3 +97,33 @@ export const PLANS: Record<LightShow, LightPlan> = {
     tail: 5400,
   },
 };
+
+/**
+ * The play screen's standing lights (`RestingLights` in lights.tsx): lamps
+ * that stay lit for as long as the screen is up, rather than a show that
+ * plays and goes. Each is a beam like a show's, resting at an angle; a spin
+ * landing or a pick locking in flares it and swings it by `swing`, and it
+ * comes back to rest. Nothing moves between moments.
+ */
+export interface RestingBeam {
+  readonly x: number;
+  /** Degrees from straight down; positive swings the far end left. */
+  readonly rest: number;
+  /** How far a moment swings it before it settles back. */
+  readonly swing: number;
+  readonly tinted: boolean;
+}
+
+export const RESTING_BEAMS: readonly RestingBeam[] = [
+  // From the top left, down across the field.
+  { x: 0.1, rest: -14, swing: 10, tinted: false },
+  // From the top right, across the spin's hero and the list.
+  { x: 0.9, rest: 24, swing: -12, tinted: false },
+];
+
+/** A pool where the left beam lands on the field: lit, never moving. */
+export const RESTING_POOL = { x: 0.27, y: 0.6, w: 0.46, h: 0.56 } as const;
+
+/** How bright the standing beams are at rest and at the top of a flare. */
+export const RESTING_ALPHA = 0.62;
+export const RESTING_FLARE = 0.9;
