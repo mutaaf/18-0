@@ -330,4 +330,213 @@ final class TVPerf: XCTestCase {
             }
         }
     }
+
+
+    // MARK: the list-and-detail tabs (docs/apple-tv.md, "Navigation")
+
+    /// From the front page to a tab, by the bar.
+    func openTab(_ tab: String) {
+        launchHome()
+        press(.up, 3, gap: 0.6)
+        XCTAssertTrue(seek(tab, .right, max: 6), "never reached \(tab): \(focusedLabel)")
+        press(.select, gap: 4)
+    }
+
+    /// Presses `button` `times` times and returns the focused label after each.
+    func walk(_ button: XCUIRemote.Button, _ times: Int, gap: TimeInterval = 0.6) -> [String] {
+        var labels: [String] = []
+        for _ in 0..<times {
+            press(button, gap: gap)
+            labels.append(focusedLabel)
+        }
+        return labels
+    }
+
+    /// Every press in `labels` landed somewhere new.
+    func assertMoved(_ labels: [String], from start: String, _ what: String) {
+        var last = start
+        for (i, label) in labels.enumerated() {
+            XCTAssertNotEqual(label, last, "\(what): press \(i + 1) did not move focus (\(label))")
+            XCTAssertFalse(label.isEmpty, "\(what): press \(i + 1) lost focus")
+            last = label
+        }
+    }
+
+    func viewShot(_ name: String) {
+        let dir = ProcessInfo.processInfo.environment["VIEW_SHOTS"] ?? "/tmp/17-0-tv-views"
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+        try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: "\(dir)/\(name).png"))
+    }
+
+    /// Up from wherever the remote is until it is on the tab bar's `tab`.
+    func backToBar(_ tab: String, _ what: String) {
+        for _ in 0..<60 {
+            if focusedLabel == tab { break }
+            press(.up, gap: 0.35)
+        }
+        XCTAssertEqual(focusedLabel, tab, "\(what): up never reached the tab bar")
+    }
+
+    /// My Stats: down through every section and every season to the end of
+    /// the log, Select into a season's roster, Menu back to the season, up
+    /// to the bar.
+    func test12_StatsNav() {
+        openTab("My Stats")
+        press(.down, gap: 0.8)
+        let first = focusedLabel
+        report("stats_first", first)
+        XCTAssertTrue(first.hasPrefix("Overview"), "down from the bar should land on Overview, not \(first)")
+        viewShot("stats-overview")
+        let sections = walk(.down, 6)
+        assertMoved(sections, from: first, "stats sections")
+        report("stats_sections", sections.map { String($0.prefix(24)) }.joined(separator: " | "))
+        XCTAssertTrue(sections.last?.hasPrefix("Tendencies") == true, "the seventh section should be Tendencies: \(sections.last ?? "")")
+        press(.up, 5, gap: 0.5)
+        viewShot("stats-form")
+        press(.down, 5, gap: 0.5)
+        // Into the log, and to its end: focus stops moving only at the last season.
+        var seasons: [String] = []
+        var last = focusedLabel
+        for _ in 0..<600 {
+            press(.down, gap: 0.3)
+            let label = focusedLabel
+            if label == last { break }
+            seasons.append(label)
+            last = label
+        }
+        report("stats_seasons_walked", seasons.count)
+        report("stats_last_season", last)
+        XCTAssertGreaterThan(seasons.count, 0, "no season in the log was reachable")
+        XCTAssertTrue(last.hasPrefix("Season \(seasons.count)"), "the walk stopped short of the end: \(last)")
+        press(.up, 3, gap: 0.5)
+        let season = focusedLabel
+        viewShot("stats-season")
+        press(.select, gap: 1.5)
+        let pick = focusedLabel
+        report("stats_select_into", pick)
+        XCTAssertTrue(pick.hasSuffix("Select for the card."), "Select on a season should go into its roster, not \(pick)")
+        let roster = walk(.down, 3, gap: 0.5)
+        assertMoved(roster, from: pick, "stats roster")
+        viewShot("stats-season-roster")
+        press(.menu, gap: 1.5)
+        XCTAssertEqual(focusedLabel, season, "Menu from the roster should come back to the season")
+        mark("stats_focus", moves: 32) { for _ in 0..<2 {
+            press(.up, 8, gap: 0.35)
+            press(.down, 8, gap: 0.35)
+        } }
+        backToBar("My Stats", "stats")
+    }
+
+    /// Challenges: left and right along the filters, down into the list, the
+    /// scored seasons, back up to the bar.
+    func test13_ChallengesNav() {
+        openTab("Challenges")
+        press(.down, gap: 0.8)
+        let chip = focusedLabel
+        report("challenges_first", chip)
+        XCTAssertTrue(chip.hasPrefix("Show: All"), "down from the bar should land on the filters, not \(chip)")
+        let rights = walk(.right, 4)
+        assertMoved(rights, from: chip, "challenge filters")
+        report("challenges_filters", rights.joined(separator: " | "))
+        XCTAssertTrue(rights.last?.hasPrefix("Show: Seasons") == true, "the last filter: \(rights.last ?? "")")
+        press(.select, gap: 1.5)
+        press(.down, gap: 0.8)
+        let firstSeason = focusedLabel
+        report("challenges_season", firstSeason)
+        viewShot("challenges-season")
+        let seasons = walk(.down, 2, gap: 0.5)
+        report("challenges_seasons", seasons.joined(separator: " | "))
+        XCTAssertTrue(seek("Show:", .up, max: 6), "up from the seasons should reach the filters: \(focusedLabel)")
+        XCTAssertTrue(seek("Show: All", .left, max: 6), "never got back to All: \(focusedLabel)")
+        press(.select, gap: 1.5)
+        press(.down, gap: 0.8)
+        let pitch = focusedLabel
+        XCTAssertTrue(pitch.hasPrefix("Put one up"), "the first row of All: \(pitch)")
+        viewShot("challenges-pitch")
+        let rows = walk(.down, 3, gap: 0.5)
+        assertMoved(rows, from: pitch, "challenge rows")
+        report("challenges_rows", rows.map { String($0.prefix(40)) }.joined(separator: " | "))
+        viewShot("challenges-row")
+        press(.right, gap: 0.8)
+        report("challenges_right_into_panel", focusedLabel)
+        press(.left, gap: 0.8)
+        mark("challenges_focus", moves: 16) { for _ in 0..<2 {
+            press(.up, 3, gap: 0.35); press(.down, 3, gap: 0.35)
+            press(.right, gap: 0.35); press(.left, gap: 0.35)
+        } }
+        backToBar("Challenges", "challenges")
+    }
+
+    /// Leaderboards: along the boards, Select one, down to the periods and
+    /// along them, into the field and down it, Select into an entry's roster,
+    /// Menu back, up to the bar.
+    func test14_LeaderboardNav() {
+        openTab("Leaderboards")
+        press(.down, gap: 0.8)
+        let board = focusedLabel
+        report("leaderboard_first", board)
+        XCTAssertTrue(board.hasPrefix("Board: GM Mode"), "down from the bar should land on the boards, not \(board)")
+        let boards = walk(.right, 2)
+        assertMoved(boards, from: board, "boards")
+        report("leaderboard_boards", boards.joined(separator: " | "))
+        viewShot("leaderboard-points-chip")
+        press(.left, 2, gap: 0.5)
+        press(.down, gap: 0.8)
+        let period = focusedLabel
+        XCTAssertTrue(period.hasPrefix("Period:"), "below the boards are the periods: \(period)")
+        let periods = walk(.right, 2)
+        assertMoved(periods, from: period, "periods")
+        press(.left, 2, gap: 0.5)
+        press(.down, gap: 1.0)
+        let top = focusedLabel
+        report("leaderboard_list_first", top)
+        XCTAssertTrue(top.hasPrefix("Rank") || top.hasPrefix("Your place"), "down from the periods should reach the field: \(top)")
+        viewShot("leaderboard-entry")
+        let field = walk(.down, 3, gap: 0.6)
+        report("leaderboard_field", field.map { String($0.prefix(30)) }.joined(separator: " | "))
+        assertMoved(Array(field.prefix(while: { $0.hasPrefix("Rank") })), from: top, "the field")
+        Thread.sleep(forTimeInterval: 1.5) // the roster arrives once the remote rests
+        let entry = focusedLabel
+        viewShot("leaderboard-entry-roster")
+        press(.select, gap: 1.5)
+        let pick = focusedLabel
+        report("leaderboard_select_into", pick)
+        XCTAssertTrue(pick.hasPrefix("QB."), "Select on an entry should go into its roster, not \(pick)")
+        press(.menu, gap: 1.5)
+        XCTAssertEqual(focusedLabel, entry, "Menu from the roster should come back to the entry")
+        mark("leaderboard_nav_focus", moves: 12) { for _ in 0..<2 {
+            press(.up, 3, gap: 0.35); press(.down, 3, gap: 0.35)
+        } }
+        XCTAssertTrue(seek("Board:", .up, max: 8), "up from the field should reach the boards: \(focusedLabel)")
+        report("leaderboard_up", focusedLabel)
+        // Points: a different list, the same walk.
+        XCTAssertTrue(seek("Board: Points", .right, max: 4), "never reached Points: \(focusedLabel)")
+        press(.select, gap: 3)
+        press(.down, 2, gap: 0.8)
+        report("leaderboard_points_first", focusedLabel)
+        viewShot("leaderboard-points")
+        backToBar("Leaderboards", "leaderboard")
+    }
+
+    /// Not a measurement: on each of Leaderboards, Challenges and My Stats,
+    /// what the remote lands on as it presses into the page, printed per
+    /// press, with a screenshot (VIEW_SHOTS). How "the page is not navigable"
+    /// was diagnosed, and how to diagnose it again.
+    func test15_DiagnoseTabs() {
+        let shots = ProcessInfo.processInfo.environment["VIEW_SHOTS"] ?? "/tmp/17-0-tv-views"
+        try? FileManager.default.createDirectory(atPath: shots, withIntermediateDirectories: true)
+        for tab in ["Leaderboards", "Challenges", "My Stats"] {
+            launchHome()
+            press(.up, 3, gap: 0.6)
+            XCTAssertTrue(seek(tab, .right, max: 6), "never reached \(tab): \(focusedLabel)")
+            press(.select, gap: 4)
+            var trail: [String] = []
+            for button in [XCUIRemote.Button.down, .down, .down, .down, .down, .down, .right, .right, .left, .left, .up, .up] {
+                press(button, gap: 0.7)
+                trail.append("\(button.rawValue):\(focusedLabel.prefix(60))")
+            }
+            report("diagnose_\(tab.replacingOccurrences(of: " ", with: "_"))", trail.joined(separator: " | "))
+            try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: "\(shots)/diagnose-\(tab.replacingOccurrences(of: " ", with: "-")).png"))
+        }
+    }
 }

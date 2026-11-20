@@ -128,6 +128,67 @@ screen and mounting one per press across the bar is the cost this app cannot
 pay. The dock and the Duo's rail are a phone's; `useNavRail()` is null on a
 TV, and the account disc sits in the top right.
 
+### My Stats, Challenges and Leaderboards
+
+These three were not navigable on a TV, each for its own reason, found by
+walking them with the remote (`test15_DiagnoseTabs` in `scripts/perf/tv`
+prints where every press lands):
+
+- **My Stats** had no focus target on it at all -- tiles, charts and the
+  chase are Views and Text -- so down from the bar went nowhere, and a scroll
+  view with nothing focusable in it does not scroll: the records, the chase
+  and the tendencies below the fold were unreachable.
+- **Challenges** had one button, and a TV has no share sheet, so it was not
+  there; the challenges themselves are panels. Down from the bar went nowhere.
+- **Leaderboards** laid out as the wide window's two-page spread: the podium's
+  only focus targets were its tiny report flags, the "Sign in" gate under it
+  trapped down, and the field was on the other page, reachable only from
+  whatever happened to be level with it.
+
+Each is now a list-and-detail page (`features/tv/views/`): the master column
+on the left -- the title, a row of switches, a list the remote walks -- and a
+panel on the right drawing whatever the remote is on, the way the TV app's
+own library pages do. The phone screen decides everything (which boards,
+what is fetched, who won) and passes it in, as it does for `TVHome`; phones
+and the web are unchanged.
+
+- **My Stats**: seven section rows (Overview, Form, Records, How you play,
+  The chase, GM Mode, Tendencies), then every season in the log, to the end.
+  A season's panel is the record, the rating and tier, how the model built
+  the number (base, weak link, elite depth, chemistry), what kept it from
+  17-0, and the seven; Select goes into the seven, each opens its card, and
+  Menu comes back to the season.
+- **Challenges**: filters (All, To answer, Waiting, Settled, Your seasons)
+  along the top; a challenge's panel is a face-off with the verdict and the
+  margin. Select on one that is yours to answer opens `/challenge`, exactly
+  as its link does on a phone. A TV cannot send one, and says so.
+- **Leaderboards**: the boards, then the period and the clean-only switch;
+  your own place pinned first (Select jumps to your row); an entry's panel is
+  rank, rating, record and tier, where it sits in the field and the gap either
+  side, and the seven behind it -- the phone's own `fetchRoster`, asked once
+  the remote rests on a row, not once per press. With the remote on the
+  switches the panel is the board's overview and its ridge.
+
+How they stay cheap and reachable (`features/tv/views/views.test.ts`):
+
+- **Every page, list, panel and switch row is an `autoFocus` guide**, and no
+  guide anywhere has `destinations` (see Navigation). Left and right cross
+  between the list and the panel from any row.
+- **The focused row lives outside React state** (`FocusTrack`): the rows are
+  memoised and never read it, and only the panel subscribes. A press is two
+  rows' lift and one panel render, not a list re-render.
+- **The list mounts what the remote can reach** (`useTVRows`, as Play does):
+  a five-hundred-season log is twelve rows until the remote walks towards the
+  end, and a row focus is about to be handed to (your place) is mounted first.
+- **Charts are drawn once.** The panel's sections are layers shown and hidden
+  by opacity, so an Svg chart rasterises when the page mounts, never when the
+  remote lands near it. A season's or an entry's panel is plain Views,
+  re-labelled per move rather than remounted.
+- **Menu in a panel goes back to the row it came from**, not out of the tab:
+  a `BackHandler` listener added while focus is in the panel answers before
+  the tab's own (`menu-key.ts`), and the row reclaims focus with
+  `useTVInitialFocus`.
+
 ## The screens on a TV
 
 - **Home** is its own component (`features/tv/TVHome.tsx`), not the phone's
