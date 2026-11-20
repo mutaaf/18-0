@@ -29,6 +29,9 @@ public final class PassThroughView: ExpoView {
 public class PassThroughModule: Module {
   public func definition() -> ModuleDefinition {
     Name("PassThrough")
+    // Not about passing focus through, but this is the app's one TV-linked
+    // module: see ScrollStateCoalescer.swift.
+    OnCreate { ScrollStateCoalescer.install() }
     View(PassThroughView.self) {}
   }
 }

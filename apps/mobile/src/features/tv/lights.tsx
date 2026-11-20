@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
@@ -15,7 +15,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFlag } from '@/features/flags';
 import { DECORATIVE, color, teamWash, themed, useWindowSize } from '@/theme';
 import { passThroughView } from '../../../modules/pass-through';
-import { PLANS, type Beam, type Bulb, type LightPlan, type LightShow } from './lights-plan';
+import {
+  PLANS,
+  RESTING_ALPHA,
+  RESTING_BEAMS,
+  RESTING_FLARE,
+  RESTING_POOL,
+  type Beam,
+  type Bulb,
+  type LightPlan,
+  type LightShow,
+  type RestingBeam,
+} from './lights-plan';
 import { isTV } from './platform';
 
 export type { LightShow };
@@ -38,10 +49,15 @@ export type { LightShow };
  * - **At most eight animating layers** in any show: four beams, one wash,
  *   three bulbs. Each beam's lamp and cone ride inside the beam's one
  *   rotating view, so they are not layers of their own.
- * - **A show plays and then is gone.** Nothing is mounted between moments;
+ * - **A show plays and then is gone.** Nothing of a show is mounted between moments;
  *   a show unmounts itself when it ends, except under the broadcast record,
  *   which holds its beams still (and costs nothing per frame) until Select.
  *   The record's beams sway twice and stop. Nothing loops.
+ * - **Nothing that paints fades.** Opacity, animated on a React Native view,
+ *   rebuilds that view's layer every frame: a gradient's layers are torn down
+ *   and made again, a border is rasterised again on the CPU. So every fade
+ *   and pop here is on a bare wrapper, and the gradient inside it is drawn
+ *   once. (Transform does not rebuild the layer; the beams rotate their own.)
  * - **No Svg, no Skia, no shadow, no clip.** A clip to rounded corners over
  *   moving content is an offscreen mask pass per frame on a real TV.
  * - **Under Reduce Motion nothing sweeps or strobes.** The beams fade in where
@@ -141,14 +157,16 @@ function Wash({ pulses, peak, at, tint, reduced }: { pulses: readonly number[]; 
     alpha.value = withDelay(first, steps.length === 1 ? steps[0]! : withSequence(...steps));
   }, [alpha, pulses, peak, at, reduced]);
   const style = useAnimatedStyle(() => ({ opacity: alpha.value }));
+  // The fade is on a wrapper that paints nothing: see "Nothing that paints fades".
   return (
-    <Animated.View
-      style={[
-        StyleSheet.absoluteFill,
-        { experimental_backgroundImage: `radial-gradient(ellipse 75% 70% at 50% 0%, ${teamWash(tint, 0.42)} 0%, ${teamWash(tint, 0.12)} 55%, ${teamWash(tint, 0)} 100%)` },
-        style,
-      ]}
-    />
+    <Animated.View style={[StyleSheet.absoluteFill, style]}>
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          { experimental_backgroundImage: `radial-gradient(ellipse 75% 70% at 50% 0%, ${teamWash(tint, 0.42)} 0%, ${teamWash(tint, 0.12)} 55%, ${teamWash(tint, 0)} 100%)` },
+        ]}
+      />
+    </Animated.View>
   );
 }
 
@@ -213,16 +231,27 @@ function BeamLayer({
 
   const style = useAnimatedStyle(() => ({ opacity: alpha.value, transform: [{ rotate: `${angle.value}deg` }] }));
 
-  // Tipped back in perspective about its own centre, the cone's top edge
-  // projects nearer the middle than it was laid out: it is laid out lower by
-  // that much, so the projected cone starts at the lamp.
+  return (
+    <Animated.View style={[styles.beam, { left: beam.x * width - BEAM_W / 2, top: -LAMP_DROP - cone, height: cone * 2 }, style]}>
+      <BeamBody cone={cone} light={light} />
+    </Animated.View>
+  );
+}
+
+/**
+ * A beam's lamp and cone, static: drawn once and only ever moved by the view
+ * around them.
+ *
+ * Tipped back in perspective about its own centre, the cone's top edge
+ * projects nearer the middle than it was laid out: it is laid out lower by
+ * that much, so the projected cone starts at the lamp.
+ */
+function BeamBody({ cone, light }: { cone: number; light: string }) {
   const p = cone * PERSPECTIVE;
   const sTop = p / (p + (cone / 2) * Math.sin(TILT));
   const lift = (cone / 2) * (1 - Math.cos(TILT) * sTop);
   return (
-    <Animated.View
-      style={[styles.beam, { left: beam.x * width - BEAM_W / 2, top: -LAMP_DROP - cone, height: cone * 2 }, style]}
-    >
+    <>
       <View
         style={[
           styles.cone,
@@ -243,7 +272,7 @@ function BeamLayer({
           },
         ]}
       />
-    </Animated.View>
+    </>
   );
 }
 
@@ -260,7 +289,11 @@ function BulbLayer({ bulb, at, repop, width, height }: { bulb: Bulb; at: number;
     p.value = withDelay(start, repop ? withSequence(pop(), withDelay(repop - 350, pop())) : pop());
   }, [p, bulb, at, repop]);
   const style = useAnimatedStyle(() => ({ opacity: p.value, transform: [{ scale: 0.55 + 0.6 * p.value }] }));
-  return <Animated.View style={[styles.bulb, { left: bulb.x * width - BULB / 2, top: bulb.y * height - BULB / 2 }, style]} />;
+  return (
+    <Animated.View style={[styles.bulbSeat, { left: bulb.x * width - BULB / 2, top: bulb.y * height - BULB / 2 }, style]}>
+      <View style={styles.bulb} />
+    </Animated.View>
+  );
 }
 
 const BEAM_W = 170;
@@ -272,6 +305,8 @@ const LAMP = 120;
 // line where the view ends, and at 14 points it showed in the corners.
 const LAMP_DROP = 44;
 const BULB = 92;
+/** A standing lamp's centre, above the top of the glass. */
+const RESTING_DROP = 14;
 
 const styles = themed(() =>
   StyleSheet.create({
@@ -279,8 +314,13 @@ const styles = themed(() =>
   beam: { position: 'absolute', width: BEAM_W },
   cone: { position: 'absolute', left: 0, width: BEAM_W },
   lamp: { position: 'absolute', left: BEAM_W / 2 - LAMP / 2, width: LAMP, height: LAMP },
-  bulb: {
+  // Where the field is lit: a soft white ellipse, a fraction of full strength.
+  pool: {
     position: 'absolute',
+    experimental_backgroundImage: `radial-gradient(ellipse 50% 50% at 50% 50%, ${teamWash(WHITE, 0.15)} 0%, ${teamWash(WHITE, 0.07)} 45%, ${teamWash(WHITE, 0)} 100%)`,
+  },
+  bulbSeat: { position: 'absolute', width: BULB, height: BULB },
+  bulb: {
     width: BULB,
     height: BULB,
     experimental_backgroundImage: `radial-gradient(ellipse 50% 50% at 50% 50%, ${teamWash(WHITE, 0.95)} 0%, ${teamWash(WHITE, 0.35)} 16%, ${teamWash(WHITE, 0)} 100%)`,
@@ -289,11 +329,13 @@ const styles = themed(() =>
 );
 
 /**
- * The play screen's lights: a spin landing and a pick locking in, read from
- * the same facts the broadcast HUD reads. Whatever is already on screen when
- * it mounts (a resumed game) is not a moment, and plays nothing.
+ * The play screen's lights: two lamps that stand lit over the field and the
+ * hero for as long as the screen is up, and a show for each spin landing and
+ * pick locking in, read from the same facts the broadcast HUD reads. Whatever
+ * is already on screen when it mounts (a resumed game) is not a moment, and
+ * plays nothing.
  */
-export function PlayLights({
+export const PlayLights = memo(function PlayLights({
   landed,
   picks,
   teamColor,
@@ -315,6 +357,91 @@ export function PlayLights({
     if (picks > lastPicks.current) setMoment({ show: 'pick', cue: `p${picks}` });
     lastPicks.current = picks;
   }, [picks]);
-  if (!moment) return null;
-  return <StadiumLights show={moment.show} cue={moment.cue} tint={moment.tint} bleed />;
+  return (
+    <>
+      <RestingLights flare={moment?.cue ?? null} />
+      {moment ? <StadiumLights show={moment.show} cue={moment.cue} tint={moment.tint} bleed /> : null}
+    </>
+  );
+});
+
+/**
+ * The standing lights (`RESTING_BEAMS`, `RESTING_POOL`): the stadium is lit
+ * while you pick, not only at the moments.
+ *
+ * Three layers, and nothing moves while the screen is still: no loop, no
+ * frame callback, nothing on the JS thread. A resting layer costs the
+ * compositor and nothing else (docs/apple-tv.md, "Stadium lights"). A moment
+ * (`flare` changing) brightens both beams and swings them out and back on the
+ * UI thread, once. Under Reduce Motion they stand lit and never swing.
+ */
+function RestingLights({ flare }: { flare: string | number | null }) {
+  const on = useFlag('tv_broadcast_lights');
+  const reduced = useReducedMotion();
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowSize();
+  if (!isTV || !on) return null;
+  const pool = RESTING_POOL;
+  return (
+    <Overlay style={[styles.rig, { top: -insets.top, left: -insets.left, right: -insets.right, bottom: -insets.bottom }]} pointerEvents="none" {...DECORATIVE}>
+      <View
+        style={[
+          styles.pool,
+          {
+            left: (pool.x - pool.w / 2) * width,
+            top: (pool.y - pool.h / 2) * height,
+            width: pool.w * width,
+            height: pool.h * height,
+          },
+        ]}
+      />
+      {RESTING_BEAMS.map((beam, i) => (
+        <RestingBeamLayer key={i} beam={beam} flare={flare} reduced={reduced} width={width} height={height} />
+      ))}
+    </Overlay>
+  );
+}
+
+function RestingBeamLayer({
+  beam,
+  flare,
+  reduced,
+  width,
+  height,
+}: {
+  beam: RestingBeam;
+  flare: string | number | null;
+  reduced: boolean;
+  width: number;
+  height: number;
+}) {
+  const angle = useSharedValue(beam.rest);
+  const alpha = useSharedValue(0);
+  const cone = Math.round(height * 1.6);
+
+  // Lit as the screen arrives, once.
+  useEffect(() => {
+    alpha.value = withTiming(RESTING_ALPHA, { duration: 900, easing: Easing.out(Easing.quad), reduceMotion: NEVER });
+  }, [alpha]);
+
+  useEffect(() => {
+    if (flare === null || reduced) return;
+    alpha.value = withSequence(
+      withTiming(RESTING_FLARE, { duration: 220, easing: Easing.out(Easing.quad), reduceMotion: NEVER }),
+      withDelay(350, withTiming(RESTING_ALPHA, { duration: 900, easing: Easing.inOut(Easing.quad), reduceMotion: NEVER })),
+    );
+    angle.value = withSequence(
+      withTiming(beam.rest + beam.swing, { duration: 480, easing: Easing.inOut(Easing.cubic), reduceMotion: NEVER }),
+      withTiming(beam.rest, { duration: 1100, easing: Easing.out(Easing.cubic), reduceMotion: NEVER }),
+    );
+  }, [flare, reduced, alpha, angle, beam]);
+
+  const style = useAnimatedStyle(() => ({ opacity: alpha.value, transform: [{ rotate: `${angle.value}deg` }] }));
+  return (
+    // The lamp hangs just inside the glass, so its glow shows at the top
+    // edge: these stay up, and a light with no visible source reads as haze.
+    <Animated.View style={[styles.beam, { left: beam.x * width - BEAM_W / 2, top: -RESTING_DROP - cone, height: cone * 2 }, style]}>
+      <BeamBody cone={cone} light={beam.tinted ? color.actionBright : WHITE} />
+    </Animated.View>
+  );
 }

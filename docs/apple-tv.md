@@ -281,10 +281,25 @@ built from the only things a real Apple TV composites for free:
 | The record (result page, broadcast record) | 4, lead in and land on the slam | 1 pulse, tier colour | 3 | 4.2 s; held under the broadcast record |
 | 17-0 | 4, gold | 3 pulses, 450 ms apart | 3, twice each | 5.4 s; held under the broadcast record |
 
+**Standing lights on the play screen.** The owner asked for the spotlight on
+the play view itself, not only at its moments. So the play screen keeps two
+lamps lit for as long as it is up (`RestingLights`, `RESTING_BEAMS` in
+`lights-plan.ts`): one hanging just inside the top left of the glass and
+shining down across the field, where it lands in a soft pool, and one at the
+top right across the spin's hero and the list. A spin landing or a pick
+locking in flares both and swings them out and back once, on the UI thread,
+on top of that moment's show. Between moments nothing moves: three still
+layers, which cost the compositor and not a thread. No idle sway -- a loop
+would be work on the UI thread every frame, under every press, for as long as
+the screen is up. Under Reduce Motion they stand lit and never swing.
+
 The budget, which `performance.test.ts` holds: at most **eight animating
 layers** in any show; transform and opacity only; no Svg, Skia, shadow or
-rounded clip; and **nothing mounted between moments** -- a show unmounts
-itself when it ends. Under the broadcast record, which holds until Select, the
+rounded clip; **nothing of a show mounted between moments** -- a show unmounts
+itself when it ends -- and at most four standing layers on the play screen,
+none of them looping. **Nothing that paints is faded**: animated opacity on a
+React Native view rebuilds its layer every frame (see The fourth pass), so
+every fade and pop is on a bare wrapper around a still gradient. Under the broadcast record, which holds until Select, the
 beams sway twice and then stand still (a still layer costs nothing per frame);
 nothing loops. On the play screen a spin's lights overlap the remote's first
 presses on the new list, which is why they are short and few.
@@ -371,8 +386,9 @@ simulator's own mappings: read it as a trend.
 Simulator, Release, net of the harness. A change that crosses one of these
 is a regression until a profile says why.
 
-- A focus move: **2 renders** (the control losing focus and the one gaining
-  it), **≤ 30 ms** on the front page, **≤ 60 ms** in a long list.
+- A focus move: **no React commit** in a list of rows (2 renders where a
+  control reads `focused`), **≤ 30 ms** on the front page, **≤ 60 ms** in a
+  long list.
 - Nothing runs every frame while the screen is still, except the turf (every
   other frame on a TV) and a running show.
 - A full-screen overlay is a `PassThroughView`, or the remote cannot reach
@@ -410,9 +426,10 @@ is a regression until a profile says why.
   the end (`useTVRows`; see The third pass).
 - **No Svg behind every screen or in the broadcast graphics, and no rounded
   clip over anything that moves** (see The third pass).
-- **Focus state stays in the control.** A move re-renders the control losing
-  focus and the one gaining it, and nothing else: two renders. A screen that
-  needs to know where the remote is reads it from the style callback.
+- **Focus state stays out of React.** A move renders nothing in a control
+  that does not read `focused` (see The fourth pass); one that does -- a style
+  or children callback -- re-renders itself and the control losing focus, and
+  nothing else.
 
 ### Re-measuring
 
@@ -421,6 +438,8 @@ brew install xcodegen                 # once; the harness's project is generated
 pnpm verify:tv --install              # a Release build, installed and launched
 scripts/perf/tv/run.sh                # every test, ~15 minutes
 scripts/perf/tv/run.sh test03_PlayListFocusMoves test00_Controls
+scripts/perf/tv/js-probe.sh test03_PlayListFocusMoves            # renders, commits per press
+PROFILE=30 scripts/perf/tv/js-probe.sh test03_PlayListFocusMoves # + JS and main thread ms
 ```
 
 The harness (`scripts/perf/tv/TVPerfUITests`) drives the installed app with
@@ -578,6 +597,111 @@ the UI thread, and it can be switched off. The 17-0 ring on the result
 (`Scoreboard`) breathes opacity only, on a perfect season only. The stats
 charts and the small icons are Svgs that draw once at mount and never under
 the remote's focus.
+
+### The fourth pass
+
+The first numbers from real Apple TVs (`tv_jank`, tvOS 26.6.1, TestFlight
+builds 31, 33 and 34) put the remaining lag on the JS thread, not the frames:
+
+| Build | Route | Presses | Frames | Hitch % | Stall % | Worst frame | JS late, median | JS late, worst |
+|---|---|---|---|---|---|---|---|---|
+| 34 (608fae9) | /play | 16 | 1383 | 6.44 | 2.17 | 387 ms | 337 ms | 548 ms |
+| 33 (5cf66b7) | /play | 24 | 2099 | 4.95 | 2.19 | 406 ms | 241 ms | 519 ms |
+| 31 (59cb0d3) | /play | 32 | 2836 | 4.94 | 1.80 | 353 ms | 298 ms | 575 ms |
+| 34 | /games | 3 | 138 | 7.25 | 0 | 41 ms | 266 ms | 508 ms |
+| 34 | /leaderboard | 1 | | | | | 238 ms | |
+| 34 | /challenges | 3 | 249 | 2.41 | 0 | 33 ms | 15 ms | 15 ms |
+
+Everything JS-driven -- a focus handler, a press, a navigation -- waited about
+a third of a second behind each press on the play list. Challenges, which
+keeps focus out of React state, was 15 ms. The simulator showed none of it:
+its JS thread is a Mac core, and a 0 ms timer there fires a frame late at
+worst. So this pass measured the JS thread's *work* rather than wall time,
+with Time Profiler on the simulator's JS thread and a render counter in the
+app (`scripts/perf/tv/js-probe.sh`), down and up the play list
+(`test03_PlayListFocusMoves`):
+
+| Per focus move, play list | Before | After |
+|---|---|---|
+| React renders | 26 (median 21) | 3 (median 0) |
+| React commits | 1.95 | 0.03 |
+| Shadow-tree commits from scroll state | ~18 (every scrolled frame) | 1, once the scroll rests |
+| JS thread CPU (Time Profiler, 30 s of moves) | 941 ms (~18 ms a move) | 204 ms (~4 ms a move) |
+| Main thread CPU (same window) | 4.0 s | 2.2 s |
+| Harness, gross ms per move | 91.5 | 51.6 |
+
+Where the JS thread's time went, and what took it:
+
+- **A scroll view's state, every frame.** Fabric's scroll view answers every
+  `scrollViewDidScroll:` with a state update (its content offset), and the JS
+  thread turns each into a commit of the whole shadow tree: a Yoga pass and a
+  walk of every node to round it to the pixel grid. The focus engine scrolls
+  the list for nearly every press, about twenty frames, so a press queued
+  twenty whole-screen commits -- the largest single share of the JS thread
+  (26% before anything else changed, 40% once the rest had). Nothing on the
+  JS side needs the offset per frame (`onScroll` is separate), so on a TV the
+  update waits until scrolling has rested 120 ms and is made once
+  (`modules/pass-through/ios/ScrollStateCoalescer.swift`, swizzled at launch,
+  tvOS only; a phone's scrolling is untouched). A `measure` in that moment
+  reads an offset at most that old.
+- **Focus in React state.** `TVPressable` set `focused` (and `visited`, on a
+  control's first focus) on every focus and blur: two renders and a commit per
+  press, and a commit is the whole-tree layout above. Focus and press now
+  reach React state only in a control that reads them (a style or children
+  callback); a player row does not. The rim is mounted with the control, so a
+  first focus is not a render either. The lifted control's `zIndex` went with
+  the state: rows lift into the gap around them.
+- **Reanimated syncing settled animations back to React.** With
+  `FORCE_REACT_RENDER_FOR_SETTLED_ANIMATIONS` (on by default in Reanimated
+  4.5) a timer re-renders every animated component a second after its
+  animation settles -- each focus spring, so a commit per press, a second
+  late. Off (`reanimated.staticFeatureFlags` in `apps/mobile/package.json`),
+  the settled values stay in Reanimated's registry and are applied to React's
+  own commits, as before 4.2.
+
+And on the main thread, which the hardware's hitch rate pointed at too:
+
+- **Animated opacity rebuilds the view's layer.** React Native answers an
+  opacity change by invalidating the layer: an unclipped border is drawn
+  again as an image on the CPU, and `experimental_backgroundImage` gradients
+  are torn down and made again. The focus rim faded its own bordered view, so
+  every frame of every focus spring rasterised two rims on the main thread (a
+  quarter of it during moves). The rim clips now (it holds no children), so
+  Core Animation draws its border; and every fade in the stadium lights is on
+  a bare wrapper around a still gradient -- the wash was rebuilding a
+  full-screen radial gradient on every frame of every pulse.
+
+What is left on the JS thread per press is the focus and blur events
+themselves reaching JS. For comparison, Challenges -- the 15 ms screen on
+hardware -- measures 45 renders and one commit per move on the same probe (its
+panel re-renders for each row), so the play list is now the cheaper of the two.
+
+The whole harness, origin/main (the numbers #94 and the third pass recorded) against this change, gross ms
+per press with `noop_press` the harness's own cost. Every test passes,
+12-15 included. The simulator's process CPU is mostly the main thread, so
+these moved by the rim and the scroll commits; the JS thread's share is the
+table above:
+
+| | Before | After |
+|---|---|---|
+| Harness's own cost per press (`noop_press`) | 29.0 ms | 33.0 ms |
+| Focus move, play list | 86.4 ms | 52.6 ms |
+| Focus move, play list under the HUD | 92.5 ms | 55.3 ms |
+| Focus move, front page / result / leaderboard | 88 / 79.4 / 68 ms | 53.8 / 52.5 / 51.7 ms |
+| Focus move, My Stats / Challenges / Leaderboards pages | -- | 59.4 / 52.5 / 62.5 ms |
+| Tab switch / Gut Check call | 186 / 171 ms | 136.7 / 172 ms |
+| A season (CPU) / peak memory | 8.31-8.54 s / 439-445 MB | 8.73 s / 460 MB |
+| A season in broadcast mode (CPU) / peak memory | 8.35 s / 445 MB | 8.23 s / 453 MB |
+
+A season's peak is at the budget (460 MB): every control now mounts its rim
+up front (one view each) and the play screen keeps its standing lights. If
+it crosses, the rim is the first thing to look at. The real check is
+`tv_jank` on the next TestFlight build: `/play`'s `js_median_ms` should come
+down towards Challenges' 15 ms.
+
+The rules, in `performance.test.ts`: no React state set on focus in a
+control that does not read it; the rim clipped and childless; nothing in the
+lights fades a view that paints; the Reanimated flag stays off.
 
 ## Gut Check on the Siri Remote
 

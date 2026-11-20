@@ -46,9 +46,10 @@ import { color, radius, themed } from '@/theme';
  * `rim` keeps the rim without the lift (rows inside a clipped list), `none`
  * draws nothing (a control that paints its own focus).
  *
- * **Cheap until focused** (docs/apple-tv.md, Performance). A spin's list is a
- * hundred Pressables and the remote visits a handful, so the rim is not
- * mounted until a control is first focused, and then stays.
+ * **Nothing on the JS thread per focus move** (docs/apple-tv.md, "The fourth
+ * pass"). A control that does not read `focused` or `pressed` keeps them out
+ * of React state, and the rim is mounted with it (one view, drawn by Core
+ * Animation), so a move is two spring targets on the UI thread and no render.
  *
  * `native-imports.test.ts` keeps this the only place that imports React
  * Native's.
@@ -82,9 +83,15 @@ const TVPressable = forwardRef<Ref, Props>(function TVPressable(
   { style, children, tvFocus = 'lift', onFocus, onBlur, onPressIn, onPressOut, onLayout, ...props },
   ref,
 ) {
+  // Focus and press live in React state only for a control that reads them
+  // (a style or children callback). Everywhere else a focus move is shared
+  // values on the UI thread and nothing on the JS thread: every setState here
+  // was a render and a commit per remote press, and a commit lays out and
+  // walks the whole shadow tree on the JS thread -- on a
+  // real Apple TV, part of the ~300 ms the JS thread was late after every
+  // press on the play list (docs/apple-tv.md, "The fourth pass").
+  const reads = typeof style === 'function' || typeof children === 'function';
   const [focused, setFocused] = useState(false);
-  // Becomes true on the first focus and stays: see "Cheap until focused".
-  const [visited, setVisited] = useState(false);
   const [pressed, setPressed] = useState(false);
   // The width picks the lift, read on the UI thread: a state here re-rendered
   // every Pressable once more on mount, and a spin mounts a hundred of them.
@@ -112,23 +119,22 @@ const TVPressable = forwardRef<Ref, Props>(function TVPressable(
 
   const focusIn = useCallback(
     (e: NativeSyntheticEvent<TargetedEvent>) => {
-      setFocused(true);
-      setVisited(true);
+      if (reads) setFocused(true);
       f.value = withSpring(1, SPRING);
       // No sound on a focus move: it was an audio seek and play on the JS
       // thread for every press of the remote, and tvOS's own apps are silent
       // there too. Sound marks things that happen, not where the focus is.
       onFocus?.(e);
     },
-    [f, onFocus],
+    [f, onFocus, reads],
   );
   const focusOut = useCallback(
     (e: NativeSyntheticEvent<TargetedEvent>) => {
-      setFocused(false);
+      if (reads) setFocused(false);
       f.value = withSpring(0, SPRING);
       onBlur?.(e);
     },
-    [f, onBlur],
+    [f, onBlur, reads],
   );
 
   const kids = typeof children === 'function' ? children(state) : children;
@@ -141,12 +147,12 @@ const TVPressable = forwardRef<Ref, Props>(function TVPressable(
       onFocus={focusIn}
       onBlur={focusOut}
       onPressIn={(e: GestureResponderEvent) => {
-        setPressed(true);
+        if (reads) setPressed(true);
         p.value = withTiming(1, { duration: 80 });
         onPressIn?.(e);
       }}
       onPressOut={(e: GestureResponderEvent) => {
-        setPressed(false);
+        if (reads) setPressed(false);
         p.value = withSpring(0, SPRING);
         onPressOut?.(e);
       }}
@@ -154,12 +160,19 @@ const TVPressable = forwardRef<Ref, Props>(function TVPressable(
         width.value = e.nativeEvent.layout.width;
         onLayout?.(e);
       }}
-      // Above its neighbours while lifted, so the scale and the rim are not
-      // drawn under the next row.
+      // Above its neighbours while lifted, for a control that re-renders on
+      // focus anyway. The rest lift into the gap around them: a zIndex is a
+      // prop, and changing one is a commit.
       style={[rest, focused && { zIndex: 10 }, lit ? raised : base.length ? { transform: base as ViewStyle['transform'] } : null]}
     >
       {kids as ReactNode}
-      {lit && visited ? (
+      {lit ? (
+        // Mounted with the control, so a first focus is not a render. It
+        // clips (and holds no children, so the clip is free): a clipped view's
+        // border is Core Animation's own. Unclipped, React Native draws a
+        // border as an image on the CPU, and redraws it whenever the view's
+        // opacity changes -- every frame of every focus spring, on the main
+        // thread, for the rim that faded in and out on each press.
         <Animated.View
           pointerEvents="none"
           style={[
@@ -176,6 +189,7 @@ const TVPressable = forwardRef<Ref, Props>(function TVPressable(
 const styles = themed(() => StyleSheet.create({
   rim: {
     position: 'absolute',
+    overflow: 'hidden',
     borderWidth: 2.5,
     // A lit pane, not a fill: lighting rather than colour, so it reads on
     // every ground and the action colour alike.
