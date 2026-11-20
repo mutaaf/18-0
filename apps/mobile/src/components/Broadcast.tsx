@@ -50,10 +50,13 @@ export interface Timeline {
  * played slowly, because somebody who asked for less motion asked for the
  * result, not for a gentler version of the production around it.
  */
-export function useTimeline(duration: number, restart?: unknown): Timeline {
-  const t = useRef(new Animated.Value(0)).current;
+export function useTimeline(duration: number, restart?: unknown, { from = 'start' }: { from?: 'start' | 'end' } = {}): Timeline {
+  // `from: 'end'` is a page that mounts where nobody can see it build -- the
+  // result under the TV's broadcast record -- and is shown already built.
+  const ended = from === 'end';
+  const t = useRef(new Animated.Value(ended ? duration : 0)).current;
   const running = useRef<Animated.CompositeAnimation | null>(null);
-  const [settled, setSettled] = useState(false);
+  const [settled, setSettled] = useState(ended);
 
   const settle = useCallback(() => {
     running.current?.stop();
@@ -63,6 +66,7 @@ export function useTimeline(duration: number, restart?: unknown): Timeline {
   }, [duration, t]);
 
   useEffect(() => {
+    if (ended) return;
     let cancelled = false;
     t.setValue(0);
     setSettled(false);
@@ -107,7 +111,7 @@ export function useTimeline(duration: number, restart?: unknown): Timeline {
       running.current?.stop();
       running.current = null;
     };
-  }, [duration, restart, settle, t]);
+  }, [duration, restart, settle, t, ended]);
 
   return { t, settled, settle };
 }

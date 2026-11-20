@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { memo, useEffect } from 'react';
 import { StyleSheet, TVFocusGuideView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -11,14 +11,13 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { create } from 'zustand';
 import { isPerfectionDenied, type GameResult } from '@17-0/domain';
 import { Pressable } from '@/components/Pressable';
 import { MODE_LABEL, type GameMode } from '@/state/game';
 import { DECORATIVE, color, font, positionColor, radius, space, tabular, teamWash, themed, tierColor, tracking } from '@/theme';
 import { StadiumLights } from '../lights';
 import { cue } from '../sound';
-import { GlassFill, useBroadcast, useCleanFeed } from './kit';
+import { GlassFill, useCleanFeed } from './kit';
 
 /**
  * The final record as a broadcast graphic.
@@ -42,29 +41,44 @@ export interface RevealRow {
 }
 
 const DEAL = 140;
-const SLAM = 2000;
+/** When the record slams onto its card, from the graphic's first frame. */
+export const SLAM = 2000;
 
 /**
- * Whether the graphic is up, for the page underneath: its own preferred-focus
- * button must not claim the remote while it is (the later claim wins, and a
- * click meant to dismiss the graphic started a new season through it).
+ * The graphic itself. The result screen decides whether it is up
+ * (`useBroadcast()` and its own "dismissed" state), so the page underneath
+ * knows on its first render, not one commit later: it used to be told from
+ * this component's effect, through a store, and the whole result page
+ * rendered twice in the frames the reveal was arriving (docs/apple-tv.md,
+ * "The fifth pass"). Memoized, with stable props from the screen: the
+ * screen re-renders as it measures itself and mounts the page underneath,
+ * and the dealt rows have no reason to render again for any of it.
  */
-const useRevealStore = create<{ up: boolean }>(() => ({ up: false }));
-export const useRevealUp = (): boolean => useRevealStore((s) => s.up);
+export const BroadcastReveal = memo(function BroadcastReveal(props: {
+  result: GameResult;
+  mode: GameMode;
+  roster: readonly RevealRow[];
+  /** Select: the graphic starts to fade. */
+  onClose: () => void;
+  /** The graphic has faded; unmount it. */
+  onDone: () => void;
+}) {
+  return <Reveal {...props} />;
+});
 
-export function BroadcastReveal(props: { result: GameResult; mode: GameMode; roster: readonly RevealRow[] }) {
-  const on = useBroadcast();
-  const [open, setOpen] = useState(true);
-  const up = on && open;
-  useEffect(() => {
-    useRevealStore.setState({ up });
-    return () => useRevealStore.setState({ up: false });
-  }, [up]);
-  if (!up) return null;
-  return <Reveal {...props} onDone={() => setOpen(false)} />;
-}
-
-function Reveal({ result, mode, roster, onDone }: { result: GameResult; mode: GameMode; roster: readonly RevealRow[]; onDone: () => void }) {
+function Reveal({
+  result,
+  mode,
+  roster,
+  onClose,
+  onDone,
+}: {
+  result: GameResult;
+  mode: GameMode;
+  roster: readonly RevealRow[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
   const clean = useCleanFeed();
   const insets = useSafeAreaInsets();
   const perfect = result.ending.key === 'PERFECT';
@@ -87,6 +101,7 @@ function Reveal({ result, mode, roster, onDone }: { result: GameResult; mode: Ga
   }, [scrim, slam, gate, perfect, denied]);
 
   const close = () => {
+    onClose();
     exit.value = withTiming(0, { duration: 320, reduceMotion: ReduceMotion.System }, (done) => {
       if (done) runOnJS(onDone)();
     });

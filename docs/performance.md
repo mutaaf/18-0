@@ -64,6 +64,14 @@ The startup clock a real phone reports is `app_started` (`features/diagnostics/s
   of a season. The buttons that use it appear at `CUE.tail`; a skip settles
   the page and mounts it at once.
 
+- **A ranked reveal navigates before it asks the server for its score.** The
+  round trip used to sit between the tap and the result, behind a spinner on
+  the Reveal button; the answer only ever takes the board switch away, so it
+  arrives while the record builds (`confirmWithServer` in `play.tsx`; held by
+  `src/features/tv/performance.test.ts`, and measured in docs/apple-tv.md,
+  "The fifth pass"). A casual reveal, which never asked, is unchanged:
+  9,767-9,853 renders before and 9,750-9,820 after.
+
 ## The 2026-11 pass, measured
 
 Interleaved runs of the export before and after (`--runs 5` each, CPU 4x, 300

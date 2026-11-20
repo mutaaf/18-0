@@ -4,5 +4,5 @@
  */
 export { useBroadcast, broadcastOn, useCleanFeed } from './kit';
 export { PlayHud, Ticker } from './PlayHud';
-export { BroadcastReveal, useRevealUp } from './BroadcastReveal';
+export { BroadcastReveal, SLAM } from './BroadcastReveal';
 export { GutCheckTally } from './GutCheckTally';

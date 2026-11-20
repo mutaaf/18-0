@@ -543,4 +543,38 @@ final class TVPerf: XCTestCase {
             try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: "\(shots)/diagnose-\(tab.replacingOccurrences(of: " ", with: "-")).png"))
         }
     }
+    // MARK: the reveal (docs/apple-tv.md, "The fifth pass")
+
+    /// The press on Reveal, three seasons over: from the front page, Select
+    /// until the remote is on "Reveal your result", then one measured Select
+    /// and five seconds of the record building. Nothing queries the app inside
+    /// the block. `PERF reveal_ready` is printed six seconds before the press,
+    /// for `PROFILE_AT=reveal_ready` in js-probe.sh to start Time Profiler on.
+    /// Screenshots of the held record and of the page under it (VIEW_SHOTS)
+    /// are how a change to the reveal is checked for looking the same.
+    func test16_Reveal() {
+        for season in 0..<3 {
+            launchHome()
+            press(.select, gap: 5)
+            var ready = false
+            for _ in 0..<70 {
+                let label = focusedLabel
+                if label.hasPrefix("Reveal") { ready = true; break }
+                // A season the remote was handed the "All" filter in, where
+                // Select does nothing: down onto the list.
+                press(label.hasPrefix("Filter") ? .down : .select, gap: 1.7)
+            }
+            XCTAssertTrue(ready, "never reached Reveal: \(focusedLabel)")
+            if !ready { return }
+            report("reveal_ready", season)
+            Thread.sleep(forTimeInterval: 6)
+            mark("reveal", moves: 1) { press(.select, gap: 5) }
+            let up = focusedLabel
+            report("reveal_focused_\(season)", up)
+            if season == 0 { viewShot("reveal-record") }
+            if up.hasPrefix("Final record") { press(.select, gap: 3) }
+            if season == 0 { viewShot("reveal-page") }
+            XCTAssertTrue(app.buttons["Build another roster"].exists, "the result page is not under the record")
+        }
+    }
 }

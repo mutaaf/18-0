@@ -23,7 +23,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import * as Haptics from '@/features/haptics';
-import { POSITIONS, ROSTER_SLOTS, SLOT_POSITION, type EraKey, type Position, type RosterSlot } from '@17-0/domain';
+import { POSITIONS, ROSTER_SLOTS, SLOT_POSITION, type EraKey, type GameResult, type Position, type RosterSlot } from '@17-0/domain';
 import { DATASET, displayName, eligibleCards, era as eraDef, franchise, franchiseEraShape, franchiseEraStory, type BootCard } from '@17-0/data';
 import { Brand } from '@/components/Brand';
 import { Field } from '@/components/Field';
@@ -84,6 +84,49 @@ const REEL_TICKS = reelTicks();
 
 function easeNextLayout() {
   if (Platform.OS === 'ios') LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+}
+
+/**
+ * The roster is scored twice, independently: on the device, and on the
+ * server from the spins and picks it recorded. The model is deterministic and
+ * both sides run the same code, so the two must agree -- and if they ever do
+ * not, the server's answer is the one that counts: the season is downgraded
+ * and the result stops offering the board.
+ *
+ * Runs after the result screen is open, so it outlives the play screen. A
+ * downgrade lands only on the season it was asked for: an answer that comes
+ * back after Build Another must not take the next season off the board.
+ */
+async function confirmWithServer(sessionId: string, idempotencyKey: string, result: GameResult): Promise<void> {
+  const scored = await withTimeout(rankedComplete(sessionId, idempotencyKey), 12000);
+  const downgrade = (note: string) => {
+    const now = useGameStore.getState();
+    if (now.serverSessionId === sessionId) now.downgrade(note);
+  };
+  if (scored?.ok) {
+    // A model disagreement explains a drift, so it is worth saying which
+    // it was: "the numbers differ" is alarming, "your app is a version
+    // behind the server" is actionable.
+    if (scored.value.versions && !scored.value.versions.agreed) {
+      track('version_mismatch', {
+        client: scored.value.versions.scoring.client ?? 'unknown',
+        server: scored.value.versions.scoring.server,
+      });
+      downgrade(
+        `This app is scoring with model ${scored.value.versions.scoring.client ?? '?'} and the ` +
+          `server with ${scored.value.versions.scoring.server}. The server's number is the one on the board.`,
+      );
+    }
+    const drift = Math.abs(scored.value.finalRating - result.finalRating);
+    if (drift > 0.01) {
+      track('score_disagreement', { drift: drift.toFixed(3) });
+      downgrade(`The server scored this ${scored.value.finalRating.toFixed(1)}, not ${result.finalRating.toFixed(1)}.`);
+    }
+  } else {
+    // Anything short of a final refusal is in the outbox and will still
+    // be scored (features/ranked-outbox.ts), and the note says so.
+    downgrade(completionFailureNote(scored));
+  }
 }
 
 export default function Play() {
@@ -594,7 +637,7 @@ export default function Play() {
     router.push(`/card/${encodeURIComponent(card.id)}`);
   });
 
-  const reveal = useCallback(async () => {
+  const reveal = useCallback(() => {
     // One reveal. A second tap during the server's answer completed the game
     // and asked the server to score it twice.
     if (revealing.current) return;
@@ -608,43 +651,6 @@ export default function Play() {
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => {});
-
-    // The roster is scored twice, independently: here, and on the server from
-    // the spins and picks it recorded. The model is deterministic and both
-    // sides run the same code, so the two must agree — and if they ever do
-    // not, the server's answer is the one that counts and the player is told
-    // rather than quietly shown a number that will not match the board.
-    if (game.ranked && game.serverSessionId && game.serverIdempotencyKey) {
-      setAwaitingServer(true);
-      const scored = await withTimeout(rankedComplete(game.serverSessionId, game.serverIdempotencyKey), 12000);
-      setAwaitingServer(false);
-      if (scored?.ok) {
-        // A model disagreement explains a drift, so it is worth saying which
-        // it was: "the numbers differ" is alarming, "your app is a version
-        // behind the server" is actionable.
-        if (scored.value.versions && !scored.value.versions.agreed) {
-          track('version_mismatch', {
-            client: scored.value.versions.scoring.client ?? 'unknown',
-            server: scored.value.versions.scoring.server,
-          });
-          game.downgrade(
-            `This app is scoring with model ${scored.value.versions.scoring.client ?? '?'} and the ` +
-              `server with ${scored.value.versions.scoring.server}. The server's number is the one on the board.`,
-          );
-        }
-        const drift = Math.abs(scored.value.finalRating - result.finalRating);
-        if (drift > 0.01) {
-          track('score_disagreement', { drift: drift.toFixed(3) });
-          game.downgrade(
-            `The server scored this ${scored.value.finalRating.toFixed(1)}, not ${result.finalRating.toFixed(1)}.`,
-          );
-        }
-      } else {
-        // Anything short of a final refusal is in the outbox and will still
-        // be scored (features/ranked-outbox.ts), and the note says so.
-        game.downgrade(completionFailureNote(scored));
-      }
-    }
 
     record({
       id: `${game.startedAt ?? Date.now()}`,
@@ -679,6 +685,15 @@ export default function Play() {
     // No haptic here: the result screen locks the record with its own, tiered
     // by wins, and a Success a second before it made the reveal buzz twice.
     router.replace('/result');
+    // The server's own score, asked for after the result is on its way rather
+    // than in front of it: awaited here, a ranked reveal held the remote on a
+    // spinner for a whole round trip before the record began to build -- a
+    // second on the simulator, more on a real Apple TV (docs/apple-tv.md,
+    // "The fifth pass"). Nothing on the result depends on the answer until
+    // its board switch, which a downgrade takes away.
+    if (game.ranked && game.serverSessionId && game.serverIdempotencyKey) {
+      void confirmWithServer(game.serverSessionId, game.serverIdempotencyKey, result);
+    }
   }, [record, router]);
 
   const shown = spin && canPick ? { franchiseId: spin.franchiseId, era: spin.era } : null;
