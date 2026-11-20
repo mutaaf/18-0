@@ -231,10 +231,17 @@ script, re-run it, commit both. Sound is on by default and switched in Account.
 
 ## Broadcast mode
 
-For somebody putting the game on a stream or a podcast: Account, "On this TV",
-Broadcast mode. A preference, off until asked for, not a flag -- it draws
-nothing a player cannot already see and reads nothing remote, so there is no
-rollout to gate (and an absent PostHog key reads as off). `features/tv/hud`:
+The TV's default presentation, and a switch in Account, "On this TV". On by
+default since the owner asked for it (a game on a television is already a
+broadcast), and a preference rather than a flag -- it draws nothing a player
+cannot already see and reads nothing remote, so there is no rollout to gate
+(and an absent PostHog key reads as off). The stored preferences are version 1:
+a version-0 store (before the default changed) is migrated to on, because it
+cannot tell "never touched" from "turned on and off again" and almost everyone
+is the first. From version 1 a switch in Account also records
+`broadcastChosen`, so a later change of default can leave a deliberate "off"
+alone (`migrateTVPrefs` and `restoreTVPrefs` in `state/restore.ts`, which also
+validate every stored value at launch). `features/tv/hud`:
 
 - a **scorebug** above the lineup: the lens, seven pips, and the average pick
   rating in Rookie only. Scout and GM Mode say "Hidden": the graphic never
@@ -250,6 +257,76 @@ rollout to gate (and an absent PostHog key reads as off). `features/tv/hud`:
 
 Display only, all of it: the HUD reads the same store and `GameResult` the
 screens read and writes nothing. Nothing reaches a score (invariant 1).
+
+## Stadium lights
+
+The phone lights its big moments on the GPU: the turf's floodlights stutter on
+in a Skia shader, and the result throws a Skia firework show. None of that runs
+on a TV (see Real hardware). `features/tv/lights.tsx` is the TV's own rig,
+built from the only things a real Apple TV composites for free:
+
+- **Searchlights.** Each beam is a static native gradient (a soft radial on a
+  narrow view, tipped back in perspective so it widens away from its lamp),
+  inside one view twice its length centred on the lamp, so rotating that view
+  swings the beam about the lamp. Rotation and opacity, on the UI thread.
+- **Flashbulbs** in the stands: small soft radials that pop with opacity and
+  scale.
+- **A wash** from the top edge in the moment's colour -- the franchise's on a
+  spin, the tier's on the record, gold at 17-0.
+
+| Moment | Beams | Wash | Bulbs | Plays for |
+|---|---|---|---|---|
+| A spin lands | 2, cross and settle on the hero | 1 pulse, franchise colour | 3 | 2.3 s |
+| A pick locks in | 2, a quick nod | -- | 2 | 1.5 s |
+| The record (result page, broadcast record) | 4, lead in and land on the slam | 1 pulse, tier colour | 3 | 4.2 s; held under the broadcast record |
+| 17-0 | 4, gold | 3 pulses, 450 ms apart | 3, twice each | 5.4 s; held under the broadcast record |
+
+The budget, which `performance.test.ts` holds: at most **eight animating
+layers** in any show; transform and opacity only; no Svg, Skia, shadow or
+rounded clip; and **nothing mounted between moments** -- a show unmounts
+itself when it ends. Under the broadcast record, which holds until Select, the
+beams sway twice and then stand still (a still layer costs nothing per frame);
+nothing loops. On the play screen a spin's lights overlap the remote's first
+presses on the new list, which is why they are short and few.
+
+Reduce Motion: nothing sweeps, pops or strobes; the beams fade in where they
+would have come to rest and the wash rises and falls once at half strength.
+Photosensitivity: the wash is the only light covering much of the screen, it
+never passes about a third of full strength, and the 17-0 strobe is three
+pulses in a second at most (WCAG 2.3.1); bulbs are far smaller than the area
+that counts as a flash; nothing strobes red.
+
+Behind `tv_broadcast_lights` (fallback on), so a TestFlight build that
+stutters can lose them remotely. The flag has to exist in PostHog
+(`scripts/posthog-flags.ts --apply`): a key PostHog answers without reads as
+off, and until then the lights show only on a TV that never reached PostHog. The simulator cannot say whether they are
+smooth on an Apple TV HD: `tv_jank` on the play and result screens, build
+against build, is the check.
+
+Measured with `scripts/perf/tv/run.sh` on the same simulator, origin/main
+against this change. "After" has broadcast mode on by default and the lights
+on, so the play-screen rows now carry the HUD as well as the lights; gross
+ms per press, `noop_press` being the harness's own cost. `test05` now
+dismisses the broadcast record before it measures the result page:
+
+| | Before | After |
+|---|---|---|
+| Harness's own cost per press (`noop_press`) | 31.5 ms | 29.0 ms |
+| Focus move, play list | 89.4 ms | 86.4 ms (under the HUD now) |
+| Focus move, play list under the HUD | 95.9 ms | 92.5 ms |
+| Focus move, result page (after the record is dismissed) | 77.2 ms | 79.4 ms |
+| A season (CPU) / peak memory | 7.71 s / 430 MB | 8.31-8.54 s / 439-445 MB (HUD + lights) |
+| A season in broadcast mode (CPU) / peak memory | 8.32 s / 437 MB | 8.35 s / 445 MB |
+
+The lights cost about 8 MB at peak and no CPU per press the simulator can
+measure (the play-list rows moved within noise; a season's extra CPU is mostly
+the HUD, now on by default). The simulator composites on a Mac GPU, so whether
+they are smooth on an Apple TV HD is `tv_jank`'s to say.
+
+The result page's own confetti (`Celebration`'s fallback on a TV) is not
+started while the broadcast record covers the page -- it was animating a
+hundred views nobody could see. It plays when the record is dismissed, if the
+show is still on.
 
 ## Performance
 

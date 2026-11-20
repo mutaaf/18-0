@@ -18,6 +18,7 @@ import { isTV, pressVerb } from '@/features/tv/platform';
 import { useTVRows } from '@/features/tv/rows';
 import { cue } from '@/features/tv/sound';
 import { PlayHud, useBroadcast, useCleanFeed } from '@/features/tv/hud';
+import { PlayLights } from '@/features/tv/lights';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -1350,6 +1351,14 @@ export default function Play() {
           </>
         )}
       </View>
+      {/* Under the HUD: the lights are the stadium, the graphics are the broadcast. */}
+      {isTV ? (
+        <PlayLights
+          landed={shown && spin ? game.spins.length : null}
+          picks={game.selections.length}
+          teamColor={team?.color}
+        />
+      ) : null}
       {isTV ? (
         <PlayHud
           mode={mode}

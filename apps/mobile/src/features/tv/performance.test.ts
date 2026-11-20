@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { TV_FIRST_ROWS, TV_ROWS_AHEAD, wantsMoreRows } from './rows';
+import { PLANS } from './lights-plan';
 
 /**
  * The Apple TV performance budget, held by the build (docs/apple-tv.md,
@@ -255,5 +256,61 @@ describe('Apple TV performance (docs/apple-tv.md)', () => {
     const hint = rate.slice(rate.indexOf('function RemoteHint'), rate.indexOf('function RoundEnd'));
     expect(hint).toMatch(/HINT_SHOWINGS,/);
     expect(hint).not.toMatch(/-1,/);
+  });
+  // Stadium lights (docs/apple-tv.md, "Stadium lights"): the phone's are Skia;
+  // the TV's are static native gradients moved with transform and opacity.
+
+  it('broadcast mode is the TV default, and a stored off nobody chose follows it', () => {
+    const prefs = read('src/features/tv/prefs.ts');
+    expect(prefs).toMatch(/\.\.\.TV_PREFS_DEFAULTS,/);
+    expect(prefs).toMatch(/merge: \(persisted, current\) => \(\{ \.\.\.current, \.\.\.restoreTVPrefs\(persisted\) \}\)/);
+    expect(read('src/features/tv/TVSettings.tsx')).toMatch(/broadcastChosen: true/);
+  });
+
+  it('the TV lights use no Svg, no Skia, no shadow and no clip', () => {
+    const source = read('src/features/tv/lights.tsx');
+    expect(source).not.toMatch(/react-native-svg|react-native-skia|@\/features\/gpu/);
+    expect(source).not.toMatch(/shadow\w*:/);
+    expect(source).not.toMatch(/overflow:/);
+    expect(source).toMatch(/experimental_backgroundImage/);
+  });
+
+  it('the TV lights animate transform and opacity only, on the UI thread', () => {
+    const source = read('src/features/tv/lights.tsx');
+    expect(source).not.toMatch(/from 'react-native';[\s\S]*\bAnimated\b[\s\S]*from 'react-native'/);
+    expect(source).not.toMatch(/useFrameCallback|requestAnimationFrame|setInterval/);
+    const styles = [...source.matchAll(/useAnimatedStyle\(\(\) => \(\{([\s\S]*?)\}\)\)/g)].map((m) => m[1]!);
+    expect(styles.length).toBe(3);
+    for (const body of styles) {
+      const flat = body.replace(/\{[^{}]*\}/g, '').replace(/\[[^[\]]*\]/g, '');
+      const keys = [...flat.matchAll(/(\w+):/g)].map((m) => m[1]!);
+      expect(keys.filter((key) => key !== 'transform' && key !== 'opacity')).toEqual([]);
+    }
+  });
+
+  it('a light show animates at most eight layers, ends, and never strobes past three a second', () => {
+    for (const [name, plan] of Object.entries(PLANS)) {
+      const layers = plan.beams.length + (plan.wash.length ? 1 : 0) + plan.bulbs.length;
+      expect(layers, name).toBeLessThanOrEqual(8);
+      expect(plan.tail, name).toBeLessThanOrEqual(6000);
+      // WCAG 2.3.1: no more than three flashes in any one second.
+      for (let i = 0; i < plan.wash.length; i++) {
+        const within = plan.wash.filter((t) => t >= plan.wash[i]! && t < plan.wash[i]! + 1000);
+        expect(within.length, name).toBeLessThanOrEqual(3);
+      }
+      // The wash never passes about a third of full strength (0.42 at its brightest stop).
+      expect(plan.washPeak * 0.42, name).toBeLessThan(0.4);
+    }
+    const source = read('src/features/tv/lights.tsx');
+    // Nothing loops forever: the only repeat is the held record's two sways.
+    expect(source).not.toMatch(/withRepeat\([\s\S]{0,400}?-1,/);
+    expect(source).toMatch(/if \(!isTV \|\| !on \|\| cue === null\) return null;/);
+  });
+
+  it('the TV lights are behind their flag, and Reduce Motion gets no sweep, pop or strobe', () => {
+    const source = read('src/features/tv/lights.tsx');
+    expect(source).toMatch(/useFlag\('tv_broadcast_lights'\)/);
+    expect(source).toMatch(/const reduced = useReducedMotion\(\);/);
+    expect(source).toMatch(/\{reduced\s*\? null/);
   });
 });

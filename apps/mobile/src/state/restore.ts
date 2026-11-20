@@ -229,3 +229,59 @@ export function restoreHistory<T>(raw: unknown): T[] {
   }
   return out.slice(0, 500);
 }
+
+/**
+ * The Apple TV's preferences (`features/tv/prefs.ts`), as stored.
+ *
+ * `broadcastChosen` records that the person at the TV pressed the Broadcast
+ * mode switch, so a later change to the default can tell a deliberate "off"
+ * from a default nobody touched. Version 0 stores had no such marker.
+ */
+export interface StoredTVPrefs {
+  sound: boolean;
+  broadcast: boolean;
+  broadcastChosen: boolean;
+  cleanFeed: boolean;
+  ticker: boolean;
+}
+
+export const TV_PREFS_VERSION = 1;
+
+export const TV_PREFS_DEFAULTS: StoredTVPrefs = {
+  sound: true,
+  broadcast: true,
+  broadcastChosen: false,
+  cleanFeed: false,
+  ticker: true,
+};
+
+/**
+ * Bring an older store up to this version.
+ *
+ * Version 0 (before broadcast mode became the TV's default) stored
+ * `broadcast: false` for everyone who never turned it on -- and for the few
+ * who turned it on and off again, with nothing to tell the two apart. Nearly
+ * every one of them is the first, so a version-0 "off" becomes on. A
+ * version-0 "on" stays on, and counts as chosen.
+ */
+export function migrateTVPrefs(raw: unknown, version: number): unknown {
+  if (!isObject(raw)) return raw;
+  if (version < 1) {
+    const chosen = raw.broadcast === true;
+    return { ...raw, broadcast: true, broadcastChosen: chosen };
+  }
+  return raw;
+}
+
+/** Whatever is stored, as whole preferences: every key a boolean, or its default. */
+export function restoreTVPrefs(raw: unknown): StoredTVPrefs {
+  const out = { ...TV_PREFS_DEFAULTS };
+  if (!isObject(raw)) return out;
+  for (const key of Object.keys(out) as (keyof StoredTVPrefs)[]) {
+    const value = raw[key];
+    if (typeof value === 'boolean') out[key] = value;
+  }
+  // An "off" nobody chose is a default from before the default changed.
+  if (!out.broadcastChosen) out.broadcast = TV_PREFS_DEFAULTS.broadcast;
+  return out;
+}

@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   NOTE_CLOSED_BEFORE_OPENING,
   NOTE_PICKS_DROPPED,
+  TV_PREFS_DEFAULTS,
+  migrateTVPrefs,
+  restoreTVPrefs,
   restoreGame,
   restoreHistory,
   statusFrom,
@@ -159,5 +162,31 @@ describe('restoring the history', () => {
     expect(restoreHistory(undefined)).toEqual([]);
     expect(restoreHistory({ games: 'nope' })).toEqual([]);
     expect(restoreHistory(42)).toEqual([]);
+  });
+});
+
+describe('restoreTVPrefs / migrateTVPrefs', () => {
+  it('a fresh TV has broadcast mode on', () => {
+    expect(restoreTVPrefs(undefined)).toEqual(TV_PREFS_DEFAULTS);
+    expect(TV_PREFS_DEFAULTS.broadcast).toBe(true);
+  });
+
+  it('a version-0 store, broadcast never turned on, comes up on', () => {
+    const migrated = migrateTVPrefs({ sound: false, broadcast: false, cleanFeed: false, ticker: true }, 0);
+    expect(restoreTVPrefs(migrated)).toEqual({ sound: false, broadcast: true, broadcastChosen: false, cleanFeed: false, ticker: true });
+  });
+
+  it('a version-0 store with broadcast on keeps it, as a choice', () => {
+    expect(restoreTVPrefs(migrateTVPrefs({ broadcast: true, cleanFeed: true }, 0))).toMatchObject({ broadcast: true, broadcastChosen: true, cleanFeed: true });
+  });
+
+  it('a deliberate off stays off', () => {
+    expect(restoreTVPrefs(migrateTVPrefs({ broadcast: false, broadcastChosen: true }, 1)).broadcast).toBe(false);
+  });
+
+  it('garbage falls back to the defaults, key by key', () => {
+    expect(restoreTVPrefs({ sound: 'yes', broadcast: null, ticker: 0, cleanFeed: true })).toEqual({ ...TV_PREFS_DEFAULTS, cleanFeed: true });
+    expect(restoreTVPrefs([1, 2])).toEqual(TV_PREFS_DEFAULTS);
+    expect(migrateTVPrefs('nonsense', 0)).toBe('nonsense');
   });
 });
