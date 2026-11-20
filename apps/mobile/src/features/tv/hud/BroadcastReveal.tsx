@@ -16,6 +16,7 @@ import { isPerfectionDenied, type GameResult } from '@17-0/domain';
 import { Pressable } from '@/components/Pressable';
 import { MODE_LABEL, type GameMode } from '@/state/game';
 import { DECORATIVE, color, font, positionColor, radius, space, tabular, teamWash, themed, tierColor, tracking } from '@/theme';
+import { StadiumLights } from '../lights';
 import { cue } from '../sound';
 import { GlassFill, useBroadcast, useCleanFeed } from './kit';
 
@@ -135,6 +136,9 @@ function Reveal({ result, mode, roster, onDone }: { result: GameResult; mode: Ga
               { experimental_backgroundImage: `radial-gradient(ellipse 55% 55% at 62% 45%, ${teamWash(accent, 0.28)} 0%, ${teamWash(accent, 0)} 100%)` },
             ]}
           />
+          {/* The stadium lights land on the record as it slams down, and hold
+              still behind it until Select (features/tv/lights.tsx). */}
+          <StadiumLights show={perfect ? 'perfect' : 'reveal'} cue="record" at={SLAM} tint={accent} hold />
         </View>
 
         <View style={styles.layout} pointerEvents="none">

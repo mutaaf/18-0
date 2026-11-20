@@ -25,10 +25,10 @@ import { DECORATIVE, color, radius, teamWash, themed } from '@/theme';
  */
 
 /**
- * Broadcast mode is on: a TV, and the player switched it on in Account.
+ * Broadcast mode is on: a TV, and the player has not switched it off in
+ * Account (it is the TV's default; `features/tv/prefs.ts`).
  *
- * A preference, not a flag. It is off until the person at the TV asks for
- * it, it draws nothing a player cannot already see, and it reads nothing
+ * A preference, not a flag. It draws nothing a player cannot already see, and it reads nothing
  * remote -- there is no rollout to gate. (A registry flag here would also be
  * off for everyone until somebody created it in PostHog: an answered-but-
  * absent key reads as "switched off".)

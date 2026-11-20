@@ -29,9 +29,9 @@ export function TVSettings({ initialFocus }: { initialFocus?: TVInitialFocus }) 
       />
       <Row
         title="Broadcast mode"
-        copy="A scorebug, lower thirds for every spin and pick, and the record as a full-screen graphic. For streams and podcasts."
+        copy="A scorebug, lower thirds for every spin and pick, and the record as a full-screen graphic. On unless you turn it off."
         on={prefs.broadcast}
-        onPress={() => prefs.set({ broadcast: !prefs.broadcast })}
+        onPress={() => prefs.set({ broadcast: !prefs.broadcast, broadcastChosen: true })}
       />
       {prefs.broadcast ? (
         <>

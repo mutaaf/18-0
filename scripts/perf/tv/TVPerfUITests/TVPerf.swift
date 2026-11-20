@@ -286,11 +286,13 @@ final class TVPerf: XCTestCase {
         mark("noop_press", moves: 40) { press(.up, 40, gap: 0.45) }
     }
 
-    /// Broadcast mode: the HUD over the play screen, a season under it, the
-    /// record as a graphic. Then broadcast mode off again.
+    /// Broadcast mode: the HUD and the stadium lights over the play screen, a
+    /// season under it, the record as a graphic. Broadcast mode is the TV's
+    /// default (it used to be switched on here and off again at the end), so
+    /// this measures what a fresh install shows; a simulator where somebody
+    /// switched it off in Account measures without the HUD.
     func test09_Broadcast() {
         launchHome()
-        toggleTVSetting("Broadcast mode")
         press(.select, gap: 7)
         var labels: [String] = [focusedLabel]
         for _ in 0..<3 {
@@ -307,8 +309,6 @@ final class TVPerf: XCTestCase {
         var ok = false
         mark("broadcast_season") { ok = playSeason(maxSteps: 90) }
         XCTAssertTrue(ok, "never reached the result screen")
-        launchHome()
-        toggleTVSetting("Broadcast mode")
     }
 
     /// Not a measurement: a season with the focused control printed at every

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { pressVerb } from '@/features/tv/platform';
+import { isTV, pressVerb } from '@/features/tv/platform';
 import { cue } from '@/features/tv/sound';
 import { FocusPane } from '@/features/tv/FocusPane';
 import { BroadcastReveal, broadcastOn, useRevealUp } from '@/features/tv/hud';
@@ -13,6 +13,7 @@ import { Brand } from '@/components/Brand';
 import { EASE_OUT, Layer, SkipLayer, keyframes, useTimeline } from '@/components/Broadcast';
 import { CUE, ROSTER_STEP, Scoreboard } from '@/components/Scoreboard';
 import { Celebration } from '@/components/Celebration';
+import { StadiumLights } from '@/features/tv/lights';
 import { Screen } from '@/components/Screen';
 import { SpreadLayout } from '@/components/SpreadLayout';
 import { useSpread } from '@/features/fold';
@@ -872,12 +873,20 @@ export default function Result() {
           record has locked and buzzed. It is mounted now and goes off on that
           cue by itself, so the cue costs this screen no re-render and the show
           has done its setup before its first frame (see `Celebration`). */}
+      {/* On a TV, not under the broadcast record: the page's confetti there
+          was a hundred animated views behind an opaque graphic. Dismissing
+          the record lets it go off, if its moment has not passed. */}
       <Celebration
-        intensity={celebration}
+        intensity={isTV && revealUp ? 0 : celebration}
         palette={[accent, color.text, color.silver]}
         perfect={perfect}
         at={line.settled ? 0 : CUE.stamp}
       />
+      {/* Apple TV: the stadium lights on the stamp, when the broadcast record
+          is not already lighting it (features/tv/lights.tsx). */}
+      {celebration > 0 && !revealUp && !broadcastOn() ? (
+        <StadiumLights show={perfect ? 'perfect' : 'reveal'} cue="page" at={line.settled ? 0 : CUE.stamp} tint={accent} bleed />
+      ) : null}
 
       {/* Apple TV, broadcast mode: the record as a full-screen graphic before
           the page underneath (features/tv/hud). Renders nothing otherwise. */}

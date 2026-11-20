@@ -42,7 +42,7 @@ log="$OUT/run-$stamp.log"
 xcrun simctl spawn "$UDID" log stream --style compact \
   --predicate 'process == "SeventeenZero" AND eventMessage CONTAINS "[perf]"' > "$OUT/app-$stamp.log" 2>&1 &
 streamer=$!
-"$HERE/sample.sh" > "$OUT/samples-$stamp.txt" &
+"$HERE/sample.sh" "$UDID" > "$OUT/samples-$stamp.txt" &
 sampler=$!
 
 xcodebuild test -project "$OUT/project/TVPerf.xcodeproj" -scheme TVPerf \

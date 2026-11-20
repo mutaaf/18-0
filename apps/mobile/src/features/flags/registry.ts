@@ -251,6 +251,15 @@ export const FLAGS = {
     fallback: true,
   },
 
+  tv_broadcast_lights: {
+    key: 'tv_broadcast_lights',
+    kind: 'toggle',
+    summary: 'Apple TV stadium lights: sweeping searchlights, flashbulbs and a colour wash when a spin lands, a pick locks, the record lands and at 17-0.',
+    owner: 'mutaaf',
+    removeBy: '2027-06-01',
+    fallback: true,
+  },
+
   gpu_effects: {
     key: 'gpu_effects',
     kind: 'toggle',
