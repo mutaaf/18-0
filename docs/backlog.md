@@ -481,10 +481,9 @@ rather than a logged crash.
   `saveRatingFeedback` returns a boolean, so a refusal (an unknown card, a
   constraint) looks like offline and the flush stops at it on every launch.
   Make it return `ok | offline | refused` and drop the refused one.
-- **New downgrade sentences land in `other`.** `DIVERGED_NOTE`,
-  `NOTE_CLOSED_BEFORE_OPENING` and `NOTE_PICKS_DROPPED` are not in
-  `features/diagnostics/causes.ts`; add them (and to `errors.test.ts`) so the
-  dashboard can count them.
+- **Fixed since (checked 2026-11-21):** the three downgrade sentences are in
+  `features/diagnostics/causes.ts` and pinned in `errors.test.ts`, so they no
+  longer land in `other`.
 - **`complete-game` validates `idempotencyKey` but never compares it** with
   `game_sessions.idempotency_key`. Harmless today -- completion is single-shot
   per session and only the owner can call it -- but the key is decorative.
@@ -493,8 +492,8 @@ rather than a logged crash.
   the local Kong gateway answers preflights with `*` whatever
   `ALLOWED_ORIGIN` the functions get. They are checks of the hosted secret;
   run them against the hosted instance after a deploy.
-- **`useTVPrefs` is not validated on launch.** Four booleans, so the worst a
-  bad value does is a wrong toggle, not a crash; left to the TV work.
+- **Fixed since (checked 2026-11-21):** `useTVPrefs` reads through
+  `restoreTVPrefs` / `migrateTVPrefs` (`state/restore.ts`, tested).
 
 **Still true?** `grep -n readJsonObject supabase/functions/*/index.ts` against
 what is deployed (the function logs show `invalid_json` rather than
