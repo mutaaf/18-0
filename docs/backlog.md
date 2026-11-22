@@ -477,10 +477,10 @@ rather than a logged crash.
   the local row is not. Fix: record before the network call and patch the
   entry afterwards. `play.tsx` belongs to the phone-performance work, so this
   was left rather than rewritten under it.
-- **New downgrade sentences land in `other`.** `DIVERGED_NOTE`,
-  `NOTE_CLOSED_BEFORE_OPENING` and `NOTE_PICKS_DROPPED` are not in
-  `features/diagnostics/causes.ts`; add them (and to `errors.test.ts`) so the
-  dashboard can count them.
+- ~~**New downgrade sentences land in `other`.**~~ Done: `DIVERGED_NOTE`,
+  `NOTE_CLOSED_BEFORE_OPENING` and `NOTE_PICKS_DROPPED` map to `diverged`,
+  `interrupted` and `picks_dropped` in `features/diagnostics/causes.ts`, and
+  `errors.test.ts` imports the sentences so rewording one fails there.
 - **`complete-game` validates `idempotencyKey` but never compares it** with
   `game_sessions.idempotency_key`. Harmless today -- completion is single-shot
   per session and only the owner can call it -- but the key is decorative.
