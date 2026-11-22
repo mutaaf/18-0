@@ -38,7 +38,9 @@ export function showcaseOffered(): boolean {
 
 export function Showcase({ onPlay }: ShowcaseProps) {
   const root = useRef<HTMLDivElement>(null);
+  const reel = useRef<HTMLVideoElement>(null);
   useScrollClock(root);
+  useReel(reel);
 
   const vars = {
     '--void': color.void,
@@ -152,6 +154,34 @@ export function Showcase({ onPlay }: ShowcaseProps) {
         <p className="scroll-cue" aria-hidden="true">
           Scroll
         </p>
+      </section>
+
+      {/* ── The reel: the game in a hand, under the lights ─────────── */}
+      <section className="reel" aria-label="A 17-second film of 17-0 being played on an iPhone">
+        <div className="reel-frame">
+          <picture className="reel-still">
+            <source media="(max-width: 700px)" srcSet={img('reel-poster-9x16.jpg')} />
+            <img src={img('reel-poster-16x9.jpg')} alt="" loading="lazy" />
+          </picture>
+          <video
+            ref={reel}
+            className="reel-video"
+            autoPlay
+            muted
+            loop
+            playsInline
+            preload="metadata"
+            poster={img('reel-poster-16x9.jpg')}
+            aria-hidden="true"
+            tabIndex={-1}
+          >
+            <source src={img('reel-9x16.mp4')} type="video/mp4" media="(max-width: 700px)" />
+            <source src={img('reel-16x9.mp4')} type="video/mp4" />
+          </video>
+          <p className="reel-tag" aria-hidden="true">
+            <i /> 0:17 · On iPhone
+          </p>
+        </div>
       </section>
 
       {/* ── The Duo, folding through its poses ─────────────────────── */}
@@ -347,6 +377,45 @@ function useScrollClock(root: React.RefObject<HTMLDivElement | null>) {
   }, [root]);
 }
 
+/**
+ * The reel plays only while it is on screen, and never under reduced motion.
+ *
+ * `muted` is set on the element by hand: React writes it as a property and not
+ * as an attribute, and iOS Safari decides whether an autoplaying video may
+ * start by the attribute -- without it the reel sits on its poster. Reduced
+ * motion hides the video in CSS and pauses it here, so the still is all that
+ * shows and nothing decodes behind it.
+ */
+function useReel(ref: React.RefObject<HTMLVideoElement | null>) {
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    v.muted = true;
+    v.setAttribute('muted', '');
+    const still = matchMedia('(prefers-reduced-motion: reduce)');
+    let seen = false;
+    const sync = () => {
+      if (still.matches || !seen) v.pause();
+      else v.play().catch(() => {});
+    };
+    const io =
+      typeof IntersectionObserver === 'undefined'
+        ? null
+        : new IntersectionObserver(([e]) => {
+            seen = !!e?.isIntersecting;
+            sync();
+          });
+    if (io) io.observe(v);
+    else seen = true;
+    sync();
+    still.addEventListener?.('change', sync);
+    return () => {
+      io?.disconnect();
+      still.removeEventListener?.('change', sync);
+    };
+  }, [ref]);
+}
+
 function scrollParent(el: HTMLElement): HTMLElement | Window {
   for (let p = el.parentElement; p; p = p.parentElement) {
     const o = getComputedStyle(p).overflowY;
@@ -435,6 +504,31 @@ const STYLES = String.raw`
 .sc .hero-copy > :nth-child(2) { animation-delay: .08s; } .sc .hero-copy > :nth-child(3) { animation-delay: .16s; }
 .sc .hero-copy > :nth-child(4) { animation-delay: .24s; } .sc .hero-copy > :nth-child(5) { animation-delay: .32s; }
 @keyframes sc-rise { from { opacity: 0; translate: 0 28px; } }
+
+/* ── reel: a lit screen between the hero and the Duo ── */
+.sc .reel { position: relative; padding: 6vh 24px 4vh; }
+.sc .reel::before { content: ''; position: absolute; left: 50%; top: 0; width: min(1400px, 120%); height: 100%; translate: -50% 0; pointer-events: none;
+  background: radial-gradient(50% 45% at 50% 55%, color-mix(in srgb, var(--turf-lit) 22%, transparent), transparent 70%); filter: blur(20px); }
+.sc .reel-frame { position: relative; width: 100%; max-width: 1180px; margin: 0 auto; aspect-ratio: 16 / 9; border-radius: 28px; overflow: hidden; isolation: isolate;
+  background: var(--ink-deep); border: 1px solid color-mix(in srgb, var(--gold) 28%, var(--line));
+  box-shadow: 0 60px 120px -40px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.04) inset, 0 0 80px -30px color-mix(in srgb, var(--gold) 35%, transparent);
+  animation: sc-rise 1.1s .35s cubic-bezier(.2,.7,.2,1) both; }
+.sc .reel-still, .sc .reel-still img, .sc .reel-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sc .reel-video { display: block; background: transparent; }
+.sc .reel-frame::after { content: ''; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background: linear-gradient(180deg, transparent 70%, rgba(0,0,0,.35)); box-shadow: 0 0 0 1px rgba(255,255,255,.06) inset; }
+.sc .reel-tag { position: absolute; z-index: 1; left: 18px; top: 16px; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px;
+  font-family: var(--f-label); font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--text);
+  background: color-mix(in srgb, var(--ink-deep) 55%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid var(--line); }
+.sc .reel-tag i { width: 7px; height: 7px; border-radius: 50%; background: var(--action); animation: sc-live 1.8s infinite; }
+@media (max-width: 700px) {
+  .sc .reel { padding: 2vh 16px 2vh; }
+  .sc .reel-frame { aspect-ratio: 9 / 16; width: min(100%, 440px, calc(82svh * 9 / 16)); border-radius: 24px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc .reel-video { display: none; }
+  .sc .reel-frame, .sc .reel-tag i { animation: none; }
+}
 
 /* ── duo ── */
 .sc .duo { position: relative; padding-top: 12vh; }
