@@ -471,16 +471,11 @@ rather than a logged crash.
   `supabase functions deploy spin select complete-game respin redeem-purchase`
   (docs/RUNNING.md). Nothing deploys on merge. Until then the app is fine --
   only a malformed request sees the difference.
-- **A season killed between the reveal and the history write is missing from
-  the device's history.** `play.tsx` scores locally, awaits the server (up to
-  12s), then calls `record()`. The server side is now covered by the outbox;
-  the local row is not. Fix: record before the network call and patch the
-  entry afterwards. `play.tsx` belongs to the phone-performance work, so this
-  was left rather than rewritten under it.
-- **New downgrade sentences land in `other`.** `DIVERGED_NOTE`,
-  `NOTE_CLOSED_BEFORE_OPENING` and `NOTE_PICKS_DROPPED` are not in
-  `features/diagnostics/causes.ts`; add them (and to `errors.test.ts`) so the
-  dashboard can count them.
+- ~~A season killed between the reveal and the history write is missing from
+  the device's history.~~ Done: `play.tsx` `reveal` calls `record()` before the
+  server is asked, and `confirmWithServer` runs after `router.replace('/result')`.
+- ~~New downgrade sentences land in `other`.~~ Done: `causes.ts` has `diverged`,
+  `interrupted` and `picks_dropped`, pinned in `errors.test.ts`.
 - **`complete-game` validates `idempotencyKey` but never compares it** with
   `game_sessions.idempotency_key`. Harmless today -- completion is single-shot
   per session and only the owner can call it -- but the key is decorative.
@@ -489,8 +484,8 @@ rather than a logged crash.
   the local Kong gateway answers preflights with `*` whatever
   `ALLOWED_ORIGIN` the functions get. They are checks of the hosted secret;
   run them against the hosted instance after a deploy.
-- **`useTVPrefs` is not validated on launch.** Four booleans, so the worst a
-  bad value does is a wrong toggle, not a crash; left to the TV work.
+- ~~`useTVPrefs` is not validated on launch.~~ Done: `features/tv/prefs.ts`
+  merges through `restoreTVPrefs` (`state/restore.ts`).
 
 **Still true?** `grep -n readJsonObject supabase/functions/*/index.ts` against
 what is deployed (the function logs show `invalid_json` rather than
