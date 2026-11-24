@@ -39,3 +39,15 @@ appId: com.eighteenzerodcai.app
     timeout: 30000
 - runFlow: settle.yaml
 - takeScreenshot: 5-leaderboard
+# Gut Check (1.1.0): ten real seasons, one swipe each. Only looking, no swipe sent.
+- launchApp
+- extendedWaitUntil:
+    visible: ".*Gut Check.*"
+    timeout: 90000
+- tapOn: ".*Gut Check.*"
+- extendedWaitUntil:
+    visible: "Rating is fair"
+    timeout: 30000
+- runFlow: settle.yaml
+- takeScreenshot: 8-gutcheck
+- tapOn: "Close Gut Check"
