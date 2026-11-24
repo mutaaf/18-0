@@ -1,6 +1,14 @@
 appId: com.eighteenzerodcai.app
 ---
-- tapOn: "Spin the wheel"
+# Since 1.1.0 a one-tap start (the Play bar, a mode card, Build Another) spins
+# the first wheel by itself, so "Spin the wheel" is there only for later picks.
+# The tap is optional: the auto-spin can take the button away between the check and the tap.
+- runFlow:
+    when: { visible: "Spin the wheel" }
+    commands:
+      - tapOn:
+          text: "Spin the wheel"
+          optional: true
 - extendedWaitUntil:
     visible: "Tap a position.*"
     timeout: 45000

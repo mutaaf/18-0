@@ -40,7 +40,8 @@
     { "id": "result", "raw": "7-result", "layout": "hero", "kicker": "The reveal", "title": "Seven cards. *One record.*", "sub": "Your roster becomes a projected season. The same seven always earn the same record." },
     { "id": "field", "raw": "6-field", "layout": "tilt", "kicker": "Build the lineup", "title": "Every rating, *era-adjusted.*", "sub": "Every season since 1980, rated from what actually happened, against its own era." },
     { "id": "spin", "raw": "2-spin", "layout": "hero", "kicker": "The spin", "title": "One team. One era. *Your call.*", "sub": "GM Mode gives you a name, a team and a year. Nothing else." },
-    { "id": "scout", "raw": "3-scout", "layout": "spotlight", "focus": [0.42, 0.6, 0.62], "kicker": "Scout mode", "title": "Read the stats. _Trust your gut._", "sub": "Scout shows the stat line and hides the grade." },
+    { "id": "scout", "raw": "3-scout", "layout": "hero", "kicker": "Scout mode", "title": "Read the stats. _Trust your gut._", "sub": "Scout shows the stat line and hides the grade." },
+    { "id": "gutcheck", "raw": "8-gutcheck", "layout": "tilt", "kicker": "Gut Check", "title": "Is that rating *right?*", "sub": "Ten real seasons, one swipe each: fair or off. A person reads every swipe before the next refit." },
     { "id": "leaders", "raw": "5-leaderboard", "layout": "bleed", "kicker": "Leaderboards", "title": "Chase the *undefeated season.*", "sub": "17-0 lands about once every 6,000 games. Boards for all time, this month, this week.", "badge": "1 in 6,000" }
   ],
   "feature": { "title": "Seven picks. *One perfect season.*", "sub": "Every season since 1980, rated against its era." },
