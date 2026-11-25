@@ -178,6 +178,14 @@ Deno.serve(instrument('complete-game', async (req) => {
     return json({ result: toResponse(session), replayed: true });
   }
 
+  // The key the session was opened with. It was validated for shape and then
+  // ignored, so a decorative field; comparing it makes a completion name the
+  // session it means. After the replay branch on purpose: a retry of a
+  // finished season must still get its answer.
+  if (session.idempotency_key !== body.idempotencyKey) {
+    return await refuse('idempotency_mismatch', 409);
+  }
+
   // --- the roster comes from the database, never from the client -----------
   const [{ data: spins, error: spinError }, { data: stored, error: selectionsError }] = await Promise.all([
     admin.from('game_spins').select('sequence, franchise_id, era_key').eq('game_session_id', session.id),

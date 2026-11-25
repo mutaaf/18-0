@@ -476,10 +476,10 @@ rather than a logged crash.
   server is asked, and `confirmWithServer` runs after `router.replace('/result')`.
 - ~~New downgrade sentences land in `other`.~~ Done: `causes.ts` has `diverged`,
   `interrupted` and `picks_dropped`, pinned in `errors.test.ts`.
-- **`complete-game` validates `idempotencyKey` but never compares it** with
-  `game_sessions.idempotency_key`. Harmless today -- completion is single-shot
-  per session and only the owner can call it -- but the key is decorative.
-  Either compare it or stop sending it.
+- ~~**`complete-game` validates `idempotencyKey` but never compares it.**~~
+  Done in code: a mismatch is 409 `idempotency_mismatch` (after the replay
+  branch; checked in `e2e.mjs`). Reaches production with the next functions
+  deploy, together with `readJsonObject`.
 - **The four CORS checks in `e2e.mjs` cannot pass against a local stack**:
   the local Kong gateway answers preflights with `*` whatever
   `ALLOWED_ORIGIN` the functions get. They are checks of the hosted secret;
