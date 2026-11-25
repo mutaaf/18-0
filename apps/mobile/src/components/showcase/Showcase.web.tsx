@@ -36,7 +36,7 @@ export function showcaseOffered(): boolean {
   return true;
 }
 
-export function Showcase({ onPlay }: ShowcaseProps) {
+export function Showcase({ onPlay, playing }: ShowcaseProps) {
   const root = useRef<HTMLDivElement>(null);
   const reel = useRef<HTMLVideoElement>(null);
   useScrollClock(root);
@@ -124,7 +124,7 @@ export function Showcase({ onPlay }: ShowcaseProps) {
                 </p>
               </div>
               <button type="button" className="ghost" onClick={onPlay}>
-                Play in the browser <span aria-hidden="true">↓</span>
+                Play {playing} in the browser <span aria-hidden="true">→</span>
               </button>
             </div>
           </div>
@@ -314,7 +314,7 @@ export function Showcase({ onPlay }: ShowcaseProps) {
             Join the beta on TestFlight <span className="arr" aria-hidden="true">→</span>
           </a>
           <button type="button" className="ghost" onClick={onPlay}>
-            Play in the browser <span aria-hidden="true">↓</span>
+            Play {playing} in the browser <span aria-hidden="true">→</span>
           </button>
         </div>
       </section>

@@ -1,6 +1,5 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Pressable } from '@/components/Pressable';
-import { useRouter } from 'expo-router';
 import { eraLabel, franchise } from '@17-0/data';
 import { useMemo } from 'react';
 import { DockSpacer } from '@/components/chrome';
@@ -11,6 +10,8 @@ import { useSpread } from '@/features/fold';
 import { isTV } from '@/features/tv/platform';
 import { TVStats } from '@/features/tv/views/TVStats';
 import { MODE_LABEL, type GameMode } from '@/state/game';
+import { playLabel } from '@/state/next-season';
+import { useNextSeason, useStartGame } from '@/features/start-game';
 import { computeStats, useHistoryStore } from '@/state/history';
 import { color, font, radius, space, tabular, themed, tracking, useLayout, useThemeId } from '@/theme';
 
@@ -21,7 +22,8 @@ export default function Stats() {
   // as a repainted picker sitting inside a screen still wearing the old
   // colours. `theme.test.ts` asserts every route does this.
   useThemeId();
-  const router = useRouter();
+  const { playNext, opening } = useStartGame();
+  const next = useNextSeason();
   const layout = useLayout();
   const games = useHistoryStore((s) => s.games);
   const stats = useMemo(() => computeStats(games), [games]);
@@ -58,13 +60,19 @@ export default function Stats() {
             Play a season and this fills with your best rating, your best record, and how close you
             have come to perfection.
           </Text>
+          {/* Straight into a season. This used to go to the front page, where
+              the same decision had to be made again on a second button: a
+              detour, not a way in. */}
           <Pressable
-            onPress={() => router.push('/(tabs)')}
+            onPress={() => void playNext()}
+            disabled={opening}
+            // The remote starts here: it is the only thing on the page.
+            hasTVPreferredFocus
             accessibilityRole="button"
-            accessibilityLabel="Play a season"
+            accessibilityLabel={`Play a ${MODE_LABEL[next.mode]} season`}
             style={styles.blankCta}
           >
-            <Text style={styles.blankCtaLabel}>Play a season</Text>
+            <Text style={styles.blankCtaLabel}>{opening ? 'Starting…' : playLabel(next.mode)}</Text>
           </Pressable>
           <Text style={styles.blankNote}>
             17-0 lands about once every 6,000 games. 16-1 about once every 49.

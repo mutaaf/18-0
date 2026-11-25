@@ -87,6 +87,90 @@ seasons of history; medians, ms):
 | Reveal: wall, tap to result | 340 | 312 (-8%) |
 | Six spins, cold start, tab switches | -- | within run-to-run noise |
 
+## Usability
+
+Presses, not milliseconds: how many taps (or remote presses) the core
+journeys take, and where a player meets a dead end -- a screen whose next
+action is off the glass, a press that does nothing, a button that does not
+say what it will do. Walked from a fresh install:
+
+```bash
+node scripts/perf/phone/journeys.mjs dist --shots /tmp/journeys   # phone-sized web, 393x852
+scripts/perf/tv/run.sh test17_Journeys                            # Apple TV, with the remote
+```
+
+The phone and the web are the same screens; the counts are the web export's,
+and the iPhone simulator was checked by eye (`journeys.mjs` cannot drive it).
+
+### What Play starts
+
+Every generic way into a season -- Play on the front page and its closer,
+the dock's PLAY pressed on the front page, Build Another, Games' and an empty
+My Stats' Play, the site's "Play in the browser", the embed, the play screen
+opened with nothing under way -- starts **the lens last started**, with the
+ranked switch as the player left it, and says which on its face ("Play ·
+Scout"). A button that names a lens starts that lens, and that becomes the
+last. Gameday and challenges never do: one is open only inside its window and
+the other is somebody else's one-off question, so Play after either goes back
+to the lens the player chose. No history is Scout. The rules and their tests
+are `apps/mobile/src/state/next-season.ts`; the embed keeps ranked on, as its
+frame has no switch to turn it back.
+
+### Phone and web, 2026-11-24
+
+| Journey | Before | After |
+|---|---|---|
+| First visit to the first spin (site) | 2 taps + 1 scroll; Play below the fold | 1 tap ("Play Scout in the browser" starts it) |
+| First launch to the first spin (app) | 1 tap | 1 tap, and the button names the lens |
+| A season, seven picks | 16 taps + 3-5 scrolls past full positions | 16 taps, 0 scrolls |
+| Result to the next season | 1 tap, lens unstated | 1 tap, "Build Another · Scout" |
+| PLAY in the dock, on the front page | dead press | resumes, or starts the last lens |
+| Empty My Stats to a season | 2 taps (detour to the front page) | 1 tap |
+| Games' Quick play | always Scout, always ranked, unlabelled | the last lens, the ranked choice, named |
+| After a challenge or a gameday, Play starts | GM Mode / Scout (whatever was left in `mode`) | the last lens the player chose |
+| Switching lens | 1 tap + 1 scroll | unchanged |
+| My Stats, Challenges, Leaderboards, Games | 1 tap each | unchanged |
+
+The 16 taps of a season are seven picks, six spins, the reveal and two slot
+choices (a running back or receiver who fits both of two slots): not dead
+ends, because RB1 and RB2 weigh differently (`ROSTER_WEIGHTS`).
+
+### Apple TV, 2026-11-24
+
+Remote presses, `test17_Journeys`, a fresh install on "Apple TV 4K (at 1080p)":
+
+| Journey | Before | After |
+|---|---|---|
+| Launch to the first spin | 1 (Play focused at launch) | 1, and Play names the lens |
+| A season, seven picks | 17 (7 picks, 6 spins, 2 slot choices, Reveal, the broadcast record) | 17 |
+| Result to the next season | 2 (dismiss the record, Build Another) | 2, and Build Another names the lens |
+| Menu from a season | the front page, on Resume or Play | unchanged |
+| Switching lens | 3 (down, right, Select) | 3; Play then names the new lens |
+| Empty My Stats to a season | 2 (a detour through the front page) | 1, and the remote starts on it |
+| A challenge to answer | no initial focus | the remote starts on "Answer it" (or "Back to 17-0") |
+| My Stats / Challenges / Leaderboards from launch | 7 / 6 / 4 | 7 / 6 / 4 (see below) |
+| Menu from a tab | Play, focused | unchanged |
+
+Left open: up from the front page lands on **Games**, the bar's first tab,
+until a tab has been picked, because the bar is an `autoFocus` guide with no
+memory yet. Landing on the tab you are on would save two presses to My Stats
+and Challenges, but the only way to aim a guide is `destinations`, which this
+bar is forbidden by test (`performance.test.ts`, builds 27 and 28). The front
+page's "Your seasons" and "Leaderboards" tiles are the shorter way in.
+
+### The rules, held by `apps/mobile/src/features/usability.test.ts`
+
+- **Every Apple TV screen says where the remote starts** (`hasTVPreferredFocus`
+  or `useTVInitialFocus`), or is on a short list of exemptions with the reason.
+  The challenge screen had none, so the remote landed wherever UIKit's search
+  went.
+- **No Play button is a bare "Play a season" or "Quick play"**: each names the
+  lens it starts.
+- **An empty state starts the thing it is empty of**, rather than sending the
+  player to find the button somewhere else.
+- **A spin lists the players who can still go somewhere first**
+  (`features/play-order.ts`); a full position's rows sink below them.
+
 ## Tried and not kept
 
 - **Inline requires** (`inlineRequires: true` in Metro). Expo Router requires

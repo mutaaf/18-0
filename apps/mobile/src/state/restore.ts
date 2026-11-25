@@ -1,4 +1,5 @@
 import { ROSTER_SLOTS, type GameResult, type RosterSlot, type SpinResult } from '@17-0/domain';
+import { restoreLastMode, type GameMode, type OrdinaryMode } from '@/state/next-season';
 
 /**
  * Reading saved state back without trusting it.
@@ -19,7 +20,6 @@ import { ROSTER_SLOTS, type GameResult, type RosterSlot, type SpinResult } from 
  * kind of garbage at it.
  */
 
-type GameMode = 'rookie' | 'scout' | 'player_iq' | 'gameday';
 type GameStatus = 'idle' | 'ready_to_spin' | 'spun' | 'complete';
 
 const MODES: readonly GameMode[] = ['rookie', 'scout', 'player_iq', 'gameday'];
@@ -43,6 +43,7 @@ export interface RestoredGame {
   mode: GameMode;
   gamedayKey: string | null;
   preferRanked: boolean;
+  lastMode: OrdinaryMode;
   lensSnoozeUntil: number;
   ranked: boolean;
   serverSessionId: string | null;
@@ -96,6 +97,9 @@ export function restoreGame(raw: unknown, knownCard: (id: string) => boolean, no
   const prefs: Partial<RestoredGame> = {
     mode: MODES.includes(raw.mode as GameMode) ? (raw.mode as GameMode) : 'scout',
     preferRanked: typeof raw.preferRanked === 'boolean' ? raw.preferRanked : true,
+    // What every generic Play starts. A store from before it existed falls
+    // back to `mode`, which is what Play used to read (next-season.ts).
+    lastMode: restoreLastMode(raw),
     lensSnoozeUntil: finite(raw.lensSnoozeUntil) ? raw.lensSnoozeUntil : 0,
   };
   const fresh: Partial<RestoredGame> = {

@@ -9,6 +9,7 @@ import { Pressable } from '@/components/Pressable';
 import { Reveal } from '@/components/Reveal';
 import { useFlag } from '@/features/flags';
 import { MODE_LABEL, type GameMode } from '@/state/game';
+import { playLabel, type OrdinaryMode } from '@/state/next-season';
 import { DECORATIVE, color, font, radius, space, tabular, teamWash, themed, tracking, type PressState } from '@/theme';
 
 /**
@@ -31,7 +32,8 @@ export interface TVHomeProps {
   inProgress: boolean;
   filled: number;
   mode: GameMode;
-  quickMode: GameMode;
+  /** What Play starts: the lens last started (state/next-season.ts). */
+  quickMode: OrdinaryMode;
   quickKind: string;
   ranked: boolean;
   rankedOffered: boolean;
@@ -110,7 +112,7 @@ export function TVHome(props: TVHomeProps) {
                 >
                   <PlayGlyph />
                   <View>
-                    <Text style={styles.primaryLabel}>Play {MODE_LABEL[props.quickMode]}</Text>
+                    <Text style={styles.primaryLabel}>{playLabel(props.quickMode)}</Text>
                     <Text style={styles.primarySub}>{props.quickKind} · the wheel spins right away</Text>
                   </View>
                 </Pressable>

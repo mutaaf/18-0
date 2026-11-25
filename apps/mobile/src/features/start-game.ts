@@ -3,7 +3,9 @@ import { useRouter } from 'expo-router';
 import * as Haptics from '@/features/haptics';
 import { beginRanked } from '@/features/ranked';
 import { track } from '@/features/telemetry';
+import { useShallow } from 'zustand/react/shallow';
 import { useGameStore, type GameMode } from '@/state/game';
+import { nextSeason, playLabel, type OrdinaryMode } from '@/state/next-season';
 
 /**
  * Starting a season, from wherever the player pressed.
@@ -60,6 +62,21 @@ export interface StartGame {
    * result) instead of stacking the play screen on top.
    */
   readonly start: (mode: GameMode, options?: { ranked?: boolean; replace?: boolean }) => Promise<void>;
+  /**
+   * What every generic Play button calls: the lens last started, with the
+   * ranked switch as the player left it (`state/next-season.ts`). Read when
+   * pressed, not when rendered, so a button can never start a stale answer.
+   */
+  readonly playNext: (options?: { replace?: boolean }) => Promise<void>;
+}
+
+/**
+ * What the next generic Play starts, for the button's label: every one says
+ * which lens it will start ("Play · Scout"), so the jump is never a surprise.
+ */
+export function useNextSeason(): { mode: OrdinaryMode; ranked: boolean; label: string } {
+  const next = useGameStore(useShallow((s) => nextSeason(s)));
+  return { ...next, label: playLabel(next.mode) };
 }
 
 export function useStartGame(): StartGame {
@@ -128,5 +145,13 @@ export function useStartGame(): StartGame {
     [router],
   );
 
-  return { opening, start };
+  const playNext = useCallback(
+    ({ replace = false }: { replace?: boolean } = {}) => {
+      const { mode, ranked } = nextSeason(useGameStore.getState());
+      return start(mode, { ranked, replace });
+    },
+    [start],
+  );
+
+  return { opening, start, playNext };
 }

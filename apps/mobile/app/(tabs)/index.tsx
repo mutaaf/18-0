@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Pressable } from '@/components/Pressable';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { useShallow } from 'zustand/react/shallow';
 import * as Haptics from '@/features/haptics';
 import { RankedSwitch } from '@/components/RankedSwitch';
@@ -37,7 +37,8 @@ import { beginRanked } from '@/features/ranked';
 import { useStartGame, withTimeout } from '@/features/start-game';
 import { flag, useFlag } from '@/features/flags';
 import { fetchGamedaySummary, isBackendConfigured, type GamedaySummary } from '@/services/supabase';
-import { useGameStore, type GameMode } from '@/state/game';
+import { useGameStore } from '@/state/game';
+import { nextSeason, playLabel, type OrdinaryMode } from '@/state/next-season';
 import { computeStats, useHistoryStore } from '@/state/history';
 import { MODE_LABEL } from '@/state/game';
 import {
@@ -76,7 +77,6 @@ export default function Home() {
   const showcase = useMemo(showcaseOffered, []);
   const outer = useRef<ScrollView>(null);
   const [stage, setStage] = useState(0);
-  const [lobbyAt, setLobbyAt] = useState(0);
   const paged = spread.kind === 'columns';
   // Only what the resume card draws. Home stays mounted under the play screen
   // for the whole game, and subscribed to the whole store it re-rendered on
@@ -86,7 +86,7 @@ export default function Home() {
     // `active` rather than `status`: a status moves three times a spin, and
     // this screen sits mounted under every game. Nothing here needs more than
     // whether one is under way (docs/apple-tv.md, Performance).
-    useShallow((s) => ({ active: s.status !== 'idle', filled: s.selections.length, mode: s.mode })),
+    useShallow((s) => ({ active: s.status !== 'idle', filled: s.selections.length, mode: s.mode, lastMode: s.lastMode })),
   );
   const games = useHistoryStore((s) => s.games);
   const stats = useMemo(() => computeStats(games), [games]);
@@ -146,12 +146,38 @@ export default function Home() {
    * that was started and never played is not progress — it was clutter on the
    * one screen that should be a single obvious decision.
    */
-  // The quick Play bar's mode: the last lens played, unless that was a gameday,
-  // which has its own way in and is not always open.
-  const quickMode: GameMode = game.mode === 'gameday' ? 'scout' : game.mode;
+  // The quick Play bar's mode: the lens last started, never a gameday or a
+  // challenge, which are one-off and have their own ways in
+  // (state/next-season.ts, where the rules are written and tested).
+  const quickMode: OrdinaryMode = nextSeason({ lastMode: game.lastMode, preferRanked: ranked }).mode;
   const quickKind = !ranked || !isBackendConfigured ? 'Casual' : quickMode === 'rookie' ? 'Practice' : 'Ranked';
   const inProgress = game.active && game.filled > 0
     && game.filled < ROSTER_SLOTS.length;
+
+  /**
+   * The Play tab, pressed while already on it.
+   *
+   * It did nothing: the big green PLAY in the middle of the dock, the one
+   * control on every screen that looks like a play button, was a dead press on
+   * the front page. Now it does what it says -- resumes the season under way,
+   * or starts the lens last started (state/next-season.ts) -- so "any play
+   * button starts the last game type" holds for it too. From another tab it
+   * still just comes here, where the Play button names the lens. Not on a TV,
+   * whose tab bar is navigation and nothing else.
+   */
+  const navigation = useNavigation();
+  const playTab = useRef<() => void>(() => {});
+  playTab.current = () => {
+    if (opening) return;
+    if (inProgress) resume();
+    else void start(quickMode, { ranked });
+  };
+  useEffect(() => {
+    if (isTV) return;
+    return navigation.addListener('tabPress' as never, () => {
+      if (navigation.isFocused()) playTab.current();
+    });
+  }, [navigation]);
 
   /**
    * Into the gameday.
@@ -362,7 +388,7 @@ export default function Home() {
             ]}
           >
             <View style={styles.quickText}>
-              <Text style={styles.quickLabel}>Play {MODE_LABEL[quickMode]}</Text>
+              <Text style={styles.quickLabel}>{playLabel(quickMode)}</Text>
               <Text style={styles.quickSub}>{quickKind} · the wheel spins right away</Text>
             </View>
             <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
@@ -607,7 +633,8 @@ export default function Home() {
    * A page that opens on a lit billboard and closes on a paragraph of fine
    * print has told somebody the whole story and then left them at the bottom of
    * a phone with nothing to press. This is the same call the hero card makes --
-   * Scout, honouring the ranked switch, through the same hook -- put where the
+   * the lens last started, honouring the ranked switch, through the same hook,
+   * and saying which on its face -- put where the
    * argument finishes. It is *below* everything, so it costs the fold nothing;
    * the primary way in is still the first card on the screen.
    */
@@ -618,17 +645,17 @@ export default function Home() {
         <Text style={styles.closerLineGold}>One shot at 17-0.</Text>
       </View>
       <Pressable
-        onPress={() => start('scout', { ranked })}
+        onPress={() => start(quickMode, { ranked })}
         disabled={opening}
         accessibilityRole="button"
-        accessibilityLabel={`Start a season in ${MODE_LABEL.scout}`}
+        accessibilityLabel={`Start a season in ${MODE_LABEL[quickMode]}`}
         style={({ pressed, hovered }: PressState) => [
           styles.closerGo,
           hovered && styles.closerGoHover,
           (pressed || opening) && { opacity: 0.85 },
         ]}
       >
-        <Text style={styles.closerGoLabel}>Start a season</Text>
+        <Text style={styles.closerGoLabel}>{playLabel(quickMode)}</Text>
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
           <Path
             d="M5 12h13 M13 6l6 6-6 6"
@@ -757,9 +784,10 @@ export default function Home() {
         showsVerticalScrollIndicator={false}
         onLayout={(e) => setStage(e.nativeEvent.layout.height)}
       >
-        <Showcase onPlay={() => outer.current?.scrollTo({ y: lobbyAt, animated: true })} />
+        {/* Straight into a season rather than down to the front page's own
+            Play: one press, not a scroll and a second press. */}
+        <Showcase onPlay={() => void start(quickMode, { ranked })} playing={MODE_LABEL[quickMode]} />
         <View
-          onLayout={(e) => setLobbyAt(e.nativeEvent.layout.y)}
           style={[styles.stage, stage ? { height: stage } : null]}
         >
           <View

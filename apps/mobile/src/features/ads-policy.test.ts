@@ -77,8 +77,8 @@ describe('ads sit only on the pauses', () => {
     const source = read(APP, 'result.tsx');
     const brk = source.indexOf('await betweenSeasons()');
     expect(brk).toBeGreaterThan(0);
-    // Build Another starts the season through useStartGame's `start(...)`.
-    const next = source.indexOf('await start(', brk);
+    // Build Another starts the season through useStartGame's `playNext(...)`.
+    const next = source.indexOf('await playNext(', brk);
     expect(next).toBeGreaterThan(brk);
   });
 
