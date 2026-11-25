@@ -79,7 +79,9 @@ export default function Challenge() {
     }
     // GM Mode, always. A challenge played with anything on screen is a
     // different question from the one the other side answered.
-    game.startGame('player_iq', { ranked: true });
+    // `kind: 'challenge'`: answering one is a one-off, so it does not change
+    // what Play starts next (state/next-season.ts, rule 3).
+    game.startGame('player_iq', { ranked: true, kind: 'challenge' });
     game.attachServerSession(opened.value.sessionId, opened.value.idempotencyKey);
     track('challenge_accepted', { challenge: invite.id });
     setOpening(false);
@@ -89,6 +91,7 @@ export default function Challenge() {
   const home = () => (router.canGoBack() ? router.back() : router.replace('/(tabs)'));
 
   if (!token) return <Missing onHome={home} />;
+  const answerable = invite !== null && invite.status === 'open' && !invite.isMine && invite.myStatus !== 'completed';
 
   return (
     <Screen maxWidth={560}>
@@ -141,10 +144,12 @@ export default function Challenge() {
 
             {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            {invite.status === 'open' && !invite.isMine && invite.myStatus !== 'completed' ? (
+            {answerable ? (
               <Pressable
                 onPress={() => void accept()}
                 disabled={opening}
+                // The remote starts on the one thing this page is for.
+                hasTVPreferredFocus
                 accessibilityRole="button"
                 accessibilityLabel={`Answer the challenge from ${invite.creatorHandle}`}
                 style={({ hovered, pressed }: PressState) => [
@@ -166,6 +171,9 @@ export default function Challenge() {
 
             <Pressable
               onPress={home}
+              // With nothing to answer, the way out is the only action, so the
+              // remote starts there rather than on nothing (usability.test.ts).
+              hasTVPreferredFocus={!answerable}
               accessibilityRole="button"
               accessibilityLabel="Back to the game"
               style={styles.quiet}
@@ -232,7 +240,7 @@ function Missing({ onHome, inline }: { onHome: () => void; inline?: boolean }) {
       <Text style={styles.noteCopy}>
         The link may be mistyped, or the season behind it was deleted.
       </Text>
-      <Pressable onPress={onHome} accessibilityRole="button" style={styles.quiet}>
+      <Pressable onPress={onHome} hasTVPreferredFocus accessibilityRole="button" accessibilityLabel="Back to the game" style={styles.quiet}>
         <Text style={styles.quietLabel}>Back to 17-0</Text>
       </Pressable>
     </View>

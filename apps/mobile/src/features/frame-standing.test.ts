@@ -76,7 +76,9 @@ describe('the frame itself', () => {
   it('starts a ranked season', () => {
     // The literal regression. `useStartGame` defaults `ranked` to true, so the
     // only way back into this bug is to turn it off again here.
-    expect(embed).toMatch(/start\('scout'\)/);
+    // The lens is the remembered one (state/next-season.ts); ranked is left
+    // to that default rather than to the site's switch, which a frame lacks.
+    expect(embed).toMatch(/start\(next\.mode\)/);
     expect(embed).not.toMatch(/ranked:\s*false/);
   });
 

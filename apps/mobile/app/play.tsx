@@ -36,6 +36,8 @@ import { useFlag } from '@/features/flags';
 import { SpreadLayout } from '@/components/SpreadLayout';
 import { useSpread } from '@/features/fold';
 import { MODE_LABEL, lookupCard, showsRating, slotsForCard, useGameStore, type GameMode } from '@/state/game';
+import { nextSeason } from '@/state/next-season';
+import { fitsFirst } from '@/features/play-order';
 import { useHistoryStore } from '@/state/history';
 import { tellHost } from '@/features/embed';
 import { ratingBucket, track } from '@/features/telemetry';
@@ -243,7 +245,13 @@ export default function Play() {
   }, []);
 
   useEffect(() => {
-    if (game.status === 'idle') useGameStore.getState().startGame();
+    // Opened with nothing under way (a link to /play, a relaunch): the lens
+    // last started, never a gameday or challenge left in `mode` -- a gameday
+    // outside its window has no wheel (state/next-season.ts).
+    if (game.status === 'idle') {
+      const store = useGameStore.getState();
+      store.startGame(nextSeason(store).mode);
+    }
   }, [game.status]);
 
   /**
@@ -314,18 +322,21 @@ export default function Play() {
       if (!needle) return true;
       return displayName(card).toLowerCase().includes(needle) || String(card.year).includes(needle);
     });
-    if (showsRating(mode)) return matched;
     // A rating-sorted list tells you the ratings even when they are hidden, so
     // every mode that withholds the grade orders by position then name — no
     // ranking information at all. Scout gives you the stat line to judge from;
     // it does not give you the order the model would have put them in.
-    return [...matched].sort(
-      (a, b) =>
-        a.position.localeCompare(b.position) ||
-        displayName(a).localeCompare(displayName(b)) ||
-        a.year - b.year,
-    );
-  }, [eligible, positionFilter, query, mode]);
+    const ordered = showsRating(mode)
+      ? matched
+      : [...matched].sort(
+          (a, b) =>
+            a.position.localeCompare(b.position) ||
+            displayName(a).localeCompare(displayName(b)) ||
+            a.year - b.year,
+        );
+    // Then the players who can still go somewhere (features/play-order.ts).
+    return fitsFirst(ordered, openPositions);
+  }, [eligible, positionFilter, query, mode, openPositions]);
 
   const selected = selectedId ? eligible.find((c) => c.id === selectedId) ?? null : null;
   const targetSlots = useMemo(

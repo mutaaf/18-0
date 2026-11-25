@@ -6,8 +6,14 @@
  * nothing to offer.
  */
 export interface ShowcaseProps {
-  /** Scroll from the showcase down into the game itself. */
+  /**
+   * Start a season: the lens last started, as every generic Play does
+   * (state/next-season.ts). It used to scroll down to the front page, where
+   * the same Play had to be found and pressed again.
+   */
   onPlay: () => void;
+  /** The lens `onPlay` starts, for the button's label. */
+  playing: string;
 }
 
 export function Showcase(_props: ShowcaseProps): null {

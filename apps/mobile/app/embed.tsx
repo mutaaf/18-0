@@ -7,7 +7,8 @@ import { Brand } from '@/components/Brand';
 import { EmbedBoard } from '@/components/EmbedBoard';
 import { EmbedSeasons } from '@/components/EmbedSeasons';
 import { StadiumBackdrop } from '@/components/Screen';
-import { useStartGame } from '@/features/start-game';
+import { useNextSeason, useStartGame } from '@/features/start-game';
+import { playLabel } from '@/state/next-season';
 import { tellHost, tellHostBest } from '@/features/embed';
 import { useHistoryStore } from '@/state/history';
 import { careerReport } from '@/state/career';
@@ -59,8 +60,10 @@ function useView(): 'entry' | 'board' | 'seasons' {
  * screen. Everything that makes the full app a *product* rather than a game is
  * gone: no dock, no sign-in, no install prompt, no account screen.
  *
- * Scout, because that is what the front page leads with and because a frame is
- * the worst possible place to explain three modes.
+ * One button, the same generic Play as everywhere else: the lens this origin
+ * last started (Scout until then), named on the button, because a frame is the
+ * worst possible place to explain three modes and the best place to be told
+ * which one you are about to play.
  *
  * Ranked is on, and this is the line that was wrong for as long as the frame
  * has existed. It used to read: "a frame has no way to sign in and nothing to
@@ -87,6 +90,7 @@ export default function Embed() {
   // Subscribes this screen to the palette, like every route. See theme.test.ts.
   useThemeId();
   const { start, opening } = useStartGame();
+  const next = useNextSeason();
   const games = useHistoryStore((s) => s.games);
   const career = careerReport(games);
   const view = useView();
@@ -135,7 +139,7 @@ export default function Embed() {
       <View style={styles.body} onLayout={measured}>
         <View style={styles.head}>
           <Brand size={20} />
-          <Text style={styles.mode}>{MODE_LABEL.scout}</Text>
+          <Text style={styles.mode}>{MODE_LABEL[next.mode]}</Text>
         </View>
 
         <Text style={styles.pitch}>
@@ -143,10 +147,12 @@ export default function Embed() {
         </Text>
 
         <Pressable
-          onPress={() => start('scout')}
+          // The lens last started, always ranked: a frame has no ranked switch
+          // to turn back on, so it does not inherit the site's (see below).
+          onPress={() => void start(next.mode)}
           disabled={opening}
           accessibilityRole="button"
-          accessibilityLabel="Play a season"
+          accessibilityLabel={`Play a season in ${MODE_LABEL[next.mode]}`}
           style={({ hovered, pressed }: PressState) => [
             styles.play,
             hovered && styles.playHover,
@@ -156,7 +162,7 @@ export default function Embed() {
           <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
             <Path d="M7 4.5l12 7.5-12 7.5z" fill={color.onAction} />
           </Svg>
-          <Text style={styles.playLabel}>{opening ? 'Starting…' : 'Play a season'}</Text>
+          <Text style={styles.playLabel}>{opening ? 'Starting…' : playLabel(next.mode)}</Text>
         </Pressable>
 
         {career.counted > 0 ? (

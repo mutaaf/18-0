@@ -577,4 +577,127 @@ final class TVPerf: XCTestCase {
             XCTAssertTrue(app.buttons["Build another roster"].exists, "the result page is not under the record")
         }
     }
+    // MARK: usability (docs/apple-tv.md, "Usability")
+
+    /// Not a measurement of time: the core journeys, walked with the remote,
+    /// with every press and where it landed printed (`PERF journey_*`). The
+    /// press counts and dead ends in the usability tables come from here.
+    /// A dead end is a press after which the remote is on nothing, or on the
+    /// same control with nothing changed on screen.
+    func test17_Journeys() {
+        let shots = ProcessInfo.processInfo.environment["VIEW_SHOTS"] ?? "/tmp/17-0-tv-views"
+        try? FileManager.default.createDirectory(atPath: shots, withIntermediateDirectories: true)
+        func shot(_ name: String) {
+            try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: "\(shots)/journey-\(name).png"))
+        }
+        var presses = 0
+        var trail: [String] = []
+        func step(_ button: XCUIRemote.Button, gap: TimeInterval = 1.2) {
+            press(button, gap: gap)
+            presses += 1
+            trail.append("\(button.rawValue):\(focusedLabel.prefix(48))")
+        }
+        func done(_ name: String) {
+            report("journey_\(name)_presses", presses)
+            report("journey_\(name)_trail", trail.joined(separator: " | "))
+            presses = 0
+            trail = []
+        }
+
+        // Casual throughout: every other test plays Rookie, which never ranks,
+        // but these journeys play whatever Play starts and switch lenses, and a
+        // ranked season here would be a real row on a real board. Not counted.
+        func casual() {
+            press(.right, gap: 0.6)
+            let ranked = app.switches.matching(NSPredicate(format: "label == 'Play for the leaderboard'")).firstMatch
+            if ranked.exists, ranked.hasFocus, (ranked.value as? String) == "1" { press(.select, gap: 1) }
+            press(.left, gap: 0.6)
+        }
+        defer {
+            // Leave Play on Rookie, which the rest of the harness assumes: the
+            // lens last started is what Play starts (state/next-season.ts).
+            launchHome()
+            casual()
+            press(.down, gap: 0.8)
+            _ = seek("Play Rookie", .right, max: 4)
+            press(.select, gap: 4)
+            press(.menu, gap: 2)
+            report("journey_left_play_on", focusedLabel)
+        }
+
+        // 1. Launch to the first spin: where the remote starts, and Select.
+        launchHome()
+        casual()
+        report("journey_launch_focus", focusedLabel)
+        shot("1-home")
+        step(.select, gap: 5)
+        shot("1-first-spin")
+        done("first_spin")
+
+        // 2. A whole season, Select only, to the result page.
+        var reached = false
+        for _ in 0..<70 {
+            if app.buttons["Build another roster"].exists { reached = true; break }
+            let label = focusedLabel
+            step(label.hasPrefix("Filter") ? .down : .select, gap: 1.7)
+        }
+        report("journey_season_reached_result", reached)
+        shot("2-result")
+        done("season")
+
+        // 3. The result to the next season's first spin.
+        Thread.sleep(forTimeInterval: 2)
+        report("journey_result_focus", focusedLabel)
+        for _ in 0..<4 {
+            let label = focusedLabel
+            // On the new spin's list: a player row ("Hold Select for details").
+            if label.contains("Hold Select") || label.hasPrefix("Filter") { break }
+            step(.select, gap: 4)
+        }
+        shot("3-next-season")
+        done("next_season")
+
+        // 4. Menu out of a season in progress, then where Menu goes from the front page's tabs.
+        step(.menu, gap: 2)
+        report("journey_menu_from_play", focusedLabel)
+        shot("4-menu-from-play")
+        done("menu_from_play")
+
+        // 5. Switching mode: from the front page to a different lens, started.
+        launchHome()
+        casual()
+        for _ in 0..<6 {
+            if focusedLabel.hasPrefix("Play GM") || focusedLabel.hasPrefix("Play · GM") || focusedLabel.hasPrefix("Play a GM") { break }
+            step(focusedLabel.hasPrefix("Play") && trail.isEmpty ? .down : .right, gap: 0.8)
+        }
+        step(.select, gap: 5)
+        shot("5-mode-switched")
+        done("switch_mode")
+        // What Play says now: the lens just started (state/next-season.ts).
+        launchHome()
+        casual()
+        report("journey_home_play_after_switch", focusedLabel)
+        XCTAssertTrue(focusedLabel.hasPrefix("Play GM Mode"), "Play should start the lens last started: \(focusedLabel)")
+
+        // 6. Finding My Stats, Challenges and Leaderboards from the front page.
+        for tab in ["My Stats", "Challenges", "Leaderboards"] {
+            launchHome()
+            casual()
+            for _ in 0..<4 {
+                if ["Games", "Leaderboards", "Play", "Challenges", "My Stats"].contains(focusedLabel) { break }
+                step(.up, gap: 0.6)
+            }
+            for _ in 0..<6 {
+                if focusedLabel == tab { break }
+                step(.right, gap: 0.6)
+            }
+            step(.select, gap: 3)
+            step(.down, gap: 1)
+            shot("6-\(tab.replacingOccurrences(of: " ", with: "-"))")
+            done("find_\(tab.replacingOccurrences(of: " ", with: "_"))")
+            step(.menu, gap: 2)
+            report("journey_menu_from_\(tab.replacingOccurrences(of: " ", with: "_"))", focusedLabel)
+            done("menu_\(tab.replacingOccurrences(of: " ", with: "_"))")
+        }
+    }
 }

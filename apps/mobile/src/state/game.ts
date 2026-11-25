@@ -28,6 +28,8 @@ import {
 } from '@17-0/data';
 import { drawUniform } from '@17-0/respins/client';
 import { restoreGame, statusFrom } from '@/state/restore';
+import { DEFAULT_MODE, lastModeAfter, type GameMode as NextSeasonMode, type OrdinaryMode, type StartKind } from '@/state/next-season';
+export type { OrdinaryMode } from '@/state/next-season';
 
 /**
  * The gameplay state machine (PRFAQ §29), persisted so an in-progress game
@@ -46,7 +48,7 @@ export type GameStatus = 'idle' | 'ready_to_spin' | 'spun' | 'complete';
  * and season only. You pick on what you actually know about football, and the
  * numbers are revealed with the result.
  */
-export type GameMode = 'rookie' | 'scout' | 'player_iq' | 'gameday';
+export type GameMode = NextSeasonMode;
 
 /**
  * What a mode lets you see about a card before you pick it.
@@ -65,21 +67,9 @@ export type GameMode = 'rookie' | 'scout' | 'player_iq' | 'gameday';
 export const showsRating = (mode: GameMode): boolean => mode === 'rookie';
 export const showsStats = (mode: GameMode): boolean => mode !== 'player_iq';
 
-/**
- * What each mode is called on screen.
- *
- * The stored key stays `player_iq` while the label is GM Mode. The key is
- * written into every ranked row on the server, into the mode check on
- * game_sessions, and into the local history on every device that has already
- * played -- renaming it would invalidate all three to change a word that only
- * ever appears here.
- */
-export const MODE_LABEL: Record<GameMode, string> = {
-  rookie: 'Rookie',
-  scout: 'Scout',
-  player_iq: 'GM Mode',
-  gameday: 'Gameday',
-};
+// The labels and the Play rules live in a pure module so they can be tested
+// and validated at launch without React Native (next-season.ts).
+export { MODE_LABEL } from '@/state/next-season';
 
 interface StoredSelection {
   readonly slot: RosterSlot;
@@ -132,6 +122,12 @@ interface GameState {
    */
   preferRanked: boolean;
   /**
+   * The lens the player last started a season in, which is what every generic
+   * Play button starts next (`state/next-season.ts`). Never a gameday or a
+   * challenge: those are dated or one-off, and leave it where it was.
+   */
+  lastMode: OrdinaryMode;
+  /**
    * Spin the first wheel as soon as the play screen is up. Set by the one-tap
    * ways into a season (Play, Build Another), consumed once, never persisted.
    */
@@ -145,7 +141,11 @@ interface GameState {
   /** Why a ranked game stopped being ranked, if it did. */
   serverNote: string | null;
 
-  startGame: (mode?: GameMode, options?: { ranked?: boolean; autoSpin?: boolean }) => void;
+  /**
+   * `kind` says how the season was started, for `lastMode`: a challenge passes
+   * `'challenge'` so that answering one does not change what Play starts next.
+   */
+  startGame: (mode?: GameMode, options?: { ranked?: boolean; autoSpin?: boolean; kind?: StartKind }) => void;
   setPreferRanked: (on: boolean) => void;
   snoozeLens: (until: number) => void;
   /** True once if a one-tap start asked for the first wheel to spin itself. */
@@ -287,6 +287,7 @@ export const useGameStore = create<GameState>()(
       respinsUsed: 0,
       ranked: false,
       preferRanked: true,
+      lastMode: DEFAULT_MODE,
       autoSpin: false,
       lensSnoozeUntil: 0,
       serverSessionId: null,
@@ -303,6 +304,7 @@ export const useGameStore = create<GameState>()(
           assisted: false,
           respinsUsed: 0,
           mode: mode ?? state.mode,
+          lastMode: lastModeAfter(state.lastMode, mode ?? state.mode, options?.kind),
           gamedayKey: (mode ?? state.mode) === 'gameday' ? (gamedayAt()?.key ?? null) : null,
           ranked: options?.ranked ?? false,
           autoSpin: options?.autoSpin ?? false,
@@ -446,6 +448,7 @@ export const useGameStore = create<GameState>()(
         mode: s.mode,
         gamedayKey: s.gamedayKey,
         preferRanked: s.preferRanked,
+        lastMode: s.lastMode,
         lensSnoozeUntil: s.lensSnoozeUntil,
         // The ranked session, so a season the OS killed in the background
         // resumes ranked instead of quietly finishing on the device. If the

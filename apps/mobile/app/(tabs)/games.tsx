@@ -13,7 +13,8 @@ import { DockSpacer } from '@/components/chrome';
 import { Screen } from '@/components/Screen';
 import { RatingBadge } from '@/components/RatingBadge';
 import Svg, { Path } from 'react-native-svg';
-import { useStartGame } from '@/features/start-game';
+import { useNextSeason, useStartGame } from '@/features/start-game';
+import { playLabel } from '@/state/next-season';
 import { useHistoryStore, type HistoryEntry } from '@/state/history';
 import { MODE_LABEL } from '@/state/game';
 import { color, font, positionColor, radius, space, tabular, themed, tierColor, tracking, type PressState, useLayout, useThemeId } from '@/theme';
@@ -27,7 +28,8 @@ export default function Games() {
   useThemeId();
   const layout = useLayout();
   const games = useHistoryStore((s) => s.games);
-  const { start, opening } = useStartGame();
+  const { playNext, opening } = useStartGame();
+  const next = useNextSeason();
   const [expanded, setExpanded] = useState<string | null>(null);
   /**
    * A book on an iPhone Duo: the seasons on the leading page, the one you
@@ -48,15 +50,15 @@ export default function Games() {
             <Text style={styles.subtitle}>{games.length} saved</Text>
           </View>
           {/* The shortest path from "I have finished looking at these" back to
-              playing. It starts Scout because that is the mode the front page
-              leads with, and it goes through the same `useStartGame` the mode
-              cards do -- a second implementation here would be a second place
-              for the ranked handshake to be wrong. */}
+              playing: the lens last started, with the ranked switch as it was
+              left (state/next-season.ts). It goes through the same
+              `useStartGame` the mode cards do -- a second implementation here
+              would be a second place for the ranked handshake to be wrong. */}
           <Pressable
-            onPress={() => start('scout')}
+            onPress={() => void playNext()}
             disabled={opening}
             accessibilityRole="button"
-            accessibilityLabel="Quick play a Scout season"
+            accessibilityLabel={`Play a ${MODE_LABEL[next.mode]} season`}
             style={({ hovered, pressed }: PressState) => [
               styles.quick,
               hovered && styles.quickHover,
@@ -67,7 +69,7 @@ export default function Games() {
             <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
               <Path d="M7 4.5l12 7.5-12 7.5z" fill={color.onAction} />
             </Svg>
-            <Text style={styles.quickLabel}>{opening ? 'Starting…' : 'Quick play'}</Text>
+            <Text style={styles.quickLabel}>{opening ? 'Starting…' : playLabel(next.mode)}</Text>
           </Pressable>
         </View>
       </View>
@@ -77,13 +79,13 @@ export default function Games() {
           <Text style={styles.emptyTitle}>No seasons yet</Text>
           <Text style={styles.emptyCopy}>Finish a roster and it lands here.</Text>
           <Pressable
-            onPress={() => start('scout')}
+            onPress={() => void playNext()}
             disabled={opening}
             accessibilityRole="button"
-            accessibilityLabel="Play a Scout season"
+            accessibilityLabel={`Play a ${MODE_LABEL[next.mode]} season`}
             style={styles.emptyCta}
           >
-            <Text style={styles.emptyCtaLabel}>{opening ? 'Starting…' : 'Play a season'}</Text>
+            <Text style={styles.emptyCtaLabel}>{opening ? 'Starting…' : playLabel(next.mode)}</Text>
           </Pressable>
         </View>
       ) : (

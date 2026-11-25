@@ -38,7 +38,8 @@ import {
 } from '@/features/rating-feedback';
 import { useShallow } from 'zustand/react/shallow';
 import { lookupCard, useGameStore } from '@/state/game';
-import { useStartGame } from '@/features/start-game';
+import { useNextSeason, useStartGame } from '@/features/start-game';
+import { MODE_LABEL } from '@/state/next-season';
 import { LensNudge } from '@/components/LensNudge';
 import { GutCheckEntry } from '@/components/GutCheckEntry';
 import { RESPIN_MARK } from '@17-0/respins/client';
@@ -409,18 +410,20 @@ export default function Result() {
     });
   };
 
-  const { start } = useStartGame();
+  const { playNext } = useStartGame();
+  const next = useNextSeason();
   const buildAnother = async () => {
     // Web only, capped, and resolved at once with no fill (features/ads.ts).
     // Before the start, so a break never sits on top of a spinning reel.
     await betweenSeasons();
-    // The same way in as Play on the front page: the same lens, the ranked
-    // switch as the player left it, and the first wheel already spinning.
-    // This used to call startGame() bare, which defaults to unranked -- so a
-    // ranked player who pressed Build Another was quietly playing for nothing
-    // from their second season on. A gameday season goes back to its own lens.
-    const mode = game.mode === 'gameday' ? 'scout' : game.mode;
-    await start(mode, { ranked: useGameStore.getState().preferRanked, replace: true });
+    // The same way in as Play on the front page: the lens last started, the
+    // ranked switch as the player left it, and the first wheel already
+    // spinning (state/next-season.ts). This used to call startGame() bare,
+    // which defaults to unranked -- so a ranked player who pressed Build
+    // Another was quietly playing for nothing from their second season on.
+    // After a gameday or a challenge it is the lens the player last chose,
+    // never the one-off: that is the rule every Play button follows.
+    await playNext({ replace: true });
   };
 
   // Confetti over a 4-13 would read as mockery, so the celebration only starts
@@ -643,8 +646,10 @@ export default function Result() {
               onPress={buildAnother}
               accessibilityRole="button"
               accessibilityLabel="Build another roster"
+              accessibilityHint={`Starts a ${MODE_LABEL[next.mode]} season`}
             >
-              <Text style={styles.secondaryLabel}>Again</Text>
+              <Text style={styles.secondaryLabel} numberOfLines={1}>Again</Text>
+              <Text style={styles.secondarySub} numberOfLines={1}>{MODE_LABEL[next.mode]}</Text>
             </Pressable>
           </>
         ) : (
@@ -663,8 +668,12 @@ export default function Result() {
               hasTVPreferredFocus={!revealUp}
               accessibilityRole="button"
               accessibilityLabel="Build another roster"
+              accessibilityHint={`Starts a ${MODE_LABEL[next.mode]} season`}
             >
-              <Text style={styles.primaryLabel}>Build Another</Text>
+              <Text style={styles.primaryLabel} numberOfLines={1}>Build Another</Text>
+              {/* Which lens it starts, so the jump is never a surprise
+                  (state/next-season.ts). */}
+              <Text style={styles.primarySub} numberOfLines={1}>{MODE_LABEL[next.mode]}</Text>
             </Pressable>
             {shareAvailable ? (
               <Pressable
@@ -1191,6 +1200,8 @@ const styles = themed(() => StyleSheet.create({
     color: color.onAction,
     textTransform: 'uppercase',
   },
+  primarySub: { fontFamily: font.label, fontSize: 11, letterSpacing: tracking.wide, color: color.onAction, textTransform: 'uppercase', opacity: 0.8 },
+  secondarySub: { fontFamily: font.label, fontSize: 11, letterSpacing: tracking.wide, color: color.textDim, textTransform: 'uppercase' },
   secondary: {
     flex: 1,
     borderWidth: 1,

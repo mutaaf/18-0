@@ -82,7 +82,10 @@ disc keep inside it.
 - **The remote starts somewhere sensible** (`hasTVPreferredFocus`): Play (or
   Resume) on the front page, the first player who fits after a spin, the first
   eligible slot when a pick fits two, Spin once a pick is placed, Reveal when
-  the roster is full, Build Another on the result.
+  the roster is full, Build Another on the result, Answer it on a challenge,
+  Play on an empty My Stats. `usability.test.ts` fails a route that does not
+  say (docs/performance.md, "Usability"); `test17_Journeys` walks the core
+  journeys with the remote and counts the presses.
 - **An overlay over a page is one the focus engine sees through.** tvOS will
   not move focus to anything a view covers, and it decides "covers" by the
   covering view's `isUserInteractionEnabled`, ancestors included.
