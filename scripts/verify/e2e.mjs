@@ -267,6 +267,11 @@ check('the completed game appears on the leaderboard', Boolean(mine),
 // single good afternoon could take the whole top ten and push everyone else off
 // the first screen.
 const second = await playRankedGame(alice);
+const wrongKey = await call('complete-game', alice.token, {
+  gameSessionId: second.sessionId, idempotencyKey: crypto.randomUUID(),
+});
+check('a completion with the wrong idempotency key is refused',
+  wrongKey.status === 409 && wrongKey.body.error === 'idempotency_mismatch', JSON.stringify(wrongKey.body));
 const secondResult = await call('complete-game', alice.token, {
   gameSessionId: second.sessionId, idempotencyKey: second.idempotencyKey,
 });
